@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Env
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+.cache/
+.stellium/
+tmp/
+*.log
+*.sqlite
+backend/app/__pycache__/
+bot/app/__pycache__/
+
+# Node/Frontend
+node_modules/
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/build/
+frontend/.DS_Store
+.DS_Store
+
+# Docker
+.docker/

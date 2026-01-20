@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-dotenv
+structlog
+python-multipart
+jinja2
+weasyprint
+openai
+tenacity
+yookassa>=3.0.0
+pytest
+httpx

@@ -1,0 +1,465 @@
+# ############################################################################
+# AI_HEADER: MODULE_STELLIUM_ENGINE
+# ROLE: Core astronomical calculation engine.
+# DEPENDENCIES: stellium library.
+# GRACE_ANCHORS: [ENGINE_MODELS, ENGINE_INIT, HOUSE_SYSTEM_LOGIC, NATAL_CALC, 
+#                 FIXED_STARS, TRANSIT_ASPECTS, SOLAR_RETURN, SOLAR_ARC, 
+#                 UTILITIES]
+# ############################################################################
+
+from stellium import ChartBuilder, ReturnBuilder, ChartLocation, FIXED_STARS_REGISTRY, get_fixed_star_info
+from stellium.engines.houses import WholeSignHouses, PlacidusHouses, EqualHouses
+from stellium.core.config import CalculationConfig
+from datetime import datetime, timedelta
+import math
+import itertools
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+
+# #START_BLOCK_ENGINE_MODELS
+class StarConjunction(BaseModel):
+    """Модель данных для соединения со звездой."""
+    star: str
+    planet: str
+    orb: float
+    star_lon: float
+
+class TransitAspect(BaseModel):
+    """Модель данных для транзитного аспекта."""
+    transit: str
+    natal: str
+    type: str
+    exact_diff: float
+# #END_BLOCK_ENGINE_MODELS
+
+# #START_BLOCK_ENGINE_INIT
+class StelliumEngine:
+    def __init__(self):
+        """
+        # PURPOSE: Инициализация движка.
+        # CONTEXT: Базовый класс для всех астрологических расчетов.
+        # ACTION: Создает экземпляр движка.
+        # MEASURE: Объект StelliumEngine готов к работе.
+        """
+        pass
+# #END_BLOCK_ENGINE_INIT
+
+    # #START_BLOCK_HOUSE_SYSTEM_LOGIC
+    def _get_default_house_system(self, location_str):
+        """
+        # PURPOSE: Определение системы домов по широте.
+        # CONTEXT: Используется для предотвращения ошибок Placidus в высоких широтах.
+        # ACTION: Возвращает WholeSignHouses для широт >= 60, иначе PlacidusHouses.
+        # MEASURE: Возвращает кортеж (объект системы домов, название).
+        """
+        try:
+            temp_builder = ChartBuilder.from_details("2000-01-01", location_str)
+            lat = temp_builder.location.latitude
+            if abs(lat) >= 60.0:
+                return WholeSignHouses(), "WholeSign (High Lat)"
+            else:
+                return PlacidusHouses(), "Placidus"
+        except:
+            return WholeSignHouses(), "WholeSign (Default/Error)"
+    # #END_BLOCK_HOUSE_SYSTEM_LOGIC
+
+    # #START_BLOCK_NATAL_CALC
+    def create_natal_chart(self, name: str, dt_str: str, location_str: str, house_system=None):
+        """
+        # PURPOSE: Создание натальной карты.
+        # CONTEXT: Основная точка входа для натального анализа.
+        # ACTION: Конфигурирует астероиды, выбирает систему домов и рассчитывает карту.
+        # MEASURE: Возвращает объект Chart из библиотеки stellium.
+        """
+        builder = ChartBuilder.from_details(dt_str, location_str, name=name)
+        
+        # Configure asteroids
+        config = CalculationConfig()
+        config.include_asteroids = ["Ceres", "Pallas", "Juno", "Vesta", "Chiron"]
+        builder.with_config(config)
+        
+        if not house_system:
+            house_system, _ = self._get_default_house_system(location_str)
+            
+        builder.with_house_systems([house_system])
+            
+        chart = builder.calculate()
+        return chart
+    # #END_BLOCK_NATAL_CALC
+
+    # #START_BLOCK_FIXED_STARS
+    def get_fixed_star_conjunctions(self, chart, orb=1.0) -> List[Dict]:
+        """
+        # PURPOSE: Поиск соединений с неподвижными звездами.
+        # CONTEXT: Натал или транзит.
+        # ACTION: Сверяет координаты планет с координатами звезд из реестра.
+        # MEASURE: Список словарей (звезда, планета, орбис).
+        """
+        target_stars = [
+            "Aldebaran", "Regulus", "Antares", "Fomalhaut", # Royal
+            "Algol", "Spica", "Sirius", "Vega", "Betelgeuse", 
+            "Rigel", "Capella", "Procyon", "Altair", "Arcturus"
+        ]
+        
+        conjunctions = []
+        chart_objs = []
+        for pos in chart.positions:
+            name = getattr(pos, 'name', '') or str(pos.object)
+            if hasattr(pos, 'longitude'):
+                chart_objs.append({"name": name, "lon": pos.longitude})
+
+        jd = chart.datetime.julian_day
+        for star_name in target_stars:
+            try:
+                star_pos = get_fixed_star_info(star_name, jd)
+                star_lon = star_pos.longitude
+                for obj in chart_objs:
+                    diff = abs(obj['lon'] - star_lon)
+                    if diff > 180: diff = 360 - diff
+                    if diff <= orb:
+                        conjunctions.append({
+                            "star": star_name,
+                            "planet": obj['name'],
+                            "orb": diff,
+                            "star_lon": star_lon
+                        })
+            except: continue
+        return conjunctions
+    # #END_BLOCK_FIXED_STARS
+
+    # #START_BLOCK_TRANSIT_ASPECTS
+    def find_transit_aspects(self, natal_chart, transit_chart, orb=1.5) -> List[Dict]:
+        """
+        # PURPOSE: Расчет аспектов транзитов к наталу.
+        # CONTEXT: Прогноз на день/неделю.
+        # ACTION: Сравнивает долготы транзитных и натальных планет.
+        # MEASURE: Список аспектов с указанием типа и точности.
+        """
+        aspects = []
+        def get_diff(a, b):
+            d = abs(a - b)
+            if d > 180: d = 360 - d
+            return d
+
+        natal_points = {getattr(pos, 'name', '') or str(pos.object): pos.longitude 
+                       for pos in natal_chart.positions if hasattr(pos, 'longitude')}
+
+        for pos in transit_chart.positions:
+            t_name = getattr(pos, 'name', '') or str(pos.object)
+            if not hasattr(pos, 'longitude') or t_name in ["Moon", "Part of Fortune"]: continue
+                
+            t_lon = pos.longitude
+            for n_name, n_lon in natal_points.items():
+                diff = get_diff(t_lon, n_lon)
+                aspect_name = ""
+                if diff <= orb: aspect_name = "Соединение (0°)"
+                elif abs(diff - 180) <= orb: aspect_name = "Оппозиция (180°)"
+                elif abs(diff - 120) <= orb: aspect_name = "Тригон (120°)"
+                elif abs(diff - 90) <= orb: aspect_name = "Квадрат (90°)"
+                elif abs(diff - 60) <= orb: aspect_name = "Секстиль (60°)"
+                
+                if aspect_name:
+                    aspects.append({
+                        "transit": t_name,
+                        "natal": n_name,
+                        "type": aspect_name,
+                        "exact_diff": diff
+                    })
+        return aspects
+
+    def find_natal_aspects(self, chart, orb=6.0) -> List[Dict]:
+        """
+        # PURPOSE: Расчет внутренних аспектов натальной карты.
+        # CONTEXT: Для отрисовки карты (SVG) и анализа личности.
+        # ACTION: Сравнивает долготы планет внутри одной карты.
+        # MEASURE: Список аспектов.
+        """
+        major_planets = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"]
+        positions = [p for p in chart.positions if getattr(p, 'name', '') in major_planets and hasattr(p, 'longitude')]
+        
+        aspects = []
+        for i, p1 in enumerate(positions):
+            for p2 in positions[i+1:]:
+                diff = abs(p1.longitude - p2.longitude)
+                if diff > 180: diff = 360 - diff
+                
+                aspect_type = None
+                if diff <= 8.0: aspect_type = "conjunction" # 0
+                elif abs(diff - 180) <= 8.0: aspect_type = "opposition" # 180
+                elif abs(diff - 120) <= 8.0: aspect_type = "trine" # 120
+                elif abs(diff - 90) <= 8.0: aspect_type = "square" # 90
+                elif abs(diff - 60) <= 6.0: aspect_type = "sextile" # 60
+                
+                if aspect_type:
+                    aspects.append({
+                        "p1": getattr(p1, 'name', ''),
+                        "p2": getattr(p2, 'name', ''),
+                        "type": aspect_type,
+                        "angle": diff
+                    })
+        return aspects
+    # #END_BLOCK_TRANSIT_ASPECTS
+
+    # #START_BLOCK_SOLAR_RETURN
+    def create_solar_return(self, natal_chart, year: int, location_str: str = None, house_system=None):
+        """
+        # PURPOSE: Расчет Соляра (Солнечного возвращения).
+        # CONTEXT: Прогноз на год.
+        # ACTION: Находит момент возвращения Солнца и строит карту на указанную локацию.
+        # MEASURE: Объект Chart (Solar Return).
+        """
+        loc = natal_chart.location
+        if location_str:
+             dummy_builder = ChartBuilder.from_details("2000-01-01", location_str)
+             dummy_builder.with_house_systems([WholeSignHouses()])
+             dummy = dummy_builder.calculate()
+             loc = dummy.location
+
+        builder = ReturnBuilder.solar(natal_chart, year, location=loc)
+        if house_system: builder.with_house_systems([house_system])
+        return builder.calculate()
+    # #END_BLOCK_SOLAR_RETURN
+
+    # #START_BLOCK_SOLAR_ARC
+    def calculate_solar_arc_directions(self, natal_chart, target_date_dt):
+        """
+        # PURPOSE: Расчет дирекций солнечных дуг.
+        # CONTEXT: Стратегический прогноз (10 лет).
+        # ACTION: Сдвигает все натальные точки на дугу прогрессивного Солнца.
+        # MEASURE: Словарь с величиной дуги и новыми позициями планет.
+        """
+        birth_dt = natal_chart.datetime.utc_datetime
+        diff = target_date_dt - birth_dt
+        age_years = diff.days / 365.2425
+        prog_date = birth_dt + timedelta(days=age_years)
+        
+        prog_builder = ChartBuilder.from_details(prog_date, natal_chart.location.name or "Greenwich")
+        prog_builder.with_house_systems([WholeSignHouses()])
+        prog_chart = prog_builder.calculate()
+        
+        natal_sun = self.get_object_data(natal_chart, "Sun")
+        prog_sun = self.get_object_data(prog_chart, "Sun")
+        
+        if not natal_sun or not prog_sun: return {}
+            
+        arc = (prog_sun.longitude - natal_sun.longitude) % 360
+        directed_positions = {getattr(pos, 'name', '') or str(pos.object): (pos.longitude + arc) % 360 
+                             for pos in natal_chart.positions}
+            
+        return {"arc": arc, "positions": directed_positions}
+    # #END_BLOCK_SOLAR_ARC
+
+    # #START_BLOCK_UTILITIES
+    def get_house_by_lon(self, chart, lon):
+        """
+        # PURPOSE: Определение номера дома по долготе.
+        # CONTEXT: Хелпер для анализа положений планет.
+        # ACTION: Сверяет долготу с куспидами домов карты.
+        # MEASURE: Номер дома (1-12) или "?".
+        """
+        try:
+            hc = chart.get_houses()
+            cusps = hc.cusps
+            for i in range(12):
+                c1, c2 = cusps[i], cusps[(i + 1) % 12]
+                if c1 < c2:
+                    if c1 <= lon < c2: return i + 1
+                else:
+                    if lon >= c1 or lon < c2: return i + 1
+            return "?"
+        except: return "?"
+
+    def get_object_data(self, chart, obj_name):
+        for pos in chart.positions:
+            name = (getattr(pos, 'name', '') or str(pos.object)).lower()
+            if name == obj_name.lower(): return pos
+        return None
+
+    def dms(self, deg):
+        d = int(deg)
+        m = int((deg - d) * 60)
+        s = int(((deg - d) * 60 - m) * 60)
+        return f"{d}°{m:02d}'{s:02d}\""
+
+    def create_transit_chart(self, dt_str, location_str, house_system=None):
+        """
+        # PURPOSE: Создание транзитной карты на заданную дату и локацию.
+        # CONTEXT: Прогнозы, хорары и динамические расчеты.
+        # ACTION: Конфигурирует астероиды, выбирает систему домов и рассчитывает карту.
+        # MEASURE: Возвращает объект Chart из библиотеки stellium.
+        """
+        builder = ChartBuilder.from_details(dt_str, location_str, name="Transit")
+
+        config = CalculationConfig()
+        config.include_asteroids = ["Ceres", "Pallas", "Juno", "Vesta", "Chiron"]
+        builder.with_config(config)
+
+        if not house_system:
+            house_system, _ = self._get_default_house_system(location_str)
+
+        builder.with_house_systems([house_system])
+        return builder.calculate()
+
+    def find_all_patterns(self, chart, orb=2.0):
+        """
+        # PURPOSE: Поиск базовых конфигураций аспектов (фигур) в карте.
+        # CONTEXT: Используется для вывода "Фигур" в универсальном анализаторе.
+        # ACTION: Строит карту аспектов и выделяет трины/квадраты/оппозиции.
+        # MEASURE: Список словарей с типом фигуры и списком точек.
+        <thinking>Detect trines, T-squares, and crosses via aspect graph over major planets.</thinking>
+        """
+        major = {
+            "Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter",
+            "Saturn", "Uranus", "Neptune", "Pluto"
+        }
+        points = {}
+        for pos in chart.positions:
+            name = getattr(pos, "name", "") or str(pos.object)
+            if name in major and hasattr(pos, "longitude"):
+                points[name] = pos.longitude
+
+        names = sorted(points.keys())
+        trines = set()
+        squares = set()
+        oppositions = set()
+
+        def pair_key(a, b):
+            return tuple(sorted((a, b)))
+
+        for a, b in itertools.combinations(names, 2):
+            diff = abs(points[a] - points[b])
+            if diff > 180:
+                diff = 360 - diff
+            if abs(diff - 120) <= orb:
+                trines.add(pair_key(a, b))
+            elif abs(diff - 90) <= orb:
+                squares.add(pair_key(a, b))
+            elif abs(diff - 180) <= orb:
+                oppositions.add(pair_key(a, b))
+
+        patterns = []
+        seen = set()
+
+        for a, b, c in itertools.combinations(names, 3):
+            pairs = [pair_key(a, b), pair_key(a, c), pair_key(b, c)]
+            if all(p in trines for p in pairs):
+                key = ("Большой тригон", tuple(sorted([a, b, c])))
+                if key not in seen:
+                    seen.add(key)
+                    patterns.append({"type": "Большой тригон", "points": [a, b, c]})
+
+            opp_pairs = [p for p in pairs if p in oppositions]
+            for opp in opp_pairs:
+                other = list(set([a, b, c]) - set(opp))
+                if not other:
+                    continue
+                other = other[0]
+                if pair_key(other, opp[0]) in squares and pair_key(other, opp[1]) in squares:
+                    key = ("Т-квадрат", tuple(sorted([a, b, c])))
+                    if key not in seen:
+                        seen.add(key)
+                        patterns.append({"type": "Т-квадрат", "points": [a, b, c]})
+
+        for a, b, c, d in itertools.combinations(names, 4):
+            pairs = [pair_key(*p) for p in itertools.combinations([a, b, c, d], 2)]
+            opp_count = sum(1 for p in pairs if p in oppositions)
+            square_count = sum(1 for p in pairs if p in squares)
+            if opp_count >= 2 and square_count >= 4:
+                key = ("Большой крест", tuple(sorted([a, b, c, d])))
+                if key not in seen:
+                    seen.add(key)
+                    patterns.append({"type": "Большой крест", "points": [a, b, c, d]})
+
+        return patterns
+
+    def calculate_selena(self, julian_day):
+        """
+        # PURPOSE: Рассчитать долготу Белой Луны (Селены).
+        # CONTEXT: Дополнительная точка для натального анализа.
+        # ACTION: Берет Mean Apogee и отражает на 180° как приближение.
+        # MEASURE: Долгота в градусах 0-360 или ошибка при невозможности расчета.
+        """
+        from stellium.core.models import ChartDateTime
+        from stellium.engines.ephemeris import SwissEphemerisEngine
+        from stellium.utils.time import julian_day_to_datetime
+
+        dt_utc = julian_day_to_datetime(julian_day)
+        chart_dt = ChartDateTime(utc_datetime=dt_utc, julian_day=julian_day, local_datetime=dt_utc)
+        location = ChartLocation(latitude=0.0, longitude=0.0, name="Greenwich", timezone="UTC")
+
+        ephem = SwissEphemerisEngine()
+        positions = ephem.calculate_positions(chart_dt, location, objects=["Mean Apogee"])
+        if not positions:
+            raise ValueError("Selena calculation failed")
+
+        apogee_lon = positions[0].longitude
+        return (apogee_lon + 180.0) % 360
+
+    def get_combustion_status(self, chart):
+        """Checks if planets are combust, under rays, or in cazimi."""
+        sun_pos = next((p for p in chart.positions if getattr(p, 'name', '') == 'Sun'), None)
+        if not sun_pos: return {}
+        
+        results = {}
+        for pos in chart.positions:
+            name = getattr(pos, 'name', '')
+            if name in ["Sun", "ASC", "MC", "Vertex"]: continue
+            if not hasattr(pos, 'longitude'): continue
+            
+            diff = abs(pos.longitude - sun_pos.longitude)
+            if diff > 180: diff = 360 - diff
+            
+            if diff <= 0.28: # 17 minutes
+                results[name] = "🔥 КАЗИМИ (В сердце Солнца - Сверхсила)"
+            elif diff <= 8.5:
+                results[name] = "💨 СОЖЖЕНИЕ (Ослабление функций)"
+            elif diff <= 17.0:
+                results[name] = "🌤 ПОД ЛУЧАМИ (Скрытая деятельность)"
+        return results
+
+    def get_antiscia(self, longitude):
+        """Calculates Antiscia (reflection across 0 Cancer/Cap axis)."""
+        # Antiscia = 90 - (lon - 90) = 180 - lon
+        # But relative to Cancer/Cap axis
+        # Formula: 90 - (longitude - 90) = 180 - longitude
+        # Correct formula for Solstice points:
+        anti = (90 - (longitude - 90)) % 360
+        # Contra-antiscia is opposite to Antiscia
+        contra = (anti + 180) % 360
+        return anti, contra
+
+    def get_midpoints(self, chart, pairs=[("Sun", "Moon"), ("ASC", "MC"), ("Venus", "Mars")]):
+        """Calculates specific midpoints."""
+        points = {getattr(p, 'name', ''): p.longitude for p in chart.positions if hasattr(p, 'longitude')}
+        results = {}
+        for p1, p2 in pairs:
+            if p1 in points and p2 in points:
+                l1, l2 = points[p1], points[p2]
+                # Midpoint calculation handling circular wrap
+                if abs(l1 - l2) > 180:
+                    mid = (l1 + l2 + 360) / 2 % 360
+                else:
+                    mid = (l1 + l2) / 2 % 360
+                results[f"{p1}/{p2}"] = mid
+        return results
+
+    def get_septener_ruler(self, sign_name):
+        """Returns the traditional ruler of a sign."""
+        rulers = {
+            "Овен": "Mars", "Телец": "Venus", "Близ": "Mercury", "Рак": "Moon",
+            "Лев": "Sun", "Дева": "Mercury", "Весы": "Venus", "Скорп": "Mars",
+            "Стрел": "Jupiter", "Козер": "Saturn", "Водол": "Saturn", "Рыбы": "Jupiter"
+        }
+        return rulers.get(sign_name)
+
+    def get_house_rulers(self, chart):
+        """Returns a map of house index (1-12) to its ruling planet name."""
+        cusps = chart.get_houses().cusps
+        rulers = {}
+        for i, lon in enumerate(cusps):
+            sign = ["Овен", "Телец", "Близ", "Рак", "Лев", "Дева", 
+                    "Весы", "Скорп", "Стрел", "Козер", "Водол", "Рыбы"][int(lon // 30)]
+            rulers[i + 1] = self.get_septener_ruler(sign)
+        return rulers
+
+    # #END_BLOCK_UTILITIES
