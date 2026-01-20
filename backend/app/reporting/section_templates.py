@@ -77,7 +77,7 @@ _NATAL_MASTER_SECTIONS = [
         prompt=(
             f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
             "Сделай 4 оси как в примере, в виде нумерованного списка. "
-            "Оси: ⬆️ ASC–⬇️ DSC, 🏠 IC–🏔️ MC, 2–8, 3–9. "
+            "Оси: ⬆️ ASC-⬇️ DSC, 🏠 IC-🏔️ MC, 2-8, 3-9. "
             "Для каждой оси дай буллеты: "
             "`Твоя правда:`, `Правда партнера:`, `Задача:`."
         ),
@@ -236,130 +236,79 @@ _NATAL_MASTER_SECTIONS = [
 
 _YEAR_FORECAST_SECTIONS = [
     SectionSpec(
-        section_id="year_theme",
-        title="Центральная тема года",
-        prompt=f"{RU_LANG_INSTRUCTION} Identify the main theme of the year based on slow transits (Jupiter, Saturn, Outer Planets) and Solar Return chart (if available).",
-    ),
+        section_id="year_meta",
+        title="0. Метафора Года",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Определи главную метафору года на основе транзитов медленных планет (Юпитер, Сатурн, Уран, Нептун, Плутон) по домам и аспектам. "
+            "Дай образ (например, 'Год Строительства Замка') и девиз."
+        ),
+    )
+] + [
     SectionSpec(
-        section_id="year_opportunities",
-        title="Возможности и удача (Зеленый свет)",
-        prompt=f"{RU_LANG_INSTRUCTION} Describe the biggest opportunities and areas of flow for the year.",
-    ),
-    SectionSpec(
-        section_id="year_challenges",
-        title="Вызовы и риски (Красный свет)",
-        prompt=f"{RU_LANG_INSTRUCTION} Describe potential obstacles, restrictions, and areas requiring caution.",
-    ),
-    SectionSpec(
-        section_id="q1_forecast",
-        title="1 Квартал (Янв-Мар)",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide a forecast for the first quarter. Highlight key dates or periods.",
-    ),
-    SectionSpec(
-        section_id="q2_forecast",
-        title="2 Квартал (Апр-Июн)",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide a forecast for the second quarter. Highlight key dates or periods.",
-    ),
-    SectionSpec(
-        section_id="q3_forecast",
-        title="3 Квартал (Июл-Сен)",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide a forecast for the third quarter. Highlight key dates or periods.",
-    ),
-    SectionSpec(
-        section_id="q4_forecast",
-        title="4 Квартал (Окт-Дек)",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide a forecast for the fourth quarter. Highlight key dates or periods.",
-    ),
-    SectionSpec(
-        section_id="love_relationships",
-        title="Любовь и отношения",
-        prompt=f"{RU_LANG_INSTRUCTION} Forecast for relationships, romance, and partnerships for the year.",
-    ),
-    SectionSpec(
-        section_id="career_finance",
-        title="Карьера и финансы",
-        prompt=f"{RU_LANG_INSTRUCTION} Forecast for career growth, business, and financial matters.",
-    ),
-    SectionSpec(
-        section_id="health_vitality",
-        title="Здоровье и энергия",
-        prompt=f"{RU_LANG_INSTRUCTION} Forecast for physical vitality and health (general advice, not medical diagnosis).",
-    ),
-]
-
-_TEN_YEAR_SECTIONS = [
-    SectionSpec(
-        section_id="decade_overview",
-        title="Обзор десятилетия",
-        prompt=f"{RU_LANG_INSTRUCTION} Summarize the major developmental arc for the next 10 years.",
-    ),
-    SectionSpec(
-        section_id="pluto_cycle",
-        title="Цикл Плутона",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Pluto's transit through houses and aspects to natal planets over the next decade.",
-    ),
-    SectionSpec(
-        section_id="neptune_cycle",
-        title="Цикл Нептуна",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Neptune's transit through houses and aspects to natal planets over the next decade.",
-    ),
-    SectionSpec(
-        section_id="uranus_cycle",
-        title="Цикл Урана",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Uranus's transit through houses and aspects to natal planets over the next decade.",
-    ),
-    SectionSpec(
-        section_id="saturn_cycle",
-        title="Цикл Сатурна",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Saturn's movement (major peaks and valleys) over the next decade.",
-    ),
-    SectionSpec(
-        section_id="jupiter_cycle",
-        title="Циклы Юпитера",
-        prompt=f"{RU_LANG_INSTRUCTION} Highlight major Jupiter return or opposition years and growth periods.",
-    ),
-    SectionSpec(
-        section_id="key_turning_points",
-        title="Ключевые поворотные точки",
-        prompt=f"{RU_LANG_INSTRUCTION} List specific years/periods that will be most significant.",
-    ),
-    SectionSpec(
-        section_id="strategic_advice",
-        title="Стратегический совет",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide long-term strategic advice for career and personal life.",
-    ),
+        section_id=f"month_{i}_forecast",
+        title=f"{i}. Месяц {i}",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Проанализируй {i}-й месяц года (считая от даты старта). "
+            "Строго следуй структуре (13 пунктов): "
+            "1. Заголовок и метаданные. "
+            "2. Статус месяца (Светофор 🟢/🟡/🔴): Цветовой индикатор, Название, Фон, Цена ошибок, Рычаг, Совет. "
+            "3. Центральная нить смысла: Метафора + тезис. "
+            "4. Главные активаторы месяца (ТОП-5). "
+            "5. Карта сфер месяца (ТОП-3). "
+            "6. Событийный слой (Ингрессы, Ретро, Лунации). "
+            "7. Личный слой (Транзиты к наталу). "
+            "8. Глубинный слой (Прогрессии/Дирекции). "
+            "9. Солярный контекст. "
+            "10. Тайм-лорды. "
+            "11. Фиксированные звёзды. "
+            "12. Трансураны. "
+            "13. Итог месяца (3 результата, 3 ловушки, ключ)."
+        ),
+    ) for i in range(1, 13)
 ]
 
 _MONTH_FORECAST_SECTIONS = [
     SectionSpec(
-        section_id="month_theme",
-        title="Структура месяца",
+        section_id="month_overview",
+        title="Обзор месяца",
         prompt=(
-            "Ответь на русском языке. Используй Markdown. "
-            "Строго следуй этому скелету (13 пунктов) и не добавляй лишних блоков. "
-            "Фокус на пользе: деньги, отношения, психическая устойчивость. "
-            ""
-            "1. Заголовок и метаданные: Период, Локация, Натал, Метод, Слои.\n"
-            "2. Статус месяца (Светофор 🟢/🟡/🔴):\n"
-            "   * Цветовой индикатор.\n"
-            "   * Название месяца (метафорическое).\n"
-            "   * Общий фон.\n"
-            "   * Цена ошибок.\n"
-            "   * Рычаг (на что давить).\n"
-            "   * Совет-формула.\n"
-            "3. Центральная нить смысла: Метафора + тезис, 3 маркера «в теме».\n"
-            "4. Главные активаторы месяца: ТОП-5 факторов "
-            "(Фактор → что запускает → сфера → риск/ресурс).\n"
-            "5. Карта сфер месяца: ТОП-3 сферы подробно, остальные одной строкой.\n"
-            "6. Событийный слой: Ингрессы, Ретроградность, Затмения, Лунации.\n"
-            "7. Личный слой (транзиты к наталу): Углы/Светила, Управители, Узлы/Вертекс, Конфигурации.\n"
-            "8. Глубинный слой (прогрессии/дирекции): Прогрессивная Луна, Дуги/Дирекции, Итог созревания.\n"
-            "9. Солярный контекст: Связь с темой года, наложение домов.\n"
-            "10. Тайм-лорды: Годовой управитель в этом месяце.\n"
-            "11. Фиксированные звёзды: Точные попадания "
-            "(Архетип → Проявление → Дар/Риск).\n"
-            "12. Трансураны: Режим края, помощь/перегрев.\n"
-            "13. Итог месяца: 3 результата, 3 ловушки, ключ интеграции, переход в следующий месяц.\n"
+            f"{RU_LANG_INSTRUCTION} Дай общий прогноз на месяц. "
+            "Структура: "
+            "1. Статус месяца (Светофор 🟢/🟡/🔴) + Метафора + Рычаг. "
+            "2. Главные темы и задачи. "
+            "3. Итог по сферам: Финансы, Отношения, Энергия."
+        ),
+    ),
+    SectionSpec(
+        section_id="week_1",
+        title="Неделя 1",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Прогноз на 1-ю неделю. "
+            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
+        ),
+    ),
+    SectionSpec(
+        section_id="week_2",
+        title="Неделя 2",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Прогноз на 2-ю неделю. "
+            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
+        ),
+    ),
+    SectionSpec(
+        section_id="week_3",
+        title="Неделя 3",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Прогноз на 3-ю неделю. "
+            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
+        ),
+    ),
+    SectionSpec(
+        section_id="week_4",
+        title="Неделя 4",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Прогноз на 4-ю неделю. "
+            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
         ),
     ),
 ]
@@ -368,17 +317,17 @@ _WEEK_FORECAST_SECTIONS = [
     SectionSpec(
         section_id="week_strategy",
         title="Стратегия недели",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze the overall energy of the week. Is it for action, rest, or planning?",
-    ),
-    SectionSpec(
-        section_id="daily_breakdown",
-        title="По дням",
-        prompt=f"{RU_LANG_INSTRUCTION} Briefly describe the vibe for key days of the week.",
-    ),
-    SectionSpec(
-        section_id="risks_opportunities",
-        title="Риски и возможности",
-        prompt=f"{RU_LANG_INSTRUCTION} Highlight specific risks ('straws to lay down') and lucky breaks.",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} "
+            "1. Главная тема: Метафора недели. "
+            "2. Статус недели: Светофор (🟢/🟡/🔴) + Общий фон и цена ошибки. "
+            "3. Подневная стратегия (7 дней): Для каждого дня (Пн-Вс) укажи: "
+            "   - Индикатор (🟢/🟡/🔴). "
+            "   - Ощущения (психологический фон). "
+            "   - Риски (где споткнуться). "
+            "   - Стратегия/Соломка (конкретные действия). "
+            "4. Резюме по срезам: Финансы, Энергия, Отношения, Магия."
+        ),
     ),
 ]
 
@@ -407,6 +356,33 @@ _HORARY_SECTIONS = [
         section_id="horary_timing",
         title="Сроки (Тайминг)",
         prompt=f"{RU_LANG_INSTRUCTION} Estimate the timing of the event if applicable (using symbolic time units).",
+    ),
+]
+
+_TEN_YEAR_SECTIONS = [
+    SectionSpec(
+        section_id="decade_overview",
+        title="Обзор 10 лет",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Дай общий обзор десятилетия: главный тренд, "
+            "ключевые темы и общий вектор развития."
+        ),
+    ),
+    SectionSpec(
+        section_id="decade_storylines",
+        title="Сюжетные линии (10 лет)",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Сгруппируй ключевые события и темы на 10 лет "
+            "в 3-5 сюжетных линий (личность/цели, отношения, финансы, судьба)."
+        ),
+    ),
+    SectionSpec(
+        section_id="decade_risks_resources",
+        title="Риски и ресурсы десятилетия",
+        prompt=(
+            f"{RU_LANG_INSTRUCTION} Выдели главные риски, ресурсы и "
+            "рекомендации по стратегии на 10 лет."
+        ),
     ),
 ]
 

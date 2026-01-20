@@ -31,6 +31,7 @@ logger = structlog.get_logger()
 # --- IMPORTS FROM BACKEND ---
 try:
     from backend.app.models import User, Referral, Base
+    from backend.app.services.code_gen import generate_referral_code
     # Note: backend.app.db is NOT imported to avoid Sync Engine creation side-effects.
     DATABASE_URL = os.getenv("DATABASE_URL").replace("postgresql+psycopg2", "postgresql+asyncpg")
 except ImportError:
@@ -129,7 +130,7 @@ async def process_async_referral(session: AsyncSession, referrer_id: int, new_us
         except Exception:
             pass 
 
-async def get_or_create_user(telegram_id: int, username: str, full_name: str, referral_code: str = None):
+async def get_or_create_user(telegram_id: int, username: str, full_name: str, referral_arg: str = None):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.telegram_id == telegram_id))
         user = result.scalars().first()
@@ -140,6 +141,12 @@ async def get_or_create_user(telegram_id: int, username: str, full_name: str, re
                 user.username = username
                 user.full_name = full_name
                 await session.commit()
+            
+            # Ensure ref code exists (migration for old users)
+            if not user.referral_code:
+                user.referral_code = generate_referral_code()
+                await session.commit()
+                
             return user
 
         # Create New User
@@ -155,18 +162,32 @@ async def get_or_create_user(telegram_id: int, username: str, full_name: str, re
             full_name=full_name,
             subscription_active_until=trial_end,
             birth_time_known=True,
-            balance=0
+            balance=0,
+            referral_code=generate_referral_code()
         )
         session.add(new_user)
         await session.flush()
         
         # Handle Referral
-        if referral_code and referral_code.startswith("ref_"):
-            try:
-                referrer_tg_id = int(referral_code.replace("ref_", ""))
-                await process_async_referral(session, referrer_tg_id, new_user)
-            except ValueError:
-                pass
+        if referral_arg:
+            referrer_id_to_find = None
+            
+            # New format: u_12345
+            if referral_arg.startswith("u_"):
+                ref_res = await session.execute(select(User).where(User.referral_code == referral_arg))
+                referrer = ref_res.scalars().first()
+                if referrer:
+                    referrer_id_to_find = referrer.telegram_id
+            
+            # Legacy format: ref_12345
+            elif referral_arg.startswith("ref_"):
+                try:
+                    referrer_id_to_find = int(referral_arg.replace("ref_", ""))
+                except ValueError:
+                    pass
+
+            if referrer_id_to_find:
+                await process_async_referral(session, referrer_id_to_find, new_user)
 
         await session.commit()
         return new_user

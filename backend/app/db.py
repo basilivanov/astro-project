@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Base
+from .migrations_v2 import apply_v2_migrations
 
 # #START_BLOCK_DB_SETTINGS
 DATABASE_URL = os.getenv(
@@ -130,4 +131,5 @@ def apply_runtime_migrations():
     with engine.begin() as connection:
         for statement in statements:
             connection.exec_driver_sql(statement)
+        apply_v2_migrations(connection)
 # #END_BLOCK_DB_MIGRATIONS

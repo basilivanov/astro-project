@@ -5,6 +5,7 @@
 # GRACE_ANCHORS: [APP_INIT, API_SCHEMAS, SERIALIZATION, LOGGER, ENDPOINTS]
 # ############################################################################
 
+import asyncio
 import json
 import os
 import uuid
@@ -775,7 +776,7 @@ def create_transit_chart(payload: TransitRequest):
     return serialize_chart(chart, chart_type="transit", fixed_stars=stars)
 
 
-def run_report_generation(
+async def run_report_generation(
     report_id: uuid.UUID, payload_data: dict, reset_chunks: bool = False
 ) -> None:
     """
@@ -810,7 +811,8 @@ def run_report_generation(
             )
         elif llm_mode == "cheap":
             llm_client = OpenRouterClient.from_env(mode="cheap")
-        generated_sections, _, _ = generate_report_sections(
+            
+        generated_sections, _, _ = await generate_report_sections(
             report,
             payload,
             db,
@@ -848,7 +850,7 @@ def run_report_generation(
         db.close()
 
 
-def run_report_section_generation(
+async def run_report_section_generation(
     report_id: uuid.UUID, section_id: str, payload_data: dict
 ) -> None:
     """
@@ -923,7 +925,9 @@ def run_report_section_generation(
                     llm_client = OpenRouterClient.from_env(
                         model_override=resolve_primary_model(payload.report_type)
                     )
-                result = generate_section_with_retries(
+                
+                result = await asyncio.to_thread(
+                    generate_section_with_retries,
                     target_spec,
                     context,
                     primary_client=llm_client,
@@ -1083,7 +1087,7 @@ def run_report_workflow_async(
 
 
 @app.post("/api/workflows/report", response_model=ReportWorkflowResponse)
-def run_report_workflow(
+async def run_report_workflow(
     payload: ReportWorkflowRequest, db: Session = Depends(get_db)
 ):
     """
@@ -1120,7 +1124,7 @@ def run_report_workflow(
 
     run = start_report_run(report, db)
     try:
-        generated_sections, chart_data, markdown = generate_report_sections(
+        generated_sections, chart_data, markdown = await generate_report_sections(
             report,
             payload,
             db,
@@ -1152,7 +1156,7 @@ def run_report_workflow(
     "/api/admin/reports/{report_id}/regenerate",
     response_model=ReportRegenerateResponse,
 )
-def regenerate_report(report_id: str, db: Session = Depends(get_db)):
+async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
     """
     # PURPOSE: Regenerate all report sections and markdown.
     # INPUT: report_id path param.
@@ -1175,7 +1179,7 @@ def regenerate_report(report_id: str, db: Session = Depends(get_db)):
 
     run = start_report_run(report, db)
     try:
-        generated_sections, _, markdown = generate_report_sections(
+        generated_sections, _, markdown = await generate_report_sections(
             report,
             payload,
             db,
@@ -1247,7 +1251,7 @@ def regenerate_report_async(
     "/api/admin/reports/{report_id}/sections/{section_id}/regenerate",
     response_model=ReportRegenerateResponse,
 )
-def regenerate_report_section(
+async def regenerate_report_section(
     report_id: str, section_id: str, db: Session = Depends(get_db)
 ):
     """
@@ -1313,7 +1317,8 @@ def regenerate_report_section(
             else:
                 retry_attempts = resolve_llm_retry_attempts()
                 fallback_model = resolve_llm_fallback_model()
-                result = generate_section_with_retries(
+                result = await asyncio.to_thread(
+                    generate_section_with_retries,
                     target_spec,
                     context,
                     primary_client=llm_client,
@@ -1988,16 +1993,24 @@ class UserProfileOut(BaseModel):
     birth_time_known: bool
     birth_date: Optional[str]
     birth_place: Optional[str]
+    referral_code: Optional[str]
 
 @app.get("/api/users/me", response_model=UserProfileOut)
 def get_my_profile(
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     # PURPOSE: Get current user profile for Telegram WebApp.
     # INPUT: Auth Dependency.
     # OUTPUT: User profile JSON.
     """
+    if not user.referral_code:
+        from .services.code_gen import generate_referral_code
+        user.referral_code = generate_referral_code()
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     
     days_left = 0
     if user.subscription_active_until:
@@ -2016,7 +2029,8 @@ def get_my_profile(
         "days_left": days_left,
         "birth_time_known": user.birth_time_known,
         "birth_date": user.birth_date,
-        "birth_place": user.birth_place
+        "birth_place": user.birth_place,
+        "referral_code": user.referral_code
     }
 
 class UserProfileUpdate(BaseModel):

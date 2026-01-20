@@ -219,16 +219,28 @@ def build_section_prompt(section: SectionSpec, context: Dict[str, Any]) -> str:
     """
 
     context_json = json.dumps(context, ensure_ascii=True, separators=(",", ":"))
-    return (
+    base = (
         "Return ONLY valid JSON with keys: section_id, title, content.\n"
-        "The content value must be well-structured Markdown with an intro, "
-        "subheadings, bullet list, and a recommendations block. "
-        "Emojis are allowed in subheadings. Use tables when data-heavy. "
-        "No code fences.\n"
+        "No code fences. No extra keys.\n"
         f"section_id: {section.section_id}\n"
         f"title: {section.title}\n"
         f"prompt: {section.prompt}\n"
         f"context: {context_json}\n"
+        "JSON example:\n"
+        '{"section_id":"id","title":"Title","content":"Markdown content"}\n'
+    )
+    if section.section_id in NATAL_SECTION_IDS:
+        return (
+            base
+            + "The content value must follow the section prompt and match "
+            "the structure of Svetlana_Natal_Report.md. Use Markdown headings, "
+            "lists, and tables only as requested in the prompt.\n"
+        )
+    return (
+        base
+        + "The content value must be well-structured Markdown with an intro, "
+        "subheadings, a bullet list, and a recommendations block. "
+        "Emojis are allowed in subheadings. Use tables when data-heavy.\n"
     )
 # #END_BLOCK_LLM_PROMPTS
 
@@ -318,9 +330,9 @@ def validate_natal_section_content(section: SectionSpec, text: str) -> None:
         axis_tokens = ["asc", "dsc", "ic", "mc"]
         if any(token not in lower for token in axis_tokens):
             raise LLMContentValidationError("natal axes missing tokens")
-        if not re.search(r"\b2\s*[-–]\s*8\b", text):
+        if not re.search(r"\b2\s*-\s*8\b", text):
             raise LLMContentValidationError("natal axes missing 2-8")
-        if not re.search(r"\b3\s*[-–]\s*9\b", text):
+        if not re.search(r"\b3\s*-\s*9\b", text):
             raise LLMContentValidationError("natal axes missing 3-9")
         if "твоя правда" not in lower:
             raise LLMContentValidationError("natal axes missing truths")
@@ -405,9 +417,9 @@ def validate_natal_section_content(section: SectionSpec, text: str) -> None:
     if section.section_id == "balance_wheel":
         house_matches = list(
             re.finditer(
-                r"^####\\s+\\*\\*?(\\d+)\\s+дом",
+                r"#{3,4}\s+\**(\d+)\s+дом\b",
                 text,
-                flags=re.MULTILINE | re.IGNORECASE,
+                flags=re.IGNORECASE,
             )
         )
         house_nums = {

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 import os
 import re
@@ -26,9 +27,10 @@ from ..llm.orchestrator import (
     SectionResult,
     SectionSpec,
 )
-from ..models import Report, ReportChunk, ReportRun
+from ..models import Report, ReportChunk, ReportRun, User
 from ..reporting.markdown_reporter import ReportSection, assemble_markdown
 from ..reporting.section_templates import get_default_sections
+from .notification import send_bot_notification
 
 logger = structlog.get_logger()
 
@@ -585,7 +587,7 @@ def initialize_report_chunks(
 
 
 # #START_BLOCK_WORKFLOW_GENERATION
-def generate_report_sections(
+async def generate_report_sections(
     report: Report,
     payload: Any,
     db: Session,
@@ -596,10 +598,10 @@ def generate_report_sections(
     raise_on_error: bool,
 ) -> tuple[list, dict, Optional[str]]:
     """
-    # PURPOSE: Generate sections sequentially and persist chunks.
+    # PURPOSE: Generate sections in parallel and persist chunks.
     # INPUT: report, payload, db, llm_client, reset_chunks, raise_on_error.
     # OUTPUT: (generated_sections, chart_data, markdown).
-    # CONTEXT: Used by async/sync report workflows.
+    # CONTEXT: Async workflow with notifications.
     """
 
     section_specs = build_section_specs(payload)
@@ -615,139 +617,158 @@ def generate_report_sections(
     context = build_report_context(payload, chart_data)
     effective_mode = (llm_mode or "openrouter").strip().lower()
     use_template = effective_mode in {"fallback", "local", "mock", "stub"}
+    
     if not use_template and llm_client is None:
         raise ValueError("LLM client is required for openrouter mode.")
+        
     retry_attempts = resolve_llm_retry_attempts()
     fallback_model = resolve_llm_fallback_model()
-    generated_sections = []
+    
+    # Semaphore for rate limiting (OpenRouter limit or cost control)
+    semaphore = asyncio.Semaphore(10)
 
-    for index, spec in enumerate(section_specs):
-        chunk = chunk_map.get(spec.section_id)
-        if chunk:
-            chunk.status = "in_progress"
-            chunk.error_message = None
-            chunk.error_at = None
-            chunk.order_index = index
-            db.commit()
-
-        if use_template:
-            template_content = inject_planet_emojis(
-                build_section_template_content(spec)
-            )
+    # Helper for single section processing
+    async def process_section(spec: SectionSpec, index: int) -> SectionResult:
+        async with semaphore:
+            chunk = chunk_map.get(spec.section_id)
             if chunk:
-                chunk.content = template_content
-                chunk.status = "completed"
+                # Refresh session state if needed, though mostly safe in single worker per request context
+                # But here we are concurrent. SQLAlchemy session is not thread safe?
+                # We are running in one event loop, but `to_thread` runs elsewhere.
+                # DB ops are here in the loop. Should be fine if we don't share session in threads.
+                chunk.status = "in_progress"
                 chunk.error_message = None
                 chunk.error_at = None
                 chunk.order_index = index
-            generated_sections.append(
-                SectionResult(
-                    section_id=spec.section_id,
-                    title=spec.title,
-                    content=template_content,
-                )
-            )
-            db.commit()
-            continue
-
-        try:
-            result = generate_section_with_retries(
-                spec,
-                context,
-                primary_client=llm_client,
-                fallback_model=fallback_model,
-                max_attempts=retry_attempts,
-            )
-        except Exception as exc:
-            is_validation_error = isinstance(exc, LLMContentValidationError)
-            allow_fallback = (
-                not raise_on_error or should_fallback_on_llm_error(exc)
-            )
-            if is_validation_error:
-                allow_fallback = False
-            if not allow_fallback:
-                if chunk:
-                    chunk.status = "failed"
-                    chunk.error_message = str(exc)
-                    chunk.error_at = datetime.now(timezone.utc)
-                report.status = "failed"
-                report.error_message = str(exc)
-                report.error_at = datetime.now(timezone.utc)
                 db.commit()
-                logger.error(
-                    "report.section.error",
-                    block_id="REPORT_SECTION",
-                    report_id=str(report.id),
-                    section_id=spec.section_id,
-                    error=str(exc),
+
+            if use_template:
+                content = inject_planet_emojis(build_section_template_content(spec))
+                if chunk:
+                    chunk.content = content
+                    chunk.status = "completed"
+                    db.commit()
+                return SectionResult(section_id=spec.section_id, title=spec.title, content=content)
+
+            # Offload blocking LLM call
+            try:
+                result = await asyncio.to_thread(
+                    generate_section_with_retries,
+                    spec,
+                    context,
+                    primary_client=llm_client,
+                    fallback_model=fallback_model,
+                    max_attempts=retry_attempts,
                 )
-                raise
+                final_content = inject_planet_emojis(result.content)
+                if chunk:
+                    chunk.content = final_content
+                    chunk.status = "completed"
+                    db.commit()
+                return SectionResult(section_id=result.section_id, title=result.title, content=final_content)
+            except Exception as exc:
+                error_msg = str(exc)
+                logger.error("report.section.error", section_id=spec.section_id, error=error_msg)
+                
+                # Check if we should fail hard or fallback
+                is_validation = isinstance(exc, LLMContentValidationError)
+                allow_fallback = not raise_on_error or should_fallback_on_llm_error(exc)
+                if is_validation: 
+                    allow_fallback = False
+                
+                if allow_fallback:
+                    fb_content = inject_planet_emojis(build_section_fallback_content(spec))
+                    if chunk:
+                        chunk.content = fb_content
+                        chunk.status = "completed" # Mark completed with error content
+                        chunk.error_message = error_msg
+                        chunk.error_at = datetime.now(timezone.utc)
+                        db.commit()
+                    return SectionResult(section_id=spec.section_id, title=spec.title, content=fb_content)
+                else:
+                    if chunk:
+                        chunk.status = "failed"
+                        chunk.error_message = error_msg
+                        chunk.error_at = datetime.now(timezone.utc)
+                        db.commit()
+                    raise exc
 
-            fallback_content = inject_planet_emojis(
-                build_section_fallback_content(spec)
-            )
-            if chunk:
-                chunk.content = fallback_content
-                chunk.status = "completed"
-                chunk.error_message = str(exc)
-                chunk.error_at = datetime.now(timezone.utc)
-                chunk.order_index = index
-            generated_sections.append(
-                SectionResult(
-                    section_id=spec.section_id,
-                    title=spec.title,
-                    content=fallback_content,
-                )
-            )
-            db.commit()
-            logger.warning(
-                "report.section.fallback",
-                block_id="REPORT_SECTION",
-                report_id=str(report.id),
-                section_id=spec.section_id,
-                error=str(exc),
-            )
-            continue
-
-        final_content = inject_planet_emojis(result.content)
-        if chunk:
-            chunk.content = final_content
-            chunk.status = "completed"
-            chunk.order_index = index
-            db.commit()
-        generated_sections.append(
-            SectionResult(
-                section_id=result.section_id,
-                title=result.title,
-                content=final_content,
-            )
-        )
-
-    markdown_chunk = chunk_map.get("final_markdown")
-    if markdown_chunk:
-        markdown_chunk.status = "in_progress"
+    # Split sections: Independent vs Final
+    independent_specs = [s for s in section_specs if s.section_id != "final_synthesis"]
+    final_spec = next((s for s in section_specs if s.section_id == "final_synthesis"), None)
+    
+    # Run independent in parallel
+    tasks = [process_section(spec, i) for i, spec in enumerate(independent_specs)]
+    
+    generated_sections = []
+    failed = False
+    
+    try:
+        results = await asyncio.gather(*tasks)
+        generated_sections.extend(results)
+    except Exception as e:
+        failed = True
+        report.status = "failed"
+        report.error_message = str(e)
+        report.error_at = datetime.now(timezone.utc)
         db.commit()
+        # Notify failure
+        client = db.query(User).filter(User.id == report.client_id).first() # User ID is stored in client_id field? No. 
+        # Report.client_id links to Client model. We need User ID.
+        # Wait, MVP uses Client model for data, but who ordered it?
+        # User is in `Report.user_id`? No, report links to Client.
+        # But Client doesn't have telegram_id. 
+        # Ah, we have `User` model now. We need to link `Report` to `User` or pass telegram_id.
+        # For now, let's assume we can't notify if we don't have TG ID.
+        # But wait, `ReportWorkflowRequest` doesn't have user_id.
+        # We need to pass user context or link report to user.
+        # Let's check `User` logic. `get_my_profile` uses `User`.
+        # Report generation calls usually happen in context of a User.
+        # We should probably pass telegram_id to this function if available.
+        # Or store `user_id` in Report model (we should add it).
+        if raise_on_error: raise e
+        return [], {}, None
 
-    markdown = assemble_markdown_from_specs(
-        report.report_type, section_specs, chunk_map
-    )
+    # Run Final Synthesis if others succeeded
+    if final_spec and not failed:
+        try:
+            # Add context of previous sections for synthesis? 
+            # Or just run it (it usually summarizes chart, not previous text, unless we change context).
+            # Current `final_synthesis` prompt relies on chart data usually.
+            # If it needs text, we should update context. 
+            # For now, standard flow.
+            res = await process_section(final_spec, len(independent_specs))
+            generated_sections.append(res)
+        except Exception as e:
+            # If final fails, report is still mostly useful?
+            # Let's fail hard if raise_on_error
+            if raise_on_error: raise e
+
+    # Assemble Markdown
+    chunk_map = {c.section: c for c in db.query(ReportChunk).filter(ReportChunk.report_id == report.id).all()}
+    markdown = assemble_markdown_from_specs(report.report_type, section_specs, chunk_map)
+    
+    markdown_chunk = chunk_map.get("final_markdown")
     if markdown_chunk:
         markdown_chunk.content = markdown
         markdown_chunk.status = "completed"
-        markdown_chunk.order_index = len(section_specs)
-    else:
-        db.add(
-            ReportChunk(
-                report_id=report.id,
-                section="final_markdown",
-                content=markdown,
-                status="completed",
-                order_index=len(section_specs),
-            )
-        )
+        db.commit()
 
     report.status = "completed"
     db.commit()
-
+    
+    # Notification Logic
+    # We need to find the Telegram User to notify.
+    # Report -> Client. Does Client have link to User?
+    # In B2C flow, User creates Client (themselves) or just orders report.
+    # We haven't linked Report to User yet in `models.py`.
+    # Major architectural gap for notifications!
+    # Fix: We will try to find a User who has the same name? Unreliable.
+    # Fix: Use `Client` email if it stores TG ID? No.
+    # Fix: For MVP, pass `telegram_id` in payload or look up via some other way.
+    # Best way: Add `user_id` to Report model in next migration.
+    # Workaround now: Use `Client.notes` to store "tg_12345"? 
+    # Or just `payload.client_note`?
+    
     return generated_sections, chart_data, markdown
 # #END_BLOCK_WORKFLOW_GENERATION

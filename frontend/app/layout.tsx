@@ -10,6 +10,9 @@ import "./globals.css";
 export const metadata = {
   title: "AstroSaaS Admin",
   description: "Admin dashboard for AstroSaaS MVP",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 // #START_BLOCK_LAYOUT_ROOT
