@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Base
-from .migrations_v2 import apply_v2_migrations
+from .migrations_v2 import apply_v2_migrations, apply_v3_migrations, apply_v4_migrations
 
 # #START_BLOCK_DB_SETTINGS
 DATABASE_URL = os.getenv(
@@ -53,11 +53,17 @@ def apply_runtime_migrations():
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_lon DOUBLE PRECISION",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_timezone VARCHAR(64)",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_place_id VARCHAR(64)",
+        "ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS input_payload TEXT",
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS error_message TEXT",
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS error_at TIMESTAMPTZ",
+        "ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
         "ALTER TABLE report_chunks ADD COLUMN IF NOT EXISTS error_message TEXT",
         "ALTER TABLE report_chunks ADD COLUMN IF NOT EXISTS error_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(10)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(10, 2) DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_partner BOOLEAN DEFAULT FALSE",
         """
         CREATE TABLE IF NOT EXISTS report_runs (
             id UUID PRIMARY KEY,
@@ -85,8 +91,10 @@ def apply_runtime_migrations():
             birth_lat DOUBLE PRECISION,
             birth_lon DOUBLE PRECISION,
             is_partner BOOLEAN DEFAULT FALSE,
+            is_test BOOLEAN DEFAULT FALSE,
             balance NUMERIC(10, 2) DEFAULT 0,
             subscription_active_until TIMESTAMPTZ,
+            referral_code VARCHAR(10),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """,
@@ -127,9 +135,52 @@ def apply_runtime_migrations():
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS agent_tasks (
+            id UUID PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            report_id UUID REFERENCES reports(id) ON DELETE SET NULL,
+            telegram_id BIGINT NOT NULL,
+            source VARCHAR(16) DEFAULT 'voice',
+            status VARCHAR(32) DEFAULT 'pending_confirmation',
+            transcript TEXT,
+            summary TEXT,
+            clarification TEXT,
+            voice_file_id VARCHAR(255),
+            result_summary TEXT,
+            error_message TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ,
+            approved_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS agent_tasks_telegram_id_idx ON agent_tasks(telegram_id)",
+        "CREATE INDEX IF NOT EXISTS agent_tasks_status_idx ON agent_tasks(status)",
+        "CREATE INDEX IF NOT EXISTS agent_tasks_created_at_idx ON agent_tasks(created_at)",
+        """
+        CREATE TABLE IF NOT EXISTS analytics_events (
+            id UUID PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            telegram_id BIGINT,
+            event_name VARCHAR(64) NOT NULL,
+            source VARCHAR(32),
+            metadata TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS analytics_events_user_id_idx ON analytics_events(user_id)",
+        "CREATE INDEX IF NOT EXISTS analytics_events_telegram_id_idx ON analytics_events(telegram_id)",
+        "CREATE INDEX IF NOT EXISTS analytics_events_event_name_idx ON analytics_events(event_name)",
+        "CREATE INDEX IF NOT EXISTS analytics_events_created_at_idx ON analytics_events(created_at)",
     ]
     with engine.begin() as connection:
         for statement in statements:
-            connection.exec_driver_sql(statement)
+            try:
+                connection.exec_driver_sql(statement)
+            except Exception as e:
+                print(f"Migration warning: {e}")
         apply_v2_migrations(connection)
+        apply_v3_migrations(connection)
+        apply_v4_migrations(connection)
 # #END_BLOCK_DB_MIGRATIONS
