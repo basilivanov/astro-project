@@ -10,6 +10,9 @@ import hmac
 import json
 import os
 import time
+import random
+import string
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl, unquote
 
 from fastapi import HTTPException, Header, Depends
@@ -64,43 +67,48 @@ def validate_init_data(init_data: str, bot_token: str) -> dict:
     return parsed_data
 # #END_BLOCK_AUTH_UTILS
 
-# #START_BLOCK_AUTH_DEPENDENCY
-async def get_current_user(
-    x_telegram_auth: str = Header(..., alias="X-Telegram-Auth"),
-    db: Session = Depends(get_db)
-) -> User:
-    """
-    # PURPOSE: FastAPI dependency to authenticate user via initData.
-    # INPUT: X-Telegram-Auth header (raw initData).
-    # OUTPUT: ORM User object.
-    # LOGIC:
-    # 1. Validate hash.
-    # 2. Extract user JSON.
-    # 3. Upsert user in DB (sync fields).
-    """
-    if not x_telegram_auth:
-        raise HTTPException(status_code=401, detail="Missing auth header")
+from fastapi import HTTPException, Header, Depends, Query
 
-    # DEV BYPASS (Optional, remove in strict prod if needed)
-    # If header looks like a simple int, treat as ID for dev if enabled
-    if os.getenv("ENVIRONMENT") == "development" and x_telegram_auth.isdigit():
-        tg_id = int(x_telegram_auth)
+# ... imports ...
+
+# #START_BLOCK_AUTH_DEPENDENCY
+def authenticate_telegram_user(auth_string: str, db: Session) -> User:
+    """
+    # PURPOSE: Core logic to validate initData and upsert user.
+    # SHARED by: Header auth (API) and Query auth (PDF download).
+    """
+    if not auth_string:
+        raise HTTPException(status_code=401, detail="Missing auth data")
+
+    # DEV BYPASS
+    if os.getenv("ENVIRONMENT") == "development" and auth_string.isdigit():
+        tg_id = int(auth_string)
         user = db.query(User).filter(User.telegram_id == tg_id).first()
         if not user:
-             # Auto-create for dev convenience
-             user = User(telegram_id=tg_id, full_name="Dev User")
+             trial_end = datetime.now(timezone.utc) + timedelta(days=14)
+             from .services.code_gen import generate_referral_code
+             ref_code = generate_referral_code()
+             
+             user = User(
+                 telegram_id=tg_id, 
+                 full_name="Dev User",
+                 subscription_active_until=trial_end,
+                 referral_code=ref_code
+             )
              db.add(user)
              db.commit()
              db.refresh(user)
         return user
 
     try:
-        data = validate_init_data(x_telegram_auth, BOT_TOKEN)
+        data = validate_init_data(auth_string, BOT_TOKEN)
     except ValueError as e:
         logger.warning("auth.invalid", error=str(e))
         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
     user_json = data.get("user")
+    start_param = data.get("start_param")
+    
     if not user_json:
         raise HTTPException(status_code=400, detail="Missing user data")
 
@@ -115,18 +123,34 @@ async def get_current_user(
     # Upsert Logic
     user = db.query(User).filter(User.telegram_id == tg_id).first()
     if not user:
+        trial_end = datetime.now(timezone.utc) + timedelta(days=14)
+        
+        from .services.code_gen import generate_referral_code
+        ref_code = generate_referral_code()
+
         user = User(
             telegram_id=tg_id,
             username=username,
             full_name=full_name,
-            # Defaults
-            birth_time_known=True 
+            birth_time_known=True,
+            subscription_active_until=trial_end,
+            referral_code=ref_code
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        if start_param:
+            try:
+                from .services.referral_service import resolve_referrer, process_referral
+                referrer = resolve_referrer(start_param, db)
+                if referrer:
+                    process_referral(referrer.id, user.id, db)
+                    db.refresh(user)
+            except Exception as e:
+                logger.error("auth.referral_failed", error=str(e))
+                
     else:
-        # Sync profile updates if changed
         changed = False
         if user.username != username:
             user.username = username
@@ -140,4 +164,19 @@ async def get_current_user(
             db.refresh(user)
             
     return user
+
+async def get_current_user(
+    x_telegram_auth: str = Header(..., alias="X-Telegram-Auth"),
+    db: Session = Depends(get_db)
+) -> User:
+    return authenticate_telegram_user(x_telegram_auth, db)
+
+async def get_current_user_from_query(
+    auth: str = Query(..., description="Telegram initData string"),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    # PURPOSE: Authenticate via query param (for direct links like PDF).
+    """
+    return authenticate_telegram_user(auth, db)
 # #END_BLOCK_AUTH_DEPENDENCY

@@ -6,15 +6,17 @@
 # ############################################################################
 
 import asyncio
+import copy
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response, Header
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 import structlog
 
@@ -24,13 +26,23 @@ from .db import Base, SessionLocal, apply_runtime_migrations, engine, get_db
 from .diagnostics import run_diagnostics
 from . import engine_utils
 from .geonames import GeoNamesError, get_timezone, search_geonames
-from .llm.orchestrator import OpenRouterClient
-from .models import Client, Report, ReportChunk, ReportRun, User, Subscription
+from .llm.mode import resolve_llm_mode, build_llm_client
+from .models import (
+    AgentTask,
+    AnalyticsEvent,
+    Client,
+    Report,
+    ReportChunk,
+    ReportRun,
+    User,
+    Subscription,
+)
 from .reporting.pdf_reporter import (
     build_natal_chart_svg,
     build_report_html,
     html_to_pdf,
     markdown_to_html,
+    convert_chunk_to_html,
 )
 from .services.report_workflow import (
     assemble_markdown_from_specs,
@@ -41,6 +53,7 @@ from .services.report_workflow import (
     build_section_specs,
     finish_report_run,
     generate_report_sections,
+    generate_section_content,
     generate_section_with_retries,
     inject_planet_emojis,
     initialize_report_chunks,
@@ -51,21 +64,25 @@ from .services.report_workflow import (
     should_fallback_on_llm_error,
     start_report_run,
 )
+from .services.analytics import ALLOWED_ANALYTICS_EVENTS, log_analytics_event
 
 from .routers import billing
 from .services.feed_service import get_daily_vibe_llm
+from .services.scheduler import start_scheduler
+from .auth import get_current_user, get_current_user_from_query
+from .reporting.static_content import SECTION_INTROS
 
 # #START_BLOCK_LOGGER
 logger = structlog.get_logger()
 # #END_BLOCK_LOGGER
-# ...
+
 # #START_BLOCK_APP_INIT
 app = FastAPI(title="AstroSaaS API", version="0.1.0")
 
 app.include_router(billing.router)
 
 @app.on_event("startup")
-def init_db():
+async def init_db():
     """
     # PURPOSE: Ensure core tables exist for the MVP workflow.
     # INPUT: None.
@@ -75,23 +92,10 @@ def init_db():
 
     Base.metadata.create_all(bind=engine)
     apply_runtime_migrations()
+    await start_scheduler()
 # #END_BLOCK_APP_INIT
 
 
-def resolve_llm_mode(payload: "ReportWorkflowRequest") -> str:
-    """
-    # PURPOSE: Normalize the requested LLM mode.
-    # INPUT: ReportWorkflowRequest payload.
-    # OUTPUT: Normalized mode string.
-    # CONTEXT: Used by sync/async report generation endpoints.
-    """
-
-    mode = (payload.llm_mode or "openrouter").strip().lower()
-    if mode == "cheap":
-        return "cheap"
-    if mode not in {"openrouter", "fallback", "local", "mock", "stub"}:
-        return "openrouter"
-    return mode
 
 # #START_BLOCK_API_SCHEMAS
 class ChartLocationOut(BaseModel):
@@ -237,10 +241,11 @@ class ReportWorkflowRequest(BaseModel):
     """
 
     client_id: Optional[str] = None
-    client_name: str = Field(..., min_length=1)
+    client_name: Optional[str] = None
     client_note: Optional[str] = None
-    birth_date: str = Field(..., min_length=4)
-    birth_location: str = Field(..., min_length=2)
+    question: Optional[str] = None
+    birth_date: Optional[str] = None
+    birth_location: Optional[str] = None
     birth_lat: Optional[float] = None
     birth_lon: Optional[float] = None
     birth_timezone: Optional[str] = None
@@ -268,6 +273,7 @@ class ReportWorkflowRequest(BaseModel):
     fixed_star_orb: float = 1.0
     sections: Optional[List[SectionInput]] = None
     llm_mode: Optional[str] = None
+    is_test: bool = False
 
 
 class ReportWorkflowResponse(BaseModel):
@@ -349,6 +355,18 @@ class AdminClientOut(BaseModel):
     last_report: Optional[AdminClientReportOut] = None
 
 
+class AdminClientCreateRequest(BaseModel):
+    """
+    # PURPOSE: Payload for creating a new client via admin API.
+    """
+    full_name: str
+    birth_date: str
+    birth_location: str
+    notes: Optional[str] = None
+    email: Optional[str] = None
+    is_test: bool = False
+
+
 class AdminReportOut(BaseModel):
     """
     # PURPOSE: Describe report summary data for admin listings.
@@ -418,6 +436,19 @@ class AdminReportDetailOut(BaseModel):
     chunks: List[AdminReportChunkOut]
     runs: List[AdminReportRunOut]
     markdown: Optional[str]
+    chart_svg: Optional[str] = None
+
+
+class AdminDailyCountOut(BaseModel):
+    """
+    # PURPOSE: Describe daily aggregate counts.
+    # INPUT: date and count.
+    # OUTPUT: Serializable daily metric.
+    # CONTEXT: Used in admin dashboard sparklines.
+    """
+
+    date: str
+    count: int
 
 
 class AdminStatsOut(BaseModel):
@@ -433,24 +464,204 @@ class AdminStatsOut(BaseModel):
     reports_in_progress: int
     reports_completed: int
     reports_failed: int
+    reports_by_type: Optional[dict[str, int]] = None
+    reports_daily: Optional[List[AdminDailyCountOut]] = None
+    tasks_open: Optional[int] = None
+    tasks_total: Optional[int] = None
+    analytics_funnel: Optional[dict[str, int]] = None
+    window_days: Optional[int] = None
 
 
-class AdminClientCreateRequest(BaseModel):
+class AdminTaskOut(BaseModel):
     """
-    # PURPOSE: Input payload for client creation.
-    # INPUT: client_name, birth data, optional notes.
-    # OUTPUT: Validated request object.
-    # CONTEXT: Used by /api/admin/clients POST.
+    # PURPOSE: Describe a task created via bot messages.
+    # INPUT: task metadata and content.
+    # OUTPUT: Serializable task summary.
+    # CONTEXT: Returned by /api/admin/tasks.
     """
 
-    client_name: str = Field(..., min_length=1)
-    client_note: Optional[str] = None
-    birth_date: str = Field(..., min_length=4)
-    birth_location: str = Field(..., min_length=2)
-    birth_lat: Optional[float] = None
-    birth_lon: Optional[float] = None
-    birth_timezone: Optional[str] = None
-    birth_place_id: Optional[str] = None
+    id: str
+    user_id: Optional[str] = None
+    telegram_id: int
+    status: str
+    source: str
+    transcript: Optional[str] = None
+    summary: Optional[str] = None
+    clarification: Optional[str] = None
+    voice_file_id: Optional[str] = None
+    report_id: Optional[str] = None
+    result_summary: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    approved_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class AdminTaskUpdateRequest(BaseModel):
+    """
+    # PURPOSE: Input payload for updating task status/content.
+    # INPUT: status, summary, clarification, result summary.
+    """
+
+    status: Optional[str] = None
+    summary: Optional[str] = None
+    clarification: Optional[str] = None
+    result_summary: Optional[str] = None
+    error_message: Optional[str] = None
+    report_id: Optional[str] = None
+
+
+class SupportTicketRequest(BaseModel):
+    """
+    # PURPOSE: Input payload for user support requests.
+    """
+    topic: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1)
+
+
+@app.post("/api/support/tickets")
+async def create_support_ticket(
+    payload: SupportTicketRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Create a new support ticket and notify admins.
+    """
+    from .models import SupportTicket
+    from .services.notification import send_bot_notification
+
+    ticket = SupportTicket(
+        user_id=user.id,
+        topic=payload.topic,
+        message=payload.message,
+        status="open"
+    )
+    db.add(ticket)
+    db.commit()
+
+    # Notify Admins via Bot
+    admin_ids = [int(i) for i in os.getenv("BOT_ADMIN_IDS", "").split(",") if i.strip()]
+    for admin_id in admin_ids:
+        msg = (
+            f"🎫 <b>Новый тикет!</b>\n"
+            f"От: {user.full_name} (@{user.username or '—'})\n"
+            f"Тема: {payload.topic}\n\n"
+            f"{payload.message}"
+        )
+        asyncio.create_task(send_bot_notification(admin_id, msg))
+
+    return {"status": "ok", "ticket_id": str(ticket.id)}
+
+
+class AdminUserUpdateDays(BaseModel):
+    days: int
+
+class AdminUserUpdateBalance(BaseModel):
+    amount: float
+
+@app.post("/api/admin/users/{user_id}/subscription/add-days")
+def admin_add_subscription_days(
+    user_id: str, 
+    payload: AdminUserUpdateDays,
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Manually extend user subscription.
+    """
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+        
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    now = datetime.now(timezone.utc)
+    current_end = user.subscription_active_until
+    if current_end and current_end.tzinfo is None:
+        current_end = current_end.replace(tzinfo=timezone.utc)
+        
+    if current_end and current_end > now:
+        user.subscription_active_until = current_end + timedelta(days=payload.days)
+    else:
+        user.subscription_active_until = now + timedelta(days=payload.days)
+        
+    db.commit()
+    return {"status": "ok", "new_date": format_datetime(user.subscription_active_until)}
+
+@app.post("/api/admin/users/{user_id}/balance/add")
+def admin_add_balance(
+    user_id: str,
+    payload: AdminUserUpdateBalance,
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Manually add credits/money to user balance.
+    """
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from decimal import Decimal
+    user.balance += Decimal(payload.amount)
+    db.commit()
+    return {"status": "ok", "new_balance": float(user.balance)}
+
+class AdminUserOut(BaseModel):
+    id: str
+    telegram_id: int
+    full_name: Optional[str]
+    username: Optional[str]
+    balance: float
+    subscription_active_until: Optional[str]
+    created_at: str
+    is_partner: bool
+    referral_code: Optional[str]
+
+@app.get("/api/admin/users", response_model=List[AdminUserOut])
+def list_admin_users(
+    limit: int = 50, 
+    q: Optional[str] = None, 
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: List Telegram users for admin management.
+    """
+    query = db.query(User)
+    if q:
+        search = f"%{q}%"
+        query = query.filter(
+            or_(
+                User.full_name.ilike(search),
+                User.username.ilike(search),
+                User.referral_code.ilike(search)
+            )
+        )
+    
+    users = query.order_by(User.created_at.desc()).limit(limit).all()
+    
+    return [
+        {
+            "id": str(u.id),
+            "telegram_id": u.telegram_id,
+            "full_name": u.full_name,
+            "username": u.username,
+            "balance": float(u.balance),
+            "subscription_active_until": format_datetime(u.subscription_active_until),
+            "created_at": format_datetime(u.created_at),
+            "is_partner": u.is_partner,
+            "referral_code": u.referral_code
+        }
+        for u in users
+    ]
 
 
 class AdminClientDetailOut(BaseModel):
@@ -606,12 +817,21 @@ def format_report_subtitle(client_name: str) -> str:
     return client_name or "Natal Report"
 
 
-def parse_birth_datetime(value: Optional[str]) -> Optional[datetime]:
+def parse_birth_datetime(value: Optional[str], tz_str: Optional[str] = None) -> Optional[datetime]:
     if not value:
         return None
     try:
         parsed = datetime.fromisoformat(value)
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        if parsed.tzinfo:
+            return parsed
+            
+        if tz_str:
+            try:
+                return parsed.replace(tzinfo=ZoneInfo(tz_str))
+            except Exception:
+                pass
+            
+        return parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
@@ -681,7 +901,6 @@ def get_report_or_404(report_id: str, db: Session) -> Report:
 def upsert_client_from_payload(
     payload: ReportWorkflowRequest, db: Session
 ) -> Client:
-    birth_dt = parse_birth_datetime(payload.birth_date)
     if payload.client_id:
         try:
             client_uuid = uuid.UUID(payload.client_id)
@@ -692,17 +911,51 @@ def upsert_client_from_payload(
         if not client:
             raise HTTPException(status_code=404, detail="Client not found.")
 
-        client.full_name = payload.client_name
-        client.notes = payload.client_note
-        client.birth_datetime = birth_dt
-        client.birth_location = payload.birth_location
-        client.birth_lat = payload.birth_lat
-        client.birth_lon = payload.birth_lon
-        client.birth_timezone = payload.birth_timezone
-        client.birth_place_id = payload.birth_place_id
+        # Update fields if provided
+        if payload.client_name:
+            client.full_name = payload.client_name
+        if payload.client_note is not None:
+            client.notes = payload.client_note
+        
+        if payload.birth_date:
+            client.birth_datetime = parse_birth_datetime(payload.birth_date, payload.birth_timezone)
+        if payload.birth_location:
+            client.birth_location = payload.birth_location
+        if payload.birth_lat is not None:
+            client.birth_lat = payload.birth_lat
+        if payload.birth_lon is not None:
+            client.birth_lon = payload.birth_lon
+        if payload.birth_timezone:
+            client.birth_timezone = payload.birth_timezone
+        if payload.birth_place_id:
+            client.birth_place_id = payload.birth_place_id
+        
+        if payload.is_test:
+            client.is_test = True
+            
         db.add(client)
+        
+        # Backfill payload from client data (crucial for report context)
+        if not payload.client_name: 
+            payload.client_name = client.full_name
+        if not payload.birth_date and client.birth_datetime: 
+            payload.birth_date = client.birth_datetime.isoformat()
+        if not payload.birth_location: 
+            payload.birth_location = client.birth_location
+        if payload.birth_lat is None: 
+            payload.birth_lat = client.birth_lat
+        if payload.birth_lon is None: 
+            payload.birth_lon = client.birth_lon
+        if not payload.birth_timezone: 
+            payload.birth_timezone = client.birth_timezone
+            
         return client
 
+    # New Client Mode
+    if not payload.client_name or not payload.birth_date or not payload.birth_location:
+        raise HTTPException(status_code=400, detail="Missing required client fields (name, date, location).")
+
+    birth_dt = parse_birth_datetime(payload.birth_date, payload.birth_timezone)
     client = Client(
         full_name=payload.client_name,
         notes=payload.client_note,
@@ -712,6 +965,7 @@ def upsert_client_from_payload(
         birth_lon=payload.birth_lon,
         birth_timezone=payload.birth_timezone,
         birth_place_id=payload.birth_place_id,
+        is_test=payload.is_test,
     )
     db.add(client)
     return client
@@ -805,13 +1059,12 @@ async def run_report_generation(
         payload = ReportWorkflowRequest.model_validate(payload_data)
         llm_mode = resolve_llm_mode(payload)
         llm_client = None
-        if llm_mode == "openrouter":
-            llm_client = OpenRouterClient.from_env(
-                model_override=resolve_primary_model(payload.report_type)
+        if llm_mode in {"openrouter", "cheap", "cli", "gemini", "codex"}:
+            model_override = (
+                resolve_primary_model(payload.report_type) if llm_mode == "openrouter" else None
             )
-        elif llm_mode == "cheap":
-            llm_client = OpenRouterClient.from_env(mode="cheap")
-            
+            llm_client = build_llm_client(llm_mode, model_override=model_override)
+
         generated_sections, _, _ = await generate_report_sections(
             report,
             payload,
@@ -823,6 +1076,19 @@ async def run_report_generation(
         )
         if report.status == "completed":
             finish_report_run(run, db, "completed")
+            log_analytics_event(
+                db,
+                "report_generated",
+                user_id=report.user_id,
+                telegram_id=None,
+                source="backend",
+                metadata={
+                    "report_id": str(report.id),
+                    "report_type": report.report_type,
+                    "client_id": str(report.client_id),
+                },
+            )
+
             logger.info(
                 "report.async.complete",
                 block_id="REPORT_ASYNC",
@@ -878,6 +1144,17 @@ async def run_report_section_generation(
         run = start_report_run(report, db)
         payload = ReportWorkflowRequest.model_validate(payload_data)
         llm_mode = resolve_llm_mode(payload)
+
+        llm_client = None
+        if llm_mode in {"openrouter", "cheap", "cli", "gemini", "codex"}:
+            try:
+                model_override = (
+                    resolve_primary_model(payload.report_type) if llm_mode == "openrouter" else None
+                )
+                llm_client = build_llm_client(llm_mode, model_override=model_override)
+            except ValueError as exc:
+                logger.warning("llm.init.error", error=str(exc))
+
         section_specs = build_section_specs(payload)
         target_spec = next(
             (spec for spec in section_specs if spec.section_id == section_id),
@@ -893,10 +1170,14 @@ async def run_report_section_generation(
             report.error_at = datetime.now(timezone.utc)
             db.commit()
             finish_report_run(run, db, "failed", error_message=report.error_message)
-            return
-
         chart_data = build_chart_data(payload)
         context = build_report_context(payload, chart_data)
+
+        # Context Anonymization
+        section_context = copy.deepcopy(context)
+        if section_id != "input_frame":
+            section_context["client"]["name"] = "Ты"
+            section_context["client"]["note"] = ""
 
         chunk_map = initialize_report_chunks(report, section_specs, db, reset=False)
         report.status = "in_progress"
@@ -912,29 +1193,21 @@ async def run_report_section_generation(
 
         error_message = None
         retry_attempts = resolve_llm_retry_attempts()
-        fallback_model = resolve_llm_fallback_model()
+        fallback_model = ""
+        if llm_mode in {"openrouter", "cheap"}:
+            fallback_model = resolve_llm_fallback_model()
+        use_template = llm_mode == "fallback"
+
         try:
-            if llm_mode == "fallback":
-                content = inject_planet_emojis(
-                    build_section_template_content(target_spec)
-                )
-            else:
-                if llm_mode == "cheap":
-                    llm_client = OpenRouterClient.from_env(mode="cheap")
-                else:
-                    llm_client = OpenRouterClient.from_env(
-                        model_override=resolve_primary_model(payload.report_type)
-                    )
-                
-                result = await asyncio.to_thread(
-                    generate_section_with_retries,
-                    target_spec,
-                    context,
-                    primary_client=llm_client,
-                    fallback_model=fallback_model,
-                    max_attempts=retry_attempts,
-                )
-                content = inject_planet_emojis(result.content)
+            content = await generate_section_content(
+                target_spec,
+                section_context,
+                chart_data,
+                llm_client,
+                fallback_model,
+                retry_attempts,
+                use_template
+            )
         except Exception as exc:
             if should_fallback_on_llm_error(exc):
                 error_message = str(exc)
@@ -966,7 +1239,6 @@ async def run_report_section_generation(
                     error=str(exc),
                 )
                 return
-
         if target_chunk:
             target_chunk.content = content
             target_chunk.status = "completed"
@@ -1038,34 +1310,24 @@ async def run_report_section_generation(
         db.close()
 
 
-@app.post("/api/workflows/report/async", response_model=ReportWorkflowStartResponse)
-def run_report_workflow_async(
-    payload: ReportWorkflowRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    """
-    # PURPOSE: Queue report generation in the background.
-    # INPUT: ReportWorkflowRequest payload.
-    # OUTPUT: ReportWorkflowStartResponse with report metadata.
-    # CONTEXT: Returns quickly to avoid UI lockups.
-    """
-
-    llm_mode = resolve_llm_mode(payload)
-    if llm_mode in ("openrouter", "cheap"):
-        try:
-            OpenRouterClient.from_env(mode="cheap" if llm_mode == "cheap" else "smart")
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     client = upsert_client_from_payload(payload, db)
     db.flush()
 
+    # ENTITLEMENT CHECK
+    from .services.access_control import check_user_access
+    if not check_user_access(user, payload.report_type):
+        raise HTTPException(
+            status_code=402, 
+            detail="Subscription expired. Please top up balance or extend subscription."
+        )
+
     report = Report(
         client_id=client.id,
+        user_id=user.id,
         report_type=payload.report_type,
         status="in_progress",
         paid=False,
+        is_test=client.is_test,
     )
     report.input_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
     db.add(report)
@@ -1086,25 +1348,24 @@ def run_report_workflow_async(
     }
 
 
-@app.post("/api/workflows/report", response_model=ReportWorkflowResponse)
-async def run_report_workflow(
-    payload: ReportWorkflowRequest, db: Session = Depends(get_db)
-):
-    """
-    # PURPOSE: Run the full workflow: client -> raw chart -> LLM sections -> markdown.
-    # INPUT: ReportWorkflowRequest payload.
-    # OUTPUT: ReportWorkflowResponse with markdown and sections.
-    # CONTEXT: End-to-end MVP path for report generation.
-    """
-
     client = upsert_client_from_payload(payload, db)
     db.flush()
 
+    # ENTITLEMENT CHECK
+    from .services.access_control import check_user_access
+    if not check_user_access(user, payload.report_type):
+        raise HTTPException(
+            status_code=402, 
+            detail="Subscription expired. Please top up balance or extend subscription."
+        )
+
     report = Report(
         client_id=client.id,
+        user_id=user.id,
         report_type=payload.report_type,
         status="in_progress",
         paid=False,
+        is_test=client.is_test,
     )
     report.input_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
     db.add(report)
@@ -1113,11 +1374,12 @@ async def run_report_workflow(
     # LLM Setup
     llm_mode = resolve_llm_mode(payload)
     llm_client = None
-    if llm_mode in ("openrouter", "cheap"):
+    if llm_mode in {"openrouter", "cheap", "cli", "gemini", "codex"}:
         try:
-            llm_client = OpenRouterClient.from_env(
-                mode="cheap" if llm_mode == "cheap" else "smart"
+            model_override = (
+                resolve_primary_model(payload.report_type) if llm_mode == "openrouter" else None
             )
+            llm_client = build_llm_client(llm_mode, model_override=model_override)
         except ValueError as exc:
             db.rollback()
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1142,6 +1404,18 @@ async def run_report_workflow(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     finish_report_run(run, db, "completed")
+    log_analytics_event(
+        db,
+        "report_generated",
+        user_id=user.id,
+        telegram_id=user.telegram_id,
+        source="backend",
+        metadata={
+            "report_id": str(report.id),
+            "report_type": report.report_type,
+            "client_id": str(report.client_id),
+        },
+    )
 
     return {
         "report_id": str(report.id),
@@ -1169,11 +1443,12 @@ async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
 
     llm_mode = resolve_llm_mode(payload)
     llm_client = None
-    if llm_mode in ("openrouter", "cheap"):
+    if llm_mode in {"openrouter", "cheap", "cli", "gemini", "codex"}:
         try:
-            llm_client = OpenRouterClient.from_env(
-                mode="cheap" if llm_mode == "cheap" else "smart"
+            model_override = (
+                resolve_primary_model(payload.report_type) if llm_mode == "openrouter" else None
             )
+            llm_client = build_llm_client(llm_mode, model_override=model_override)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1273,16 +1548,12 @@ async def regenerate_report_section(
 
     llm_mode = resolve_llm_mode(payload)
     llm_client = None
-    if llm_mode in ("openrouter", "cheap"):
+    if llm_mode in {"openrouter", "cheap", "cli", "gemini", "codex"}:
         try:
-            model_override = None
-            if llm_mode != "cheap":
-                model_override = resolve_primary_model(payload.report_type)
-            
-            llm_client = OpenRouterClient.from_env(
-                mode="cheap" if llm_mode == "cheap" else "smart",
-                model_override=model_override
+            model_override = (
+                resolve_primary_model(payload.report_type) if llm_mode == "openrouter" else None
             )
+            llm_client = build_llm_client(llm_mode, model_override=model_override)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1290,6 +1561,12 @@ async def regenerate_report_section(
     try:
         chart_data = build_chart_data(payload)
         context = build_report_context(payload, chart_data)
+
+        # Context Anonymization
+        section_context = copy.deepcopy(context)
+        if section_id != "input_frame":
+            section_context["client"]["name"] = "Ты"
+            section_context["client"]["note"] = ""
 
         chunk_map = initialize_report_chunks(report, section_specs, db, reset=False)
         report.status = "in_progress"
@@ -1304,34 +1581,35 @@ async def regenerate_report_section(
                 target_chunk.error_at = None
             db.commit()
 
-            if llm_mode == "fallback":
-                generated_sections = [
-                    SectionResultOut(
-                        section_id=target_spec.section_id,
-                        title=target_spec.title,
-                        content=inject_planet_emojis(
-                            build_section_template_content(target_spec)
-                        ),
-                    )
-                ]
-            else:
-                retry_attempts = resolve_llm_retry_attempts()
+            retry_attempts = resolve_llm_retry_attempts()
+            fallback_model = ""
+            if llm_mode in {"openrouter", "cheap"}:
                 fallback_model = resolve_llm_fallback_model()
-                result = await asyncio.to_thread(
-                    generate_section_with_retries,
-                    target_spec,
-                    context,
-                    primary_client=llm_client,
-                    fallback_model=fallback_model,
-                    max_attempts=retry_attempts,
+            use_template = llm_mode == "fallback"
+
+            content = await generate_section_content(
+                target_spec,
+                section_context,
+                chart_data,
+                llm_client,
+                fallback_model,
+                retry_attempts,
+                use_template
+            )
+            
+            logger.info("regen.result", section_id=target_spec.section_id, content_len=len(content))
+
+            if not content:
+                content = "Content generation failed (empty result)."
+                logger.error("regen.empty_content", section=target_spec.section_id)
+
+            generated_sections = [
+                SectionResultOut(
+                    section_id=target_spec.section_id,
+                    title=target_spec.title,
+                    content=content,
                 )
-                generated_sections = [
-                    SectionResultOut(
-                        section_id=result.section_id,
-                        title=result.title,
-                        content=inject_planet_emojis(result.content),
-                    )
-                ]
+            ]
         except Exception as exc:
             if target_chunk:
                 target_chunk.status = "failed"
@@ -1459,34 +1737,95 @@ def regenerate_report_section_async(
 
 
 @app.get("/api/admin/stats", response_model=AdminStatsOut)
-def get_admin_stats(db: Session = Depends(get_db)):
+def get_admin_stats(
+    days: int = 7,
+    show_test: bool = False,
+    db: Session = Depends(get_db),
+):
     """
     # PURPOSE: Return admin dashboard counters.
-    # INPUT: None.
+    # INPUT: days (window size).
     # OUTPUT: AdminStatsOut.
     # CONTEXT: Used by the admin UI dashboard.
     """
 
-    clients = db.query(func.count(Client.id)).scalar() or 0
-    reports_total = db.query(func.count(Report.id)).scalar() or 0
+    window_days = max(1, min(days, 30))
+    
+    clients_query = db.query(func.count(Client.id))
+    reports_query = db.query(Report)
+    
+    if not show_test:
+        clients_query = clients_query.filter(Client.is_test == False)
+        reports_query = reports_query.filter(Report.is_test == False)
+
+    clients = clients_query.scalar() or 0
+    reports_total = reports_query.count()
+    
     reports_in_progress = (
-        db.query(func.count(Report.id))
+        reports_query
         .filter(Report.status == "in_progress")
-        .scalar()
-        or 0
+        .count()
     )
     reports_completed = (
-        db.query(func.count(Report.id))
+        reports_query
         .filter(Report.status == "completed")
-        .scalar()
-        or 0
+        .count()
     )
     reports_failed = (
-        db.query(func.count(Report.id))
+        reports_query
         .filter(Report.status == "failed")
+        .count()
+    )
+
+    report_type_rows = (
+        reports_query
+        .with_entities(Report.report_type, func.count(Report.id))
+        .group_by(Report.report_type)
+        .all()
+    )
+    reports_by_type = {row[0]: int(row[1]) for row in report_type_rows}
+
+    today = datetime.now(timezone.utc).date()
+    start_date = today - timedelta(days=window_days - 1)
+    start_dt = datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc)
+    
+    daily_rows = (
+        reports_query
+        .with_entities(func.date(Report.created_at).label("day"), func.count(Report.id))
+        .filter(Report.created_at >= start_dt)
+        .group_by("day")
+        .order_by("day")
+        .all()
+    )
+    daily_map = {str(row[0]): int(row[1]) for row in daily_rows}
+    reports_daily = []
+    for offset in range(window_days):
+        day = start_date + timedelta(days=offset)
+        day_key = day.isoformat()
+        reports_daily.append(
+            {
+                "date": day_key,
+                "count": daily_map.get(day_key, 0),
+            }
+        )
+
+    tasks_total = db.query(func.count(AgentTask.id)).scalar() or 0
+    tasks_open = (
+        db.query(func.count(AgentTask.id))
+        .filter(AgentTask.status.in_(["queued", "approved", "running"]))
         .scalar()
         or 0
     )
+
+    analytics_rows = (
+        db.query(AnalyticsEvent.event_name, func.count(AnalyticsEvent.id))
+        .filter(AnalyticsEvent.created_at >= start_dt)
+        .group_by(AnalyticsEvent.event_name)
+        .all()
+    )
+    analytics_funnel = {name: 0 for name in ALLOWED_ANALYTICS_EVENTS}
+    for name, count in analytics_rows:
+        analytics_funnel[name] = int(count)
 
     return {
         "clients": clients,
@@ -1494,6 +1833,125 @@ def get_admin_stats(db: Session = Depends(get_db)):
         "reports_in_progress": reports_in_progress,
         "reports_completed": reports_completed,
         "reports_failed": reports_failed,
+        "reports_by_type": reports_by_type,
+        "reports_daily": reports_daily,
+        "tasks_open": tasks_open,
+        "tasks_total": tasks_total,
+        "analytics_funnel": analytics_funnel,
+        "window_days": window_days,
+    }
+
+
+@app.get("/api/admin/tasks", response_model=List[AdminTaskOut])
+def get_admin_tasks(
+    limit: int = 50,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Return recent operator tasks from the bot.
+    # INPUT: limit, status.
+    # OUTPUT: List of AdminTaskOut.
+    # CONTEXT: Used by the admin dashboard.
+    """
+
+    query = db.query(AgentTask).order_by(AgentTask.created_at.desc())
+    if status:
+        query = query.filter(AgentTask.status == status)
+    tasks = query.limit(limit).all()
+
+    payload = []
+    for task in tasks:
+        payload.append(
+            {
+                "id": str(task.id),
+                "user_id": str(task.user_id) if task.user_id else None,
+                "telegram_id": task.telegram_id,
+                "status": task.status,
+                "source": task.source,
+                "transcript": task.transcript,
+                "summary": task.summary,
+                "clarification": task.clarification,
+                "voice_file_id": task.voice_file_id,
+                "report_id": str(task.report_id) if task.report_id else None,
+                "result_summary": task.result_summary,
+                "error_message": task.error_message,
+                "created_at": format_datetime(task.created_at),
+                "updated_at": format_datetime(task.updated_at),
+                "approved_at": format_datetime(task.approved_at),
+                "completed_at": format_datetime(task.completed_at),
+            }
+        )
+    return payload
+
+
+@app.patch("/api/admin/tasks/{task_id}", response_model=AdminTaskOut)
+def update_admin_task(
+    task_id: str,
+    payload: AdminTaskUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Update a task created via the bot.
+    # INPUT: task_id, update payload.
+    # OUTPUT: Updated task.
+    # CONTEXT: Used by admin UI and automation.
+    """
+
+    try:
+        task_uuid = uuid.UUID(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid task id.") from exc
+
+    task = db.query(AgentTask).filter(AgentTask.id == task_uuid).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found.")
+
+    if payload.status is not None:
+        task.status = payload.status
+        if payload.status == "approved" and not task.approved_at:
+            task.approved_at = datetime.now(timezone.utc)
+        if payload.status in {"completed", "failed"} and not task.completed_at:
+            task.completed_at = datetime.now(timezone.utc)
+    if payload.summary is not None:
+        task.summary = payload.summary
+    if payload.clarification is not None:
+        task.clarification = payload.clarification
+    if payload.result_summary is not None:
+        task.result_summary = payload.result_summary
+    if payload.error_message is not None:
+        task.error_message = payload.error_message
+    if payload.report_id is not None:
+        if payload.report_id:
+            try:
+                task.report_id = uuid.UUID(payload.report_id)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400, detail="Invalid report id."
+                ) from exc
+        else:
+            task.report_id = None
+
+    db.commit()
+    db.refresh(task)
+
+    return {
+        "id": str(task.id),
+        "user_id": str(task.user_id) if task.user_id else None,
+        "telegram_id": task.telegram_id,
+        "status": task.status,
+        "source": task.source,
+        "transcript": task.transcript,
+        "summary": task.summary,
+        "clarification": task.clarification,
+        "voice_file_id": task.voice_file_id,
+        "report_id": str(task.report_id) if task.report_id else None,
+        "result_summary": task.result_summary,
+        "error_message": task.error_message,
+        "created_at": format_datetime(task.created_at),
+        "updated_at": format_datetime(task.updated_at),
+        "approved_at": format_datetime(task.approved_at),
+        "completed_at": format_datetime(task.completed_at),
     }
 
 
@@ -1530,18 +1988,34 @@ def serialize_client(client: Client) -> dict:
 
 @app.get("/api/admin/clients", response_model=List[AdminClientOut])
 def list_admin_clients(
-    limit: int = 25, offset: int = 0, db: Session = Depends(get_db)
+    limit: int = 25,
+    offset: int = 0,
+    q: Optional[str] = None,
+    show_test: bool = False,
+    db: Session = Depends(get_db)
 ):
     """
     # PURPOSE: Return clients with report summaries.
-    # INPUT: limit, offset.
+    # INPUT: limit, offset, q.
     # OUTPUT: List[AdminClientOut].
     # CONTEXT: Used by the admin UI clients list.
     """
 
+    query = db.query(Client)
+    if not show_test:
+        query = query.filter(Client.is_test == False)
+        
+    if q:
+        search = f"%{q}%"
+        query = query.filter(
+            or_(
+                Client.full_name.ilike(search),
+                Client.notes.ilike(search)
+            )
+        )
+
     rows = (
-        db.query(Client)
-        .order_by(Client.created_at.desc())
+        query.order_by(Client.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -1560,8 +2034,7 @@ def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends
 
     birth_dt = None
     try:
-        parsed = datetime.fromisoformat(payload.birth_date)
-        birth_dt = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        birth_dt = parse_birth_datetime(payload.birth_date, payload.birth_timezone)
     except ValueError:
         birth_dt = None
 
@@ -1574,6 +2047,7 @@ def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends
         birth_lon=payload.birth_lon,
         birth_timezone=payload.birth_timezone,
         birth_place_id=payload.birth_place_id,
+        is_test=payload.is_test,
     )
     db.add(client)
     db.commit()
@@ -1582,8 +2056,54 @@ def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends
     return serialize_client(client)
 
 
+@app.put("/api/admin/clients/{client_id}", response_model=AdminClientOut)
+def update_admin_client(
+    client_id: str,
+    payload: AdminClientCreateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Update existing client details.
+    # INPUT: client_id, payload.
+    # OUTPUT: Updated client.
+    """
+    try:
+        client_uuid = uuid.UUID(client_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid client id.") from exc
+
+    client = db.query(Client).filter(Client.id == client_uuid).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found.")
+
+    birth_dt = None
+    try:
+        if payload.birth_date:
+            birth_dt = parse_birth_datetime(payload.birth_date, payload.birth_timezone)
+    except ValueError:
+        pass
+
+    client.full_name = payload.client_name
+    client.notes = payload.client_note
+    client.birth_datetime = birth_dt
+    client.birth_location = payload.birth_location
+    client.birth_lat = payload.birth_lat
+    client.birth_lon = payload.birth_lon
+    client.birth_timezone = payload.birth_timezone
+    client.birth_place_id = payload.birth_place_id
+    client.is_test = payload.is_test
+
+    db.commit()
+    db.refresh(client)
+    return serialize_client(client)
+
+
 @app.get("/api/admin/clients/{client_id}", response_model=AdminClientDetailOut)
-def get_admin_client(client_id: str, db: Session = Depends(get_db)):
+def get_admin_client(
+    client_id: str, 
+    show_test: bool = False,
+    db: Session = Depends(get_db)
+):
     """
     # PURPOSE: Return client detail with related reports.
     # INPUT: client_id.
@@ -1604,12 +2124,15 @@ def get_admin_client(client_id: str, db: Session = Depends(get_db)):
     if not client:
         raise HTTPException(status_code=404, detail="Client not found.")
 
-    reports = (
+    reports_query = (
         db.query(Report)
         .filter(Report.client_id == client.id)
-        .order_by(Report.created_at.desc())
-        .all()
     )
+    
+    if not show_test:
+        reports_query = reports_query.filter(Report.is_test == False)
+        
+    reports = reports_query.order_by(Report.created_at.desc()).all()
 
     reports_payload = []
     for report in reports:
@@ -1635,9 +2158,103 @@ def get_admin_client(client_id: str, db: Session = Depends(get_db)):
     }
 
 
+class AdminTicketOut(BaseModel):
+    id: str
+    user_id: str
+    username: Optional[str]
+    topic: str
+    status: str
+    message: str
+    created_at: str
+
+@app.get("/api/admin/tickets", response_model=List[AdminTicketOut])
+def list_admin_tickets(
+    status: Optional[str] = None,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: List support tickets for admin.
+    """
+    from .models import SupportTicket
+    query = db.query(SupportTicket).order_by(SupportTicket.created_at.desc())
+    if status:
+        query = query.filter(SupportTicket.status == status)
+
+    tickets = query.limit(limit).all()
+
+    results = []
+    for t in tickets:
+        results.append({
+            "id": str(t.id),
+            "user_id": str(t.user_id),
+            "username": t.user.username if t.user else None,
+            "topic": t.topic,
+            "status": t.status,
+            "message": t.message,
+            "created_at": format_datetime(t.created_at)
+        })
+    return results
+
+
+class AdminBroadcastRequest(BaseModel):
+    """
+    # PURPOSE: Input payload for mass broadcasting messages.
+    # INPUT: text, image_url (optional).
+    """
+    text: str = Field(..., min_length=1)
+    image_url: Optional[str] = None
+
+
+@app.post("/api/admin/broadcast")
+async def admin_broadcast(
+    payload: AdminBroadcastRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Start a background task to broadcast a message to all users.
+    """
+    # We could also restrict this to admin users only if we had an admin check.
+    # For now, it's an internal admin-only endpoint by convention.
+
+    background_tasks.add_task(run_mass_broadcast, payload.text, payload.image_url)
+    return {"status": "broadcast_started"}
+
+
+async def run_mass_broadcast(text: str, image_url: Optional[str] = None):
+    """
+    # PURPOSE: Send messages to all Telegram users with batching.
+    """
+    from .services.notification import send_bot_notification
+    db = SessionLocal()
+    try:
+        # Get all users with telegram_id
+        users = db.query(User).filter(User.telegram_id.isnot(None)).all()
+        logger.info("broadcast.start", total_users=len(users))
+
+        batch_size = 20
+        for i in range(0, len(users), batch_size):
+            batch = users[i:i + batch_size]
+            tasks = []
+            for user in batch:
+                tasks.append(send_bot_notification(user.telegram_id, text, image_url))
+
+            await asyncio.gather(*tasks)
+            logger.info("broadcast.batch_sent", offset=i, size=len(batch))
+
+            # Wait 1 second between batches to stay under TG limits (30/sec)
+            await asyncio.sleep(1.0)
+
+        logger.info("broadcast.complete")
+    finally:
+        db.close()
+
+
 @app.get("/api/admin/reports", response_model=List[AdminReportOut])
 def list_admin_reports(
     status: Optional[str] = None,
+    show_test: bool = False,
     limit: int = 25,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -1650,6 +2267,10 @@ def list_admin_reports(
     """
 
     query = db.query(Report).order_by(Report.created_at.desc())
+    
+    if not show_test:
+        query = query.filter(Report.is_test == False)
+
     if status:
         query = query.filter(Report.status == status)
     rows = query.offset(offset).limit(limit).all()
@@ -1758,11 +2379,22 @@ def get_admin_report(
         "chunk_count": len(report.chunks),
     }
 
+    chart_svg = None
+    if include_content:
+        try:
+            payload_model = load_report_payload(report)
+            chart_data = build_chart_data(payload_model)
+            chart_svg = build_natal_chart_svg(chart_data)
+            logger.info("admin.svg.generated", report_id=str(report.id), svg_len=len(chart_svg or ""))
+        except Exception as e:
+            logger.warning("admin.svg.gen_failed", report_id=str(report.id), error=str(e))
+
     return {
         "report": report_payload,
         "chunks": chunks_payload,
         "runs": runs_payload,
         "markdown": markdown if include_content else None,
+        "chart_svg": chart_svg if include_content else None
     }
 
 
@@ -1864,40 +2496,35 @@ def get_admin_report_markdown(report_id: str, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/api/admin/reports/{report_id}/pdf")
-def get_admin_report_pdf(report_id: str, db: Session = Depends(get_db)):
+def _generate_pdf_response(report: Report) -> Response:
     """
-    # PURPOSE: Return report content as PDF.
-    # INPUT: report_id.
-    # OUTPUT: PDF binary response.
-    # CONTEXT: Used by admin UI for downloads.
+    # PURPOSE: Internal helper to build PDF response from Report.
+    # SHARED by: Admin and User PDF endpoints.
     """
+    # 1. Assemble HTML Body
+    payload_data = safe_load_report_payload_data(report)
+    section_specs = load_section_specs_for_report(report, payload_data)
+    chunk_map = {chunk.section: chunk for chunk in report.chunks}
+    
+    html_parts = []
+    for spec in section_specs:
+        chunk = chunk_map.get(spec.section_id)
+        if chunk and chunk.content:
+            # Convert JSON blocks or Markdown to HTML
+            section_content_html = convert_chunk_to_html(chunk.content)
+            
+            # Wrap in section and add Title (mimic assemble_markdown behavior)
+            html_parts.append(f"<div class='section' id='{spec.section_id}'>")
+            html_parts.append(f"<h2>{spec.title}</h2>")
+            html_parts.append(section_content_html)
+            html_parts.append("</div>")
+            
+    body_html = "".join(html_parts)
+    if not body_html:
+        body_html = "<p>Отчет не содержит данных.</p>"
 
-    report = get_report_or_404(report_id, db)
-    markdown = None
-    for chunk in report.chunks:
-        if chunk.section == "final_markdown":
-            markdown = chunk.content or ""
-            break
-
-    if not markdown:
-        payload_data = safe_load_report_payload_data(report)
-        section_specs = load_section_specs_for_report(report, payload_data)
-        chunk_map = {chunk.section: chunk for chunk in report.chunks}
-        try:
-            markdown = assemble_markdown_from_specs(
-                report.report_type, section_specs, chunk_map
-            )
-        except Exception as exc:
-            logger.error(
-                "report.markdown.error",
-                block_id="REPORT_PDF",
-                report_id=str(report.id),
-                error=str(exc),
-            )
-            markdown = f"# Report: {report.report_type}\n\n"
-
-    payload_data = safe_load_report_payload_data(report) or {}
+    # 2. Metadata for Cover
+    payload_data = payload_data or {}
     client_name = payload_data.get("client_name") or (
         report.client.full_name if report.client else ""
     )
@@ -1914,29 +2541,73 @@ def get_admin_report_pdf(report_id: str, db: Session = Depends(get_db)):
         meta_lines.append(line)
     elif client_name:
         meta_lines.append(client_name)
-    if client_name and translit_name and translit_name != client_name:
-        meta_lines.append(client_name)
+    
+    meta_lines.append(format_datetime(datetime.now(timezone.utc)))
 
-    chart_svg = ""
+    # 3. Chart SVG
+    chart_svg = None
     try:
-        payload_model = ReportWorkflowRequest.model_validate(payload_data)
+        # Re-build chart data for SVG
+        payload_model = load_report_payload(report)
         chart_data = build_chart_data(payload_model)
         chart_svg = build_natal_chart_svg(chart_data)
-    except Exception:
-        chart_svg = ""
+    except Exception as e:
+        logger.warning("pdf.chart_svg.error", error=str(e))
 
-    body_html = markdown_to_html(markdown or "")
-    html = build_report_html(
+    # 4. Build PDF
+    html_content = build_report_html(
         title=title,
         subtitle=subtitle,
         meta_lines=meta_lines,
-        chart_svg=chart_svg,
+        chart_svg=chart_svg or "",
         body_html=body_html,
     )
-    pdf_bytes = html_to_pdf(html)
-    filename = f"report-{report_id}.pdf"
+    
+    try:
+        pdf_bytes = html_to_pdf(html_content)
+    except Exception as e:
+        logger.error("pdf.gen.error", error=str(e))
+        raise HTTPException(status_code=500, detail="PDF generation failed")
+
+    filename = f"report-{report.id}.pdf"
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers=headers,
+    )
+
+
+@app.get("/api/reports/{report_id}/pdf")
+def get_user_report_pdf(
+    report_id: str, 
+    user: User = Depends(get_current_user_from_query),
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Download PDF for the owner of the report.
+    # AUTH: Query param (initData).
+    """
+    report = get_report_or_404(report_id, db)
+    
+    # Security Check: User must own the report
+    if report.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this report")
+        
+    return _generate_pdf_response(report)
+
+
+@app.get("/api/admin/reports/{report_id}/pdf")
+def get_admin_report_pdf(report_id: str, db: Session = Depends(get_db)):
+    """
+    # PURPOSE: Return report content as PDF.
+    # INPUT: report_id.
+    # OUTPUT: PDF binary response.
+    # CONTEXT: Used by admin UI for downloads.
+    """
+
+    report = get_report_or_404(report_id, db)
+    return _generate_pdf_response(report)
 
 
 @app.get("/api/geo/autocomplete", response_model=List[GeoSuggestionOut])
@@ -1980,7 +2651,6 @@ def run_diagnostics_endpoint():
 
     return run_diagnostics()
 
-from .auth import get_current_user
 
 # #START_BLOCK_USER_ENDPOINTS
 class UserProfileOut(BaseModel):
@@ -1994,6 +2664,7 @@ class UserProfileOut(BaseModel):
     birth_date: Optional[str]
     birth_place: Optional[str]
     referral_code: Optional[str]
+    referrals_count: int = 0
 
 @app.get("/api/users/me", response_model=UserProfileOut)
 def get_my_profile(
@@ -2006,12 +2677,13 @@ def get_my_profile(
     # OUTPUT: User profile JSON.
     """
     if not user.referral_code:
-        from .services.code_gen import generate_referral_code
-        user.referral_code = generate_referral_code()
+        import random, string
+        chars = string.ascii_uppercase + string.digits
+        user.referral_code = ''.join(random.choice(chars) for _ in range(6))
         db.add(user)
         db.commit()
         db.refresh(user)
-    
+
     days_left = 0
     if user.subscription_active_until:
         if user.subscription_active_until.tzinfo:
@@ -2019,6 +2691,18 @@ def get_my_profile(
         else:
              delta = user.subscription_active_until - datetime.utcnow()
         days_left = max(0, delta.days)
+
+    from .models import Referral
+    referrals_count = db.query(Referral).filter(Referral.referrer_id == user.id).count()
+
+    log_analytics_event(
+        db,
+        "app_open",
+        user_id=user.id,
+        telegram_id=user.telegram_id,
+        source="webapp",
+        metadata={"endpoint": "/api/users/me"},
+    )
 
     return {
         "telegram_id": user.telegram_id,
@@ -2030,7 +2714,8 @@ def get_my_profile(
         "birth_time_known": user.birth_time_known,
         "birth_date": user.birth_date,
         "birth_place": user.birth_place,
-        "referral_code": user.referral_code
+        "referral_code": user.referral_code,
+        "referrals_count": referrals_count
     }
 
 class UserProfileUpdate(BaseModel):
@@ -2042,73 +2727,219 @@ class UserProfileUpdate(BaseModel):
     birth_lat: Optional[float] = None
     birth_lon: Optional[float] = None
 
-@app.put("/api/users/me", response_model=UserProfileOut)
+class AnalyticsEventIn(BaseModel):
+    event_name: str = Field(..., min_length=1)
+    telegram_id: Optional[int] = None
+    source: Optional[str] = None
+    metadata: Optional[dict] = None
+    session_id: Optional[str] = None
+    path: Optional[str] = None
+    product_type: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    duration_ms: Optional[int] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    device: Optional[str] = None
+    os: Optional[str] = None
+    browser: Optional[str] = None
+
+class AnalyticsEventOut(BaseModel):
+    ok: bool
+    error: Optional[str] = None
+
+@app.post("/api/analytics/event", response_model=AnalyticsEventOut)
+def capture_analytics_event(
+    payload: AnalyticsEventIn,
+    db: Session = Depends(get_db),
+    x_telegram_id: Optional[int] = Header(None, alias="X-Telegram-ID"),
+):
+    """
+    # PURPOSE: Capture a funnel analytics event from webapp or services.
+    # INPUT: event payload.
+    # OUTPUT: ok flag + optional error.
+    """
+    event_name = payload.event_name.strip()
+    if event_name not in ALLOWED_ANALYTICS_EVENTS:
+        return {"ok": False, "error": "invalid_event"}
+
+    telegram_id = payload.telegram_id or x_telegram_id
+    user_id = None
+    if telegram_id:
+        user = db.query(User).filter(User.telegram_id == telegram_id).first()
+        if user:
+            user_id = user.id
+
+    ok = log_analytics_event(
+        db,
+        event_name,
+        user_id=user_id,
+        telegram_id=telegram_id,
+        source=payload.source or "webapp",
+        metadata=payload.metadata,
+        session_id=payload.session_id,
+        path=payload.path,
+        product_type=payload.product_type,
+        price=payload.price,
+        currency=payload.currency,
+        duration_ms=payload.duration_ms,
+        utm_source=payload.utm_source,
+        utm_medium=payload.utm_medium,
+        utm_campaign=payload.utm_campaign,
+        device=payload.device,
+        os_name=payload.os,
+        browser=payload.browser
+    )
+    return {"ok": ok}
+
+@app.put("/api/users/me")
 def update_my_profile(
     payload: UserProfileUpdate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Update fields if provided
-    if payload.full_name is not None: user.full_name = payload.full_name
-    if payload.birth_date is not None: user.birth_date = payload.birth_date
-    if payload.birth_time is not None: user.birth_time = payload.birth_time
-    if payload.birth_time_known is not None: user.birth_time_known = payload.birth_time_known
-    if payload.birth_place is not None: user.birth_place = payload.birth_place
-    if payload.birth_lat is not None: user.birth_lat = payload.birth_lat
-    if payload.birth_lon is not None: user.birth_lon = payload.birth_lon
-    
-    # Merge if detached (though usually it's attached if session matches)
-    # Since we inject a new db session here, and get_current_user injects ANOTHER one...
-    # Warning: Different sessions.
-    # `get_current_user` has `db = Depends(get_db)`.
-    # `update_my_profile` has `db = Depends(get_db)`.
-    # FastAPI usually creates ONE session per request if the dependency is cached (default).
-    # So `db` should be the SAME session object.
-    
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    days_left = 0
-    if user.subscription_active_until:
-        if user.subscription_active_until.tzinfo:
-            delta = user.subscription_active_until - datetime.now(timezone.utc)
-        else:
-             delta = user.subscription_active_until - datetime.utcnow()
-        days_left = max(0, delta.days)
+    import sys
+    print(f"DEBUG: Entered update_my_profile with {payload}", file=sys.stderr)
+    try:
+        was_complete = bool(user.full_name and user.birth_date and user.birth_place)
+        # Update fields if provided
+        if payload.full_name is not None: user.full_name = payload.full_name
+        if payload.birth_date is not None: user.birth_date = payload.birth_date
+        if payload.birth_time is not None: user.birth_time = payload.birth_time
+        if payload.birth_time_known is not None: user.birth_time_known = payload.birth_time_known
+        if payload.birth_place is not None: user.birth_place = payload.birth_place
+        if payload.birth_lat is not None: user.birth_lat = payload.birth_lat
+        if payload.birth_lon is not None: user.birth_lon = payload.birth_lon
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        is_complete = bool(user.full_name and user.birth_date and user.birth_place)
+        if is_complete and not was_complete:
+            try:
+                log_analytics_event(
+                    db,
+                    "profile_fill",
+                    user_id=user.id,
+                    telegram_id=user.telegram_id,
+                    source="webapp",
+                    metadata={"endpoint": "/api/users/me"},
+                )
+            except Exception as e:
+                logger.error("analytics.fail", error=str(e))
+
+        days_left = 0
+        if user.subscription_active_until:
+            if user.subscription_active_until.tzinfo:
+                now = datetime.now(timezone.utc)
+            else:
+                now = datetime.utcnow()
+            
+            delta = user.subscription_active_until - now
+            days_left = max(0, delta.days)
+
+        return {
+            "telegram_id": user.telegram_id,
+            "full_name": user.full_name,
+            "is_partner": user.is_partner,
+            "balance": float(user.balance),
+            "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
+            "days_left": days_left,
+            "birth_time_known": user.birth_time_known,
+            "birth_date": user.birth_date,
+            "birth_place": user.birth_place,
+            "referral_code": user.referral_code,
+            "referrals_count": 0
+        }
+    except Exception as e:
+        import sys
+        print(f"ERROR in update_my_profile: {e}", file=sys.stderr)
+        with open("/tmp/backend_error.log", "w") as f:
+            f.write(str(e))
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+class UserReportOut(BaseModel):
+    id: str
+    report_type: str
+    status: str
+    created_at: str
+    client_name: str
+
+class ReportDetailOut(BaseModel):
+    report: UserReportOut
+    markdown: Optional[str]
+    chart_svg: Optional[str] = None
+
+@app.get("/api/reports/{report_id}", response_model=ReportDetailOut)
+def get_report_detail(
+    report_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: Get full report content for the owner.
+    """
+    try:
+        r_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid ID")
+
+    report = db.query(Report).filter(Report.id == r_uuid, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Get Markdown
+    markdown = None
+    for chunk in report.chunks:
+        if chunk.section == "final_markdown":
+            markdown = chunk.content
+            break
+
+    # Generate SVG if applicable
+    chart_svg = None
+    # For MVP, generate for all types that have chart data
+    try:
+        payload = load_report_payload(report)
+        chart_data = build_chart_data(payload)
+        chart_svg = build_natal_chart_svg(chart_data)
+    except Exception as e:
+        logger.warning("svg.gen_failed", report_id=str(report.id), error=str(e))
 
     return {
-        "telegram_id": user.telegram_id,
-        "full_name": user.full_name,
-        "is_partner": user.is_partner,
-        "balance": float(user.balance),
-        "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
-        "days_left": days_left,
-        "birth_time_known": user.birth_time_known,
-        "birth_date": user.birth_date,
-        "birth_place": user.birth_place
+        "report": {
+            "id": str(report.id),
+            "report_type": report.report_type,
+            "status": report.status,
+            "created_at": report.created_at.isoformat(),
+            "client_name": report.client.full_name if report.client else "Unknown"
+        },
+        "markdown": markdown,
+        "chart_svg": chart_svg
     }
-    
-    # Recalculate days left for response
-    days_left = 0
-    if user.subscription_active_until:
-        if user.subscription_active_until.tzinfo:
-            delta = user.subscription_active_until - datetime.now(timezone.utc)
-        else:
-             delta = user.subscription_active_until - datetime.utcnow()
-        days_left = max(0, delta.days)
 
-    return {
-        "telegram_id": user.telegram_id,
-        "full_name": user.full_name,
-        "is_partner": user.is_partner,
-        "balance": float(user.balance),
-        "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
-        "days_left": days_left,
-        "birth_time_known": user.birth_time_known,
-        "birth_date": user.birth_date,
-        "birth_place": user.birth_place
-    }
+@app.get("/api/reports/my", response_model=List[UserReportOut])
+def get_my_reports(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: List reports belonging to the current user.
+    # INPUT: Auth Dependency.
+    # OUTPUT: List of user reports.
+    """
+    reports = db.query(Report).filter(Report.user_id == user.id).order_by(Report.created_at.desc()).all()
+    return [
+        {
+            "id": str(r.id),
+            "report_type": r.report_type,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+            "client_name": r.client.full_name if r.client else "Unknown"
+        }
+        for r in reports
+    ]
 
 # #START_BLOCK_FEED_ENDPOINT
 class FeedOut(BaseModel):
@@ -2150,7 +2981,7 @@ async def get_daily_feed():
     """
     now = datetime.utcnow()
     engine_inst = StelliumEngine()
-    
+
     # Calculate simple transit for Moscow (default for MVP feed)
     house_system = engine_utils.resolve_house_system("placidus")
     chart = engine_inst.create_transit_chart(
@@ -2158,25 +2989,29 @@ async def get_daily_feed():
         "Moscow",
         house_system,
     )
-    
+
     moon = next((p for p in chart.positions if p.name == "Moon"), None)
     sun = next((p for p in chart.positions if p.name == "Sun"), None)
-    
+
     if not moon or not sun:
         raise HTTPException(status_code=500, detail="Could not calculate chart")
-    
+
     # Calculate Phase Angle
     angle = (moon.longitude - sun.longitude) % 360
     phase_name = get_phase_name(angle)
-    
+
+    # Calculate aspects
+    aspects = engine_inst.find_natal_aspects(chart)
+    aspect_summary = ", ".join([f"{a['p1']} {a['type']} {a['p2']}" for a in aspects[:5]]) or "Нет мажорных аспектов"
+
     # REAL LLM GENERATION (Cheap mode)
-    vibe = await get_daily_vibe_llm(moon.sign, phase_name, len(chart.aspects))
-    
+    vibe = await get_daily_vibe_llm(moon.sign, phase_name, aspect_summary)
+
     # Mock Traffic Lights based on aspects (Randomized for MVP demo based on day hash)
     day_seed = now.toordinal()
     import random
     random.seed(day_seed)
-    
+
     lights = {
         "health": random.choice(["green", "yellow", "red"]),
         "money": random.choice(["green", "yellow", "red"]),

@@ -48,9 +48,9 @@ def process_referral(referrer_id: uuid.UUID, new_user_id: uuid.UUID, db: Session
     
     now = datetime.now(timezone.utc)
     
-    # 4. Reward New User (Always +15 days from NOW)
-    # Task says: "Новичку всегда subscription_active_until = now + 15 days"
-    new_user.subscription_active_until = now + timedelta(days=15)
+    # 4. Reward New User (Always +14 days from NOW)
+    # Standard MVP Trial = 14 days.
+    new_user.subscription_active_until = now + timedelta(days=14)
     
     # 5. Reward Referrer
     if referrer.is_partner:
@@ -58,7 +58,7 @@ def process_referral(referrer_id: uuid.UUID, new_user_id: uuid.UUID, db: Session
         # We leave status as 'pending' to be processed by a future CPA batch job.
         referral.status = "pending"
     else:
-        # Regular user gets +15 days immediately
+        # Regular user gets +14 days immediately
         referral.status = "rewarded" 
         
         current_sub = referrer.subscription_active_until
@@ -67,9 +67,56 @@ def process_referral(referrer_id: uuid.UUID, new_user_id: uuid.UUID, db: Session
              current_sub = current_sub.replace(tzinfo=timezone.utc)
 
         if current_sub and current_sub > now:
-            referrer.subscription_active_until = current_sub + timedelta(days=15)
+            referrer.subscription_active_until = current_sub + timedelta(days=14)
         else:
-            referrer.subscription_active_until = now + timedelta(days=15)
+            referrer.subscription_active_until = now + timedelta(days=14)
             
     db.commit()
     return True
+
+def resolve_referrer(code: str, db: Session) -> User | None:
+    """
+    # PURPOSE: Find referrer user by code (supports 'ref_123' and 'u_CODE').
+    """
+    if not code:
+        return None
+        
+    # 1. Exact match (e.g. "u_ABC123" or just code if stored so)
+    user = db.query(User).filter(User.referral_code == code).first()
+    if user:
+        return user
+        
+    # 2. Try stripping prefixes
+    
+    # Handle "ref_" prefix (common in start params)
+    clean_code = code
+    if code.startswith("ref_"):
+        clean_code = code[4:] # Remove "ref_"
+        
+        # Try to find by code without "ref_"
+        user = db.query(User).filter(User.referral_code == clean_code).first()
+        if user:
+            return user
+            
+    # Handle "u_" prefix stripping if DB stores without "u_" (just in case)
+    # If input is "u_ABC" and DB has "ABC"
+    if clean_code.startswith("u_"):
+        stripped = clean_code[2:]
+        user = db.query(User).filter(User.referral_code == stripped).first()
+        if user:
+            return user
+
+    # 3. Legacy: ref_ID (Telegram ID)
+    # Only if we stripped "ref_" and failed to find by code string
+    if code.startswith("ref_"):
+        try:
+            tg_id_str = code.replace("ref_", "")
+            if tg_id_str.isdigit():
+                tg_id = int(tg_id_str)
+                user = db.query(User).filter(User.telegram_id == tg_id).first()
+                if user:
+                    return user
+        except ValueError:
+            pass
+            
+    return None
