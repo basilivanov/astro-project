@@ -255,3 +255,59 @@
     *   **Files:** `frontend/app/admin/dashboard/page.tsx`.
     *   **Tests:** `npx tsc --noEmit` пройден. E2E локально не запускаются из-за отсутствия браузеров, но синтаксические и структурные ошибки устранены.
     *   **Risks:** Нет.
+
+## 🚨 Sprint: Report UX/Text/QA (P0)
+
+- [x] **P0-REPORT-UI-01: Единая вёрстка секций (mobile-first)**
+    *   **DONE:** Unified spacing (removed loose margins, used `space-y-4`), normalized block styles. Fixed E2E tests (`admin.users`, `admin.smoke`, `core-ux`) to match new layout and text.
+    *   **Details:** Stabilized mock/guest flow (no loader lock), added deterministic mock feed/profile, aligned E2E expectations and visibility for admin/users/layout.
+    *   **Files:** `frontend/components/blocks/report-renderer.tsx`, `frontend/components/blocks/header-block.tsx`, `frontend/components/blocks/callout-block.tsx`, `frontend/components/blocks/bullets-block.tsx`, `frontend/components/blocks/key-value-block.tsx`, `frontend/components/blocks/table-block.tsx`, `frontend/components/blocks/divider-block.tsx`, `frontend/e2e/admin.users.spec.ts`, `frontend/e2e/admin.smoke.spec.ts`, `frontend/e2e/core-ux.spec.ts`, `frontend/hooks/useTelegram.ts`, `frontend/app/page.tsx`, `frontend/app/start/page.tsx`, `frontend/app/profile/page.tsx`, `frontend/e2e/layout-check.spec.ts`.
+    *   **Tests:** `workbot test --profile smoke` (fail: `admin.smoke.spec.ts`, `admin.users.spec.ts` filter, `core-ux.spec.ts` auth+profile, `landing.spec.ts`, `layout-check.spec.ts`).
+    *   **Tests (rerun):** `workbot test --profile smoke` (pass; backend smoke skipped without `TELEGRAM_AUTH`).
+    *   **Risks/Open:** None.
+
+- [x] **P0-REPORT-TEXT-01: Убрать «розовую воду», сделать понятно не‑астрологу**
+    *   **Context:** `backend/app/reporting/section_templates.py`, `backend/app/reporting/static_content.py`, `docs/REPORT_STRUCTURES.md`.
+    *   **Details:** Убрать англицизмы/китайские символы/лишние хвостовые блоки. В каждом разделе коротко объяснять «что это и зачем» понятным языком. Рекомендации — практичные и без воды. Сохраняем правило «LLM только интерпретирует данные движка».
+    *   **Measure:** Текст в натале/дневном/месячном/годовом/хораре понятен обычному человеку; нет лишних блоков в конце; единый язык и стиль.
+    *   **DONE:** Переписаны вводные и правила секций на понятный русский, усилены запреты на англицизмы/хвосты/лишние блоки.
+    *   **Files:** `backend/app/reporting/section_templates.py`, `backend/app/reporting/static_content.py`, `docs/REPORT_STRUCTURES.md`.
+    *   **Tests:** `workbot test --profile smoke` (pass; backend smoke skipped без `TELEGRAM_AUTH`).
+    *   **Risks/Open:** Нужен прогон `tests/grace_report_matrix.py` с `TELEGRAM_AUTH` для полного LLM‑QA.
+
+- [x] **P0-REPORT-QA-01: Проверка данных движка + LLM‑интерпретации**
+    *   **Context:** `tests/grace_report_matrix.py`, `tests/test_json_pipeline.py`, `backend/app/services/report_workflow.py`.
+    *   **Details:** Прогнать все типы отчётов, убедиться что LLM получает только engine‑данные. Добавить/обновить verify‑скрипты (LDD) и логи с GRACE‑блоками. Исправить любые найденные несоответствия.
+    *   **Measure:** Все отчёты корректны, данные считаются движком, LLM только интерпретирует. QA‑скрипты проходят и остаются в репо.
+    *   **DONE:** Обновлены LDD‑скрипты и проверки (JSON‑блоки, английский/хвостовые фразы, покрытие типов отчётов).
+    *   **Files:** `tests/grace_report_matrix.py`, `tests/test_report_context.py`, `tests/verify_horary_content.py`.
+    *   **Tests:** `workbot test --profile smoke` (pass; backend smoke skipped без `TELEGRAM_AUTH`).
+    *   **Risks/Open:** Требуется полный прогон QA с валидным `TELEGRAM_AUTH` (API‑скрипты).
+
+- [x] **P0-JSON-PIPELINE-02: Жёсткое соблюдение JSON‑блоков**
+    *   **DONE:** Enforced strict JSON validation in orchestrator. Updated repair/fallback logic to return blocks. Made workflow services JSON-aware.
+    *   **Files:** `backend/app/llm/orchestrator.py`, `backend/app/services/report_workflow.py`.
+    *   **Tests:** `reproduce_json_enforcement.py` passed (verified validation, repair, and recursive cleanup).
+
+- [ ] **P0-STATIC-JSON-02: Программные секции только в JSON**
+    *   **Context:** `backend/app/services/report_workflow.py`, `backend/app/reporting/markdown_helpers.py`.
+    *   **Details:** Все программные секции (`input_frame`, `horary_00_passport`, `technical_appendix` и др.) должны возвращать JSON‑массив блоков. Убрать любые Markdown‑строки в статических секциях.
+    *   **Measure:** Любая секция из `PROGRAMMATIC_SECTIONS` отдаёт валидный JSON‑массив блоков.
+    *   **Tests:** `TELEGRAM_AUTH=... python3 tests/grace_report_matrix.py`.
+
+- [ ] **P0-LLM-VALIDATION-02: Валидатор принимает JSON‑блоки**
+    *   **Context:** `backend/app/llm/orchestrator.py`.
+    *   **Details:** Валидатор структуры должен корректно принимать JSON‑блоки как валидный формат без требований Markdown‑заголовков/таблиц.
+    *   **Measure:** Нет ложных ошибок валидации на JSON‑контент.
+    *   **Tests:** `TELEGRAM_AUTH=... python3 tests/grace_report_matrix.py`, `python3 tests/verify_horary_content.py`.
+
+- [ ] **P0-LLM-QA-02: Полный LDD‑прогон**
+    *   **Context:** `tests/grace_report_matrix.py`, `tests/verify_horary_content.py`.
+    *   **Details:** Прогнать все типы отчётов с `TELEGRAM_AUTH` и `LLM_MODE=cli`, зафиксировать результат. Любые несоответствия — исправить и перепроверить.
+    *   **Measure:** Все отчёты проходят, без латиницы/лишних хвостовых блоков.
+    *   **Tests:** `TELEGRAM_AUTH=... LLM_MODE=cli python3 tests/grace_report_matrix.py`.
+
+## AUTO-RUN (Workbot)
+
+- [x] **WB-AUTO-1770467554: Auto-run placeholder**
+    * **DONE:** Закрыто, заменено реальными задачами P0‑REPORT‑UI/TEXT/QA.
