@@ -3,7 +3,7 @@
 # ROLE: Provide default section templates by report type.
 # DEPENDENCIES: backend/app/llm/orchestrator.py
 # GRACE_ANCHORS: [SECTION_TEMPLATES]
-# ############################################################################
+############################################################################
 
 from typing import List
 
@@ -13,19 +13,67 @@ from ..llm.orchestrator import SectionSpec
 # --- COMMON INSTRUCTIONS ---
 # All prompts now include explicit language instruction.
 RU_LANG_INSTRUCTION = (
-    "Ответь на русском языке. Используй Markdown. "
-    "Не дублируй заголовок раздела. "
-    "Структура: короткий вступительный абзац, затем 3-6 буллетов, "
-    "затем короткий блок `### 💡 Рекомендации` (2-4 пункта). "
-    "Выделяй ключевые слова жирным. Эмодзи допустимы."
+    "Ответь на русском языке. "
+    "КРИТИЧЕСКИ ВАЖНО: Используй пол клиента из поля `client.gender`. "
+    "Если пол женский — используй женские окончания (Ты способна, Ты пришла). "
+    "Если пол мужской — используй мужские окончания (Ты способен, Ты пришел). "
+    "Обращайся к клиенту СТРОГО на 'ТЫ'. "
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать имя клиента. "
+    "Для анализа используй данные из поля `facts` (структурированный JSON с позициями, домами и аспектами), "
+    "а также `chart` (полная JSON структура). Опирайся на факты, не выдумывай положения планет. "
+    "Не выполняй собственные расчеты: числа, проценты, сроки, положения и даты бери только из `facts`, `chart` или `*_forecast_data`. "
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать английские слова, латиницу и неологизмы (overthinking, overtdumping, rigid, soft skills). "
+    "Если слово на латинице неизбежно — переведи на русский. "
+    "ЗАПРЕЩЕНО оставлять пустые маркеры (• • •). "
+    "Пиши ясно, по делу, без «розовой воды» и эзотерики. "
+    "Если используешь термин — коротко объясни простыми словами в скобках. "
+    "Если блок технический — начни с 1-2 предложений, что это значит для человека без астрологии. "
+    "Рекомендации: 2-4 коротких действия, без метафор и украшений. "
+    "Проверь, что в текстовых полях нет латиницы и случайных символов."
 )
 
-NATAL_MASTER_COMMON = (
-    "Ответь на русском языке. Стиль и структура как в примере "
-    "Svetlana_Natal_Report.md. Не добавляй блоки "
-    "`О чем этот блок`, `Краткая карта блока`, `Рекомендации`, "
-    "если это не указано в задании секции. "
-    "Используй подзаголовки, списки и таблицы как в примере."
+JSON_FORMAT_INSTRUCTION = (
+    "ФОРМАТ ОТВЕТА: СТРОГО JSON МАССИВ БЛОКОВ.\n"
+    "Не возвращай Markdown текст. Возвращай ТОЛЬКО валидный JSON массив (Array).\n"
+    "Типы блоков:\n"
+    "- header {type='header', level=int, text=str}\n"
+    "- paragraph {type='paragraph', text=str} (можно использовать **bold** внутри текста)\n"
+    "- list {type='list', items=str[], ordered=bool}\n"
+    "- table {type='table', columns=[{header:str, width:str}], rows=[[str]]}\n"
+    "- key_value {type='key_value', items=[{key:str, value:str}]}\n"
+    "- callout {type='callout', variant='info'|'warning'|'error'|'success'|'quote', title=str, content=str}\n"
+    "- rating {type='rating', value=float, max=10, label=str}\n"
+    "- divider {type='divider'}\n"
+    "Пример: [{\"type\": \"header\", \"level\": 2, \"text\": \"Заголовок\"}, {\"type\": \"paragraph\", \"text\": \"Текст\"}]"
+)
+
+NO_EXTRA_BLOCKS_INSTRUCTION = (
+    "ЗАПРЕЩЕНО добавлять служебные хвостовые блоки и новые секции. "
+    "Не пиши фразы вроде 'Ключевой фокус', 'Потенциал', 'Риск и зона внимания', "
+    "'Ключевые факторы', 'Рекомендации' (если они не запрошены форматом секции). "
+    "Выводи только то, что требуется форматом секции."
+)
+
+EMOJI_RESTRICTION = (
+    "Эмодзи разрешены ТОЛЬКО из списков планет/знаков/стихий и ✅/❌ для вердикта. "
+    "Не используй декоративные эмодзи (🚨, 🔍, 💡 и др.)."
+)
+
+COSMOGRAM_INSTRUCTION = (
+    "Если в поле `client.birth_time_known` стоит `false`, значит время рождения НЕИЗВЕСТНО. "
+    "В ЭТОМ СЛУЧАЕ КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО упоминать любые дома (1-й дом, 7-й дом и т.д.), "
+    "куспиды домов и точки ASC, MC, DSC, IC, Вертекс. "
+    "Фокусируйся ТОЛЬКО на положениях планет в знаках и аспектах между ними (Космограмма)."
+)
+
+REPORT_JSON_COMMON = (
+    f"{RU_LANG_INSTRUCTION} "
+    f"{JSON_FORMAT_INSTRUCTION} "
+    f"{NO_EXTRA_BLOCKS_INSTRUCTION} "
+    f"{EMOJI_RESTRICTION} "
+    f"{COSMOGRAM_INSTRUCTION} "
+    "Не добавляй общие вступления. Фокусируйся на анализе данных. "
+    "Используй блоки `header` для подзаголовков, `paragraph` для текста, `list` для списков, `table` для таблиц, `callout` для акцентов."
 )
 
 PLANET_EMOJI_GUIDE = (
@@ -36,201 +84,183 @@ PLANET_EMOJI_GUIDE = (
     "Для осей используй: ⬆️ ASC, ⬇️ DSC, 🏠 IC, 🏔️ MC, ✴️ Вертекс."
 )
 
+ZODIAC_EMOJI_GUIDE = (
+    "Всегда используй эмодзи для знаков Зодиака: "
+    "♈ Овен, ♉ Телец, ♊ Близнецы, ♋ Рак, ♌ Лев, ♍ Дева, "
+    "♎ Весы, ♏ Скорпион, ♐ Стрелец, ♑ Козерог, ♒ Водолей, ♓ Рыбы."
+)
+
+ELEMENT_EMOJI_GUIDE = (
+    "Всегда используй эмодзи для стихий: 🔥 Огонь, 🌍 Земля, 💨 Воздух, 💧 Вода. "
+    "Для модальностей: 🚀 Кардинальность, ⚓ Фиксированность, 🌊 Мутабельность."
+)
+
 _NATAL_MASTER_SECTIONS = [
     SectionSpec(
-        section_id="input_frame",
-        title="1. Входные данные и расчет",
+        section_id="executive_summary",
+        title="Главное",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Дай блок как в примере: "
-            "Кверент, Дата рождения, Место рождения, Система домов. "
-            "Затем подзаголовок `### 🪐 Положение Планет (Фундамент)` и таблицу с колонками "
-            "`Планета | Знак Зодиака | Градус | Статус (Сила)`. "
-            "Статус указывай, если он известен по данным, иначе оставь пустым. "
-            "Затем подзаголовок `### 🏠 Угловые точки и Узлы` и таблицу "
-            "`Точка | Знак | Градус` (ASC, MC, Вертекс, Северный узел, Южный узел)."
-        ),
+            f"{REPORT_JSON_COMMON} "
+            "Сделай краткую выжимку 'О чем эта карта' для занятого человека. "
+            "Формат: 5-7 пунктов (используй блок list). "
+            "2 Сильные стороны (Суперсилы). "
+            "2 Риска/Ловушки (Где теряешь энергию). "
+            "1 Ключ к отношениям. "
+            "1 Ключ к деньгам. "
+            "1 Главный фокус развития."
+        )
+    ),
+    SectionSpec(
+        section_id="input_frame",
+        title="1. Данные рождения",
+        prompt="Это генерируется программно."
     ),
     SectionSpec(
         section_id="synthesis",
         title="2. Синтез (метафора и ядро)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай как в примере: блокquote с `**Метафора:**` и 1-2 абзаца раскрытия, "
-            "затем отдельной строкой `**Главный тезис:** ...`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Используй блок `callout` (variant='quote') для метафоры. "
+            "Затем 1-2 абзаца раскрытия (блок paragraph). "
+            "В конце блок paragraph со строкой `**Главный тезис:** ...`."
         ),
     ),
     SectionSpec(
         section_id="framework_elements_modes",
         title="3. Каркас (стихии и модальности)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Опиши баланс стихий и модальностей как в примере: "
-            "абзац о доминанте, затем буллеты: баланс стихий, дефицит, стиль жизни. "
-            "Обязательно строка `**Доминанта: ...**` и строка "
-            "`**Твой девиз по Каркасу:** *...*`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} {ELEMENT_EMOJI_GUIDE} "
+            "Опиши темперамент. Используй блок `table` для 'Баланса Сил':\n"
+            "Колонки: Стихия/Модальность, %, Характеристика.\n"
+            "Затем добавь блоки `paragraph` для Доминанты, Баланса, Дефицита и Стиля жизни."
         ),
     ),
     SectionSpec(
         section_id="axes_truths",
         title="4. Оси (две правды)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай 4 оси как в примере, в виде нумерованного списка. "
-            "Оси: ⬆️ ASC-⬇️ DSC, 🏠 IC-🏔️ MC, 2-8, 3-9. "
-            "Для каждой оси дай буллеты: "
-            "`Твоя правда:`, `Правда партнера:`, `Задача:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Опиши 4 главные оси. Для каждой оси используй `header` (level 3) и список `list` с пунктами: Твоя правда, Правда партнера, Задача."
         ),
     ),
     SectionSpec(
         section_id="aspects_beginner",
         title="5. Аспекты для новичка",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай блок как в примере: 4-6 аспектов, каждый с подзаголовком "
-            "формата `#### 1. ... — «...»`. "
-            "Для каждого аспекта используй строки: "
-            "`Якорь:`, `Сценарий:`, `Ресурс:`, `Тень:`, `Ключ:`, `Вопрос:`. "
-            "Не используй поле `Перевод`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй ТОЛЬКО данные из `chart.aspects`. Выбери 4-6 самых точных аспектов (орбис < 3). "
+            "Для каждого аспекта: `header` (level 3) и `list` с пунктами: Якорь, Сценарий, Ресурс, Тень, Ключ."
         ),
     ),
     SectionSpec(
         section_id="configurations_geometry",
         title="6. Конфигурации (геометрия)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай как в примере: краткий ввод, затем 1-3 конфигурации. "
-            "Каждая конфигурация с заголовком `#### **Конфигурация: ...**` и буллетами: "
-            "`Геометрия:`, `Дар:`, `Риск:`, `Ключ:`, `Вопрос:`. "
-            "В конце блок `#### **Заметки на полях:**`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй ТОЛЬКО данные из `chart.patterns`. Если список пуст, напиши в `paragraph`, что жестких конфигураций нет. "
+            "Для каждой фигуры: `header` (level 3) и `list` с пунктами: Геометрия, Дар, Риск, Ключ."
         ),
     ),
     SectionSpec(
         section_id="dispositor_office",
         title="7. Диспозиторная логика",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Объясни диспозиторную иерархию через метафору офиса: "
-            "сотрудники, отделы, Главный Босс. "
-            "Обязательно используй образ «передачи конвертов». "
-            "Нужны блоки: `**ГЛАВНЫЙ БОСС...**`, `**Как это работает (Офисная метафора):**`, "
-            "`**Твой жизненный алгоритм:**`, `**Сила структуры:**`, `**Риск:**`, `**Ключ к управлению:**`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Объясни иерархию через метафору офиса. Используй `header`, `paragraph` и `callout` для 'Главного Босса'."
         ),
     ),
     SectionSpec(
         section_id="core_triad",
         title="8. Личное ядро (⬆️ ASC / ☀️ Солнце / 🌙 Луна)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай три подпункта как в примере: "
-            "`#### 1. ...`, `#### 2. ...`, `#### 3. ...` "
-            "В каждом: строки `**Тезис:**` и `**Описание:**`. "
-            "В конце блок `#### ⚖️ Сборка Ядра (Главный конфликт)` + строка `**Решение:** ...`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Три раздела (header level 3). В каждом: paragraph с тезисом и описанием. В конце callout 'Главный конфликт'."
         ),
     ),
     SectionSpec(
         section_id="mercury_mind",
         title="9. Мышление (☿ Меркурий)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай как в примере: подпункты "
-            "`#### **Стиль мышления: ...**`, "
-            "`#### **Режим «Гения» ...**`, "
-            "`#### **Ментальные ловушки ...**` (нумерованный список), "
-            "`#### **Ключ к эффективному мышлению:**` и финальный вопрос."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Используй блоки: `header`, `paragraph` и `list` для ментальных ловушек."
         ),
     ),
     SectionSpec(
         section_id="shadow_trauma",
         title="10. Тень и травма (⚷ Хирон / ⚸ Лилит)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Два подпункта как в примере: "
-            "`#### **⚷ ХИРОН ...**` и `#### **🌑 ЛИЛИТ ...**`. "
-            "В каждом: `Якорь:`, `Сценарий:`, `Ресурс:`, `Тень:`, `Ключ:`, `Вопрос:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Два раздела. Для каждого: header, paragraph и list (Якорь, В жизни, Ресурс, Тень, Ключ)."
         ),
     ),
     SectionSpec(
         section_id="nodes_growth",
         title="11. Узлы (☊/☋ вектор взросления)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Как в примере: отдельно Южный узел и Северный узел. "
-            "Южный: `Якорь:`, `Сценарий:`, `Ловушка:`, `Ресурс:`. "
-            "Северный: `Якорь:`, `Сценарий:`, `Миссия:`, `Вызов:`, `Ключ:`, `Вопрос:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Два раздела (header). В каждом: paragraph и list."
         ),
     ),
     SectionSpec(
         section_id="vertex_fate",
         title="12. Вертекс (✴️ сюжетные встречи)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Как в примере: подпункт `#### **✴️ ВЕРТЕКС ...**` и строки "
-            "`Якорь:`, `Сценарий встреч:`, `Урок судьбы:`, "
-            "`Ключ:`, `Вопрос:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй header и list (Якорь, Сценарий, Урок, Рост, Ключ)."
         ),
     ),
     SectionSpec(
         section_id="balance_wheel",
         title="13. Колесо баланса (12 домов)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Как в примере: 12 домов, каждый в формате "
-            "`#### **N ДОМ — ...**` и 6 строк: "
-            "`Тема:`, `В плюсе:`, `В минусе:`, `Триггер:`, `Вектор зрелости:`, `Вопрос:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Для каждого из 12 домов: `header` (N Дом) и `list` (Тема, В плюсе, В минусе, Триггер, Вектор)."
         ),
     ),
     SectionSpec(
         section_id="love_intimacy",
         title="14. Любовь и близость (♀️ Венера / ♂️ Марс)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай два подпункта: `### ♀️ ВЕНЕРА ...` и `### ♂️ МАРС ...`, "
-            "по 1 абзацу каждый, затем строка "
-            "`🔑 **Секрет успеха:** ...`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй header и paragraph."
         ),
     ),
     SectionSpec(
         section_id="money_realization",
         title="15. Деньги и реализация (2/6/10 + ♃ Юпитер / ♄ Сатурн)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай три подпункта: `#### **💰 2 ДОМ ...**`, "
-            "`#### **🛠 6 ДОМ ...**`, `#### **🏔 10 ДОМ ...**`. "
-            "В каждом 1-2 строки с ключевыми смысловыми метками "
-            "(Доход/Ключ/Стиль/Путь/Миссия). "
-            "В конце строка `🔑 **Главная формула:** ...`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй header и list."
         ),
     ),
     SectionSpec(
         section_id="stars_transuranus",
         title="16. Звезды и Трансураны (♅/♆/♇)",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Короткий ввод и 3 подпункта: "
-            "`⚡️ Уран ...`, `🌊 Нептун ...`, `🌋 Плутон ...`. "
-            "В каждом: `Дар:` и `Риск:`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй header и list (Режим, Дар, Риск)."
         ),
     ),
     SectionSpec(
         section_id="time_cycles",
         title="17. Время и циклы",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай как в примере: строка о расчете соляра, "
-            "затем буллеты `Главный тренд`, `Солярный Асцендент`, "
-            "`Наложение на Натал`, `Зенит года`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Кратко опиши текущий период. Используй 1 `paragraph` и 1 `list` (Соляр, Тренд)."
         ),
     ),
     SectionSpec(
         section_id="final_synthesis",
         title="18. Финальная сборка",
         prompt=(
-            f"{NATAL_MASTER_COMMON} {PLANET_EMOJI_GUIDE} "
-            "Сделай финальную сборку как в примере: "
-            "1-2 абзаца резюме, затем строка `**Твой девиз:** *...*` "
-            "и строка `**Главный совет:** ...`."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Итог в одной фразе. Используй `callout` (variant='success') с Девизом и Главным советом."
         ),
+    ),
+    SectionSpec(
+        section_id="technical_appendix",
+        title="Приложение: Технические данные",
+        prompt="Это генерируется программно."
     ),
 ]
 
@@ -239,8 +269,8 @@ _YEAR_FORECAST_SECTIONS = [
         section_id="year_meta",
         title="0. Метафора Года",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} Определи главную метафору года на основе транзитов медленных планет (Юпитер, Сатурн, Уран, Нептун, Плутон) по домам и аспектам. "
-            "Дай образ (например, 'Год Строительства Замка') и девиз."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} Используй данные из `year_forecast_data` (Profection, Solar Return, slow transits). "
+            "Используй блок `callout` (variant='quote') для Метафоры и Девиза года."
         ),
     )
 ] + [
@@ -248,67 +278,26 @@ _YEAR_FORECAST_SECTIONS = [
         section_id=f"month_{i}_forecast",
         title=f"{i}. Месяц {i}",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} Проанализируй {i}-й месяц года (считая от даты старта). "
-            "Строго следуй структуре (13 пунктов): "
-            "1. Заголовок и метаданные. "
-            "2. Статус месяца (Светофор 🟢/🟡/🔴): Цветовой индикатор, Название, Фон, Цена ошибок, Рычаг, Совет. "
-            "3. Центральная нить смысла: Метафора + тезис. "
-            "4. Главные активаторы месяца (ТОП-5). "
-            "5. Карта сфер месяца (ТОП-3). "
-            "6. Событийный слой (Ингрессы, Ретро, Лунации). "
-            "7. Личный слой (Транзиты к наталу). "
-            "8. Глубинный слой (Прогрессии/Дирекции). "
-            "9. Солярный контекст. "
-            "10. Тайм-лорды. "
-            "11. Фиксированные звёзды. "
-            "12. Трансураны. "
-            "13. Итог месяца (3 результата, 3 ловушки, ключ)."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} Проанализируй {i}-й месяц года. "
+            f"ИСПОЛЬЗУЙ данные из `year_forecast_data.months` (объект с month={i}). "
+            "Используй блоки `header` (level 3) для: Статус, Нить смысла, Активаторы, Карта сфер, События, Личный слой, Итог."
         ),
     ) for i in range(1, 13)
 ]
 
 _MONTH_FORECAST_SECTIONS = [
     SectionSpec(
-        section_id="month_overview",
-        title="Обзор месяца",
+        section_id="month_full_forecast",
+        title="Прогноз на месяц",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} Дай общий прогноз на месяц. "
-            "Структура: "
-            "1. Статус месяца (Светофор 🟢/🟡/🔴) + Метафора + Рычаг. "
-            "2. Главные темы и задачи. "
-            "3. Итог по сферам: Финансы, Отношения, Энергия."
-        ),
-    ),
-    SectionSpec(
-        section_id="week_1",
-        title="Неделя 1",
-        prompt=(
-            f"{RU_LANG_INSTRUCTION} Прогноз на 1-ю неделю. "
-            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
-        ),
-    ),
-    SectionSpec(
-        section_id="week_2",
-        title="Неделя 2",
-        prompt=(
-            f"{RU_LANG_INSTRUCTION} Прогноз на 2-ю неделю. "
-            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
-        ),
-    ),
-    SectionSpec(
-        section_id="week_3",
-        title="Неделя 3",
-        prompt=(
-            f"{RU_LANG_INSTRUCTION} Прогноз на 3-ю неделю. "
-            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
-        ),
-    ),
-    SectionSpec(
-        section_id="week_4",
-        title="Неделя 4",
-        prompt=(
-            f"{RU_LANG_INSTRUCTION} Прогноз на 4-ю неделю. "
-            "Формат: Фокус недели (одной фразой), Светофор (🟢/🟡/🔴), Риск/Ресурс."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} Дай полный прогноз на месяц. "
+            "ИСПОЛЬЗУЙ `month_forecast_data`. "
+            "Используй блоки:\n"
+            "1. `header` (level 2) 'Статус месяца' + `callout` с метафорой и рычагом.\n"
+            "2. `header` (level 2) 'Ключевые события' + `list` (Дата: Событие).\n"
+            "3. `header` (level 2) 'Стратегия по неделям'. Для каждой недели (4 шт): `header` (level 3) + `list` (Фокус, Риск, Ресурс).\n"
+            "4. `header` (level 2) 'Итог месяца' + `key_value` (Финансы, Отношения, Энергия).\n"
+            "5. `callout` (variant='success') с финальными рекомендациями."
         ),
     ),
 ]
@@ -318,44 +307,122 @@ _WEEK_FORECAST_SECTIONS = [
         section_id="week_strategy",
         title="Стратегия недели",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} "
-            "1. Главная тема: Метафора недели. "
-            "2. Статус недели: Светофор (🟢/🟡/🔴) + Общий фон и цена ошибки. "
-            "3. Подневная стратегия (7 дней): Для каждого дня (Пн-Вс) укажи: "
-            "   - Индикатор (🟢/🟡/🔴). "
-            "   - Ощущения (психологический фон). "
-            "   - Риски (где споткнуться). "
-            "   - Стратегия/Соломка (конкретные действия). "
-            "4. Резюме по срезам: Финансы, Энергия, Отношения, Магия."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {ZODIAC_EMOJI_GUIDE} "
+            "Используй `week_forecast_data.days`. "
+            "Используй блоки:\n"
+            "1. `header` (level 2) 'Главная тема' + `callout` с метафорой.\n"
+            "2. `header` (level 2) 'Статус недели' + `paragraph` (Светофор, Фон).\n"
+            "3. `header` (level 2) 'Подневная стратегия'. Для каждого дня: `header` (level 3) + `list` (Астро-фактор, Ощущения, Риски, СТРАТЕГИЯ).\n"
+            "4. `header` (level 2) 'Резюме по срезам' + `key_value` (Финансы, Энергия, Отношения, Магия)."
         ),
     ),
 ]
 
+HORARY_COMMON = (
+    "Ты — жесткий эксперт-практик. ЗАПРЕЩЕНО использовать слова: 'благоприятный', 'энергетика', 'фон', 'потенциал', 'вселенная', 'вибрации'. "
+    "Запрещена латиница и англицизмы. Разрешены только сокращения ASC/MC/DSC/IC и обозначения L1/L7/L9/L10. "
+    "Хорар — это прогностика. Ответ должен быть бинарным: либо событие происходит, либо нет. "
+    "КРИТИЧЕСКИ ВАЖНО: 'ДА' в ответе — это факт реализации вопроса. Если вопрос негативный ('Заберут ли права?'), то 'ДА' означает потерю прав. "
+    "Смотри на аспекты: L1 (Кверент) и Луна против L10 (Судья/Власть), L9 (Закон) или дома Квестита. "
+    "Если аспекта нет — ответ НЕТ. Если есть препятствие (запрет, фрустрация) — ответ НЕТ. "
+    "Пиши сухо, по делу, без морализаторства. "
+    "Игнорируй общую структуру с буллетами и рекомендациями — следуй только формату секции. "
+    "ЗАПРЕЩЕНО добавлять блоки вроде 'Ключевой фокус', 'Потенциал', 'Риски', 'Ключевые факторы', 'Рекомендации' в конце."
+)
+
 _HORARY_SECTIONS = [
     SectionSpec(
-        section_id="horary_context",
-        title="Контекст вопроса",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze the chart radicality and the context of the question provided by the user. Confirm if the chart is fit to be judged.",
+        section_id="horary_00_passport",
+        title="0. Паспорт вопроса",
+        prompt="Это генерируется программно."
     ),
     SectionSpec(
-        section_id="horary_significators",
-        title="Сигнификаторы",
-        prompt=f"{RU_LANG_INSTRUCTION} Identify the main significators (planets representing the querent and the quesited). Describe their condition (dignities, debilities).",
+        section_id="horary_00_technical",
+        title="Данные карты",
+        prompt="Это генерируется программно."
     ),
     SectionSpec(
-        section_id="horary_aspects",
-        title="Аспекты и рецепции",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze applying and separating aspects between significators. Check for receptions.",
+        section_id="horary_01_verdict",
+        title="1. Ответ сразу",
+        prompt=(
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Дай итоговый вердикт на основе `chart.horary.aspects`. "
+            "Используй блоки paragraph и callout.\n\n"
+            "**Вердикт:** ...\n"
+            "**Причина:** ...\n"
+            "**Срок:** ...\n"
+            "**Главный риск:** ..."
+        )
     ),
     SectionSpec(
-        section_id="horary_answer",
-        title="Ответ",
-        prompt=f"{RU_LANG_INSTRUCTION} Give a clear YES/NO/MAYBE answer based on the analysis. Explain why.",
+        section_id="horary_02_radicality",
+        title="2. Пригодность карты",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй `chart.horary.radicality`. Используй list для флагов."
+        )
     ),
     SectionSpec(
-        section_id="horary_timing",
-        title="Сроки (Тайминг)",
-        prompt=f"{RU_LANG_INSTRUCTION} Estimate the timing of the event if applicable (using symbolic time units).",
+        section_id="horary_03_significators",
+        title="3. Сигнификаторы",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй key_value для ролей."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_04_state",
+        title="4. Состояние сторон",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй table."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_05_mechanics",
+        title="5. Механика исхода",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй list."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_06_moon",
+        title="6. Луна как сценарий",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй list."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_07_timing",
+        title="7. Тайминг",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} {HORARY_COMMON} "
+            "Используй paragraph."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_08_conditions",
+        title="8. Условия успеха",
+        prompt=(f"{REPORT_JSON_COMMON} {HORARY_COMMON} "
+            "Используй list."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_09_risks",
+        title="9. Риски и ограничения",
+        prompt=(f"{REPORT_JSON_COMMON} {HORARY_COMMON} "
+            "Используй list."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_10_alternatives",
+        title="10. Альтернативы",
+        prompt=(f"{REPORT_JSON_COMMON} {HORARY_COMMON} "
+            "Используй list."
+        )
+    ),
+    SectionSpec(
+        section_id="horary_11_summary",
+        title="11. Итог",
+        prompt=(f"{REPORT_JSON_COMMON} {HORARY_COMMON} "
+            "Используй paragraph и callout."
+        )
     ),
 ]
 
@@ -364,24 +431,24 @@ _TEN_YEAR_SECTIONS = [
         section_id="decade_overview",
         title="Обзор 10 лет",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} Дай общий обзор десятилетия: главный тренд, "
-            "ключевые темы и общий вектор развития."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} Дай общий обзор десятилетия. "
+            "ИСПОЛЬЗУЙ данные из `decade_forecast_data` (транзиты медленных планет по годам). "
+            "Используй paragraph и list."
+        ),
+    ),
+    SectionSpec(
+        section_id="decade_timeline",
+        title="Хронология (10 лет)",
+        prompt=(
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} Пройдись по годам, используя `decade_forecast_data`. "
+            "Используй header level 4 для каждого года."
         ),
     ),
     SectionSpec(
         section_id="decade_storylines",
-        title="Сюжетные линии (10 лет)",
+        title="Сюжетные линии",
         prompt=(
-            f"{RU_LANG_INSTRUCTION} Сгруппируй ключевые события и темы на 10 лет "
-            "в 3-5 сюжетных линий (личность/цели, отношения, финансы, судьба)."
-        ),
-    ),
-    SectionSpec(
-        section_id="decade_risks_resources",
-        title="Риски и ресурсы десятилетия",
-        prompt=(
-            f"{RU_LANG_INSTRUCTION} Выдели главные риски, ресурсы и "
-            "рекомендации по стратегии на 10 лет."
+            f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} Сгруппируй события из `decade_forecast_data` в 3 сюжетные линии."
         ),
     ),
 ]
@@ -390,22 +457,30 @@ _SOLAR_RETURN_SECTIONS = [
     SectionSpec(
         section_id="solar_theme",
         title="Главная тема Соляра",
-        prompt=f"{RU_LANG_INSTRUCTION} {PLANET_EMOJI_GUIDE} Determine the main theme of the Solar Return year based on the Solar Return Ascendant and Sun house placement.",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй paragraph и callout."
+        ),
     ),
     SectionSpec(
         section_id="solar_money",
         title="Финансы (2/8 дома)",
-        prompt=f"{RU_LANG_INSTRUCTION} {PLANET_EMOJI_GUIDE} Analyze financial prospects in the Solar Return chart.",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй paragraph и list."
+        ),
     ),
     SectionSpec(
         section_id="solar_love",
         title="Отношения (5/7 дома)",
-        prompt=f"{RU_LANG_INSTRUCTION} {PLANET_EMOJI_GUIDE} Analyze relationship prospects in the Solar Return chart.",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй paragraph и list."
+        ),
     ),
     SectionSpec(
         section_id="solar_strategy",
         title="Стратегия года",
-        prompt=f"{RU_LANG_INSTRUCTION} {PLANET_EMOJI_GUIDE} Provide a strategic summary for the year.",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй callout."
+        ),
     ),
 ]
 
@@ -413,32 +488,23 @@ _SYNASTRY_SECTIONS = [
     SectionSpec(
         section_id="synastry_overview",
         title="Обзор совместимости",
-        prompt=f"{RU_LANG_INSTRUCTION} Provide a high-level summary of the connection.",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй paragraph и callout для скора."
+        ),
     ),
     SectionSpec(
-        section_id="emotional_connection",
-        title="Эмоциональная связь (Луны)",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze the interaction between the Moons. Describe emotional comfort and safety.",
+        section_id="synastry_categories",
+        title="Анализ по сферам",
+        prompt=(f"{REPORT_JSON_COMMON} {PLANET_EMOJI_GUIDE} "
+            "Используй header level 3 для каждой сферы."
+        ),
     ),
     SectionSpec(
-        section_id="communication",
-        title="Общение (Меркурии)",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze the interaction between Mercuries. Describe intellectual compatibility.",
-    ),
-    SectionSpec(
-        section_id="love_attraction",
-        title="Любовь и притяжение (Венера/Марс)",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Venus and Mars interaspects. Describe romantic and sexual chemistry.",
-    ),
-    SectionSpec(
-        section_id="long_term",
-        title="Долгосрочные перспективы (Сатурн/Юпитер)",
-        prompt=f"{RU_LANG_INSTRUCTION} Analyze Saturn (glue) and Jupiter (growth) aspects in synastry.",
-    ),
-    SectionSpec(
-        section_id="conflict_resolution",
-        title="Конфликты и решение",
-        prompt=f"{RU_LANG_INSTRUCTION} Identify potential friction points and how to resolve them.",
+        section_id="synastry_advice",
+        title="Советы и Решения",
+        prompt=(f"{REPORT_JSON_COMMON} "
+            "Используй list."
+        ),
     ),
 ]
 
@@ -449,6 +515,7 @@ _REPORT_TEMPLATES = {
     "ten_year_forecast": _TEN_YEAR_SECTIONS,
     "month_forecast": _MONTH_FORECAST_SECTIONS,
     "week_forecast": _WEEK_FORECAST_SECTIONS,
+    "horary": _HORARY_SECTIONS,
     "horary_answer": _HORARY_SECTIONS,
     "synastry": _SYNASTRY_SECTIONS,
     "solar_return": _SOLAR_RETURN_SECTIONS,

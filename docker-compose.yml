@@ -15,14 +15,37 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    security_opt:
+      - seccomp=unconfined
     env_file:
       - .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-astro}:${POSTGRES_PASSWORD:-astro}@db:5432/${POSTGRES_DB:-astro}}
+      HOME: /app
+      LLM_CLI_PROVIDER: ${LLM_CLI_PROVIDER:-codex}
+      LLM_CLI_MODEL: ${LLM_CLI_MODEL:-gpt-5.2}
+      LLM_CLI_REASONING: ${LLM_CLI_REASONING:-medium}
+      # NOTE: `--skip-git-repo-check` is Codex-only; keep default empty so Gemini works too.
+      LLM_CLI_ARGS: ${LLM_CLI_ARGS:-}
+      LLM_CLI_CONCURRENCY: ${LLM_CLI_CONCURRENCY:-5}
+      DEFAULT_LLM_MODE: openrouter
+    volumes:
+      - /opt/kilocode/.gemini:/app/.gemini
+      - /opt/kilocode/.codex:/app/.codex
+      - ./scripts:/app/scripts
+      - ./tests:/app/tests
+      - ./backend:/app/backend
+      - ./stellium_engine.py:/app/stellium_engine.py
     depends_on:
       - db
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   frontend:
     build: ./frontend
