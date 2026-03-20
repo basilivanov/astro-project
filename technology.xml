@@ -1,9 +1,9 @@
 <technology project="astro-project" mode="strict-grace" updated_at="2026-03-17">
   <repo_boundary>
     <root>/opt/astro-project</root>
-    <git_snapshot commit="9c5a6858f962eab72cb4f21e1a16b7dc3f35c54e" tag="none" worktree_state="dirty" strict_grace_status="draft" captured_at="2026-03-20" />
-    <assumption local_adaptation="true">This artifact pack is anchored to git commit 9c5a6858f962eab72cb4f21e1a16b7dc3f35c54e, but the working tree is dirty and no fixed release tag or frozen branch is supplied. Therefore the pack is a draft/dirty snapshot and does not satisfy the strict-GRACE requirement for a fully reproducible repository boundary.</assumption>
-    <follow_up>Before declaring strict-GRACE readiness, create a clean tagged or otherwise frozen snapshot for this pack and update all boundary references to that exact commit/tag.</follow_up>
+    <git_snapshot commit="8f9f894a4338c2fb33a4ed198b7c5f26b90c75e8" tag="grace-2026-03-20" worktree_state="clean" strict_grace_status="ready" captured_at="2026-03-20" />
+    <assumption local_adaptation="true">This artifact pack is now anchored to the clean tagged snapshot `grace-2026-03-20` (commit 8f9f894a4338c2fb33a4ed198b7c5f26b90c75e8). All files present in the current worktree are part of that tag, so the boundary satisfies strict GRACE reproducibility.</assumption>
+    <follow_up>When the next major drift occurs, repeat the clean-tag process (scripts/grace_snapshot.sh export --tag &lt;new-tag&gt;) and refresh these fields immediately so downstream packs inherit a reproducible baseline.</follow_up>
   </repo_boundary>
   <runtime_stack>
     <runtime name="backend" language="Python" version="3.12" framework="FastAPI 0.111 plus Uvicorn 0.30" container="backend/Dockerfile" />

@@ -1,6 +1,6 @@
 # Verification Matrix
 
-Snapshot boundary: `/opt/astro-project` is anchored to git commit `9c5a6858f962eab72cb4f21e1a16b7dc3f35c54e` as captured on March 20, 2026, but the worktree is dirty and no fixed tag or frozen branch is supplied. This artifact pack is therefore a `draft/dirty` snapshot, does not satisfy strict-GRACE reproducibility yet, and must be re-issued from a clean tagged or otherwise frozen commit before strict-GRACE readiness can be claimed. This sync pass keeps prior natal/forecast coverage and narrows the billing GRACE slice to the shipped one-off phase-2 runtime plus the flagged `/create` -> `/billing/complete` -> `/read` bridge for `natal_master`, `month_forecast`, `year_forecast`, and `solar_return`, while default storefront copy remains subscription-first.
+Snapshot boundary: `/opt/astro-project` is anchored to the clean tagged snapshot `grace-2026-03-20` (commit `8f9f894a4338c2fb33a4ed198b7c5f26b90c75e8`, captured March 20, 2026). All files in the worktree are part of that tag, so this pack now satisfies the strict-GRACE reproducibility requirement. This sync pass keeps prior natal/forecast coverage and narrows the billing GRACE slice to the shipped one-off phase-2 runtime plus the flagged `/create` -> `/billing/complete` -> `/read` bridge for `natal_master`, `month_forecast`, `year_forecast`, and `solar_return`, while default storefront copy remains subscription-first.
 
 ## Baseline Profiles
 
