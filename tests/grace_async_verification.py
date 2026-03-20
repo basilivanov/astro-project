@@ -30,8 +30,11 @@ def run_test():
     
     req = urllib.request.Request(
         f"{API_URL}/api/workflows/report/async",
-        data=json.dumps(payload).encode('utf-8'),
-        headers={'Content-Type': 'application/json'}
+        data=json.dumps({**payload, "is_test": True}).encode('utf-8'),
+        headers={
+            'Content-Type': 'application/json',
+            'X-Telegram-Auth': '12345'
+        }
     )
 
     try:

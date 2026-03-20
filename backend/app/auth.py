@@ -27,6 +27,7 @@ logger = structlog.get_logger()
 
 # #START_BLOCK_AUTH_UTILS
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+BOT_ADMIN_IDS = [int(x) for x in os.getenv("BOT_ADMIN_IDS", "").split(",") if x]
 
 def validate_init_data(init_data: str, bot_token: str) -> dict:
     """
@@ -81,23 +82,33 @@ def authenticate_telegram_user(auth_string: str, db: Session) -> User:
         raise HTTPException(status_code=401, detail="Missing auth data")
 
     # DEV BYPASS
-    if os.getenv("ENVIRONMENT") == "development" and auth_string.isdigit():
-        tg_id = int(auth_string)
+    if os.getenv("ENVIRONMENT") == "development" and (auth_string.isdigit() or auth_string == "test"):
+        tg_id = int(auth_string) if auth_string.isdigit() else 999
         user = db.query(User).filter(User.telegram_id == tg_id).first()
+        trial_end = datetime.now(timezone.utc) + timedelta(days=14)
+        
+        logger.info("auth.dev_bypass", tg_id=tg_id, is_new=user is None)
+        
+        is_e2e_test_user = (1000 <= tg_id <= 2000000) or (tg_id == 777)
+        
         if not user:
-             trial_end = datetime.now(timezone.utc) + timedelta(days=14)
              from .services.code_gen import generate_referral_code
              ref_code = generate_referral_code()
              
              user = User(
                  telegram_id=tg_id, 
                  full_name="Dev User",
-                 subscription_active_until=trial_end,
+                 subscription_active_until=trial_end if not is_e2e_test_user else None,
                  referral_code=ref_code
              )
              db.add(user)
-             db.commit()
-             db.refresh(user)
+        else:
+             # Always extend trial for dev user to keep E2E stable
+             if not is_e2e_test_user:
+                 user.subscription_active_until = trial_end
+             
+        db.commit()
+        db.refresh(user)
         return user
 
     try:
@@ -179,4 +190,14 @@ async def get_current_user_from_query(
     # PURPOSE: Authenticate via query param (for direct links like PDF).
     """
     return authenticate_telegram_user(auth, db)
+
+async def get_admin_user(
+    user: User = Depends(get_current_user)
+) -> User:
+    """
+    # PURPOSE: Restrict access to admin-only endpoints.
+    """
+    if user.telegram_id not in BOT_ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 # #END_BLOCK_AUTH_DEPENDENCY

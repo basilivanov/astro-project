@@ -10,6 +10,22 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - db_data:/var/lib/postgresql/data
 
+  codex_proxy_bridge:
+    image: python:3.11-slim
+    restart: unless-stopped
+    user: "994:987"
+    command: ["/opt/cliproxyapi/bin/cli-proxy-api", "--config", "/etc/cliproxyapi/config.yaml"]
+    volumes:
+      - /opt/cliproxyapi/bin/cli-proxy-api:/opt/cliproxyapi/bin/cli-proxy-api:ro
+      - /var/lib/cliproxyapi/auth:/var/lib/cliproxyapi/auth
+      - /opt/astro-project/.cache/cliproxyapi-astro-config.yaml:/etc/cliproxyapi/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json, urllib.request; data = json.load(urllib.request.urlopen('http://127.0.0.1:8317/v1/models', timeout=5)); print(len(data.get('data', [])))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   backend:
     build:
       context: .
@@ -22,22 +38,26 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://${POSTGRES_USER:-astro}:${POSTGRES_PASSWORD:-astro}@db:5432/${POSTGRES_DB:-astro}}
       HOME: /app
+      CODEX_HOME: /app/.codex
+      PYTHONUSERBASE: /tmp/python-user-base
       LLM_CLI_PROVIDER: ${LLM_CLI_PROVIDER:-codex}
       LLM_CLI_MODEL: ${LLM_CLI_MODEL:-gpt-5.2}
       LLM_CLI_REASONING: ${LLM_CLI_REASONING:-medium}
       # NOTE: `--skip-git-repo-check` is Codex-only; keep default empty so Gemini works too.
       LLM_CLI_ARGS: ${LLM_CLI_ARGS:-}
       LLM_CLI_CONCURRENCY: ${LLM_CLI_CONCURRENCY:-5}
-      DEFAULT_LLM_MODE: openrouter
+      DEFAULT_LLM_MODE: stub
     volumes:
       - /opt/kilocode/.gemini:/app/.gemini
-      - /opt/kilocode/.codex:/app/.codex
+      - /opt/astro-project/.cache/codex-cliproxy-home:/app/.codex
       - ./scripts:/app/scripts
       - ./tests:/app/tests
       - ./backend:/app/backend
       - ./stellium_engine.py:/app/stellium_engine.py
+    command: ["sh", "/app/scripts/bootstrap_backend_python_env.sh", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     depends_on:
       - db
+      - codex_proxy_bridge
     ports:
       - "8000:8000"
     healthcheck:

@@ -1,0 +1,319 @@
+<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-20">
+  <nodes>
+    <use_case id="UC-AUTH-PROFILE" />
+    <use_case id="UC-B2C-REPORT" />
+    <use_case id="UC-REPORT-ASYNC" />
+    <use_case id="UC-BILLING-ACCESS" />
+    <use_case id="UC-REFERRAL-REWARD" />
+    <use_case id="UC-FEED-DAILY" />
+    <use_case id="UC-ADMIN-OPERATIONS" />
+    <use_case id="UC-BOT-DELIVERY" />
+
+    <scenario id="SCN-AUTH-VALID-INITDATA" />
+    <scenario id="SCN-PROFILE-COMPLETE-BIRTHDATA" />
+    <scenario id="SCN-B2C-REPORT-CREATE" />
+    <scenario id="SCN-HORARY-QUOTA-OR-CREDITS" />
+    <scenario id="SCN-ASYNC-REPORT-GENERATE" />
+    <scenario id="SCN-ASYNC-SECTION-REGENERATE" />
+    <scenario id="SCN-BILLING-SUBSCRIPTION-WEBHOOK" />
+    <scenario id="SCN-BILLING-CREDITS-WEBHOOK" />
+    <scenario id="SCN-BILLING-ONE-OFF-PHASE2" />
+    <scenario id="SCN-REFERRAL-SIGNUP" />
+    <scenario id="SCN-REFERRAL-PARTNER-REWARD" />
+    <scenario id="SCN-FEED-TODAY" />
+    <scenario id="SCN-ADMIN-REPORT-VIEW" />
+    <scenario id="SCN-ADMIN-DIAGNOSTICS" />
+    <scenario id="SCN-BOT-NOTIFY" />
+    <scenario id="SCN-BOT-VOICE-TRANSCRIBE" />
+
+    <phase id="PHASE-SNAPSHOT" />
+    <phase id="PHASE-IDENTITY" />
+    <phase id="PHASE-ACCESS" />
+    <phase id="PHASE-WORKFLOW-INIT" />
+    <phase id="PHASE-FACTS-CALC" />
+    <phase id="PHASE-SECTION-GEN" />
+    <phase id="PHASE-FINALIZE" />
+    <phase id="PHASE-READOUT" />
+
+    <flow id="FLOW-AUTH-ONBOARD" name="Auth and onboarding" />
+    <flow id="FLOW-REPORT-GENERATION" name="Report generation" />
+    <flow id="FLOW-BILLING-RETURN" name="Billing and one-off return" />
+    <flow id="FLOW-DAILY-FEED" name="Daily feed" />
+    <flow id="FLOW-ADMIN-OPS" name="Admin operations" />
+
+    <module id="M-API-GATEWAY" path="backend/app/main.py;backend/app/routers/billing.py">
+      <export>create_report_async</export>
+      <export>create_b2c_report</export>
+      <export>initiate_payment</export>
+      <export>get_checkout_session_status</export>
+      <export>resume_checkout_session</export>
+      <export>get_my_profile</export>
+      <export>get_report_detail</export>
+      <export>run_diagnostics_endpoint</export>
+    </module>
+    <module id="M-AUTH-IDENTITY" path="backend/app/auth.py">
+      <export>authenticate_telegram_user</export>
+      <export>get_current_user</export>
+      <export>get_admin_user</export>
+    </module>
+    <module id="M-DATA-PERSISTENCE" path="backend/app/db.py;backend/app/models.py;backend/app/migrations_v2.py">
+      <export>get_db</export>
+      <export>apply_runtime_migrations</export>
+      <export>apply_v6_migrations</export>
+      <export>User/Report/ReportChunk/ReportRun/Subscription/Referral/Transaction/ReportEntitlement/BillingCheckoutSession</export>
+    </module>
+    <module id="M-REPORT-WORKFLOW" path="backend/app/services/report_workflow.py;backend/app/reporting/*">
+      <export>build_section_specs</export>
+      <export>build_chart_data</export>
+      <export>build_report_context</export>
+      <export>initialize_report_chunks</export>
+      <export>generate_report_sections</export>
+    </module>
+    <module id="M-NATAL-CONTEXT-ENGINE" path="backend/app/services/report_workflow.py">
+      <export>build_section_context</export>
+      <export>build_report_context</export>
+      <export>build_forecast_window</export>
+      <export>_build_natal_section_insight_pack</export>
+    </module>
+    <module id="M-NATAL-PROMPT-CONTRACT" path="backend/app/reporting/section_templates.py;backend/app/llm/orchestrator.py;STYLE_CONTRACT.md;NATAL_V2_FACTS_MAP.md">
+      <export>get_default_sections</export>
+      <export>build_section_prompt</export>
+      <export>_build_style_contract_hint</export>
+      <export>PREMIUM_NATAL_NARRATIVE_CONTRACT</export>
+    </module>
+    <module id="M-NATAL-SUMMARY-LAYER" path="backend/app/services/report_workflow.py;backend/app/llm/orchestrator.py">
+      <export>build_section_validation_fallback_content</export>
+      <export>generate_section_content</export>
+      <export>_build_timed_natal_executive_summary_content</export>
+      <export>_build_executive_summary_insight_pack</export>
+      <export>_build_final_synthesis_insight_pack</export>
+    </module>
+    <module id="M-FORECAST-DATA-ENGINE" path="backend/app/services/report_workflow.py;stellium_engine.py">
+      <export>calculate_forecast_week_data</export>
+      <export>calculate_forecast_month_data</export>
+      <export>calculate_forecast_year_data</export>
+      <export>calculate_forecast_decade_data</export>
+    </module>
+    <module id="M-FORECAST-SEMANTIC-LAYER" path="backend/app/services/forecast_semantics.py;backend/app/services/report_workflow.py;backend/app/services/personalized_daily.py">
+      <export>build_daily_forecast_semantic_layer</export>
+      <export>build_week_forecast_semantic_layer</export>
+      <export>build_month_forecast_semantic_layer</export>
+      <export>_build_month_forecast_prompt_context</export>
+      <export>_render_month_forecast_content</export>
+    </module>
+    <module id="M-LLM-ORCHESTRATION" path="backend/app/llm/orchestrator.py;backend/app/llm/validator.py;backend/app/llm/mode.py">
+      <export>build_llm_client</export>
+      <export>build_section_prompt</export>
+      <export>validate_section_content</export>
+      <export>LLMOrchestrator</export>
+    </module>
+    <module id="M-ACCESS-COMMERCE" path="backend/app/services/access_control.py;backend/app/services/billing.py;backend/app/services/referral_service.py;backend/app/services/one_off_entitlements.py;backend/app/core/config_business.py;backend/app/core/feature_flags.py">
+      <export>check_user_access</export>
+      <export>consume_access_if_needed</export>
+      <export>resolve_report_access</export>
+      <export>consume_report_access</export>
+      <export>create_checkout_session</export>
+      <export>build_checkout_return_url</export>
+      <export>serialize_checkout_session</export>
+      <export>handle_payment_succeeded</export>
+      <export>resolve_catalog_product</export>
+      <export>build_report_unlock_snapshot</export>
+      <export>build_report_access_snapshot</export>
+      <export>PRODUCT_CATALOG</export>
+      <export>allow_legacy_premium_subscription_access</export>
+      <export>process_referral</export>
+      <export>process_partner_reward</export>
+    </module>
+    <module id="M-OPS-AUTOMATION" path="backend/app/services/feed_service.py;backend/app/services/scheduler.py;backend/app/services/notification.py;backend/app/diagnostics.py">
+      <export>get_daily_vibe_llm</export>
+      <export>start_scheduler</export>
+      <export>send_bot_notification</export>
+      <export>run_diagnostics</export>
+    </module>
+    <module id="M-FRONTEND-WEBAPP" path="frontend/app/page.tsx;frontend/app/start/page.tsx;frontend/app/onboarding/profile/page.tsx;frontend/app/create/page.tsx;frontend/app/billing/complete/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/profile/page.tsx;frontend/app/reports/page.tsx;frontend/app/reports/history/page.tsx;frontend/app/week/page.tsx;frontend/components/consumer-page-shell.tsx;frontend/lib/product-billing.ts;frontend/app/api/*">
+      <export>/</export>
+      <export>/start</export>
+      <export>/onboarding/profile</export>
+      <export>/create</export>
+      <export>/billing/complete</export>
+      <export>/read/[id]</export>
+      <export>/profile</export>
+      <export>/reports</export>
+      <export>/reports/history</export>
+      <export>ConsumerPageShell</export>
+    </module>
+    <module id="M-READ-RESILIENCE-SURFACE" path="frontend/app/create/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/week/page.tsx;frontend/components/blocks/report-renderer.tsx">
+      <export>/create</export>
+      <export>/read/[id]</export>
+      <export>/week</export>
+      <export>parseReportBlocks</export>
+      <export>extractReportFallbackText</export>
+      <export>ReportRenderer</export>
+    </module>
+    <module id="M-DAILY-FEED-SURFACE" path="frontend/app/page.tsx;backend/app/main.py;backend/app/services/feed_service.py">
+      <export>/</export>
+      <export>get_daily_feed</export>
+      <export>normalize_daily_vibe_text</export>
+    </module>
+    <module id="M-FRONTEND-ADMIN" path="frontend/app/admin/*;frontend/app/reports/[id]/page.tsx">
+      <export>/admin/*</export>
+      <export>/reports/[id]</export>
+    </module>
+    <module id="M-BOT-CHANNEL" path="bot/app/main.py;bot/app/api.py;bot/app/stt.py">
+      <export>get_or_create_user</export>
+      <export>process_async_referral</export>
+      <export>handle_notify</export>
+      <export>transcribe_audio</export>
+    </module>
+
+    <external id="EXT-TELEGRAM-WEBAPP" name="Telegram WebApp" />
+    <external id="EXT-TELEGRAM-BOT-API" name="Telegram Bot API" />
+    <external id="EXT-YOOKASSA" name="YooKassa" />
+    <external id="EXT-OPENROUTER" name="OpenRouter" />
+    <external id="EXT-GEMINI-CLI" name="Gemini CLI" />
+    <external id="EXT-CODEX-CLI" name="Codex CLI" />
+    <external id="EXT-GEONAMES" name="GeoNames" />
+    <external id="EXT-POSTGRESQL" name="PostgreSQL" />
+
+    <verification id="VM-AUTH-PROFILE" />
+    <verification id="VM-B2C-REPORT" />
+    <verification id="VM-REPORT-ASYNC" />
+    <verification id="VM-NATAL-CONTEXT" />
+    <verification id="VM-NATAL-STYLE-CONTRACT" />
+    <verification id="VM-NATAL-SUMMARY-REPAIR" />
+    <verification id="VM-FORECAST-CREATE-READ" />
+    <verification id="VM-FORECAST-SEMANTICS" />
+    <verification id="VM-READ-QUALITY" />
+    <verification id="VM-REPORTS-UX-CONSISTENCY" />
+    <verification id="VM-BILLING-ACCESS" />
+    <verification id="VM-REFERRAL" />
+    <verification id="VM-FEED-DAILY" />
+    <verification id="VM-FEED-ROBUSTNESS" />
+    <verification id="VM-ADMIN-OPS" />
+    <verification id="VM-BOT-DELIVERY" />
+
+    <defect id="DEFECT-REFERRAL-POLICY-DRIFT" />
+    <defect id="DEFECT-FEED-LLM-TUPLE" />
+    <defect id="DEFECT-DIAGNOSTICS-MARKDOWN" />
+    <defect id="DEFECT-ADMIN-SERVER-AUTH" />
+  </nodes>
+  <edges>
+    <edge from="UC-AUTH-PROFILE" to="SCN-AUTH-VALID-INITDATA" type="contains" />
+    <edge from="UC-AUTH-PROFILE" to="SCN-PROFILE-COMPLETE-BIRTHDATA" type="contains" />
+    <edge from="UC-B2C-REPORT" to="SCN-B2C-REPORT-CREATE" type="contains" />
+    <edge from="UC-B2C-REPORT" to="SCN-HORARY-QUOTA-OR-CREDITS" type="contains" />
+    <edge from="UC-REPORT-ASYNC" to="SCN-ASYNC-REPORT-GENERATE" type="contains" />
+    <edge from="UC-REPORT-ASYNC" to="SCN-ASYNC-SECTION-REGENERATE" type="contains" />
+    <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-SUBSCRIPTION-WEBHOOK" type="contains" />
+    <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-CREDITS-WEBHOOK" type="contains" />
+    <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-ONE-OFF-PHASE2" type="contains" />
+    <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-SIGNUP" type="contains" />
+    <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-PARTNER-REWARD" type="contains" />
+    <edge from="UC-FEED-DAILY" to="SCN-FEED-TODAY" type="contains" />
+    <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-REPORT-VIEW" type="contains" />
+    <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-DIAGNOSTICS" type="contains" />
+    <edge from="UC-BOT-DELIVERY" to="SCN-BOT-NOTIFY" type="contains" />
+    <edge from="UC-BOT-DELIVERY" to="SCN-BOT-VOICE-TRANSCRIBE" type="contains" />
+
+    <edge from="FLOW-AUTH-ONBOARD" to="UC-AUTH-PROFILE" type="covers" />
+    <edge from="FLOW-AUTH-ONBOARD" to="SCN-AUTH-VALID-INITDATA" type="covers" />
+    <edge from="FLOW-AUTH-ONBOARD" to="SCN-PROFILE-COMPLETE-BIRTHDATA" type="covers" />
+
+    <edge from="FLOW-REPORT-GENERATION" to="UC-B2C-REPORT" type="covers" />
+    <edge from="FLOW-REPORT-GENERATION" to="UC-REPORT-ASYNC" type="covers" />
+    <edge from="FLOW-REPORT-GENERATION" to="SCN-B2C-REPORT-CREATE" type="covers" />
+    <edge from="FLOW-REPORT-GENERATION" to="SCN-ASYNC-REPORT-GENERATE" type="covers" />
+    <edge from="FLOW-REPORT-GENERATION" to="SCN-ASYNC-SECTION-REGENERATE" type="covers" />
+
+    <edge from="FLOW-BILLING-RETURN" to="UC-BILLING-ACCESS" type="covers" />
+    <edge from="FLOW-BILLING-RETURN" to="UC-REFERRAL-REWARD" type="covers" />
+    <edge from="FLOW-BILLING-RETURN" to="SCN-BILLING-ONE-OFF-PHASE2" type="covers" />
+    <edge from="FLOW-BILLING-RETURN" to="SCN-REFERRAL-PARTNER-REWARD" type="covers" />
+
+    <edge from="FLOW-DAILY-FEED" to="UC-FEED-DAILY" type="covers" />
+    <edge from="FLOW-DAILY-FEED" to="SCN-FEED-TODAY" type="covers" />
+
+    <edge from="FLOW-ADMIN-OPS" to="UC-ADMIN-OPERATIONS" type="covers" />
+    <edge from="FLOW-ADMIN-OPS" to="SCN-ADMIN-REPORT-VIEW" type="covers" />
+    <edge from="FLOW-ADMIN-OPS" to="SCN-ADMIN-DIAGNOSTICS" type="covers" />
+
+    <edge from="SCN-AUTH-VALID-INITDATA" to="PHASE-IDENTITY" type="gated_by" />
+    <edge from="SCN-B2C-REPORT-CREATE" to="PHASE-ACCESS" type="gated_by" />
+    <edge from="SCN-ASYNC-REPORT-GENERATE" to="PHASE-WORKFLOW-INIT" type="gated_by" />
+    <edge from="SCN-ASYNC-REPORT-GENERATE" to="PHASE-FACTS-CALC" type="gated_by" />
+    <edge from="SCN-ASYNC-REPORT-GENERATE" to="PHASE-SECTION-GEN" type="gated_by" />
+    <edge from="SCN-ASYNC-REPORT-GENERATE" to="PHASE-FINALIZE" type="gated_by" />
+    <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-ACCESS" type="gated_by" />
+    <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-WORKFLOW-INIT" type="gated_by" />
+    <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-READOUT" type="gated_by" />
+    <edge from="SCN-FEED-TODAY" to="PHASE-READOUT" type="gated_by" />
+    <edge from="SCN-ADMIN-DIAGNOSTICS" to="PHASE-READOUT" type="gated_by" />
+
+    <edge from="UC-AUTH-PROFILE" to="M-FRONTEND-WEBAPP" type="entered_via" />
+    <edge from="UC-AUTH-PROFILE" to="M-BOT-CHANNEL" type="entered_via" />
+    <edge from="UC-AUTH-PROFILE" to="M-AUTH-IDENTITY" type="implemented_by" />
+    <edge from="UC-AUTH-PROFILE" to="M-DATA-PERSISTENCE" type="persists_in" />
+    <edge from="UC-AUTH-PROFILE" to="M-ACCESS-COMMERCE" type="loads_from" />
+
+    <edge from="UC-B2C-REPORT" to="M-FRONTEND-WEBAPP" type="entered_via" />
+    <edge from="UC-B2C-REPORT" to="M-API-GATEWAY" type="implemented_by" />
+    <edge from="UC-B2C-REPORT" to="M-ACCESS-COMMERCE" type="gated_by" />
+    <edge from="UC-B2C-REPORT" to="M-REPORT-WORKFLOW" type="implemented_by" />
+    <edge from="UC-B2C-REPORT" to="M-LLM-ORCHESTRATION" type="content_path" />
+    <edge from="UC-B2C-REPORT" to="M-BOT-CHANNEL" type="notifies_via" />
+    <edge from="M-NATAL-CONTEXT-ENGINE" to="M-FORECAST-DATA-ENGINE" type="calculates_with" />
+    <edge from="M-NATAL-SUMMARY-LAYER" to="M-NATAL-CONTEXT-ENGINE" type="consumes_contract_from" />
+    <edge from="M-NATAL-SUMMARY-LAYER" to="M-LLM-ORCHESTRATION" type="executed_via" />
+    <edge from="M-NATAL-PROMPT-CONTRACT" to="M-LLM-ORCHESTRATION" type="executed_via" />
+    <edge from="M-FORECAST-SEMANTIC-LAYER" to="M-FORECAST-DATA-ENGINE" type="calculates_with" />
+    <edge from="M-READ-RESILIENCE-SURFACE" to="M-API-GATEWAY" type="loads_from" />
+
+    <edge from="UC-BILLING-ACCESS" to="M-API-GATEWAY" type="entered_via" />
+    <edge from="UC-BILLING-ACCESS" to="M-FRONTEND-WEBAPP" type="entered_via" />
+    <edge from="UC-BILLING-ACCESS" to="M-ACCESS-COMMERCE" type="implemented_by" />
+    <edge from="M-ACCESS-COMMERCE" to="EXT-YOOKASSA" type="integrates_with" />
+    <edge from="M-ACCESS-COMMERCE" to="M-DATA-PERSISTENCE" type="writes_to" />
+
+    <edge from="UC-FEED-DAILY" to="M-API-GATEWAY" type="entered_via" />
+    <edge from="UC-FEED-DAILY" to="M-OPS-AUTOMATION" type="implemented_by" />
+    <edge from="UC-FEED-DAILY" to="M-FORECAST-SEMANTIC-LAYER" type="implemented_by" />
+    <edge from="UC-FEED-DAILY" to="M-DAILY-FEED-SURFACE" type="entered_via" />
+    <edge from="M-DAILY-FEED-SURFACE" to="M-OPS-AUTOMATION" type="loads_from" />
+    <edge from="M-OPS-AUTOMATION" to="EXT-OPENROUTER" type="optional_provider" />
+    <edge from="M-OPS-AUTOMATION" to="EXT-GEMINI-CLI" type="optional_provider" />
+    <edge from="M-OPS-AUTOMATION" to="EXT-CODEX-CLI" type="optional_provider" />
+
+    <edge from="UC-ADMIN-OPERATIONS" to="M-FRONTEND-ADMIN" type="entered_via" />
+    <edge from="UC-ADMIN-OPERATIONS" to="M-API-GATEWAY" type="implemented_by" />
+    <edge from="UC-ADMIN-OPERATIONS" to="M-REPORT-WORKFLOW" type="mutates" />
+    <edge from="UC-ADMIN-OPERATIONS" to="M-OPS-AUTOMATION" type="observes" />
+
+    <edge from="UC-BOT-DELIVERY" to="M-BOT-CHANNEL" type="implemented_by" />
+    <edge from="M-BOT-CHANNEL" to="EXT-TELEGRAM-BOT-API" type="integrates_with" />
+    <edge from="M-AUTH-IDENTITY" to="EXT-TELEGRAM-WEBAPP" type="validates" />
+    <edge from="M-DATA-PERSISTENCE" to="EXT-POSTGRESQL" type="stores_in" />
+    <edge from="M-API-GATEWAY" to="EXT-GEONAMES" type="proxies_to" />
+
+    <edge from="UC-AUTH-PROFILE" to="VM-AUTH-PROFILE" type="verified_by" />
+    <edge from="UC-B2C-REPORT" to="VM-B2C-REPORT" type="verified_by" />
+    <edge from="UC-REPORT-ASYNC" to="VM-REPORT-ASYNC" type="verified_by" />
+    <edge from="UC-B2C-REPORT" to="VM-REPORTS-UX-CONSISTENCY" type="verified_by" />
+    <edge from="UC-BILLING-ACCESS" to="VM-BILLING-ACCESS" type="verified_by" />
+    <edge from="UC-REFERRAL-REWARD" to="VM-REFERRAL" type="verified_by" />
+    <edge from="UC-FEED-DAILY" to="VM-FEED-DAILY" type="verified_by" />
+    <edge from="UC-FEED-DAILY" to="VM-FEED-ROBUSTNESS" type="verified_by" />
+    <edge from="UC-ADMIN-OPERATIONS" to="VM-ADMIN-OPS" type="verified_by" />
+    <edge from="UC-BOT-DELIVERY" to="VM-BOT-DELIVERY" type="verified_by" />
+
+    <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="UC-REFERRAL-REWARD" type="violates" />
+    <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="M-ACCESS-COMMERCE" type="impacts" />
+    <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="M-FRONTEND-WEBAPP" type="impacts" />
+    <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="M-BOT-CHANNEL" type="impacts" />
+    <edge from="DEFECT-FEED-LLM-TUPLE" to="UC-FEED-DAILY" type="violates" />
+    <edge from="DEFECT-FEED-LLM-TUPLE" to="M-OPS-AUTOMATION" type="impacts" />
+    <edge from="DEFECT-DIAGNOSTICS-MARKDOWN" to="SCN-ADMIN-DIAGNOSTICS" type="blocks" />
+    <edge from="DEFECT-DIAGNOSTICS-MARKDOWN" to="M-OPS-AUTOMATION" type="impacts" />
+    <edge from="DEFECT-ADMIN-SERVER-AUTH" to="SCN-ADMIN-REPORT-VIEW" type="blocks" />
+    <edge from="DEFECT-ADMIN-SERVER-AUTH" to="M-FRONTEND-ADMIN" type="impacts" />
+  </edges>
+</knowledge_graph>

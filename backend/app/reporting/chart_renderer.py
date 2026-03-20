@@ -188,3 +188,19 @@ class NatalChartRenderer:
             
         return "".join(elements)
 # #END_BLOCK_SVG_BUILDER
+
+def build_natal_chart_svg(chart_data: Dict[str, Any]) -> str:
+    """
+    # PURPOSE: Helper to build SVG from chart_data dict.
+    # INPUT: chart_data.
+    # OUTPUT: SVG string.
+    """
+    if not chart_data:
+        return ""
+    
+    renderer = NatalChartRenderer()
+    aspects = chart_data.get("aspects", [])
+    # Filter aspects to major only? Or all?
+    # Engine 'aspects' usually contains major ones.
+    
+    return renderer.render(chart_data, aspects)

@@ -12,7 +12,6 @@ import structlog
 from stellium_engine import StelliumEngine
 
 from .llm.orchestrator import LLMOrchestrator, SectionSpec, StubLLMClient
-from .reporting.markdown_reporter import ReportSection, assemble_markdown
 
 # #START_BLOCK_DIAG_LOGGER
 logger = structlog.get_logger()
@@ -68,12 +67,32 @@ def run_diagnostics() -> Dict[str, Any]:
             aspects=len(aspects),
         )
         result["steps"].append({"name": "transit", "ok": True})
+        
+        # Test Month Data
+        month_data = engine.calculate_forecast_month_data(natal, "2026-03-01 12:00", "Sochi, Russia")
+        logger.info(
+            "diagnostic.month",
+            block_id="DIAG_MONTH",
+            client_id="diagnostic",
+            ingresses=len(month_data.get("ingresses", [])),
+        )
+        result["steps"].append({"name": "month_data", "ok": True})
+        
+        # Test Synastry
+        partner = engine.create_natal_chart("Partner", "1995-05-20 12:00", "Moscow")
+        syn_data = engine.calculate_synastry_data(natal, partner)
+        logger.info(
+            "diagnostic.synastry",
+            block_id="DIAG_SYNASTRY",
+            client_id="diagnostic",
+            score=syn_data.get("score"),
+        )
+        result["steps"].append({"name": "synastry", "ok": True})
+        
     except Exception as exc:
         logger.error(
-            "diagnostic.transit.error",
-            block_id="DIAG_TRANSIT",
-            client_id="diagnostic",
-            report_id="diagnostic",
+            "diagnostic.engine.error",
+            block_id="DIAG_ENGINE",
             error=str(exc),
         )
         return {"status": "failed", "steps": result["steps"]}

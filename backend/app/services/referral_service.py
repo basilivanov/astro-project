@@ -7,7 +7,56 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from ..models import User, Referral
+from ..models import User, Referral, Transaction
+import structlog
+
+logger = structlog.get_logger()
+
+# Config
+PARTNER_COMMISSION_PERCENT = 0.20
+
+def process_partner_reward(payer_id: uuid.UUID, amount: float, db: Session) -> None:
+    """
+    # PURPOSE: Calculate and credit commission to the partner who referred the payer.
+    # CONTEXT: Called by billing webhook upon successful payment.
+    """
+    # 1. Find Referrer
+    referral_link = db.query(Referral).filter(Referral.referee_id == payer_id).first()
+    if not referral_link or not referral_link.referrer_id:
+        return # Organic user or no tracking
+
+    referrer = db.query(User).filter(User.id == referral_link.referrer_id).first()
+    if not referrer or not referrer.is_partner:
+        return # Referrer is not a partner (regular users get Days on signup, not Money on pay)
+
+    # 2. Calculate Commission
+    commission = float(amount) * PARTNER_COMMISSION_PERCENT
+    if commission <= 0:
+        return
+
+    # 3. Credit Balance
+    referrer.balance += type(referrer.balance)(commission)
+    
+    # 4. Log Transaction
+    trx = Transaction(
+        user_id=referrer.id,
+        amount=commission,
+        currency="RUB",
+        type="referral_bonus",
+        status="success",
+        provider_id=f"ref_commision_{payer_id}_{datetime.now().timestamp()}"
+    )
+    db.add(trx)
+    db.commit()
+    
+    logger.info("referral.partner_reward", partner_id=str(referrer.id), amount=commission)
+    
+    # Notify partner via bot
+    if referrer.telegram_id:
+        import asyncio
+        from .notification import send_bot_notification
+        msg = f"💸 <b>Бонус!</b>\nВаш реферал совершил покупку.\nНачислено: {commission:.0f}₽"
+        asyncio.create_task(send_bot_notification(referrer.telegram_id, msg))
 
 def process_referral(referrer_id: uuid.UUID, new_user_id: uuid.UUID, db: Session) -> bool:
     """
@@ -54,11 +103,12 @@ def process_referral(referrer_id: uuid.UUID, new_user_id: uuid.UUID, db: Session
     
     # 5. Reward Referrer
     if referrer.is_partner:
-        # Partners get money/percent later, not days now.
-        # We leave status as 'pending' to be processed by a future CPA batch job.
-        referral.status = "pending"
+        # Partners get money/percent later (RevShare)
+        referral.reward_type = "money"
+        referral.status = "active"
     else:
         # Regular user gets +14 days immediately
+        referral.reward_type = "days"
         referral.status = "rewarded" 
         
         current_sub = referrer.subscription_active_until

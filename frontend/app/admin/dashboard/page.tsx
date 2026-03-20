@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   Users, 
@@ -6,6 +9,8 @@ import {
   CheckCircle2, 
   AlertCircle 
 } from "lucide-react";
+import { useTelegram } from "../../../hooks/useTelegram";
+import { useSearchParams } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,11 @@ type AdminStats = {
   window_days?: number;
   feedback_avg?: number;
   feedback_count?: number;
+  entitlements?: {
+      total_balance_rub: number;
+      active_subscriptions: number;
+      outstanding_credits: number;
+  }
 };
 
 type AdminFeedback = {
@@ -41,59 +51,6 @@ type AdminReport = {
   status: string;
   created_at: string;
   client_name: string;
-};
-
-const serverApiBase =
-  process.env.INTERNAL_API_URL?.replace(/\/$/, "") ||
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://backend:8000";
-
-async function fetchStats(windowDays: number, showTest?: boolean): Promise<AdminStats> {
-  const url = new URL(`${serverApiBase}/api/admin/stats`);
-  url.searchParams.set("days", String(windowDays));
-  if (showTest) url.searchParams.set("show_test", "true");
-  const response = await fetch(url.toString(), {
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`Stats fetch failed: ${response.status}`);
-  }
-  return response.json();
-}
-
-async function fetchFeedback(): Promise<AdminFeedback[]> {
-  const url = new URL(`${serverApiBase}/api/admin/feedback`);
-  url.searchParams.set("limit", "10");
-  const response = await fetch(url.toString(), { cache: "no-store" });
-  if (!response.ok) return [];
-  return response.json();
-}
-
-async function fetchRecentReports(showTest?: boolean): Promise<AdminReport[]> {
-  const url = new URL(`${serverApiBase}/api/admin/reports`);
-  url.searchParams.set("limit", "10");
-  if (showTest) url.searchParams.set("show_test", "true");
-  const response = await fetch(url.toString(), {
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return [];
-  }
-  return response.json();
-}
-
-const parseWindowDays = (value?: string | string[]) => {
-  const raw = Array.isArray(value) ? value[0] : value;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return 7;
-  return Math.min(30, Math.max(1, Math.floor(parsed)));
-};
-
-const buildAdminLink = (days: number, showTest?: boolean) => {
-  const params = new URLSearchParams();
-  params.set("days", String(days));
-  if (showTest) params.set("show_test", "true");
-  return `/admin/dashboard?${params.toString()}`;
 };
 
 const formatReportType = (value?: string) =>
@@ -122,42 +79,102 @@ const getStatusColor = (status: string) => {
     }
 }
 
-// #START_BLOCK_ADMIN_DASHBOARD
-/**
- * PURPOSE: Main admin dashboard page showing stats, funnel, and recent activity.
- * INPUT: searchParams (days, show_test).
- * OUTPUT: JSX Element (Server Component).
- * CONTEXT: Fetches data from internal API.
- */
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
-}) {
-  const windowDays = parseWindowDays(searchParams?.days);
-  const showTest = searchParams?.show_test === "true";
+export default function DashboardPage() {
+  const { initData, isReady } = useTelegram();
+  const searchParams = useSearchParams();
   
-  let stats: AdminStats | null = null;
-  let recentReports: AdminReport[] = [];
-  let recentFeedback: AdminFeedback[] = [];
+  const windowDays = parseInt(searchParams.get("days") || "7");
+  const showTest = searchParams.get("show_test") === "true";
   
-  try {
-    stats = await fetchStats(windowDays, showTest);
-  } catch (err) {
-    console.error("fetchStats error:", err);
-  }
-  try {
-    recentReports = await fetchRecentReports(showTest);
-  } catch (err) {
-    console.error("fetchRecentReports error:", err);
-  }
-  try {
-    recentFeedback = await fetchFeedback();
-  } catch (err) {
-    console.error("fetchFeedback error:", err);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [recentReports, setRecentReports] = useState<AdminReport[]>([]);
+  const [recentFeedback, setRecentFeedback] = useState<AdminFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fallbackReports: AdminReport[] = [];
+  const fallbackFeedback: AdminFeedback[] = [];
+
+  const fallbackStats: AdminStats = {
+    clients: 0,
+    reports_total: 0,
+    reports_in_progress: 0,
+    reports_completed: 0,
+    reports_failed: 0,
+    reports_by_type: {},
+    reports_daily: [],
+    tasks_open: 0,
+    tasks_total: 0,
+    analytics_funnel: {},
+    window_days: windowDays,
+    feedback_avg: 0,
+    feedback_count: 0,
+    entitlements: {
+      total_balance_rub: 0,
+      active_subscriptions: 0,
+      outstanding_credits: 0,
+    },
+  };
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      const headers = { "X-Telegram-Auth": initData };
+      try {
+        // Stats
+        const statsUrl = new URL("/api/admin/stats", window.location.origin);
+        statsUrl.searchParams.set("days", String(windowDays));
+        if (showTest) statsUrl.searchParams.set("show_test", "true");
+        const statsRes = await fetch(statsUrl.toString(), { headers });
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        } else {
+          setStats(fallbackStats);
+        }
+
+        // Reports
+        const reportsUrl = new URL("/api/admin/reports", window.location.origin);
+        reportsUrl.searchParams.set("limit", "10");
+        if (showTest) reportsUrl.searchParams.set("show_test", "true");
+        const reportsRes = await fetch(reportsUrl.toString(), { headers });
+        if (reportsRes.ok) {
+          const reportsData = await reportsRes.json();
+          setRecentReports(Array.isArray(reportsData) ? reportsData : fallbackReports);
+        } else {
+          setRecentReports(fallbackReports);
+        }
+
+        // Feedback
+        const feedbackUrl = new URL("/api/admin/feedback", window.location.origin);
+        feedbackUrl.searchParams.set("limit", "10");
+        const feedbackRes = await fetch(feedbackUrl.toString(), { headers });
+        if (feedbackRes.ok) {
+          const feedbackData = await feedbackRes.json();
+          setRecentFeedback(Array.isArray(feedbackData) ? feedbackData : fallbackFeedback);
+        } else {
+          setRecentFeedback(fallbackFeedback);
+        }
+
+      } catch (err) {
+        console.error(err);
+        setStats((current) => current ?? fallbackStats);
+        setRecentReports(fallbackReports);
+        setRecentFeedback(fallbackFeedback);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isReady, initData, windowDays, showTest]);
+
+  if (loading && !stats) {
+      return <div className="p-10 text-center text-slate-400">Загрузка дашборда...</div>;
   }
 
-  const daily = stats?.reports_daily ?? [];
+  const safeStats = stats ?? fallbackStats;
+  const daily = safeStats.reports_daily ?? [];
   const maxDaily = Math.max(...daily.map((item) => item.count || 0), 1);
   const weeklyTotal = daily.reduce((sum, item) => sum + (item.count || 0), 0);
 
@@ -169,20 +186,26 @@ export default async function DashboardPage({
       { key: "payment_succeeded", label: "Успешная оплата" }
   ];
   
-  const funnelData = stats?.analytics_funnel || {};
+  const funnelData = safeStats.analytics_funnel || {};
   const maxFunnel = (funnelData["landing_view"] as number) || 1;
 
+  const buildAdminLink = (days: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("days", String(days));
+    return `/admin/dashboard?${params.toString()}`;
+  };
+
   return (
-    <div className="flex flex-col gap-8 py-8">
+    <div className="flex flex-col gap-8 py-8" data-testid="admin-dashboard-page">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-slate-900">Дашборд</h1>
+        <h1 className="text-3xl font-bold text-slate-900" data-testid="admin-dashboard-title">Дашборд</h1>
         <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-500">Окно статистики:</span>
             <div className="flex bg-white rounded-lg border border-slate-200 p-1">
                 {[7, 14, 30].map((days) => (
                 <Link
                     key={days}
-                    href={buildAdminLink(days, showTest)}
+                    href={buildAdminLink(days)}
                     className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
                     windowDays === days
                         ? "bg-purple-100 text-purple-700 shadow-sm"
@@ -205,7 +228,7 @@ export default async function DashboardPage({
                     <Users size={20} />
                 </div>
             </div>
-            <div className="text-3xl font-black text-slate-900">{stats?.clients ?? "—"}</div>
+            <div className="text-3xl font-black text-slate-900">{safeStats.clients}</div>
         </div>
         
         <div className="glass-card p-5 bg-white flex flex-col justify-between h-32">
@@ -215,7 +238,7 @@ export default async function DashboardPage({
                     <FileText size={20} />
                 </div>
             </div>
-            <div className="text-3xl font-black text-slate-900">{stats?.reports_total ?? "—"}</div>
+            <div className="text-3xl font-black text-slate-900">{safeStats.reports_total}</div>
         </div>
 
         <div className="glass-card p-5 bg-white flex flex-col justify-between h-32">
@@ -225,7 +248,7 @@ export default async function DashboardPage({
                     <Activity size={20} />
                 </div>
             </div>
-            <div className="text-3xl font-black text-amber-600">{stats?.reports_in_progress ?? "—"}</div>
+            <div className="text-3xl font-black text-amber-600">{safeStats.reports_in_progress}</div>
         </div>
 
         <div className="glass-card p-5 bg-white flex flex-col justify-between h-32">
@@ -235,7 +258,7 @@ export default async function DashboardPage({
                     <AlertCircle size={20} />
                 </div>
             </div>
-            <div className="text-3xl font-black text-rose-600">{stats?.reports_failed ?? "—"}</div>
+            <div className="text-3xl font-black text-rose-600">{safeStats.reports_failed}</div>
         </div>
 
         <div className="glass-card p-5 bg-white flex flex-col justify-between h-32">
@@ -246,15 +269,14 @@ export default async function DashboardPage({
                 </div>
             </div>
             <div>
-                <div className="text-3xl font-black text-slate-900">{stats?.feedback_avg?.toFixed(1) || "0.0"}</div>
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">отзывов: {stats?.feedback_count ?? 0}</div>
+                <div className="text-3xl font-black text-slate-900">{safeStats.feedback_avg?.toFixed(1) || "0.0"}</div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">отзывов: {safeStats.feedback_count ?? 0}</div>
             </div>
         </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
         
-        {/* Funnel & Charts Column */}
         <div className="flex flex-col gap-8">
             {/* Funnel */}
             <div className="glass-card p-6 bg-white shadow-sm border border-slate-100">
@@ -371,7 +393,7 @@ export default async function DashboardPage({
                         recentReports.map(report => (
                             <Link 
                                 key={report.id} 
-                                href={`/admin/reports?id=${report.id}`} 
+                                data-testid="admin-dashboard-queue-item" href={`/admin/reports?id=${report.id}`} 
                                 className="block p-3 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all group"
                             >
                                 <div className="flex justify-between items-start mb-1">
@@ -402,4 +424,3 @@ export default async function DashboardPage({
     </div>
   );
 }
-// #END_BLOCK_ADMIN_DASHBOARD

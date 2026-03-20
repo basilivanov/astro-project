@@ -1,0 +1,104 @@
+{
+  "benchmark_id": "forecast-spotcheck-2026-03-19",
+  "notes": "Case A forecast spot-check from ASTRO_QUALITY_BENCHMARK_2026-03-19.md. Includes explicit openrouter and cheap runs so drift is tied to a recorded llm_mode.",
+  "default_compare_exclude_sections": [
+    "input_frame",
+    "technical_appendix"
+  ],
+  "poll_interval_seconds": 5,
+  "timeout_seconds": 600,
+  "cases": [
+    {
+      "id": "week_openrouter",
+      "report_type": "week_forecast",
+      "llm_mode": "openrouter",
+      "client_name": "Benchmark Week OpenRouter",
+      "client_note": "Forecast spot-check case A week openrouter",
+      "birth_date": "1976-02-14T05:30:00",
+      "birth_location": "Khabarovsk, Russia",
+      "birth_lat": 48.48,
+      "birth_lon": 135.08,
+      "birth_timezone": "Asia/Vladivostok",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    },
+    {
+      "id": "week_cheap",
+      "report_type": "week_forecast",
+      "llm_mode": "cheap",
+      "client_name": "Benchmark Week Cheap",
+      "client_note": "Forecast spot-check case A week cheap",
+      "birth_date": "1976-02-14T05:30:00",
+      "birth_location": "Khabarovsk, Russia",
+      "birth_lat": 48.48,
+      "birth_lon": 135.08,
+      "birth_timezone": "Asia/Vladivostok",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    },
+    {
+      "id": "month_openrouter",
+      "report_type": "month_forecast",
+      "llm_mode": "openrouter",
+      "client_name": "Benchmark Month OpenRouter",
+      "client_note": "Forecast spot-check case A month openrouter",
+      "birth_date": "1976-02-14T05:30:00",
+      "birth_location": "Khabarovsk, Russia",
+      "birth_lat": 48.48,
+      "birth_lon": 135.08,
+      "birth_timezone": "Asia/Vladivostok",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    },
+    {
+      "id": "month_cheap",
+      "report_type": "month_forecast",
+      "llm_mode": "cheap",
+      "client_name": "Benchmark Month Cheap",
+      "client_note": "Forecast spot-check case A month cheap",
+      "birth_date": "1976-02-14T05:30:00",
+      "birth_location": "Khabarovsk, Russia",
+      "birth_lat": 48.48,
+      "birth_lon": 135.08,
+      "birth_timezone": "Asia/Vladivostok",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "week_openrouter_vs_cheap",
+      "left": "week_openrouter",
+      "right": "week_cheap"
+    },
+    {
+      "id": "month_openrouter_vs_cheap",
+      "left": "month_openrouter",
+      "right": "month_cheap"
+    }
+  ]
+}

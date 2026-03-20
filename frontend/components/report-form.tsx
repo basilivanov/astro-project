@@ -20,6 +20,7 @@ type ReportFormProps = {
     name: string;
     note?: string | null;
     birthDate: string;
+    birthTimeKnown?: boolean;
     birthLocation: string;
     birthLat?: number | null;
     birthLon?: number | null;
@@ -49,6 +50,8 @@ export default function ReportForm({
   clientDefaults,
 }: ReportFormProps) {
   const [reportType, setReportType] = useState(PRODUCT_OPTIONS[0].value);
+  const [timeUnknown, setTimeUnknown] = useState(clientDefaults?.birthTimeKnown === false);
+  
   const isSynastry = reportType === "synastry";
   const isHorary = reportType === "horary_answer";
   const needsSolar = SOLAR_TYPES.has(reportType);
@@ -69,6 +72,7 @@ export default function ReportForm({
             <input type="hidden" name="client_name" value={clientDefaults.name} />
             <input type="hidden" name="client_note" value={clientDefaults.note || ""} />
             <input type="hidden" name="birth_date" value={clientDefaults.birthDate} />
+            <input type="hidden" name="birth_time_unknown" value={clientDefaults.birthTimeKnown === false ? "on" : ""} />
             <input type="hidden" name="birth_location" value={clientDefaults.birthLocation} />
             <input type="hidden" name="birth_lat" value={clientDefaults.birthLat ?? ""} />
             <input type="hidden" name="birth_lon" value={clientDefaults.birthLon ?? ""} />
@@ -99,14 +103,36 @@ export default function ReportForm({
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="field">
-                <label className="label" htmlFor="birth_date">Дата и время рождения</label>
+                <label className="label" htmlFor="birth_date_only">Дата рождения</label>
                 <input
-                  id="birth_date"
-                  name="birth_date"
-                  type="datetime-local"
+                  id="birth_date_only"
+                  name="birth_date_only"
+                  type="date"
                   className="input"
                   required
                 />
+              </div>
+              <div className="field">
+                <div className="flex justify-between">
+                    <label className="label" htmlFor="birth_time">Время</label>
+                    <label className="text-xs flex items-center gap-1 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="birth_time_unknown" 
+                            checked={timeUnknown}
+                            onChange={(e) => setTimeUnknown(e.target.checked)}
+                        />
+                        <span className="text-zinc-500">Неизвестно</span>
+                    </label>
+                </div>
+                {!timeUnknown && (
+                    <input
+                      id="birth_time"
+                      name="birth_time"
+                      type="time"
+                      className="input animate-in fade-in duration-200"
+                    />
+                )}
               </div>
               <GeoField
                 namePrefix="birth"

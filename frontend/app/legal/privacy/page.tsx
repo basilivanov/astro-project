@@ -1,8 +1,16 @@
+// ############################################################################
+// AI_HEADER: MODULE_LEGAL_PRIVACY
+// ROLE: Static page for Privacy Policy.
+// DEPENDENCIES: None.
+// GRACE_ANCHORS: [LEGAL_PRIVACY]
+// ############################################################################
+
 export const metadata = {
   title: "Конфиденциальность",
   description: "Политика обработки персональных данных AstroGrace",
 };
 
+// #START_BLOCK_LEGAL_PRIVACY
 export default function PrivacyPage() {
   return (
     <div className="p-6 pt-8 pb-24 max-w-2xl mx-auto text-zinc-300 space-y-6">
@@ -30,3 +38,4 @@ export default function PrivacyPage() {
     </div>
   );
 }
+// #END_BLOCK_LEGAL_PRIVACY

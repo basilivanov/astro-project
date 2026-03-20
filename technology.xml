@@ -1,0 +1,63 @@
+<technology project="astro-project" mode="strict-grace" updated_at="2026-03-17">
+  <repo_boundary>
+    <root>/opt/astro-project</root>
+    <git_snapshot commit="9c5a6858f962eab72cb4f21e1a16b7dc3f35c54e" tag="none" worktree_state="dirty" strict_grace_status="draft" captured_at="2026-03-20" />
+    <assumption local_adaptation="true">This artifact pack is anchored to git commit 9c5a6858f962eab72cb4f21e1a16b7dc3f35c54e, but the working tree is dirty and no fixed release tag or frozen branch is supplied. Therefore the pack is a draft/dirty snapshot and does not satisfy the strict-GRACE requirement for a fully reproducible repository boundary.</assumption>
+    <follow_up>Before declaring strict-GRACE readiness, create a clean tagged or otherwise frozen snapshot for this pack and update all boundary references to that exact commit/tag.</follow_up>
+  </repo_boundary>
+  <runtime_stack>
+    <runtime name="backend" language="Python" version="3.12" framework="FastAPI 0.111 plus Uvicorn 0.30" container="backend/Dockerfile" />
+    <runtime name="bot" language="Python" version="3.12" framework="Aiogram 3 plus aiohttp" container="bot/Dockerfile" />
+    <runtime name="frontend" language="TypeScript" version="Node 20 runtime" framework="Next.js 14.2.5 plus React 18.3.1" container="frontend/Dockerfile" />
+    <runtime name="database" language="SQL" version="PostgreSQL 16 alpine" container="docker-compose.yml" />
+  </runtime_stack>
+  <critical_dependencies>
+    <dependency>SQLAlchemy ORM and session management for all persistent state.</dependency>
+    <dependency>stellium 0.13.0 plus local stellium_engine.py for chart and aspect calculations.</dependency>
+    <dependency>structlog for trace-friendly logs with block_id, report_id, client_id, and user identifiers.</dependency>
+    <dependency>Pydantic models for API/request validation and section schemas.</dependency>
+    <dependency>YooKassa SDK for subscription and credit payments.</dependency>
+    <dependency>OpenRouter HTTP access or locally authenticated Gemini/Codex CLIs for report/feed LLM generation.</dependency>
+    <dependency>faster-whisper for bot-side speech-to-text.</dependency>
+    <dependency>WeasyPrint and markdown helpers for report rendering assets and print-ready output paths.</dependency>
+  </critical_dependencies>
+  <external_systems>
+    <system name="Telegram WebApp" role="Primary identity source and frontend launch surface." />
+    <system name="Telegram Bot API" role="Bot polling, direct notifications, and referral entry." />
+    <system name="YooKassa" role="Payment initiation and webhook confirmation." />
+    <system name="OpenRouter" role="Remote LLM provider for production-oriented modes." />
+    <system name="Gemini CLI or Codex CLI" role="Local authenticated LLM provider path mounted into backend container." />
+    <system name="GeoNames-backed geo services" role="Place autocomplete and timezone lookup behind backend and Next proxy routes." />
+  </external_systems>
+  <operational_constraints>
+    <constraint>Auth is header-based via X-Telegram-Auth and reused for admin gating; no cookie session contract is present.</constraint>
+    <constraint>docker-compose.yml sets DEFAULT_LLM_MODE=stub for backend by default; real LLM operation requires explicit provider credentials or mounted CLI homes.</constraint>
+    <constraint>Backend startup performs additive runtime migrations and starts the in-process scheduler; schema drift must be treated cautiously.</constraint>
+    <constraint>Frontend proxy routes depend on INTERNAL_API_URL or NEXT_PUBLIC_API_URL resolving to backend.</constraint>
+    <constraint>Playwright browsers are not installed in the normal frontend dev container; canonical E2E runs only through the Playwright container wrapper.</constraint>
+    <constraint>Notification delivery is best-effort over the bot internal HTTP service and must not be a hard dependency for transaction completion.</constraint>
+    <constraint>Weekly horary quota depends on user-local timezone calculation, falling back to UTC when timezone is absent or invalid.</constraint>
+    <constraint>Admin server actions currently have auth gaps in the snapshot; treat admin UI changes as high-risk until DEFECT-ADMIN-SERVER-AUTH is resolved.</constraint>
+  </operational_constraints>
+  <environment_assumptions>
+    <assumption>TELEGRAM_BOT_TOKEN is available for both bot runtime and Telegram auth verification.</assumption>
+    <assumption>DATABASE_URL points to PostgreSQL and matches sync usage in backend and async usage in bot.</assumption>
+    <assumption>BOT_ADMIN_IDS defines the admin allowlist for backend admin endpoints and bot notifications.</assumption>
+    <assumption>YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY are optional in local/mock mode but required for real billing.</assumption>
+    <assumption>OPENROUTER_API_KEY or CLI credentials are present when DEFAULT_LLM_MODE or FEED_LLM_MODE is not stub/mock/fallback.</assumption>
+    <assumption local_adaptation="true">Runtime migrations in backend/app/db.py are the current schema mechanism; there is no separate canonical Alembic flow in the reviewed slice.</assumption>
+  </environment_assumptions>
+  <toolchain>
+    <verification_command profile="backend:quick">docker exec astro-project-backend-1 python3 scripts/pipeline.py</verification_command>
+    <verification_command profile="frontend:quick">./scripts/run_e2e.sh --last-failed</verification_command>
+    <verification_command profile="frontend:targeted">./scripts/run_e2e.sh e2e/&lt;file&gt;.spec.ts -g "&lt;case&gt;"</verification_command>
+    <verification_command profile="smoke">./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/core-ux.spec.ts e2e/report-create.spec.ts e2e/quality.spec.ts</verification_command>
+    <verification_command profile="full-regression">./scripts/run_e2e.sh</verification_command>
+    <verification_command profile="ops">POST /api/diagnostics/run and inspect trace logs</verification_command>
+  </toolchain>
+  <business_verification_mechanism>
+    <mechanism>Use deterministic response shapes plus trace evidence from structlog events such as report.async.start, report.gen.start, report.section.done, billing.success, referral.partner_reward, feed.generated, and scheduler.*.</mechanism>
+    <mechanism>Correlate evidence by report_id, client_id, section_id, telegram_id, and block_id where present.</mechanism>
+    <mechanism>For UI flows, use Playwright container runs against the webapp while preserving Telegram auth/header assumptions.</mechanism>
+  </business_verification_mechanism>
+</technology>

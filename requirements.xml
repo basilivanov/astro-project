@@ -1,0 +1,147 @@
+<requirements project="astro-project" mode="strict-grace" updated_at="2026-03-20" graph_source_of_truth="requirements.xml">
+  <system_goal>Deliver a Telegram-first astrology service that authenticates users, captures birth data, sells or grants access, generates structured reports, serves a daily feed, and closes the loop through referrals and bot notifications.</system_goal>
+  <assumptions>
+    <assumption local_adaptation="true">Use-case grouping is inferred from the current route families and service files because the repository does not yet expose a separate canonical capability map.</assumption>
+  </assumptions>
+  <scope>
+    <in_scope>
+      <item ref="UC-AUTH-PROFILE">Telegram WebApp and bot identity bootstrap, profile onboarding, and profile update.</item>
+      <item ref="UC-B2C-REPORT">User-driven report creation from a saved profile with entitlement checks.</item>
+      <item ref="UC-REPORT-ASYNC">Async report generation, section regeneration, report readback, and report-level status tracking.</item>
+      <item ref="UC-BILLING-ACCESS">Payment initiation, webhook processing, subscriptions, credits, and entitlement consumption.</item>
+      <item ref="UC-REFERRAL-REWARD">Referral resolution on signup and partner payout on successful payment.</item>
+      <item ref="UC-FEED-DAILY">Daily feed generation based on engine facts and optional LLM interpretation.</item>
+      <item ref="UC-ADMIN-OPERATIONS">Admin dashboards, user/client/report operations, broadcasts, and diagnostics trigger.</item>
+      <item ref="UC-BOT-DELIVERY">Telegram bot delivery, internal notify endpoint, and voice transcription helper.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Non-Telegram authentication or account merge flows.</item>
+      <item>Automated payout execution to partners or support-managed cash-out.</item>
+      <item>Destructive schema migration strategy or release-management automation.</item>
+      <item>Full regression sign-off for this documentation-only wave.</item>
+      <item>Replacing the current JSON block report format or renderer contract.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-AUTH-PROFILE" actor="telegram_user">
+      <summary>Authenticate from Telegram, ensure a stable User record keyed by telegram_id, and persist birth/profile fields needed by downstream report flows.</summary>
+      <entrypoints>/api/users/me; PUT /api/users/me; /start; /onboarding/profile; bot /start</entrypoints>
+      <scenario id="SCN-AUTH-VALID-INITDATA">Valid initData or explicit development bypass resolves one User and returns the current profile payload.</scenario>
+      <scenario id="SCN-PROFILE-COMPLETE-BIRTHDATA">User supplies name, date, place, optional time and location metadata; saved profile becomes the source for B2C report creation.</scenario>
+    </use_case>
+    <use_case id="UC-B2C-REPORT" actor="subscribed_or_entitled_user">
+      <summary>Create a report from the logged-in user's stored profile, consuming subscription/quota or credits when required.</summary>
+      <entrypoints>POST /api/reports/create; /create; /reports; /week</entrypoints>
+      <scenario id="SCN-B2C-REPORT-CREATE">Entitled user creates natal, forecast, solar, synastry, or horary report and receives report_id/client_id immediately.</scenario>
+      <scenario id="SCN-HORARY-QUOTA-OR-CREDITS">Horary uses subscriber weekly quota first, then CRD credits; blocked users receive an explicit paywall error.</scenario>
+    </use_case>
+    <use_case id="UC-REPORT-ASYNC" actor="admin_or_internal_workflow">
+      <summary>Generate report sections asynchronously, persist ordered chunks, allow full or partial regeneration, and expose readable report state.</summary>
+      <entrypoints>POST /api/workflows/report/async; POST /api/workflows/report; POST /api/admin/reports/{id}/regenerate/async; POST /api/admin/reports/{id}/sections/{section}/regenerate/async; GET /api/reports/{id}; GET /api/admin/reports/{id}</entrypoints>
+      <scenario id="SCN-ASYNC-REPORT-GENERATE">Workflow initializes run and chunks, computes chart data, generates sections, and marks report completed or failed with evidence.</scenario>
+      <scenario id="SCN-ASYNC-SECTION-REGENERATE">Admin or user retries a failed report or one section without breaking report ownership and chunk ordering.</scenario>
+    </use_case>
+    <use_case id="UC-BILLING-ACCESS" actor="paying_user">
+      <summary>Initiate payment, persist checkout session when enabled, receive webhook confirmation, and mutate subscriptions, horary credits, or one-off report unlocks exactly once.</summary>
+      <entrypoints>POST /api/billing/pay; POST /api/billing/webhook; GET /api/billing/packs; GET /api/billing/sessions/{resume_token}; POST /api/billing/sessions/{resume_token}/resume; /billing/complete</entrypoints>
+      <scenario id="SCN-BILLING-SUBSCRIPTION-WEBHOOK">Successful subscription payment writes a Transaction, updates Subscription, and extends subscription_active_until.</scenario>
+      <scenario id="SCN-BILLING-CREDITS-WEBHOOK">Successful horary pack payment writes a payment Transaction and a CRD top-up Transaction.</scenario>
+      <scenario id="SCN-BILLING-ONE-OFF-PHASE2">One-off report payment persists checkout session, grants exactly one unlock, and lets the flagged natal_master, month_forecast, year_forecast, or solar_return flow continue from /billing/complete back into /create or /read without losing access state.</scenario>
+    </use_case>
+    <use_case id="UC-REFERRAL-REWARD" actor="new_user_or_partner">
+      <summary>Resolve referral codes on signup and reward either trial days or partner revenue share without duplicate linkage.</summary>
+      <entrypoints>Telegram start_param; bot /start referral arg; referral share pages; billing webhook callback into partner reward logic</entrypoints>
+      <scenario id="SCN-REFERRAL-SIGNUP">One referee can be linked to one referrer exactly once; signup reward is applied according to intended referral policy.</scenario>
+      <scenario id="SCN-REFERRAL-PARTNER-REWARD">When a referred payer completes payment and the referrer is a partner, commission is credited to partner balance.</scenario>
+    </use_case>
+    <use_case id="UC-FEED-DAILY" actor="telegram_user">
+      <summary>Return a compact daily feed from calculated transit facts and an optional low-cost LLM interpretation layer.</summary>
+      <entrypoints>GET /api/feed/today; /</entrypoints>
+      <scenario id="SCN-FEED-TODAY">Frontend loads the feed payload with date, moon sign, moon phase, vibe text, and traffic-light summary.</scenario>
+    </use_case>
+    <use_case id="UC-ADMIN-OPERATIONS" actor="admin_user">
+      <summary>Inspect reports, users, clients, tickets, analytics, audit logs, health, and trigger regeneration or diagnostics.</summary>
+      <entrypoints>/admin/*; /reports/[id]; GET /api/admin/*; POST /api/diagnostics/run</entrypoints>
+      <scenario id="SCN-ADMIN-REPORT-VIEW">Admin can inspect report metadata, chunks, runs, and trigger regeneration flows.</scenario>
+      <scenario id="SCN-ADMIN-DIAGNOSTICS">Admin can trigger the diagnostics runner and collect log-driven evidence for core pipeline health.</scenario>
+    </use_case>
+    <use_case id="UC-BOT-DELIVERY" actor="telegram_bot">
+      <summary>Send Telegram notifications for completed reports and support bot-native signup/referral or voice-related operator tasks.</summary>
+      <entrypoints>bot polling handlers; POST bot /notify; faster-whisper transcription</entrypoints>
+      <scenario id="SCN-BOT-NOTIFY">Backend sends an internal notify request and the bot either delivers it or returns a non-fatal blocked/not-found status.</scenario>
+      <scenario id="SCN-BOT-VOICE-TRANSCRIBE">Voice media can be transcribed locally for bot task flows without changing report-generation contracts.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>Telegram identity is canonical; telegram_id is the durable user key across backend, frontend, and bot flows.</invariant>
+    <invariant>Engine-first policy holds: calculation facts come from StelliumEngine and related helpers; LLM layers interpret provided facts and must return JSON blocks.</invariant>
+    <invariant>Typed JSON boundaries are mandatory for API payloads, report sections, and frontend/backend exchange.</invariant>
+    <invariant>Access control is checked before starting report generation; unauthorized creation must return an explicit business error, not a silent no-op.</invariant>
+    <invariant>One-off unlocks are granted on payment success, exposed through /api/users/me.report_unlocks together with /api/users/me.report_access, and consumed only on successful report creation; admin report gifts use the same entitlement-first consume path, and read access after creation remains ownership-based.</invariant>
+    <invariant>Async report execution persists ReportRun and ordered ReportChunk state before report completion is exposed.</invariant>
+    <invariant>Admin-only endpoints require admin authorization via the Telegram-auth path.</invariant>
+    <invariant>Intended referral behavior from current business docs is 15 days to referee and 15 days to regular referrer, or 20 percent partner commission; implementation drift is a defect, not a scope cut.</invariant>
+    <invariant>Stored referral_code is intended to be used as-is in web links according to docs/WORKFLOW.md; backward-compatible resolvers may accept legacy prefixes.</invariant>
+    <invariant>Notification failures must not roll back already completed report generation or billing persistence.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <policy scenario_ref="SCN-AUTH-VALID-INITDATA">Invalid or expired Telegram auth yields 401; valid development bypass is limited to development mode.</policy>
+    <policy scenario_ref="SCN-B2C-REPORT-CREATE">Incomplete profile yields 400; missing entitlement yields 402 with explicit guidance to subscribe or buy credits.</policy>
+    <policy scenario_ref="SCN-ASYNC-REPORT-GENERATE">LLM provider or validation failures may degrade to per-section fallback content; hard failure occurs if usable section count falls below the workflow threshold.</policy>
+    <policy scenario_ref="SCN-BILLING-SUBSCRIPTION-WEBHOOK">Webhook payloads with missing or invalid user identifiers are logged and ignored instead of mutating random records.</policy>
+    <policy scenario_ref="SCN-BILLING-ONE-OFF-PHASE2">Pending checkout sessions may require polling; if the user returns later, the unlock must still be visible and reusable until successful create consumes it.</policy>
+    <policy scenario_ref="SCN-REFERRAL-SIGNUP">Self-referral and duplicate referral links are ignored; reward logic must remain idempotent.</policy>
+    <policy scenario_ref="SCN-FEED-TODAY">Feed generation should return a safe fallback vibe text when LLM generation fails.</policy>
+    <policy scenario_ref="SCN-BOT-NOTIFY">Blocked chat or chat_not_found is treated as a contained delivery failure and does not fail the originating business transaction.</policy>
+    <policy scenario_ref="SCN-ADMIN-DIAGNOSTICS">Diagnostics should surface failed steps with block-oriented log evidence rather than partial silent success.</policy>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-REFERRAL-POLICY-DRIFT" severity="high" status="open">Business docs promise 15-day referral rewards and as-is referral links, while current backend and bot constants use 14 days and current frontend share/profile pages prepend ref_ to referral_code. Intended behavior and implementation are misaligned.</defect>
+    <defect id="DEFECT-FEED-LLM-TUPLE" severity="medium" status="open">backend/app/services/feed_service.py treats client.generate(...) as a string even though current LLM clients return (content, usage). Non-stub feed modes fall into fallback handling instead of using live LLM output.</defect>
+    <defect id="DEFECT-DIAGNOSTICS-MARKDOWN" severity="medium" status="open">backend/app/diagnostics.py references assemble_markdown and ReportSection symbols that are not imported in the current snapshot, so /api/diagnostics/run cannot provide full green evidence.</defect>
+    <defect id="DEFECT-ADMIN-SERVER-AUTH" severity="high" status="open">Some server-side admin pages/actions fetch protected admin endpoints without Telegram auth, or with hardcoded X-Telegram-Auth: 123456789, which only works under development bypass assumptions and is not production-safe.</defect>
+  </known_defects>
+  <knowledge_graph>
+    <rule>requirements.xml is the canonical source of truth for all UC/SCN/DEF identifiers; graph views in markdown or XML must only reference IDs declared here.</rule>
+    <business_flow>
+      <edge from="UC-AUTH-PROFILE" to="SCN-AUTH-VALID-INITDATA" type="covers" />
+      <edge from="UC-AUTH-PROFILE" to="SCN-PROFILE-COMPLETE-BIRTHDATA" type="covers" />
+      <edge from="UC-B2C-REPORT" to="SCN-B2C-REPORT-CREATE" type="covers" />
+      <edge from="UC-B2C-REPORT" to="SCN-HORARY-QUOTA-OR-CREDITS" type="covers" />
+      <edge from="UC-REPORT-ASYNC" to="SCN-ASYNC-REPORT-GENERATE" type="covers" />
+      <edge from="UC-REPORT-ASYNC" to="SCN-ASYNC-SECTION-REGENERATE" type="covers" />
+      <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-SUBSCRIPTION-WEBHOOK" type="covers" />
+      <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-CREDITS-WEBHOOK" type="covers" />
+      <edge from="UC-BILLING-ACCESS" to="SCN-BILLING-ONE-OFF-PHASE2" type="covers" />
+      <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-SIGNUP" type="covers" />
+      <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-PARTNER-REWARD" type="covers" />
+      <edge from="UC-FEED-DAILY" to="SCN-FEED-TODAY" type="covers" />
+      <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-REPORT-VIEW" type="covers" />
+      <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-DIAGNOSTICS" type="covers" />
+      <edge from="UC-BOT-DELIVERY" to="SCN-BOT-NOTIFY" type="covers" />
+      <edge from="UC-BOT-DELIVERY" to="SCN-BOT-VOICE-TRANSCRIBE" type="covers" />
+    </business_flow>
+    <defect_links>
+      <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="UC-REFERRAL-REWARD" type="impacts" />
+      <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="SCN-REFERRAL-SIGNUP" type="impacts" />
+      <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="SCN-REFERRAL-PARTNER-REWARD" type="impacts" />
+      <edge from="DEFECT-FEED-LLM-TUPLE" to="UC-FEED-DAILY" type="impacts" />
+      <edge from="DEFECT-FEED-LLM-TUPLE" to="SCN-FEED-TODAY" type="impacts" />
+      <edge from="DEFECT-DIAGNOSTICS-MARKDOWN" to="UC-ADMIN-OPERATIONS" type="impacts" />
+      <edge from="DEFECT-DIAGNOSTICS-MARKDOWN" to="SCN-ADMIN-DIAGNOSTICS" type="impacts" />
+      <edge from="DEFECT-ADMIN-SERVER-AUTH" to="UC-ADMIN-OPERATIONS" type="impacts" />
+      <edge from="DEFECT-ADMIN-SERVER-AUTH" to="SCN-ADMIN-REPORT-VIEW" type="impacts" />
+      <edge from="DEFECT-ADMIN-SERVER-AUTH" to="SCN-ADMIN-DIAGNOSTICS" type="impacts" />
+    </defect_links>
+  </knowledge_graph>
+  <success_criteria>
+    <criterion ref="UC-AUTH-PROFILE">A valid Telegram user can round-trip profile data and subsequently satisfy report-creation prerequisites.</criterion>
+    <criterion ref="UC-B2C-REPORT">An entitled user receives report_id/client_id immediately, and the resulting report reaches completed or explicitly failed/fallback state with persisted chunks.</criterion>
+    <criterion ref="UC-REPORT-ASYNC">Async runs preserve report, chunk, and run state transitions with traceable report_id and section_id evidence.</criterion>
+    <criterion ref="UC-BILLING-ACCESS">A successful payment produces the correct Transaction plus subscription or credit mutation or one active report unlock exactly once; the flagged natal_master, month_forecast, year_forecast, and solar_return bridge can continue from /billing/complete to /read/{id} with access_source=report_entitlement, while /api/users/me exposes both unlock counts and per-report access truth.</criterion>
+    <criterion ref="UC-ADMIN-OPERATIONS">Admin surfaces can inspect and mutate operational objects only through authorized paths with visible evidence, and one-off report gifts use entitlement-first grant/consume semantics with canonical report-type normalization.</criterion>
+    <criterion ref="UC-REFERRAL-REWARD">A referral link produces at most one referral edge per referee and applies the intended reward path.</criterion>
+    <criterion ref="UC-FEED-DAILY">Feed endpoint returns the documented response shape and a user-readable vibe, even under degraded mode.</criterion>
+    <criterion ref="UC-BOT-DELIVERY">Notification requests are deliverable or safely contained without corrupting report or billing state.</criterion>
+  </success_criteria>
+</requirements>

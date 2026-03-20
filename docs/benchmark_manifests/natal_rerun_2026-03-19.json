@@ -1,0 +1,92 @@
+{
+  "benchmark_id": "natal-rerun-2026-03-19",
+  "notes": "Representative natal live pack from ASTRO_QUALITY_BENCHMARK_2026-03-19_NATAL_RERUN.md and ASTRO_QUALITY_BENCHMARK_2026-03-19_NATAL_EXEC_SUMMARY_FOLLOWUP.md.",
+  "default_compare_exclude_sections": [
+    "input_frame",
+    "technical_appendix"
+  ],
+  "poll_interval_seconds": 5,
+  "timeout_seconds": 900,
+  "cases": [
+    {
+      "id": "timed_a",
+      "report_type": "natal_master",
+      "client_name": "Benchmark Timed A",
+      "client_note": "Representative natal benchmark timed A",
+      "birth_date": "1976-02-14T05:30:00",
+      "birth_location": "Khabarovsk, Russia",
+      "birth_lat": 48.48,
+      "birth_lon": 135.08,
+      "birth_timezone": "Asia/Vladivostok",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    },
+    {
+      "id": "timed_b",
+      "report_type": "natal_master",
+      "client_name": "Benchmark Timed B",
+      "client_note": "Representative natal benchmark timed B",
+      "birth_date": "1988-09-04T22:15:00",
+      "birth_location": "Novosibirsk, Russia",
+      "birth_lat": 55.03,
+      "birth_lon": 82.92,
+      "birth_timezone": "Asia/Novosibirsk",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": true,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    },
+    {
+      "id": "untimed",
+      "report_type": "natal_master",
+      "client_name": "Benchmark Untimed",
+      "client_note": "Representative natal benchmark untimed edge case",
+      "birth_date": "1985-11-03",
+      "birth_location": "Saint Petersburg, Russia",
+      "birth_lat": 59.93,
+      "birth_lon": 30.33,
+      "birth_timezone": "Europe/Moscow",
+      "solar_current_location": "Moscow, Russia",
+      "solar_current_lat": 55.7558,
+      "solar_current_lon": 37.6173,
+      "solar_current_timezone": "Europe/Moscow",
+      "birth_time_known": false,
+      "house_system": "placidus",
+      "include_fixed_stars": true,
+      "fixed_star_orb": 1.0
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "timed_a_vs_timed_b_full",
+      "left": "timed_a",
+      "right": "timed_b"
+    },
+    {
+      "id": "timed_a_vs_timed_b_executive_summary",
+      "left": "timed_a",
+      "right": "timed_b",
+      "include_sections": [
+        "executive_summary"
+      ]
+    },
+    {
+      "id": "timed_a_vs_timed_b_final_synthesis",
+      "left": "timed_a",
+      "right": "timed_b",
+      "include_sections": [
+        "final_synthesis"
+      ]
+    }
+  ]
+}

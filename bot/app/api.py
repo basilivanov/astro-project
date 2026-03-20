@@ -16,7 +16,7 @@ _bot_instance = None
 async def handle_notify(request):
     """
     # PURPOSE: Send a message to a user via Bot API.
-    # INPUT: JSON {telegram_id, text, keyboard?}.
+    # INPUT: JSON {telegram_id, text, image_url?, keyboard?}.
     # CONTEXT: Called by Backend when a report is ready.
     """
     global _bot_instance
@@ -24,20 +24,36 @@ async def handle_notify(request):
         data = await request.json()
         telegram_id = data.get("telegram_id")
         text = data.get("text")
+        image_url = data.get("image_url")
         
         if not telegram_id or not text:
             return web.json_response({"error": "missing_fields"}, status=400)
             
         if _bot_instance:
-            await _bot_instance.send_message(chat_id=telegram_id, text=text, parse_mode="HTML")
+            if image_url:
+                await _bot_instance.send_photo(
+                    chat_id=telegram_id, 
+                    photo=image_url, 
+                    caption=text, 
+                    parse_mode="HTML"
+                )
+            else:
+                await _bot_instance.send_message(chat_id=telegram_id, text=text, parse_mode="HTML")
         else:
             logger.error("Bot instance not initialized")
             return web.json_response({"error": "bot_not_ready"}, status=500)
             
         return web.json_response({"status": "ok"})
     except Exception as e:
+        error_msg = str(e).lower()
+        status = 500
+        if "chat not found" in error_msg or "chat_not_found" in error_msg:
+            status = 404
+        elif "forbidden" in error_msg or "blocked" in error_msg:
+            status = 403
+        
         logger.error(f"Notify failed: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({"error": str(e)}, status=status)
 # #END_BLOCK_NOTIFY_HANDLER
 
 # #START_BLOCK_BOT_SERVER_SETUP

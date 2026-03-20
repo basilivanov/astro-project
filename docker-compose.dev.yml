@@ -1,13 +1,17 @@
 services:
   db:
     ports:
-      - "5432:5432"
+      - "55433:5432"
 
   backend:
     environment:
       ENVIRONMENT: development
+      ENABLE_ONE_OFF_ENTITLEMENTS_RUNTIME: ${ENABLE_ONE_OFF_ENTITLEMENTS_RUNTIME:-}
+      ENABLE_PERSISTENT_CHECKOUT_SESSIONS: ${ENABLE_PERSISTENT_CHECKOUT_SESSIONS:-}
     volumes:
       - ./:/app
+      - /opt/kilocode/.gemini:/app/.gemini
+      - /opt/astro-project/.cache/codex-cliproxy-home:/app/.codex
 
   frontend:
     environment:
@@ -16,7 +20,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: sh -c "if [ ! -d node_modules ]; then npm install; fi && npm run dev"
+      - /app/.next
+    command: sh -c "mkdir -p /app/.next && find /app/.next -mindepth 1 -maxdepth 1 -exec rm -rf {} + && if [ ! -d node_modules ]; then npm install; fi && npm run dev"
 
   bot:
     build:

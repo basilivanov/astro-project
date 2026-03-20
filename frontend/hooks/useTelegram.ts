@@ -2,71 +2,68 @@
 
 import { useEffect, useState } from 'react';
 
+type TelegramMode = "telegram" | "mock" | "guest" | "none";
+
+const MOCK_INIT_DATA = "123456789";
+const MOCK_USER = {
+  id: 123456789,
+  first_name: "Debug",
+  last_name: "User",
+  username: "dev_user",
+  language_code: "ru",
+  photo_url: ""
+};
+
 export function useTelegram() {
   const [user, setUser] = useState<any>(null);
   const [webApp, setWebApp] = useState<any>(null);
   const [initData, setInitData] = useState<string>("");
   const [isReady, setIsReady] = useState(false);
+  const [mode, setMode] = useState<TelegramMode>("none");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const isMock = params.get("mock") === "1";
-      const isGuest = params.get("guest") === "1";
-      
-      // 1. Guest Mode override
-      if (isGuest) {
-        setUser(null);
-        setInitData("");
-        sessionStorage.removeItem("mock_telegram_user");
-        setIsReady(true);
-        return;
-      }
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tg = (window as any).Telegram?.WebApp;
+        const hasMockSession = window.sessionStorage.getItem("mock_telegram_user") === "1";
+        const hasMockQuery = params.get("mock") === "1";
+        const hasMockInitData = tg?.initData === MOCK_INIT_DATA;
+        const isMock = hasMockQuery || hasMockSession || hasMockInitData;
+        const isGuest = params.get("guest") === "1";
 
-      // 2. Telegram WebApp Check
-      const tg = (window as any).Telegram?.WebApp;
-      if (tg && tg.initData) {
-        console.log("[useTelegram] Running in Telegram");
-        tg.ready();
-        setWebApp(tg);
-        setInitData(tg.initData);
-        try { tg.expand(); } catch (e) {}
-        setUser(tg.initDataUnsafe?.user || null);
-        setIsReady(true);
-        return;
-      }
-
-      // 3. Mock / Browser Mode
-      const storedMock = sessionStorage.getItem("mock_telegram_user");
-      
-      if (isMock || storedMock) {
-        console.log("[useTelegram] Using Mock User");
-        const mockUser = { 
-            id: 123456789, 
-            first_name: "Dev User", 
-            username: "dev_user",
-            language_code: "ru",
-            photo_url: ""
-        };
-        
-        // Persist
-        if (isMock) {
-            sessionStorage.setItem("mock_telegram_user", "1");
+        if (isGuest) {
+          setMode("guest");
+          return;
         }
-        
-        setInitData("123456789"); // Matches backend DEV_BYPASS format
-        setUser(mockUser);
-      } else {
-        console.log("[useTelegram] No auth found");
+
+        if (isMock) {
+          window.sessionStorage.setItem("mock_telegram_user", "1");
+          const overrideData = (window as any).MOCK_INIT_DATA_OVERRIDE;
+          const overrideUser = (window as any).MOCK_USER_OVERRIDE;
+          setUser(overrideUser || MOCK_USER);
+          setInitData(overrideData || tg?.initData || MOCK_INIT_DATA);
+          setWebApp(tg || null);
+          setMode("mock");
+          return;
+        }
+
+        if (tg && tg.initData) {
+          tg.ready();
+          setWebApp(tg);
+          setInitData(tg.initData);
+          setUser(tg.initDataUnsafe?.user || null);
+          setMode("telegram");
+        } else {
+          setMode("none");
+        }
+      } catch {
+        setMode("none");
+      } finally {
+        setIsReady(true);
       }
-      
-      setIsReady(true);
     }
   }, []);
 
-  const onClose = () => {
-    webApp?.close();
-  };
-
-  return { user, webApp, initData, isReady, onClose };
+  return { user, webApp, initData, isReady, mode, onClose: () => webApp?.close() };
 }

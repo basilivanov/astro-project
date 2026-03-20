@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -27,6 +27,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.venv/
 
 # Environment Variables
 .env
@@ -41,6 +42,11 @@ venv.bak/
 
 # Project specific
 .cache/
+.codex/
+.gemini/
+.kilocode/
+.workbot/
+.workbot.yml
 .stellium/
 tmp/
 *.log
@@ -51,6 +57,8 @@ bot/app/__pycache__/
 # Node/Frontend
 node_modules/
 frontend/.next/
+frontend/.next_check/
+frontend/.next_test_build_v2/
 frontend/node_modules/
 frontend/out/
 frontend/build/
@@ -59,3 +67,13 @@ frontend/.DS_Store
 
 # Docker
 .docker/
+
+# Allow frontend lib
+!frontend/lib/
+
+# Test Artifacts
+test-results/
+frontend/test-results/
+frontend/playwright-report/
+**/trace.zip
+**/test-failed-*.png

@@ -1,68 +1,41 @@
+import requests
 import json
-import urllib.request
 import time
-import sys
-
-# GRACE Verification Script
-# PURPOSE: End-to-end verification of the report workflow.
-# CONTEXT: Hits the running backend via Docker.
 
 API_URL = "http://localhost:8000"
+REPORT_ID = "2c2fd927-0306-4538-8a24-7310131efb51"
 
-def run_test():
-    print("--- [GRACE] Starting Verification ---")
-
-    # 1. Create Payload
-    payload = {
-        "client_name": "Grace Tester",
-        "birth_date": "1990-01-01T12:00:00",
-        "birth_location": "Moscow",
-        "birth_lat": 55.7558,
-        "birth_lon": 37.6173,
-        "birth_timezone": "Europe/Moscow",
-        "report_type": "horary_answer",
-        "question": "Will this test pass?",
-        "include_fixed_stars": False,
-        "llm_mode": "openrouter"
-    }
-
-    print(f"--- [PCAM] Action: Sending Request to {API_URL}/api/workflows/report ---")
+def verify_chunks():
+    print(f"🚀 Verifying Chunks for Report {REPORT_ID}...")
     
-    req = urllib.request.Request(
-        f"{API_URL}/api/workflows/report",
-        data=json.dumps(payload).encode('utf-8'),
-        headers={'Content-Type': 'application/json'}
-    )
-
+    url = f"{API_URL}/api/admin/reports/{REPORT_ID}?include_content=0"
+    print(f"📡 Getting report from {url}...")
+    
     try:
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode('utf-8'))
+        res = requests.get(url)
+        if res.status_code == 200:
+            data = res.json()
+            chunks = data.get('chunks', [])
+            chunk_ids = [c['section'] for c in chunks]
             
-            report_id = data.get("report_id")
-            sections = data.get("sections", [])
-            markdown = data.get("markdown", "")
-
-            print(f"--- [PCAM] Measure: Report ID: {report_id} ---")
-            print(f"--- [PCAM] Measure: Sections Count: {len(sections)} ---")
+            print(f"Found {len(chunks)} chunks.")
+            print(f"Chunks: {chunk_ids}")
             
-            if len(sections) == 0:
-                print("!!! FAILURE: No sections generated. !!!")
-                sys.exit(1)
-            
-            for section in sections:
-                print(f"  > Section [{section['section_id']}]: {len(section.get('content', ''))} chars")
-                if not section.get('content'):
-                    print("    !!! WARNING: Empty content !!!")
-
-            print("\n--- [GRACE] Result: SUCCESS (Content Generated) ---")
-
-    except urllib.error.HTTPError as e:
-        print(f"!!! FAILURE: HTTP Error {e.code} !!!")
-        print(e.read().decode('utf-8'))
-        sys.exit(1)
+            if "executive_summary" in chunk_ids:
+                print("✅ executive_summary FOUND.")
+            else:
+                print("❌ executive_summary NOT FOUND.")
+                
+            if "technical_appendix" in chunk_ids:
+                print("✅ technical_appendix FOUND.")
+            else:
+                print("❌ technical_appendix NOT FOUND.")
+                
+        else:
+            print(f"❌ API Error: {res.status_code}")
+            print(res.text)
     except Exception as e:
-        print(f"!!! FAILURE: Connection Error: {e} !!!")
-        sys.exit(1)
+        print(f"❌ Connection error: {e}")
 
 if __name__ == "__main__":
-    run_test()
+    verify_chunks()

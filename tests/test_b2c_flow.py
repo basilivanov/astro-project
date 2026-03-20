@@ -31,7 +31,7 @@ def unique_tg_id():
 
 @pytest.fixture
 def auth_headers(unique_tg_id):
-    return {"X-Telegram-ID": str(unique_tg_id)}
+    return {"X-Telegram-Auth": str(unique_tg_id)}
 
 # #END_BLOCK_TEST_SETUP
 
@@ -124,7 +124,7 @@ def test_billing_webhook_subscription(unique_tg_id):
             "id": "pay_test_123",
             "status": "succeeded",
             "amount": {
-                "value": "990.00",
+                "value": "299.00",
                 "currency": "RUB"
             },
             "description": "Subscription",
@@ -144,7 +144,7 @@ def test_billing_webhook_subscription(unique_tg_id):
     assert res.status_code == 200
 
     # 3. Verify Result via API
-    headers = {"X-Telegram-ID": str(unique_tg_id)}
+    headers = {"X-Telegram-Auth": str(unique_tg_id)}
     res = client.get("/api/users/me", headers=headers)
     data = res.json()
     

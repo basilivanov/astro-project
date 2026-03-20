@@ -1,8 +1,16 @@
+// ############################################################################
+// AI_HEADER: MODULE_LEGAL_TERMS
+// ROLE: Static page for Terms of Service.
+// DEPENDENCIES: None.
+// GRACE_ANCHORS: [LEGAL_TERMS]
+// ############################################################################
+
 export const metadata = {
   title: "Оферта",
   description: "Публичная оферта сервиса AstroGrace",
 };
 
+// #START_BLOCK_LEGAL_TERMS
 export default function TermsPage() {
   return (
     <div className="p-6 pt-8 pb-24 max-w-2xl mx-auto text-zinc-300 space-y-6">
@@ -42,3 +50,4 @@ export default function TermsPage() {
     </div>
   );
 }
+// #END_BLOCK_LEGAL_TERMS

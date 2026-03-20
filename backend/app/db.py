@@ -12,7 +12,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .base import Base
-from .migrations_v2 import apply_v2_migrations, apply_v3_migrations, apply_v4_migrations
+from .migrations_v2 import (
+    apply_v2_migrations,
+    apply_v3_migrations,
+    apply_v4_migrations,
+    apply_v5_migrations,
+    apply_v6_migrations,
+)
 
 # #START_BLOCK_DB_SETTINGS
 DATABASE_URL = os.getenv(
@@ -52,6 +58,7 @@ def apply_runtime_migrations():
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_lat DOUBLE PRECISION",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_lon DOUBLE PRECISION",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_timezone VARCHAR(64)",
+        "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_time_known BOOLEAN DEFAULT TRUE",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS birth_place_id VARCHAR(64)",
         "ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS input_payload TEXT",
@@ -60,10 +67,21 @@ def apply_runtime_migrations():
         "ALTER TABLE reports ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
         "ALTER TABLE report_chunks ADD COLUMN IF NOT EXISTS error_message TEXT",
         "ALTER TABLE report_chunks ADD COLUMN IF NOT EXISTS error_at TIMESTAMPTZ",
+        "ALTER TABLE report_runs ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE report_runs ADD COLUMN IF NOT EXISTS completion_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE report_runs ADD COLUMN IF NOT EXISTS total_tokens INTEGER DEFAULT 0",
+        "ALTER TABLE report_runs ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(10, 4) DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(10)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS balance NUMERIC(10, 2) DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_partner BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_timezone VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_location VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_lat DOUBLE PRECISION",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_lon DOUBLE PRECISION",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_timezone VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sun_sign VARCHAR(32)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_horary_reset_at TIMESTAMPTZ",
         """
         CREATE TABLE IF NOT EXISTS report_runs (
             id UUID PRIMARY KEY,
@@ -108,9 +126,10 @@ def apply_runtime_migrations():
             payment_method_id VARCHAR(255),
             next_billing_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ
+            updated_at TIMESTAMPTZ DEFAULT NOW()
         )
         """,
+        "ALTER TABLE subscriptions ALTER COLUMN updated_at SET DEFAULT NOW()",
 
         """
         CREATE TABLE IF NOT EXISTS transactions (
@@ -183,4 +202,6 @@ def apply_runtime_migrations():
         apply_v2_migrations(connection)
         apply_v3_migrations(connection)
         apply_v4_migrations(connection)
+        apply_v5_migrations(connection)
+        apply_v6_migrations(connection)
 # #END_BLOCK_DB_MIGRATIONS

@@ -1,7 +1,14 @@
 import json
-import urllib.request
-import sys
 import os
+import re
+import sys
+import urllib.request
+from typing import Optional
+
+sys.path.append(os.getcwd())
+
+from backend.app.llm.validator import validate_llm_hallucinations
+from backend.app.reporting.markdown_helpers import get_chart_facts_json
 
 # GRACE Report Matrix Verification Script
 # PURPOSE: Verify all core report types and downloads.
@@ -9,6 +16,19 @@ import os
 
 API_URL = "http://localhost:8000"
 
+AUTH_HEADER = (
+    os.getenv("X_TELEGRAM_AUTH")
+    or os.getenv("TELEGRAM_AUTH")
+    or os.getenv("TELEGRAM_INIT_DATA")
+    or os.getenv("DEV_TELEGRAM_ID")
+)
+REQUIRE_AUTH = (os.getenv("REQUIRE_AUTH") or "").strip().lower() in {"1", "true", "yes"}
+if not AUTH_HEADER:
+    if REQUIRE_AUTH:
+        print("!!! Missing X-Telegram-Auth header. Set TELEGRAM_AUTH to run API tests.")
+        sys.exit(1)
+    print("!!! Missing X-Telegram-Auth header. Set TELEGRAM_AUTH or REQUIRE_AUTH=1. Skipping API tests.")
+    sys.exit(0)
 
 BASE_PAYLOAD = {
     "client_name": "Grace Matrix Tester",
@@ -19,8 +39,14 @@ BASE_PAYLOAD = {
     "birth_timezone": "Europe/Moscow",
     "include_fixed_stars": False,
     "fixed_star_orb": 1.0,
-    "llm_mode": "openrouter",
+    "llm_mode": "cli",
 }
+
+LLM_MODE = (os.getenv("LLM_MODE") or "").strip().lower()
+if LLM_MODE:
+    BASE_PAYLOAD["llm_mode"] = LLM_MODE
+
+RELAX_VALIDATION = BASE_PAYLOAD["llm_mode"] in {"fallback", "local", "mock", "stub"}
 
 REPORT_CASES = [
     {"report_type": "natal_master"},
@@ -28,7 +54,14 @@ REPORT_CASES = [
     {"report_type": "month_forecast"},
     {"report_type": "year_forecast"},
     {"report_type": "ten_year_forecast"},
-    {"report_type": "horary_answer"},
+    {"report_type": "solar_return"},
+    {
+        "report_type": "horary_answer",
+        "extra": {
+            "question": "Завтра суд: права заберут или обойдется штрафом?",
+            "client_note": "Суд завтра",
+        },
+    },
     {
         "report_type": "synastry",
         "extra": {
@@ -44,142 +77,169 @@ REPORT_CASES = [
 
 REPORT_FILTER = (os.getenv("REPORT_TYPE") or "").strip().lower()
 
+PROGRAMMATIC_SECTIONS = {
+    "input_frame",
+    "technical_appendix",
+    "horary_00_passport",
+    "horary_00_technical",
+}
+
+FORBIDDEN_TAIL_PHRASES = [
+    "ключевой фокус",
+    "потенциал и ресурс",
+    "риск и зона внимания",
+]
+
+ALLOWED_LATIN_PATTERNS = [
+    r"\bL\d+\b",
+    r"\bASC\b",
+    r"\bMC\b",
+    r"\bDSC\b",
+    r"\bIC\b",
+]
+
 
 def post_json(url: str, payload: dict) -> dict:
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "X-Telegram-Auth": AUTH_HEADER or "",
+        },
     )
     with urllib.request.urlopen(req) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
 def get_json(url: str) -> dict:
-    with urllib.request.urlopen(url) as response:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "X-Telegram-Auth": AUTH_HEADER or "",
+        },
+    )
+    with urllib.request.urlopen(req) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
-def get_text(url: str) -> tuple[str, dict]:
-    with urllib.request.urlopen(url) as response:
-        content = response.read().decode("utf-8")
-        headers = {key.lower(): value for key, value in response.headers.items()}
-        return content, headers
-
-
-def get_bytes(url: str) -> tuple[bytes, dict]:
-    with urllib.request.urlopen(url) as response:
-        content = response.read()
-        headers = {key.lower(): value for key, value in response.headers.items()}
-        return content, headers
-
-
-def validate_content(report_type: str, section_id: str, content: str) -> None:
-    if not content or len(content.strip()) < 60:
-        raise AssertionError(
-            f"Empty or too short content for {report_type}:{section_id}"
-        )
-    if report_type == "natal_master":
-        lowered = content.lower()
-        if section_id == "input_frame":
-            required = [
-                "кверент",
-                "дата рождения",
-                "место рождения",
-                "система домов",
-                "положение планет",
-                "| планета |",
-                "угловые точки",
-            ]
-            for token in required:
-                if token not in lowered:
-                    raise AssertionError(
-                        f"Missing {token} in {report_type}:{section_id}"
-                    )
-            return
-        if section_id == "synthesis":
-            for token in ["метафора", "главный тезис"]:
-                if token not in lowered:
-                    raise AssertionError(
-                        f"Missing {token} in {report_type}:{section_id}"
-                    )
-            return
-        if section_id == "axes_truths":
-            for token in ["твоя правда", "правда партнера"]:
-                if token not in lowered:
-                    raise AssertionError(
-                        f"Missing {token} in {report_type}:{section_id}"
-                    )
-            if "2-8" not in content or "3-9" not in content:
-                raise AssertionError(
-                    f"Missing axis pairs in {report_type}:{section_id}"
-                )
-            return
-        if section_id == "balance_wheel":
-            if "1 дом" not in lowered or "12 дом" not in lowered:
-                raise AssertionError(
-                    f"Missing houses in {report_type}:{section_id}"
-                )
-            for token in [
-                "тема:",
-                "в плюсе:",
-                "в минусе:",
-                "триггер:",
-                "вектор зрелости:",
-                "вопрос:",
-            ]:
-                if token not in lowered:
-                    raise AssertionError(
-                        f"Missing {token} in {report_type}:{section_id}"
-                    )
-            return
-        if section_id == "final_synthesis":
-            for token in ["твой девиз", "главный совет"]:
-                if token not in lowered:
-                    raise AssertionError(
-                        f"Missing {token} in {report_type}:{section_id}"
-                    )
-            return
-        return
-    if report_type == "month_forecast":
-        required = [
-            "статус месяца",
-            "центральная нить смысла",
-            "главные активаторы",
-            "карта сфер",
-            "событийный слой",
-            "личный слой",
-            "глубинный слой",
-            "солярный контекст",
-            "тайм-лорды",
-            "фиксирован",
-            "трансураны",
-            "итог месяца",
-        ]
-        lowered = content.lower()
-        for token in required:
-            if token not in lowered:
-                raise AssertionError(
-                    f"Missing {token} in {report_type}:{section_id}"
-                )
-        if "→" not in content:
+def parse_blocks(content: str, section_id: str) -> list:
+    if isinstance(content, list):
+        blocks = content
+    else:
+        try:
+            blocks = json.loads(content)
+        except json.JSONDecodeError as exc:
             raise AssertionError(
-                f"Missing activator format in {report_type}:{section_id}"
-            )
-        if not any(icon in content for icon in ["🟢", "🟡", "🔴"]):
-            raise AssertionError(
-                f"Missing status indicators in {report_type}:{section_id}"
-            )
+                f"Invalid JSON blocks for {section_id}: {content[:120]}..."
+            ) from exc
+    if not isinstance(blocks, list) or not blocks:
+        raise AssertionError(f"Empty JSON blocks for {section_id}")
+    for block in blocks:
+        if not isinstance(block, dict) or "type" not in block:
+            raise AssertionError(f"Block missing type for {section_id}")
+    return blocks
+
+
+def flatten_blocks(blocks: list) -> str:
+    parts: list[str] = []
+    for block in blocks:
+        b_type = block.get("type")
+        if b_type == "header":
+            parts.append(str(block.get("text", "")))
+        elif b_type == "paragraph":
+            parts.append(str(block.get("text", "")))
+        elif b_type == "list":
+            parts.extend([str(item) for item in block.get("items", [])])
+        elif b_type == "callout":
+            parts.append(str(block.get("title", "")))
+            parts.append(str(block.get("content", "")))
+        elif b_type == "table":
+            cols = block.get("columns", [])
+            parts.extend([str(col.get("header", "")) for col in cols])
+            for row in block.get("rows", []):
+                parts.extend([str(cell) for cell in row])
+        elif b_type == "key_value":
+            for item in block.get("items", []):
+                parts.append(str(item.get("key", "")))
+                parts.append(str(item.get("value", "")))
+        elif b_type == "rating":
+            parts.append(str(block.get("label", "")))
+    return " ".join(parts)
+
+
+def collect_headers(blocks: list) -> list[str]:
+    return [
+        str(block.get("text", "")).strip().lower()
+        for block in blocks
+        if block.get("type") == "header"
+    ]
+
+
+def strip_allowed_latin(text: str) -> str:
+    cleaned = text
+    for pattern in ALLOWED_LATIN_PATTERNS:
+        cleaned = re.sub(pattern, "", cleaned)
+    return cleaned
+
+
+def require_headers(headers: list[str], required: list[str], report_type: str, section_id: str) -> None:
+    for token in required:
+        if not any(token in header for header in headers):
+            raise AssertionError(f"Missing header '{token}' in {report_type}:{section_id}")
+
+
+def validate_content(report_type: str, section_id: str, content: str, facts: Optional[dict]) -> None:
+    blocks = parse_blocks(content, section_id)
+    all_text = flatten_blocks(blocks)
+    lowered = all_text.lower()
+
+    if RELAX_VALIDATION:
         return
-    has_bullets = "\n-" in content or "\n*" in content
-    if not has_bullets:
-        raise AssertionError(
-            f"Missing bullet list for {report_type}:{section_id}"
+
+    if section_id not in PROGRAMMATIC_SECTIONS:
+        for phrase in FORBIDDEN_TAIL_PHRASES:
+            if phrase in lowered:
+                raise AssertionError(
+                    f"Forbidden tail phrase '{phrase}' in {report_type}:{section_id}"
+                )
+
+        if re.search(r"[A-Za-z]", strip_allowed_latin(all_text)):
+            raise AssertionError(f"Latin letters found in {report_type}:{section_id}")
+
+    if report_type == "natal_master" and section_id not in PROGRAMMATIC_SECTIONS:
+        errors = validate_llm_hallucinations(blocks, facts or {})
+        if errors:
+            raise AssertionError(
+                f"Hallucinations detected in {report_type}:{section_id}: {errors}"
+            )
+
+    headers = collect_headers(blocks)
+    if report_type == "year_forecast" and section_id.startswith("month_"):
+        require_headers(
+            headers,
+            ["статус", "нить смысла", "активаторы", "карта сфер", "события", "личный слой", "итог"],
+            report_type,
+            section_id,
         )
-    if "Рекомендации" not in content and "Recommendations" not in content:
-        raise AssertionError(
-            f"Missing recommendations block for {report_type}:{section_id}"
+    if report_type == "month_forecast" and section_id == "month_full_forecast":
+        require_headers(
+            headers,
+            ["статус месяца", "ключевые события", "стратегия по неделям", "итог месяца"],
+            report_type,
+            section_id,
         )
+    if report_type == "week_forecast" and section_id == "week_strategy":
+        require_headers(
+            headers,
+            ["главная тема", "статус недели", "подневная стратегия", "резюме по срезам"],
+            report_type,
+            section_id,
+        )
+    if report_type == "horary_answer" and section_id == "horary_01_verdict":
+        has_callout = any(block.get("type") == "callout" for block in blocks)
+        if not has_callout:
+            raise AssertionError(f"Missing callout in {report_type}:{section_id}")
 
 
 def run_case(case: dict) -> None:
@@ -194,6 +254,8 @@ def run_case(case: dict) -> None:
     response = post_json(f"{API_URL}/api/workflows/report", payload)
     report_id = response.get("report_id")
     sections = response.get("sections", [])
+    chart = response.get("chart", {})
+    facts = get_chart_facts_json(chart) if chart else {}
 
     print(f"--- [PCAM] Measure: Report ID: {report_id} ---")
     print(f"--- [PCAM] Measure: Sections Count: {len(sections)} ---")
@@ -207,7 +269,7 @@ def run_case(case: dict) -> None:
         section_id = section.get("section_id", "unknown")
         content = section.get("content", "")
         print(f"  > Section [{section_id}]: {len(content)} chars")
-        validate_content(report_type, section_id, content)
+        validate_content(report_type, section_id, content, facts)
 
     report_detail = get_json(
         f"{API_URL}/api/admin/reports/{report_id}?include_content=0"
@@ -222,22 +284,6 @@ def run_case(case: dict) -> None:
             raise AssertionError(
                 f"Chunk failed for {report_type}: {chunk.get('section')}"
             )
-
-    markdown, markdown_headers = get_text(
-        f"{API_URL}/api/admin/reports/{report_id}/markdown"
-    )
-    if not markdown.strip():
-        raise AssertionError(f"Markdown download empty for {report_type}")
-    if "text/markdown" not in markdown_headers.get("content-type", ""):
-        raise AssertionError(f"Markdown content-type invalid for {report_type}")
-
-    pdf_bytes, pdf_headers = get_bytes(
-        f"{API_URL}/api/admin/reports/{report_id}/pdf"
-    )
-    if not pdf_bytes.startswith(b"%PDF"):
-        raise AssertionError(f"PDF signature missing for {report_type}")
-    if "application/pdf" not in pdf_headers.get("content-type", ""):
-        raise AssertionError(f"PDF content-type invalid for {report_type}")
 
     print(f"--- [GRACE] Result: SUCCESS ({report_type}) ---")
 

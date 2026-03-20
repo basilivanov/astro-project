@@ -12,5 +12,6 @@ weasyprint
 openai
 tenacity
 yookassa>=3.0.0
+stellium==0.13.0
 pytest
 httpx

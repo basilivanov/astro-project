@@ -10,12 +10,13 @@ import copy
 import json
 import os
 import uuid
+from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from typing import List, Optional
+from typing import List, Optional, Any
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response, Header
-from pydantic import BaseModel, Field, ValidationError
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response, Header, Query, Request
+from pydantic import BaseModel, Field, ValidationError, validator
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 import structlog
@@ -27,6 +28,7 @@ from .diagnostics import run_diagnostics
 from . import engine_utils
 from .geonames import GeoNamesError, get_timezone, search_geonames
 from .llm.mode import resolve_llm_mode, build_llm_client
+from .llm.orchestrator import LLMContentValidationError
 from .models import (
     AgentTask,
     AnalyticsEvent,
@@ -36,20 +38,17 @@ from .models import (
     ReportRun,
     User,
     Subscription,
+    ReportFeedback,
+    Transaction,
 )
-from .reporting.pdf_reporter import (
-    build_natal_chart_svg,
-    build_report_html,
-    html_to_pdf,
-    markdown_to_html,
-    convert_chunk_to_html,
-)
+from .reporting.chart_renderer import build_natal_chart_svg
 from .services.report_workflow import (
-    assemble_markdown_from_specs,
     build_chart_data,
+    build_section_context,
     build_report_context,
     build_section_fallback_content,
     build_section_template_content,
+    build_section_validation_fallback_content,
     build_section_specs,
     finish_report_run,
     generate_report_sections,
@@ -64,16 +63,44 @@ from .services.report_workflow import (
     should_fallback_on_llm_error,
     start_report_run,
 )
+from .services.access_control import AccessConsumptionError, consume_report_access
 from .services.analytics import ALLOWED_ANALYTICS_EVENTS, log_analytics_event
+from .services.one_off_entitlements import (
+    AccessGrantSource,
+    EntitlementSource,
+    allow_access,
+    grant_report_entitlement,
+    is_one_off_report_type,
+    normalize_report_type,
+)
 
 from .routers import billing
-from .services.feed_service import get_daily_vibe_llm
+from .services.feed_service import (
+    build_daily_vibe_fallback,
+    get_daily_vibe_llm,
+)
+from .services.personalized_daily import (
+    build_personalized_daily_facts,
+    summarize_personalization_for_prompt,
+)
 from .services.scheduler import start_scheduler
-from .auth import get_current_user, get_current_user_from_query
+from .auth import authenticate_telegram_user, get_current_user, get_current_user_from_query, get_admin_user
 from .reporting.static_content import SECTION_INTROS
 
 # #START_BLOCK_LOGGER
 logger = structlog.get_logger()
+
+
+def log_admin_report_event(event: str, *, admin: User | None = None, report: Report | None = None, **fields):
+    payload = {key: value for key, value in fields.items() if value is not None}
+    if admin is not None:
+        payload["admin_user_id"] = str(admin.id)
+    if report is not None:
+        payload["report_id"] = str(report.id)
+        payload["report_type"] = report.report_type
+        payload["report_status"] = report.status
+        payload["client_id"] = str(report.client_id)
+    logger.info(event, **payload)
 # #END_BLOCK_LOGGER
 
 # #START_BLOCK_APP_INIT
@@ -121,6 +148,8 @@ class PositionOut(BaseModel):
     """
 
     name: str
+    key: Optional[str] = None
+    raw_name: Optional[str] = None
     longitude: float
     latitude: float
     sign: str
@@ -151,9 +180,52 @@ class FixedStarOut(BaseModel):
     """
 
     star: str
+    planet: Optional[str] = None
+    name: Optional[str] = None
+    point: Optional[str] = None
+    raw_point: Optional[str] = None
+    orb: Optional[float] = None
+    star_lon: Optional[float] = None
+    sign: Optional[str] = None
+
+
+class DispositorLinkOut(BaseModel):
+    """
+    # PURPOSE: Describe a single dispositor link.
+    # INPUT: planet, sign, dispositor.
+    # OUTPUT: Serializable dispositor link object.
+    # CONTEXT: Nested under ChartResponse.dispositor_summary.
+    """
+
     planet: str
-    orb: float
-    star_lon: float
+    sign: Optional[str] = None
+    dispositor: str
+
+
+class DispositorLoopOut(BaseModel):
+    """
+    # PURPOSE: Describe a final dispositor loop.
+    # INPUT: type, planets.
+    # OUTPUT: Serializable dispositor loop object.
+    # CONTEXT: Nested under ChartResponse.dispositor_summary.
+    """
+
+    type: str
+    planets: list[str] = Field(default_factory=list)
+
+
+class DispositorSummaryOut(BaseModel):
+    """
+    # PURPOSE: Describe structured dispositor summary data.
+    # INPUT: version, summary, links, loops.
+    # OUTPUT: Serializable dispositor summary object.
+    # CONTEXT: Returned alongside chart data for report consumers.
+    """
+
+    version: str
+    summary: str = ""
+    links: list[DispositorLinkOut] = Field(default_factory=list)
+    loops: list[DispositorLoopOut] = Field(default_factory=list)
 
 
 class NatalRequest(BaseModel):
@@ -204,6 +276,7 @@ class ChartResponse(BaseModel):
     houses: list[HouseCuspOut]
     positions: list[PositionOut]
     fixed_stars: list[FixedStarOut] = Field(default_factory=list)
+    dispositor_summary: Optional[DispositorSummaryOut] = None
 
 
 class SectionInput(BaseModel):
@@ -268,6 +341,7 @@ class ReportWorkflowRequest(BaseModel):
     solar_next_timezone: Optional[str] = None
     solar_next_place_id: Optional[str] = None
     report_type: str = "natal_master"
+    birth_time_known: bool = True
     house_system: Optional[str] = None
     include_fixed_stars: bool = True
     fixed_star_orb: float = 1.0
@@ -275,18 +349,22 @@ class ReportWorkflowRequest(BaseModel):
     llm_mode: Optional[str] = None
     is_test: bool = False
 
+    @validator("report_type", pre=True)
+    @classmethod
+    def normalize_report_type_value(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_report_type(value)
+
 
 class ReportWorkflowResponse(BaseModel):
     """
-    # PURPOSE: Return the workflow result with markdown and sections.
-    # INPUT: report_id, client_id, markdown, sections, chart.
+    # PURPOSE: Return the workflow result with sections and chart.
+    # INPUT: report_id, client_id, sections, chart.
     # OUTPUT: Serializable workflow response.
     # CONTEXT: Returned by /api/workflows/report.
     """
 
     report_id: str
     client_id: str
-    markdown: str
     sections: List[SectionResultOut]
     chart: ChartResponse
 
@@ -307,14 +385,13 @@ class ReportWorkflowStartResponse(BaseModel):
 class ReportRegenerateResponse(BaseModel):
     """
     # PURPOSE: Return updated report content after regeneration.
-    # INPUT: report_id, markdown, sections.
+    # INPUT: report_id, sections.
     # OUTPUT: Serializable regeneration response.
     # CONTEXT: Returned by admin regeneration endpoints.
     """
 
     report_id: str
     status: str
-    markdown: Optional[str]
     sections: List[SectionResultOut]
 
 
@@ -345,6 +422,7 @@ class AdminClientOut(BaseModel):
     email: Optional[str]
     notes: Optional[str]
     birth_datetime: Optional[str]
+    birth_time_known: bool
     birth_location: Optional[str]
     birth_lat: Optional[float]
     birth_lon: Optional[float]
@@ -359,11 +437,17 @@ class AdminClientCreateRequest(BaseModel):
     """
     # PURPOSE: Payload for creating a new client via admin API.
     """
-    full_name: str
+    client_name: str
     birth_date: str
+    birth_time_known: bool = True
     birth_location: str
-    notes: Optional[str] = None
+    client_note: Optional[str] = None
     email: Optional[str] = None
+    birth_lat: Optional[float] = None
+    birth_lon: Optional[float] = None
+    birth_timezone: Optional[str] = None
+    birth_place_id: Optional[str] = None
+    user_id: Optional[str] = None
     is_test: bool = False
 
 
@@ -421,6 +505,10 @@ class AdminReportRunOut(BaseModel):
     error_message: Optional[str] = None
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost: float = 0.0
     created_at: str
 
 
@@ -435,7 +523,6 @@ class AdminReportDetailOut(BaseModel):
     report: AdminReportOut
     chunks: List[AdminReportChunkOut]
     runs: List[AdminReportRunOut]
-    markdown: Optional[str]
     chart_svg: Optional[str] = None
 
 
@@ -452,24 +539,48 @@ class AdminDailyCountOut(BaseModel):
 
 
 class AdminStatsOut(BaseModel):
-    """
-    # PURPOSE: Describe admin dashboard summary metrics.
-    # INPUT: aggregate counts.
-    # OUTPUT: Serializable dashboard stats.
-    # CONTEXT: Returned by /api/admin/stats.
-    """
-
     clients: int
     reports_total: int
     reports_in_progress: int
     reports_completed: int
     reports_failed: int
-    reports_by_type: Optional[dict[str, int]] = None
-    reports_daily: Optional[List[AdminDailyCountOut]] = None
-    tasks_open: Optional[int] = None
-    tasks_total: Optional[int] = None
-    analytics_funnel: Optional[dict[str, int]] = None
-    window_days: Optional[int] = None
+    reports_by_type: dict
+    reports_daily: list
+    tasks_open: int
+    tasks_total: int
+    analytics_funnel: dict
+    feedback_avg: float = 0
+    feedback_count: int = 0
+    entitlements: Optional[dict] = None
+
+@app.get("/api/admin/feedback", response_model=List[dict])
+def list_admin_feedback(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    # PURPOSE: List recent user feedback.
+    """
+    rows = (
+        db.query(ReportFeedback)
+        .order_by(ReportFeedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    res = []
+    for r in rows:
+        res.append({
+            "id": str(r.id),
+            "report_id": str(r.report_id),
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": r.created_at.isoformat(),
+            "report_type": r.report.report_type if r.report else "unknown",
+            "client_name": r.report.client.full_name if r.report and r.report.client else "—"
+        })
+    return res
+
 
 
 class AdminTaskOut(BaseModel):
@@ -555,20 +666,169 @@ async def create_support_ticket(
     return {"status": "ok", "ticket_id": str(ticket.id)}
 
 
+class AdminAuditLogOut(BaseModel):
+    id: str
+    admin_id: Optional[str]
+    target_user_id: Optional[str]
+    action: str
+    reason: Optional[str]
+    details: Optional[str]
+    created_at: str
+    admin_name: Optional[str] = None
+    target_user_name: Optional[str] = None
+
+@app.get("/api/admin/audit", response_model=List[AdminAuditLogOut])
+def list_admin_audit_logs(
+    limit: int = 50,
+    user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    """
+    # PURPOSE: View audit logs for security and history.
+    """
+    from .models import AuditLog
+    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    
+    if user_id:
+        try:
+            uid = uuid.UUID(user_id)
+            query = query.filter(or_(AuditLog.target_user_id == uid, AuditLog.admin_id == uid))
+        except ValueError:
+            pass
+            
+    if action:
+        query = query.filter(AuditLog.action == action)
+        
+    logs = query.limit(limit).all()
+    
+    res = []
+    for l in logs:
+        res.append({
+            "id": str(l.id),
+            "admin_id": str(l.admin_id) if l.admin_id else None,
+            "target_user_id": str(l.target_user_id) if l.target_user_id else None,
+            "action": l.action,
+            "reason": l.reason,
+            "details": l.details,
+            "created_at": format_datetime(l.created_at),
+            "admin_name": l.admin.full_name if l.admin else "System",
+            "target_user_name": l.target_user.full_name if l.target_user else "—"
+        })
+    return res
+
 class AdminUserUpdateDays(BaseModel):
     days: int
+    reason: str = Field(..., min_length=3)
 
 class AdminUserUpdateBalance(BaseModel):
     amount: float
+    reason: str = Field(..., min_length=3)
+
+class AdminUserDetailOut(BaseModel):
+    id: str
+    telegram_id: int
+    full_name: Optional[str]
+    username: Optional[str]
+    balance: float
+    subscription_active_until: Optional[str]
+    created_at: str
+    is_partner: bool
+    referral_code: Optional[str]
+    # Stats
+    reports_count: int
+    referrals_count: int
+    # Lists (simplified)
+    recent_reports: List[dict]
+    recent_transactions: List[dict]
+
+@app.get("/api/admin/users/{user_id}", response_model=AdminUserDetailOut)
+
+def get_admin_user_detail(
+
+    user_id: str,
+
+    db: Session = Depends(get_db),
+
+    admin: User = Depends(get_admin_user)
+
+):
+    """
+    # PURPOSE: Get full user profile for admin.
+    """
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+        
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Reports
+    reports = (
+        db.query(Report)
+        .filter(Report.user_id == user.id)
+        .order_by(Report.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    
+    # Transactions
+    txs = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == user.id)
+        .order_by(Transaction.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    
+    # Referrals
+    from .models import Referral
+    ref_count = db.query(func.count(Referral.id)).filter(Referral.referrer_id == user.id).scalar() or 0
+    report_count = db.query(func.count(Report.id)).filter(Report.user_id == user.id).scalar() or 0
+
+    return {
+        "id": str(user.id),
+        "telegram_id": user.telegram_id,
+        "full_name": user.full_name,
+        "username": user.username,
+        "balance": float(user.balance),
+        "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
+        "created_at": user.created_at.isoformat(),
+        "is_partner": user.is_partner,
+        "referral_code": user.referral_code,
+        "reports_count": report_count,
+        "referrals_count": ref_count,
+        "recent_reports": [
+            {
+                "id": str(r.id),
+                "type": r.report_type,
+                "status": r.status,
+                "created_at": r.created_at.isoformat()
+            } for r in reports
+        ],
+        "recent_transactions": [
+            {
+                "id": str(t.id),
+                "amount": float(t.amount),
+                "type": t.type,
+                "status": t.status,
+                "created_at": t.created_at.isoformat()
+            } for t in txs
+        ]
+    }
 
 @app.post("/api/admin/users/{user_id}/subscription/add-days")
 def admin_add_subscription_days(
     user_id: str, 
     payload: AdminUserUpdateDays,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
     """
-    # PURPOSE: Manually extend user subscription.
+    # PURPOSE: Manually extend user subscription (Audit Logged).
     """
     try:
         uid = uuid.UUID(user_id)
@@ -588,6 +848,17 @@ def admin_add_subscription_days(
         user.subscription_active_until = current_end + timedelta(days=payload.days)
     else:
         user.subscription_active_until = now + timedelta(days=payload.days)
+    
+    # Audit Log
+    from .models import AuditLog
+    audit = AuditLog(
+        admin_id=admin.id,
+        target_user_id=user.id,
+        action="add_subscription_days",
+        reason=payload.reason,
+        details=json.dumps({"days": payload.days})
+    )
+    db.add(audit)
         
     db.commit()
     return {"status": "ok", "new_date": format_datetime(user.subscription_active_until)}
@@ -596,10 +867,11 @@ def admin_add_subscription_days(
 def admin_add_balance(
     user_id: str,
     payload: AdminUserUpdateBalance,
+    admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
     """
-    # PURPOSE: Manually add credits/money to user balance.
+    # PURPOSE: Manually add credits/money (Audit Logged).
     """
     try:
         uid = uuid.UUID(user_id)
@@ -612,8 +884,179 @@ def admin_add_balance(
 
     from decimal import Decimal
     user.balance += Decimal(payload.amount)
+    
+    # Audit Log
+    from .models import AuditLog
+    audit = AuditLog(
+        admin_id=admin.id,
+        target_user_id=user.id,
+        action="add_balance",
+        reason=payload.reason,
+        details=json.dumps({"amount": payload.amount})
+    )
+    db.add(audit)
+
     db.commit()
     return {"status": "ok", "new_balance": float(user.balance)}
+
+class AdminGrantRequest(BaseModel):
+    type: str # 'credits', 'report'
+    amount: Optional[int] = None
+    report_type: Optional[str] = None
+    reason: str = Field(..., min_length=3)
+
+    @validator("report_type", pre=True)
+    @classmethod
+    def normalize_report_type_value(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_report_type(value)
+
+@app.post("/api/admin/users/{user_id}/grant")
+def admin_grant_item(
+    user_id: str,
+    payload: AdminGrantRequest,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """
+    # PURPOSE: Grant credits or specific report to user.
+    """
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+        
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from .models import AuditLog
+    details = {}
+
+    if payload.type == "credits":
+        if not payload.amount:
+            raise HTTPException(status_code=400, detail="Amount required for credits")
+        
+        # Add transaction
+        trx = Transaction(
+            user_id=user.id,
+            amount=payload.amount,
+            currency="CRD",
+            type="admin_grant",
+            status="success",
+            provider_id=f"grant_{admin.id}_{datetime.now().timestamp()}"
+        )
+        db.add(trx)
+        details["amount"] = payload.amount
+        details["currency"] = "CRD"
+
+    elif payload.type == "report":
+        if not payload.report_type:
+            raise HTTPException(status_code=400, detail="Report type required")
+
+        report_type = payload.report_type
+        entitlement = None
+        one_off_admin_grant = is_one_off_report_type(report_type)
+
+        # Check profile
+        if not user.birth_date or not user.birth_place:
+            raise HTTPException(status_code=400, detail="User profile incomplete, cannot generate report.")
+
+        # Create Report
+        birth_dt_iso = user.birth_date
+        if user.birth_time:
+            birth_dt_iso = f"{user.birth_date}T{user.birth_time}:00"
+
+        wf_payload = ReportWorkflowRequest(
+            client_name=user.full_name or "User",
+            client_note=f"Gift from admin {admin.telegram_id}",
+            birth_date=birth_dt_iso,
+            birth_location=user.birth_place,
+            birth_lat=user.birth_lat,
+            birth_lon=user.birth_lon,
+            report_type=report_type,
+            house_system="placidus",
+            include_fixed_stars=True
+        )
+        
+        # Upsert client (reuse logic?)
+        # We can just use user_id directly if we link it. 
+        # But Report model needs client_id. 
+        # Upsert client from payload helper:
+        client = upsert_client_from_payload(wf_payload, db, owner_user_id=user.id)
+        db.flush()
+
+        if one_off_admin_grant:
+            entitlement = grant_report_entitlement(
+                db,
+                user_id=user.id,
+                report_type=report_type,
+                source=EntitlementSource.ADMIN_GRANT,
+                notes=payload.reason,
+            )
+
+        report = Report(
+            client_id=client.id,
+            user_id=user.id,
+            report_type=report_type,
+            status="in_progress",
+            paid=not one_off_admin_grant,
+            is_test=user.is_test
+        )
+        report.input_payload = json.dumps(wf_payload.model_dump(), ensure_ascii=True)
+        db.add(report)
+        db.flush()
+
+        if entitlement is not None:
+            try:
+                consume_report_access(
+                    user,
+                    report,
+                    db,
+                    decision=allow_access(
+                        report_type,
+                        AccessGrantSource.REPORT_ENTITLEMENT,
+                        entitlement_id=str(entitlement.id),
+                        remaining_unlocks=1,
+                    ),
+                )
+            except AccessConsumptionError as exc:
+                db.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Admin grant could not be consumed: {exc}",
+                ) from exc
+
+        # Run generation
+        section_specs = build_section_specs(wf_payload)
+        initialize_report_chunks(report, section_specs, db, reset=True)
+        
+        background_tasks.add_task(
+            run_report_generation, report.id, wf_payload.model_dump(), False
+        )
+
+        details["report_type"] = report_type
+        details["report_id"] = str(report.id)
+        if entitlement is not None:
+            details["entitlement_id"] = str(entitlement.id)
+            details["access_source"] = report.access_source
+            details["grant_model"] = "entitlement_first"
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid grant type")
+
+    # Audit
+    audit = AuditLog(
+        admin_id=admin.id,
+        target_user_id=user.id,
+        action=f"grant_{payload.type}",
+        reason=payload.reason,
+        details=json.dumps(details)
+    )
+    db.add(audit)
+    db.commit()
+    
+    return {"status": "ok", "details": details}
 
 class AdminUserOut(BaseModel):
     id: str
@@ -625,12 +1068,14 @@ class AdminUserOut(BaseModel):
     created_at: str
     is_partner: bool
     referral_code: Optional[str]
+    horary_credits: int = 0
 
 @app.get("/api/admin/users", response_model=List[AdminUserOut])
 def list_admin_users(
     limit: int = 50, 
     q: Optional[str] = None, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: List Telegram users for admin management.
@@ -648,8 +1093,14 @@ def list_admin_users(
     
     users = query.order_by(User.created_at.desc()).limit(limit).all()
     
-    return [
-        {
+    results = []
+    for u in users:
+        credits = db.query(func.sum(Transaction.amount)).filter(
+            Transaction.user_id == u.id, 
+            Transaction.currency == "CRD"
+        ).scalar() or 0
+        
+        results.append({
             "id": str(u.id),
             "telegram_id": u.telegram_id,
             "full_name": u.full_name,
@@ -658,10 +1109,11 @@ def list_admin_users(
             "subscription_active_until": format_datetime(u.subscription_active_until),
             "created_at": format_datetime(u.created_at),
             "is_partner": u.is_partner,
-            "referral_code": u.referral_code
-        }
-        for u in users
-    ]
+            "referral_code": u.referral_code,
+            "horary_credits": int(credits)
+        })
+    
+    return results
 
 
 class AdminClientDetailOut(BaseModel):
@@ -899,7 +1351,9 @@ def get_report_or_404(report_id: str, db: Session) -> Report:
 
 
 def upsert_client_from_payload(
-    payload: ReportWorkflowRequest, db: Session
+    payload: Any, 
+    db: Session,
+    owner_user_id: Optional[uuid.UUID] = None
 ) -> Client:
     if payload.client_id:
         try:
@@ -914,7 +1368,7 @@ def upsert_client_from_payload(
         # Update fields if provided
         if payload.client_name:
             client.full_name = payload.client_name
-        if payload.client_note is not None:
+        if getattr(payload, "client_note", None) is not None:
             client.notes = payload.client_note
         
         if payload.birth_date:
@@ -955,10 +1409,19 @@ def upsert_client_from_payload(
     if not payload.client_name or not payload.birth_date or not payload.birth_location:
         raise HTTPException(status_code=400, detail="Missing required client fields (name, date, location).")
 
+    # Resolve User ID
+    final_user_id = owner_user_id
+    if not final_user_id and hasattr(payload, "user_id") and payload.user_id:
+        try:
+            final_user_id = uuid.UUID(payload.user_id)
+        except ValueError:
+            pass
+
     birth_dt = parse_birth_datetime(payload.birth_date, payload.birth_timezone)
     client = Client(
         full_name=payload.client_name,
-        notes=payload.client_note,
+        user_id=final_user_id,
+        notes=getattr(payload, "client_note", None),
         birth_datetime=birth_dt,
         birth_location=payload.birth_location,
         birth_lat=payload.birth_lat,
@@ -968,20 +1431,28 @@ def upsert_client_from_payload(
         is_test=payload.is_test,
     )
     db.add(client)
+    db.commit()
+    db.refresh(client)
     return client
 # #END_BLOCK_REPORT_WORKFLOW_UTILS
 
 # #START_BLOCK_ENDPOINTS
-@app.get("/health")
-def health_check():
-    """
-    # PURPOSE: Check service availability.
-    # INPUT: None.
-    # OUTPUT: {"status": "ok"}.
-    # CONTEXT: Simple liveness check for orchestration/monitoring.
-    """
+from sqlalchemy import func, or_, text
 
-    return {"status": "ok"}
+@app.get("/health")
+@app.get("/api/health")
+def health_check(db: Session = Depends(get_db)):
+    """
+    # PURPOSE: Check service availability and DB connection.
+    # INPUT: None.
+    # OUTPUT: {"status": "ok", "db": "connected"}.
+    """
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception as e:
+        logger.error("health.db_fail", error=str(e))
+        return {"status": "error", "db": str(e)}
 
 
 @app.post("/api/engine/natal", response_model=ChartResponse)
@@ -1065,7 +1536,7 @@ async def run_report_generation(
             )
             llm_client = build_llm_client(llm_mode, model_override=model_override)
 
-        generated_sections, _, _ = await generate_report_sections(
+        generated_sections, _ = await generate_report_sections(
             report,
             payload,
             db,
@@ -1073,9 +1544,12 @@ async def run_report_generation(
             llm_mode=llm_mode,
             reset_chunks=reset_chunks,
             raise_on_error=False,
+            run=run,
         )
         if report.status == "completed":
             finish_report_run(run, db, "completed")
+            if report.report_type == "week_forecast":
+                logger.info("week_generate_succeeded", user_id=str(report.user_id), report_id=str(report.id))
             log_analytics_event(
                 db,
                 "report_generated",
@@ -1097,9 +1571,13 @@ async def run_report_generation(
                 sections=len(generated_sections),
             )
         else:
+            if report.report_type == "week_forecast":
+                logger.error("week_generate_failed", user_id=str(report.user_id), report_id=str(report.id), error=report.error_message)
             finish_report_run(run, db, "failed", error_message=report.error_message)
     except Exception as exc:
         if report:
+            if report.report_type == "week_forecast":
+                logger.error("week_generate_failed", user_id=str(report.user_id), report_id=str(report.id), error=str(exc))
             report.status = "failed"
             report.error_message = str(exc)
             report.error_at = datetime.now(timezone.utc)
@@ -1174,7 +1652,7 @@ async def run_report_section_generation(
         context = build_report_context(payload, chart_data)
 
         # Context Anonymization
-        section_context = copy.deepcopy(context)
+        section_context = build_section_context(section_id, context, chart_data)
         if section_id != "input_frame":
             section_context["client"]["name"] = "Ты"
             section_context["client"]["note"] = ""
@@ -1193,27 +1671,42 @@ async def run_report_section_generation(
 
         error_message = None
         retry_attempts = resolve_llm_retry_attempts()
-        fallback_model = ""
+        fallback_models = []
         if llm_mode in {"openrouter", "cheap"}:
-            fallback_model = resolve_llm_fallback_model()
-        use_template = llm_mode == "fallback"
+            model = resolve_llm_fallback_model()
+            if model:
+                fallback_models = [model]
+        use_template = llm_mode in {"fallback", "local", "mock", "stub"}
 
         try:
-            content = await generate_section_content(
+            result = await generate_section_content(
                 target_spec,
                 section_context,
                 chart_data,
                 llm_client,
-                fallback_model,
+                fallback_models,
                 retry_attempts,
                 use_template
             )
+            content = result.content
+            usage = result.usage
+            if usage and run:
+                run.prompt_tokens = usage.get("prompt_tokens", 0)
+                run.completion_tokens = usage.get("completion_tokens", 0)
+                run.total_tokens = usage.get("total_tokens", 0)
+                run.estimated_cost = Decimal(str(round(run.total_tokens * 0.0000001, 4)))
+                db.commit()
         except Exception as exc:
-            if should_fallback_on_llm_error(exc):
+            if should_fallback_on_llm_error(exc) or isinstance(exc, LLMContentValidationError):
                 error_message = str(exc)
-                content = inject_planet_emojis(
-                    build_section_fallback_content(target_spec)
-                )
+                if isinstance(exc, LLMContentValidationError):
+                    content = inject_planet_emojis(
+                        build_section_validation_fallback_content(target_spec, section_context)
+                    )
+                else:
+                    content = inject_planet_emojis(
+                        build_section_fallback_content(target_spec, section_context)
+                    )
                 logger.warning(
                     "report.section.fallback",
                     block_id="REPORT_SECTION",
@@ -1260,28 +1753,7 @@ async def run_report_section_generation(
             )
         db.commit()
 
-        markdown_chunk = chunk_map.get("final_markdown")
-        if markdown_chunk:
-            markdown_chunk.status = "in_progress"
-            db.commit()
-
-        markdown = assemble_markdown_from_specs(
-            report.report_type, section_specs, chunk_map
-        )
-        if markdown_chunk:
-            markdown_chunk.content = markdown
-            markdown_chunk.status = "completed"
-            markdown_chunk.order_index = len(section_specs)
-        else:
-            db.add(
-                ReportChunk(
-                    report_id=report.id,
-                    section="final_markdown",
-                    content=markdown,
-                    status="completed",
-                    order_index=len(section_specs),
-                )
-            )
+        # Markdown assembly removed (JSON-only pipeline)
 
         report.status = "completed"
         db.commit()
@@ -1310,16 +1782,76 @@ async def run_report_section_generation(
         db.close()
 
 
+def _legacy_workflow_requires_structured_access(report_type: str) -> bool:
+    from .core.feature_flags import is_one_off_entitlements_runtime_enabled
+    from .services.one_off_entitlements import is_one_off_report_type
+
+    return is_one_off_entitlements_runtime_enabled() and is_one_off_report_type(report_type)
+
+
+def _resolve_legacy_workflow_access(user: User, report_type: str, db: Session):
+    from .services.access_control import check_user_access, resolve_report_access
+
+    if _legacy_workflow_requires_structured_access(report_type):
+        access_decision = resolve_report_access(user, report_type, db)
+        if access_decision.allowed:
+            return access_decision
+    elif check_user_access(user, report_type, db):
+        return None
+
+    if report_type == "week_forecast":
+        logger.warning("week_generate_failed", user_id=str(user.id), error="Access denied / No subscription")
+    raise HTTPException(
+        status_code=402,
+        detail=(
+            f"Generation of {report_type} is not available. "
+            "Please check your entitlements or subscribe."
+        ),
+    )
+
+
+def _consume_legacy_workflow_access_if_needed(
+    user: User,
+    report: Report,
+    db: Session,
+    *,
+    access_decision,
+) -> None:
+    if access_decision is None:
+        return
+
+    from .services.access_control import AccessConsumptionError, consume_report_access
+
+    try:
+        consume_report_access(user, report, db, decision=access_decision)
+    except AccessConsumptionError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Access could not be consumed: {exc}",
+        ) from exc
+
+
+@app.post(
+    "/api/workflows/report/async",
+    response_model=ReportWorkflowStartResponse,
+)
+async def create_report_async(
+    payload: ReportWorkflowRequest,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Run an end-to-end report generation workflow asynchronously.
+    # INPUT: ReportWorkflowRequest payload.
+    # OUTPUT: ReportWorkflowStartResponse.
+    # CONTEXT: Primary entry point for report generation with progress UI.
+    """
     client = upsert_client_from_payload(payload, db)
     db.flush()
 
-    # ENTITLEMENT CHECK
-    from .services.access_control import check_user_access
-    if not check_user_access(user, payload.report_type):
-        raise HTTPException(
-            status_code=402, 
-            detail="Subscription expired. Please top up balance or extend subscription."
-        )
+    access_decision = _resolve_legacy_workflow_access(user, payload.report_type, db)
 
     report = Report(
         client_id=client.id,
@@ -1332,6 +1864,15 @@ async def run_report_section_generation(
     report.input_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
     db.add(report)
     db.flush()
+    _consume_legacy_workflow_access_if_needed(
+        user,
+        report,
+        db,
+        access_decision=access_decision,
+    )
+
+    if payload.report_type == "week_forecast":
+        logger.info("week_generate_started", user_id=str(user.id), report_id=str(report.id))
 
     section_specs = build_section_specs(payload)
     initialize_report_chunks(report, section_specs, db, reset=True)
@@ -1348,16 +1889,25 @@ async def run_report_section_generation(
     }
 
 
+@app.post(
+    "/api/workflows/report",
+    response_model=ReportWorkflowResponse,
+)
+async def create_report(
+    payload: ReportWorkflowRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Run an end-to-end report generation workflow synchronously.
+    # INPUT: ReportWorkflowRequest payload.
+    # OUTPUT: ReportWorkflowResponse with sections and chart.
+    # CONTEXT: Legacy/Dev entry point for direct report generation.
+    """
     client = upsert_client_from_payload(payload, db)
     db.flush()
 
-    # ENTITLEMENT CHECK
-    from .services.access_control import check_user_access
-    if not check_user_access(user, payload.report_type):
-        raise HTTPException(
-            status_code=402, 
-            detail="Subscription expired. Please top up balance or extend subscription."
-        )
+    access_decision = _resolve_legacy_workflow_access(user, payload.report_type, db)
 
     report = Report(
         client_id=client.id,
@@ -1370,6 +1920,15 @@ async def run_report_section_generation(
     report.input_payload = json.dumps(payload.model_dump(), ensure_ascii=True)
     db.add(report)
     db.flush()
+    _consume_legacy_workflow_access_if_needed(
+        user,
+        report,
+        db,
+        access_decision=access_decision,
+    )
+
+    if payload.report_type == "week_forecast":
+        logger.info("week_generate_started", user_id=str(user.id), report_id=str(report.id))
 
     # LLM Setup
     llm_mode = resolve_llm_mode(payload)
@@ -1386,7 +1945,7 @@ async def run_report_section_generation(
 
     run = start_report_run(report, db)
     try:
-        generated_sections, chart_data, markdown = await generate_report_sections(
+        generated_sections, chart_data = await generate_report_sections(
             report,
             payload,
             db,
@@ -1394,6 +1953,7 @@ async def run_report_section_generation(
             llm_mode=llm_mode,
             reset_chunks=True,
             raise_on_error=True,
+            run=run,
         )
     except Exception as exc:
         report.status = "failed"
@@ -1420,7 +1980,6 @@ async def run_report_section_generation(
     return {
         "report_id": str(report.id),
         "client_id": str(client.id),
-        "markdown": markdown,
         "sections": generated_sections,
         "chart": chart_data,
     }
@@ -1430,7 +1989,11 @@ async def run_report_section_generation(
     "/api/admin/reports/{report_id}/regenerate",
     response_model=ReportRegenerateResponse,
 )
-async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
+async def regenerate_report(
+    report_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
     """
     # PURPOSE: Regenerate all report sections and markdown.
     # INPUT: report_id path param.
@@ -1454,7 +2017,7 @@ async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
 
     run = start_report_run(report, db)
     try:
-        generated_sections, _, markdown = await generate_report_sections(
+        generated_sections, chart_data = await generate_report_sections(
             report,
             payload,
             db,
@@ -1462,6 +2025,7 @@ async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
             llm_mode=llm_mode,
             reset_chunks=True,
             raise_on_error=True,
+            run=run,
         )
     except Exception as exc:
         report.status = "failed"
@@ -1476,7 +2040,6 @@ async def regenerate_report(report_id: str, db: Session = Depends(get_db)):
     return {
         "report_id": str(report.id),
         "status": report.status,
-        "markdown": markdown,
         "sections": generated_sections,
     }
 
@@ -1489,6 +2052,7 @@ def regenerate_report_async(
     report_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Regenerate all report sections asynchronously.
@@ -1527,7 +2091,10 @@ def regenerate_report_async(
     response_model=ReportRegenerateResponse,
 )
 async def regenerate_report_section(
-    report_id: str, section_id: str, db: Session = Depends(get_db)
+    report_id: str,
+    section_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Regenerate a single report section and refresh markdown.
@@ -1544,6 +2111,7 @@ async def regenerate_report_section(
         None,
     )
     if not target_spec:
+        log_admin_report_event("admin.error", admin=admin, report=report, stage="section_missing", section_id=section_id)
         raise HTTPException(status_code=404, detail="Section not found.")
 
     llm_mode = resolve_llm_mode(payload)
@@ -1563,7 +2131,7 @@ async def regenerate_report_section(
         context = build_report_context(payload, chart_data)
 
         # Context Anonymization
-        section_context = copy.deepcopy(context)
+        section_context = build_section_context(section_id, context, chart_data)
         if section_id != "input_frame":
             section_context["client"]["name"] = "Ты"
             section_context["client"]["note"] = ""
@@ -1582,20 +2150,23 @@ async def regenerate_report_section(
             db.commit()
 
             retry_attempts = resolve_llm_retry_attempts()
-            fallback_model = ""
+            fallback_models = []
             if llm_mode in {"openrouter", "cheap"}:
-                fallback_model = resolve_llm_fallback_model()
-            use_template = llm_mode == "fallback"
+                model = resolve_llm_fallback_model()
+                if model:
+                    fallback_models = [model]
+            use_template = llm_mode in {"fallback", "local", "mock", "stub"}
 
-            content = await generate_section_content(
+            result = await generate_section_content(
                 target_spec,
                 section_context,
                 chart_data,
                 llm_client,
-                fallback_model,
+                fallback_models,
                 retry_attempts,
                 use_template
             )
+            content = result.content
             
             logger.info("regen.result", section_id=target_spec.section_id, content_len=len(content))
 
@@ -1611,16 +2182,38 @@ async def regenerate_report_section(
                 )
             ]
         except Exception as exc:
-            if target_chunk:
-                target_chunk.status = "failed"
-                target_chunk.error_message = str(exc)
-                target_chunk.error_at = datetime.now(timezone.utc)
-            report.status = "failed"
-            report.error_message = str(exc)
-            report.error_at = datetime.now(timezone.utc)
-            db.commit()
-            finish_report_run(run, db, "failed", error_message=str(exc))
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            if should_fallback_on_llm_error(exc) or isinstance(exc, LLMContentValidationError):
+                if isinstance(exc, LLMContentValidationError):
+                    content = inject_planet_emojis(
+                        build_section_validation_fallback_content(target_spec, section_context)
+                    )
+                else:
+                    content = inject_planet_emojis(build_section_fallback_content(target_spec, section_context))
+                generated_sections = [
+                    SectionResultOut(
+                        section_id=target_spec.section_id,
+                        title=target_spec.title,
+                        content=content,
+                    )
+                ]
+                logger.warning(
+                    "report.section.regen.fallback",
+                    block_id="REPORT_SECTION",
+                    report_id=str(report.id),
+                    section_id=section_id,
+                    error=str(exc),
+                )
+            else:
+                if target_chunk:
+                    target_chunk.status = "failed"
+                    target_chunk.error_message = str(exc)
+                    target_chunk.error_at = datetime.now(timezone.utc)
+                report.status = "failed"
+                report.error_message = str(exc)
+                report.error_at = datetime.now(timezone.utc)
+                db.commit()
+                finish_report_run(run, db, "failed", error_message=str(exc))
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         result = generated_sections[0]
         target_chunk = chunk_map.get(section_id)
@@ -1640,28 +2233,6 @@ async def regenerate_report_section(
             chunk_map[section_id] = target_chunk
         db.commit()
 
-        markdown = assemble_markdown_from_specs(
-            report.report_type, section_specs, chunk_map
-        )
-
-        markdown_chunk = chunk_map.get("final_markdown")
-        if markdown_chunk:
-            markdown_chunk.status = "in_progress"
-            db.commit()
-            markdown_chunk.content = markdown
-            markdown_chunk.status = "completed"
-            markdown_chunk.order_index = len(section_specs)
-        else:
-            db.add(
-                ReportChunk(
-                    report_id=report.id,
-                    section="final_markdown",
-                    content=markdown,
-                    status="completed",
-                    order_index=len(section_specs),
-                )
-            )
-
         report.status = "completed"
         db.commit()
         finish_report_run(run, db, "completed")
@@ -1678,7 +2249,6 @@ async def regenerate_report_section(
     return {
         "report_id": str(report.id),
         "status": report.status,
-        "markdown": markdown,
         "sections": generated_sections,
     }
 
@@ -1692,6 +2262,7 @@ def regenerate_report_section_async(
     section_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Regenerate a single report section asynchronously.
@@ -1722,6 +2293,7 @@ def regenerate_report_section_async(
         target_chunk.error_at = None
 
     db.commit()
+    log_admin_report_event("admin.section_regenerate", admin=admin, report=report, section_id=section_id, stage="queued", pending=sum(1 for chunk in report.chunks if chunk.status == "pending"), running=sum(1 for chunk in report.chunks if chunk.status == "in_progress"), error=sum(1 for chunk in report.chunks if chunk.status in {"failed", "error"}))
     background_tasks.add_task(
         run_report_section_generation,
         report.id,
@@ -1736,11 +2308,78 @@ def regenerate_report_section_async(
     }
 
 
+class AdminRegenerateRequest(BaseModel):
+    reason: Optional[str] = None
+
+@app.post("/api/admin/reports/{report_id}/regenerate_copy")
+def regenerate_report_copy(
+    report_id: str,
+    payload: Optional[AdminRegenerateRequest] = None,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """
+    # PURPOSE: Create a fresh copy of a report and regenerate it.
+    """
+    try:
+        rid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid ID")
+        
+    old_report = db.query(Report).filter(Report.id == rid).first()
+    if not old_report:
+        raise HTTPException(status_code=404, detail="Report not found")
+        
+    # Clone logic
+    new_report = Report(
+        client_id=old_report.client_id,
+        user_id=old_report.user_id,
+        report_type=old_report.report_type,
+        status="in_progress",
+        paid=old_report.paid,
+        is_test=old_report.is_test,
+        input_payload=old_report.input_payload # Copy payload
+    )
+    db.add(new_report)
+    db.commit()
+    
+    # Audit
+    from .models import AuditLog
+    reason = payload.reason if payload else "Manual regeneration"
+    audit = AuditLog(
+        admin_id=admin.id,
+        target_user_id=old_report.user_id,
+        action="regenerate_copy",
+        reason=reason,
+        details=json.dumps({"original_id": str(old_report.id), "new_id": str(new_report.id)})
+    )
+    db.add(audit)
+    db.commit()
+    
+    # Start generation
+    if new_report.input_payload:
+        try:
+            payload_data = json.loads(new_report.input_payload)
+            # Re-init chunks
+            section_specs = build_section_specs(ReportWorkflowRequest.model_validate(payload_data))
+            initialize_report_chunks(new_report, section_specs, db, reset=True)
+            db.commit()
+            
+            background_tasks.add_task(
+                run_report_generation, new_report.id, payload_data, False
+            )
+        except Exception as e:
+            logger.error("regen.copy.failed", error=str(e))
+            
+    return {"status": "ok", "new_report_id": str(new_report.id)}
+
 @app.get("/api/admin/stats", response_model=AdminStatsOut)
 def get_admin_stats(
     days: int = 7,
     show_test: bool = False,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return admin dashboard counters.
@@ -1827,6 +2466,19 @@ def get_admin_stats(
     for name, count in analytics_rows:
         analytics_funnel[name] = int(count)
 
+    feedback_stats = db.query(
+        func.avg(ReportFeedback.rating),
+        func.count(ReportFeedback.id)
+    ).first()
+    
+    feedback_avg = float(feedback_stats[0]) if feedback_stats[0] else 0
+    feedback_count = int(feedback_stats[1]) if feedback_stats[1] else 0
+
+    # Entitlement Stats
+    total_balance = db.query(func.sum(User.balance)).scalar() or 0
+    active_subs = db.query(func.count(User.id)).filter(User.subscription_active_until > datetime.now(timezone.utc)).scalar() or 0
+    horary_credits = db.query(func.sum(Transaction.amount)).filter(Transaction.currency == "CRD").scalar() or 0
+
     return {
         "clients": clients,
         "reports_total": reports_total,
@@ -1838,7 +2490,13 @@ def get_admin_stats(
         "tasks_open": tasks_open,
         "tasks_total": tasks_total,
         "analytics_funnel": analytics_funnel,
-        "window_days": window_days,
+        "feedback_avg": feedback_avg,
+        "feedback_count": feedback_count,
+        "entitlements": {
+            "total_balance_rub": float(total_balance),
+            "active_subscriptions": active_subs,
+            "outstanding_credits": int(horary_credits)
+        }
     }
 
 
@@ -1847,6 +2505,7 @@ def get_admin_tasks(
     limit: int = 50,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return recent operator tasks from the bot.
@@ -1890,6 +2549,7 @@ def update_admin_task(
     task_id: str,
     payload: AdminTaskUpdateRequest,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Update a task created via the bot.
@@ -1971,10 +2631,12 @@ def serialize_client(client: Client) -> dict:
 
     return {
         "id": str(client.id),
+        "user_id": str(client.user_id) if client.user_id else None,
         "full_name": client.full_name,
         "email": client.email,
         "notes": client.notes,
         "birth_datetime": format_datetime(client.birth_datetime),
+        "birth_time_known": client.birth_time_known,
         "birth_location": client.birth_location,
         "birth_lat": client.birth_lat,
         "birth_lon": client.birth_lon,
@@ -1992,7 +2654,8 @@ def list_admin_clients(
     offset: int = 0,
     q: Optional[str] = None,
     show_test: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return clients with report summaries.
@@ -2024,7 +2687,11 @@ def list_admin_clients(
 
 
 @app.post("/api/admin/clients", response_model=AdminClientOut)
-def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends(get_db)):
+def create_admin_client(
+    payload: AdminClientCreateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
     """
     # PURPOSE: Create a client without generating a report.
     # INPUT: AdminClientCreateRequest payload.
@@ -2040,8 +2707,10 @@ def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends
 
     client = Client(
         full_name=payload.client_name,
+        user_id=uuid.UUID(payload.user_id) if payload.user_id else None,
         notes=payload.client_note,
         birth_datetime=birth_dt,
+        birth_time_known=payload.birth_time_known,
         birth_location=payload.birth_location,
         birth_lat=payload.birth_lat,
         birth_lon=payload.birth_lon,
@@ -2060,7 +2729,8 @@ def create_admin_client(payload: AdminClientCreateRequest, db: Session = Depends
 def update_admin_client(
     client_id: str,
     payload: AdminClientCreateRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Update existing client details.
@@ -2086,6 +2756,7 @@ def update_admin_client(
     client.full_name = payload.client_name
     client.notes = payload.client_note
     client.birth_datetime = birth_dt
+    client.birth_time_known = payload.birth_time_known
     client.birth_location = payload.birth_location
     client.birth_lat = payload.birth_lat
     client.birth_lon = payload.birth_lon
@@ -2102,7 +2773,8 @@ def update_admin_client(
 def get_admin_client(
     client_id: str, 
     show_test: bool = False,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return client detail with related reports.
@@ -2171,7 +2843,8 @@ class AdminTicketOut(BaseModel):
 def list_admin_tickets(
     status: Optional[str] = None,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: List support tickets for admin.
@@ -2210,7 +2883,8 @@ class AdminBroadcastRequest(BaseModel):
 async def admin_broadcast(
     payload: AdminBroadcastRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Start a background task to broadcast a message to all users.
@@ -2258,6 +2932,7 @@ def list_admin_reports(
     limit: int = 25,
     offset: int = 0,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return reports with client names and chunk counts.
@@ -2274,6 +2949,7 @@ def list_admin_reports(
     if status:
         query = query.filter(Report.status == status)
     rows = query.offset(offset).limit(limit).all()
+    log_admin_report_event("admin.queue", admin=admin, stage="list", queue_size=len(rows), status_filter=status, show_test=show_test)
 
     results = []
     for report in rows:
@@ -2301,6 +2977,7 @@ def get_admin_report(
     report_id: str,
     include_content: bool = True,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return report detail with chunks and markdown.
@@ -2320,20 +2997,18 @@ def get_admin_report(
         .first()
     )
     if not report:
+        log_admin_report_event("admin.error", admin=admin, stage="detail_missing", target_report_id=report_id)
         raise HTTPException(status_code=404, detail="Report not found.")
+    log_admin_report_event("admin.entry", admin=admin, report=report, stage="detail", include_content=include_content, chunk_count=len(report.chunks), run_count=len(report.runs))
 
     chunks_sorted = sorted(report.chunks, key=lambda item: item.order_index)
     payload_data = safe_load_report_payload_data(report)
     section_specs = load_section_specs_for_report(report, payload_data)
     title_map = {spec.section_id: spec.title for spec in section_specs}
     chunks_payload = []
-    markdown = None
     for chunk in chunks_sorted:
-        if chunk.section == "final_markdown" and include_content:
-            markdown = chunk.content or ""
         content_html = None
-        if include_content and chunk.content:
-            content_html = markdown_to_html(chunk.content)
+        # Legacy markdown_to_html removed
         chunks_payload.append(
             {
                 "id": str(chunk.id),
@@ -2361,6 +3036,10 @@ def get_admin_report(
                 "error_message": run.error_message,
                 "started_at": format_datetime(run.started_at),
                 "finished_at": format_datetime(run.finished_at),
+                "prompt_tokens": run.prompt_tokens,
+                "completion_tokens": run.completion_tokens,
+                "total_tokens": run.total_tokens,
+                "estimated_cost": float(run.estimated_cost),
                 "created_at": format_datetime(run.created_at),
             }
         )
@@ -2388,12 +3067,12 @@ def get_admin_report(
             logger.info("admin.svg.generated", report_id=str(report.id), svg_len=len(chart_svg or ""))
         except Exception as e:
             logger.warning("admin.svg.gen_failed", report_id=str(report.id), error=str(e))
+            log_admin_report_event("admin.error", admin=admin, report=report, stage="chart_svg_failed")
 
     return {
         "report": report_payload,
         "chunks": chunks_payload,
         "runs": runs_payload,
-        "markdown": markdown if include_content else None,
         "chart_svg": chart_svg if include_content else None
     }
 
@@ -2407,6 +3086,7 @@ def get_admin_report_section(
     section_id: str,
     include_content: bool = True,
     db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
 ):
     """
     # PURPOSE: Return a single report chunk with optional content.
@@ -2426,19 +3106,21 @@ def get_admin_report_section(
         .first()
     )
     if not report:
+        log_admin_report_event("admin.error", admin=admin, stage="section_report_missing", target_report_id=report_id, section_id=section_id)
         raise HTTPException(status_code=404, detail="Report not found.")
 
     chunk = next((item for item in report.chunks if item.section == section_id), None)
     if not chunk:
+        log_admin_report_event("admin.error", admin=admin, report=report, stage="section_missing", section_id=section_id)
         raise HTTPException(status_code=404, detail="Section not found.")
+    log_admin_report_event("admin.entry", admin=admin, report=report, stage="section_detail", section_id=section_id, include_content=include_content, section_status=chunk.status)
 
     payload_data = safe_load_report_payload_data(report)
     section_specs = load_section_specs_for_report(report, payload_data)
     title_map = {spec.section_id: spec.title for spec in section_specs}
 
     content_html = None
-    if include_content and chunk.content:
-        content_html = markdown_to_html(chunk.content)
+    # Legacy markdown_to_html removed
 
     return {
         "id": str(chunk.id),
@@ -2452,162 +3134,6 @@ def get_admin_report_section(
         "content_html": content_html,
         "created_at": format_datetime(chunk.created_at),
     }
-
-
-@app.get("/api/admin/reports/{report_id}/markdown")
-def get_admin_report_markdown(report_id: str, db: Session = Depends(get_db)):
-    """
-    # PURPOSE: Return report content as Markdown.
-    # INPUT: report_id.
-    # OUTPUT: Markdown text response.
-    # CONTEXT: Used by admin UI for downloads.
-    """
-
-    report = get_report_or_404(report_id, db)
-    markdown = None
-    for chunk in report.chunks:
-        if chunk.section == "final_markdown":
-            markdown = chunk.content or ""
-            break
-
-    if markdown is None:
-        payload_data = safe_load_report_payload_data(report)
-        section_specs = load_section_specs_for_report(report, payload_data)
-        chunk_map = {chunk.section: chunk for chunk in report.chunks}
-        try:
-            markdown = assemble_markdown_from_specs(
-                report.report_type, section_specs, chunk_map
-            )
-        except Exception as exc:
-            logger.error(
-                "report.markdown.error",
-                block_id="REPORT_MARKDOWN",
-                report_id=str(report.id),
-                error=str(exc),
-            )
-            markdown = f"# Report: {report.report_type}\n\n"
-
-    filename = f"report-{report_id}.md"
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return Response(
-        content=markdown or "",
-        media_type="text/markdown; charset=utf-8",
-        headers=headers,
-    )
-
-
-def _generate_pdf_response(report: Report) -> Response:
-    """
-    # PURPOSE: Internal helper to build PDF response from Report.
-    # SHARED by: Admin and User PDF endpoints.
-    """
-    # 1. Assemble HTML Body
-    payload_data = safe_load_report_payload_data(report)
-    section_specs = load_section_specs_for_report(report, payload_data)
-    chunk_map = {chunk.section: chunk for chunk in report.chunks}
-    
-    html_parts = []
-    for spec in section_specs:
-        chunk = chunk_map.get(spec.section_id)
-        if chunk and chunk.content:
-            # Convert JSON blocks or Markdown to HTML
-            section_content_html = convert_chunk_to_html(chunk.content)
-            
-            # Wrap in section and add Title (mimic assemble_markdown behavior)
-            html_parts.append(f"<div class='section' id='{spec.section_id}'>")
-            html_parts.append(f"<h2>{spec.title}</h2>")
-            html_parts.append(section_content_html)
-            html_parts.append("</div>")
-            
-    body_html = "".join(html_parts)
-    if not body_html:
-        body_html = "<p>Отчет не содержит данных.</p>"
-
-    # 2. Metadata for Cover
-    payload_data = payload_data or {}
-    client_name = payload_data.get("client_name") or (
-        report.client.full_name if report.client else ""
-    )
-    birth_year = extract_birth_year(payload_data.get("birth_date"))
-    translit_name = transliterate_ru_to_en(client_name) if client_name else ""
-    title = format_report_title(report.report_type)
-    subtitle = format_report_subtitle(client_name)
-
-    meta_lines = []
-    if translit_name:
-        line = translit_name
-        if birth_year:
-            line = f"{line} · {birth_year}"
-        meta_lines.append(line)
-    elif client_name:
-        meta_lines.append(client_name)
-    
-    meta_lines.append(format_datetime(datetime.now(timezone.utc)))
-
-    # 3. Chart SVG
-    chart_svg = None
-    try:
-        # Re-build chart data for SVG
-        payload_model = load_report_payload(report)
-        chart_data = build_chart_data(payload_model)
-        chart_svg = build_natal_chart_svg(chart_data)
-    except Exception as e:
-        logger.warning("pdf.chart_svg.error", error=str(e))
-
-    # 4. Build PDF
-    html_content = build_report_html(
-        title=title,
-        subtitle=subtitle,
-        meta_lines=meta_lines,
-        chart_svg=chart_svg or "",
-        body_html=body_html,
-    )
-    
-    try:
-        pdf_bytes = html_to_pdf(html_content)
-    except Exception as e:
-        logger.error("pdf.gen.error", error=str(e))
-        raise HTTPException(status_code=500, detail="PDF generation failed")
-
-    filename = f"report-{report.id}.pdf"
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers=headers,
-    )
-
-
-@app.get("/api/reports/{report_id}/pdf")
-def get_user_report_pdf(
-    report_id: str, 
-    user: User = Depends(get_current_user_from_query),
-    db: Session = Depends(get_db)
-):
-    """
-    # PURPOSE: Download PDF for the owner of the report.
-    # AUTH: Query param (initData).
-    """
-    report = get_report_or_404(report_id, db)
-    
-    # Security Check: User must own the report
-    if report.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this report")
-        
-    return _generate_pdf_response(report)
-
-
-@app.get("/api/admin/reports/{report_id}/pdf")
-def get_admin_report_pdf(report_id: str, db: Session = Depends(get_db)):
-    """
-    # PURPOSE: Return report content as PDF.
-    # INPUT: report_id.
-    # OUTPUT: PDF binary response.
-    # CONTEXT: Used by admin UI for downloads.
-    """
-
-    report = get_report_or_404(report_id, db)
-    return _generate_pdf_response(report)
 
 
 @app.get("/api/geo/autocomplete", response_model=List[GeoSuggestionOut])
@@ -2654,17 +3180,39 @@ def run_diagnostics_endpoint():
 
 # #START_BLOCK_USER_ENDPOINTS
 class UserProfileOut(BaseModel):
+    class ReportAccessEntry(BaseModel):
+        allowed: bool = False
+        granted_via: Optional[str] = None
+        remaining_unlocks: int = 0
+        reason_code: str = "payment_required"
+        legacy_subscription_applied: bool = False
+
     telegram_id: int
     full_name: Optional[str]
     is_partner: bool
+    is_test: bool = False
     balance: float
     subscription_active_until: Optional[str]
     days_left: int
     birth_time_known: bool
     birth_date: Optional[str]
     birth_place: Optional[str]
+    birth_timezone: Optional[str]
+    current_location: Optional[str]
+    current_lat: Optional[float]
+    current_lon: Optional[float]
+    current_timezone: Optional[str]
+    sun_sign: Optional[str]
     referral_code: Optional[str]
     referrals_count: int = 0
+    horary_balance: int = 0
+    weekly_quota_used: int = 0
+    report_unlocks: dict[str, int] = Field(default_factory=dict)
+    report_access: dict[str, ReportAccessEntry] = Field(default_factory=dict)
+    feature_flags: dict[str, bool] = Field(default_factory=dict)
+    # Access Flags
+    can_access_premium: bool = False
+    can_ask_horary: bool = False
 
 @app.get("/api/users/me", response_model=UserProfileOut)
 def get_my_profile(
@@ -2673,50 +3221,85 @@ def get_my_profile(
 ):
     """
     # PURPOSE: Get current user profile for Telegram WebApp.
-    # INPUT: Auth Dependency.
-    # OUTPUT: User profile JSON.
     """
     if not user.referral_code:
-        import random, string
-        chars = string.ascii_uppercase + string.digits
-        user.referral_code = ''.join(random.choice(chars) for _ in range(6))
+        from .services.code_gen import generate_referral_code
+        user.referral_code = generate_referral_code()
         db.add(user)
         db.commit()
         db.refresh(user)
 
+    now = datetime.now(timezone.utc)
     days_left = 0
     if user.subscription_active_until:
-        if user.subscription_active_until.tzinfo:
-            delta = user.subscription_active_until - datetime.now(timezone.utc)
-        else:
-             delta = user.subscription_active_until - datetime.utcnow()
+        sub_end = user.subscription_active_until
+        if sub_end.tzinfo is None: sub_end = sub_end.replace(tzinfo=timezone.utc)
+        delta = sub_end - now
         days_left = max(0, delta.days)
 
-    from .models import Referral
+    from .models import Referral, Transaction, Report
+    from .services.access_control import build_report_access_snapshot, check_user_access
+    from .core.feature_flags import get_feature_flag_snapshot
+    from .services.one_off_entitlements import build_report_unlock_snapshot
+    
     referrals_count = db.query(Referral).filter(Referral.referrer_id == user.id).count()
-
-    log_analytics_event(
-        db,
-        "app_open",
-        user_id=user.id,
-        telegram_id=user.telegram_id,
-        source="webapp",
-        metadata={"endpoint": "/api/users/me"},
+    
+    # Horary Stats
+    horary_balance = int(
+        db.query(func.sum(Transaction.amount))
+        .filter(Transaction.user_id == user.id)
+        .filter(Transaction.currency == "CRD")
+        .scalar() or 0
     )
+    
+    from .services.access_control import get_local_week_start_utc
+    monday_utc = get_local_week_start_utc(user)
+    
+    quota_used = (
+        db.query(func.count(Report.id))
+        .filter(Report.user_id == user.id)
+        .filter(Report.report_type.in_(["horary", "horary_answer", "horary_full"]))
+        .filter(Report.created_at >= monday_utc)
+        .scalar()
+    ) or 0
+
+    log_analytics_event(db, "app_open", user_id=user.id, telegram_id=user.telegram_id, source="webapp")
 
     return {
         "telegram_id": user.telegram_id,
         "full_name": user.full_name,
         "is_partner": user.is_partner,
+        "is_test": user.is_test,
         "balance": float(user.balance),
         "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
         "days_left": days_left,
         "birth_time_known": user.birth_time_known,
         "birth_date": user.birth_date,
         "birth_place": user.birth_place,
+        "birth_timezone": user.birth_timezone,
+        "current_location": user.current_location,
+        "current_lat": user.current_lat,
+        "current_lon": user.current_lon,
+        "current_timezone": user.current_timezone,
+        "sun_sign": user.sun_sign,
         "referral_code": user.referral_code,
-        "referrals_count": referrals_count
+        "referrals_count": referrals_count,
+        "horary_balance": horary_balance,
+        "weekly_quota_used": quota_used,
+        "report_unlocks": build_report_unlock_snapshot(db, user_id=user.id),
+        "report_access": build_report_access_snapshot(user, db),
+        "feature_flags": get_feature_flag_snapshot(),
+        "can_access_premium": check_user_access(user, "natal_master", db),
+        "can_ask_horary": check_user_access(user, "horary", db)
     }
+
+@app.get("/api/billing/packs")
+def list_payment_packs():
+    """
+    # PURPOSE: Provide list of available horary packs for frontend.
+    """
+    from .core.config_business import HORARY_PACKS
+    return HORARY_PACKS
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -2726,6 +3309,12 @@ class UserProfileUpdate(BaseModel):
     birth_place: Optional[str] = None
     birth_lat: Optional[float] = None
     birth_lon: Optional[float] = None
+    birth_timezone: Optional[str] = None
+    current_location: Optional[str] = None
+    current_lat: Optional[float] = None
+    current_lon: Optional[float] = None
+    current_timezone: Optional[str] = None
+    is_test: Optional[bool] = None
 
 class AnalyticsEventIn(BaseModel):
     event_name: str = Field(..., min_length=1)
@@ -2748,6 +3337,59 @@ class AnalyticsEventIn(BaseModel):
 class AnalyticsEventOut(BaseModel):
     ok: bool
     error: Optional[str] = None
+
+class FeedbackIn(BaseModel):
+    rating: int = Field(..., ge=1, le=10)
+    comment: Optional[str] = None
+    section_id: Optional[str] = None
+    telegram_id: Optional[int] = None
+
+@app.post("/api/reports/{report_id}/feedback", response_model=AnalyticsEventOut)
+async def submit_report_feedback(
+    report_id: uuid.UUID,
+    payload: FeedbackIn,
+    db: Session = Depends(get_db),
+    x_telegram_auth: Optional[str] = Header(None, alias="X-Telegram-Auth"),
+):
+    """
+    # PURPOSE: Submit user feedback for a report or section.
+    # INPUT: report_id, rating, comment.
+    # OUTPUT: ok status.
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    user_id = None
+    # If auth provided, use it
+    if x_telegram_auth:
+        try:
+            from .auth import verify_telegram_auth
+            user_data = verify_telegram_auth(x_telegram_auth)
+            tg_id = int(user_data["id"])
+            user = db.query(User).filter(User.telegram_id == tg_id).first()
+            if user:
+                user_id = user.id
+        except:
+            pass
+    
+    # Fallback to telegram_id in payload if no auth
+    if not user_id and payload.telegram_id:
+        user = db.query(User).filter(User.telegram_id == payload.telegram_id).first()
+        if user:
+            user_id = user.id
+
+    feedback = ReportFeedback(
+        report_id=report_id,
+        user_id=user_id,
+        section_id=payload.section_id,
+        rating=payload.rating,
+        comment=payload.comment
+    )
+    db.add(feedback)
+    db.commit()
+    
+    return {"ok": True}
 
 @app.post("/api/analytics/event", response_model=AnalyticsEventOut)
 def capture_analytics_event(
@@ -2793,6 +3435,26 @@ def capture_analytics_event(
     )
     return {"ok": ok}
 
+def get_sun_sign(birth_date_str: str) -> str:
+    """Determine Sun sign from YYYY-MM-DD string."""
+    try:
+        dt = datetime.fromisoformat(birth_date_str)
+        month, day = dt.month, dt.day
+        if (month == 3 and day >= 21) or (month == 4 and day <= 19): return "Aries"
+        if (month == 4 and day >= 20) or (month == 5 and day <= 20): return "Taurus"
+        if (month == 5 and day >= 21) or (month == 6 and day <= 20): return "Gemini"
+        if (month == 6 and day >= 21) or (month == 7 and day <= 22): return "Cancer"
+        if (month == 7 and day >= 23) or (month == 8 and day <= 22): return "Leo"
+        if (month == 8 and day >= 23) or (month == 9 and day <= 22): return "Virgo"
+        if (month == 9 and day >= 23) or (month == 10 and day <= 22): return "Libra"
+        if (month == 10 and day >= 23) or (month == 11 and day <= 21): return "Scorpio"
+        if (month == 11 and day >= 22) or (month == 12 and day <= 21): return "Sagittarius"
+        if (month == 12 and day >= 22) or (month == 1 and day <= 19): return "Capricorn"
+        if (month == 1 and day >= 20) or (month == 2 and day <= 18): return "Aquarius"
+        return "Pisces"
+    except:
+        return "Unknown"
+
 @app.put("/api/users/me")
 def update_my_profile(
     payload: UserProfileUpdate,
@@ -2805,12 +3467,20 @@ def update_my_profile(
         was_complete = bool(user.full_name and user.birth_date and user.birth_place)
         # Update fields if provided
         if payload.full_name is not None: user.full_name = payload.full_name
-        if payload.birth_date is not None: user.birth_date = payload.birth_date
+        if payload.birth_date is not None: 
+            user.birth_date = payload.birth_date
+            user.sun_sign = get_sun_sign(payload.birth_date)
         if payload.birth_time is not None: user.birth_time = payload.birth_time
         if payload.birth_time_known is not None: user.birth_time_known = payload.birth_time_known
         if payload.birth_place is not None: user.birth_place = payload.birth_place
         if payload.birth_lat is not None: user.birth_lat = payload.birth_lat
         if payload.birth_lon is not None: user.birth_lon = payload.birth_lon
+        if payload.birth_timezone is not None: user.birth_timezone = payload.birth_timezone
+        if payload.current_location is not None: user.current_location = payload.current_location
+        if payload.current_lat is not None: user.current_lat = payload.current_lat
+        if payload.current_lon is not None: user.current_lon = payload.current_lon
+        if payload.current_timezone is not None: user.current_timezone = payload.current_timezone
+        if payload.is_test is not None: user.is_test = payload.is_test
 
         db.add(user)
         db.commit()
@@ -2844,6 +3514,7 @@ def update_my_profile(
             "telegram_id": user.telegram_id,
             "full_name": user.full_name,
             "is_partner": user.is_partner,
+            "is_test": user.is_test,
             "balance": float(user.balance),
             "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
             "days_left": days_left,
@@ -2866,11 +3537,52 @@ class UserReportOut(BaseModel):
     status: str
     created_at: str
     client_name: str
+    access_source: Optional[str] = None
+
+class ChunkOut(BaseModel):
+    section: str
+    content: Optional[str]
+    status: str
+    order_index: int
 
 class ReportDetailOut(BaseModel):
     report: UserReportOut
-    markdown: Optional[str]
     chart_svg: Optional[str] = None
+    chunks: List[ChunkOut] = []
+
+@app.get("/api/reports/my", response_model=List[UserReportOut])
+def get_my_reports(
+    limit: int = 50,
+    offset: int = 0,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    # PURPOSE: List reports belonging to the current user (last 30 days).
+    # INPUT: Auth Dependency.
+    # OUTPUT: List of user reports.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    reports = (
+        db.query(Report)
+        .filter(Report.user_id == user.id)
+        .filter(Report.created_at >= cutoff)
+        .order_by(Report.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": str(r.id),
+            "report_type": r.report_type,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+            "client_name": r.client.full_name if r.client else "Unknown",
+            "access_source": r.access_source,
+        }
+        for r in reports
+    ]
 
 @app.get("/api/reports/{report_id}", response_model=ReportDetailOut)
 def get_report_detail(
@@ -2890,12 +3602,20 @@ def get_report_detail(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    # Get Markdown
-    markdown = None
-    for chunk in report.chunks:
-        if chunk.section == "final_markdown":
-            markdown = chunk.content
-            break
+    # Get Chunks
+    chunks_out = []
+    
+    # Sort chunks by order_index
+    sorted_chunks = sorted(report.chunks, key=lambda c: c.order_index)
+    
+    for chunk in sorted_chunks:
+        if chunk.section != "input_frame": # Optionally exclude technical chunks
+             chunks_out.append({
+                 "section": chunk.section,
+                 "content": chunk.content,
+                 "status": chunk.status,
+                 "order_index": chunk.order_index
+             })
 
     # Generate SVG if applicable
     chart_svg = None
@@ -2913,33 +3633,61 @@ def get_report_detail(
             "report_type": report.report_type,
             "status": report.status,
             "created_at": report.created_at.isoformat(),
-            "client_name": report.client.full_name if report.client else "Unknown"
+            "client_name": report.client.full_name if report.client else "Unknown",
+            "access_source": report.access_source,
         },
-        "markdown": markdown,
-        "chart_svg": chart_svg
+        "chart_svg": chart_svg,
+        "chunks": chunks_out
     }
 
-@app.get("/api/reports/my", response_model=List[UserReportOut])
-def get_my_reports(
+
+
+@app.post("/api/reports/{report_id}/regenerate", response_model=ReportWorkflowStartResponse)
+def user_regenerate_report(
+    report_id: str,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
-    # PURPOSE: List reports belonging to the current user.
-    # INPUT: Auth Dependency.
-    # OUTPUT: List of user reports.
+    # PURPOSE: Allow user to retry generation of a failed report.
+    # INPUT: report_id.
+    # OUTPUT: ReportWorkflowStartResponse.
     """
-    reports = db.query(Report).filter(Report.user_id == user.id).order_by(Report.created_at.desc()).all()
-    return [
-        {
-            "id": str(r.id),
-            "report_type": r.report_type,
-            "status": r.status,
-            "created_at": r.created_at.isoformat(),
-            "client_name": r.client.full_name if r.client else "Unknown"
-        }
-        for r in reports
-    ]
+    try:
+        rid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid report ID")
+
+    report = db.query(Report).filter(Report.id == rid, Report.user_id == user.id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    if report.status != "failed":
+        raise HTTPException(status_code=400, detail="Only failed reports can be regenerated by user")
+        
+    payload = load_report_payload(report)
+    section_specs = build_section_specs(payload)
+
+    report.status = "in_progress"
+    report.error_message = None
+    report.error_at = None
+
+    initialize_report_chunks(report, section_specs, db, reset=True)
+    db.commit()
+
+    background_tasks.add_task(
+        run_report_generation,
+        report.id,
+        payload.model_dump(),
+        True,
+    )
+
+    return {
+        "report_id": str(report.id),
+        "client_id": str(report.client_id),
+        "status": report.status,
+    }
 
 # #START_BLOCK_FEED_ENDPOINT
 class FeedOut(BaseModel):
@@ -2950,6 +3698,13 @@ class FeedOut(BaseModel):
     aspects_count: int
     general_vibe: str
     traffic_lights: dict  # {health: "green", money: "yellow", love: "red"}
+    moon: Optional[dict] = None
+    fast_hits: list[dict] = Field(default_factory=list)
+    personalization_level: Optional[str] = None
+    meta: Optional[dict] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
 def get_moon_phase_emoji(phase_angle: float) -> str:
     # 0=New, 90=First Quarter, 180=Full, 270=Last Quarter
@@ -2972,61 +3727,340 @@ def get_phase_name(phase_angle: float) -> str:
     if phase_angle < 280: return "Последняя четверть"
     return "Убывающая Луна"
 
-@app.get("/api/feed/today", response_model=FeedOut)
-async def get_daily_feed():
-    """
-    # PURPOSE: Get daily astrological feed (Moon, Vibe) with real LLM advice.
-    # INPUT: None (uses current UTC time).
-    # OUTPUT: FeedOut object.
-    """
-    now = datetime.utcnow()
-    engine_inst = StelliumEngine()
 
-    # Calculate simple transit for Moscow (default for MVP feed)
-    house_system = engine_utils.resolve_house_system("placidus")
-    chart = engine_inst.create_transit_chart(
-        now.strftime("%Y-%m-%d %H:%M"),
-        "Moscow",
-        house_system,
-    )
-
-    moon = next((p for p in chart.positions if p.name == "Moon"), None)
-    sun = next((p for p in chart.positions if p.name == "Sun"), None)
-
-    if not moon or not sun:
-        raise HTTPException(status_code=500, detail="Could not calculate chart")
-
-    # Calculate Phase Angle
-    angle = (moon.longitude - sun.longitude) % 360
-    phase_name = get_phase_name(angle)
-
-    # Calculate aspects
-    aspects = engine_inst.find_natal_aspects(chart)
-    aspect_summary = ", ".join([f"{a['p1']} {a['type']} {a['p2']}" for a in aspects[:5]]) or "Нет мажорных аспектов"
-
-    # REAL LLM GENERATION (Cheap mode)
-    vibe = await get_daily_vibe_llm(moon.sign, phase_name, aspect_summary)
-
-    # Mock Traffic Lights based on aspects (Randomized for MVP demo based on day hash)
-    day_seed = now.toordinal()
-    import random
-    random.seed(day_seed)
-
-    lights = {
-        "health": random.choice(["green", "yellow", "red"]),
-        "money": random.choice(["green", "yellow", "red"]),
-        "love": random.choice(["green", "yellow", "red"])
-    }
-
+def _build_feed_payload(
+    now: datetime,
+    moon_sign: str,
+    moon_phase: str,
+    moon_emoji: str,
+    general_vibe: str,
+    aspects_count: int,
+    traffic_lights: Optional[dict] = None,
+    moon: Optional[dict] = None,
+    fast_hits: Optional[list] = None,
+    personalization_level: Optional[str] = None,
+    meta: Optional[dict] = None,
+) -> dict:
     return {
         "date": now.strftime("%d.%m.%Y"),
-        "moon_sign": moon.sign,
-        "moon_phase": phase_name,
-        "moon_emoji": get_moon_phase_emoji(angle),
-        "aspects_count": len(chart.aspects),
-        "general_vibe": vibe,
-        "traffic_lights": lights
+        "moon_sign": moon_sign,
+        "moon_phase": moon_phase,
+        "moon_emoji": moon_emoji,
+        "aspects_count": aspects_count,
+        "general_vibe": general_vibe,
+        "traffic_lights": traffic_lights or {
+            "health": "yellow",
+            "money": "yellow",
+            "love": "yellow",
+        },
+        "moon": moon or {"sign": moon_sign, "phase": moon_phase, "emoji": moon_emoji},
+        "fast_hits": fast_hits or [],
+        "personalization_level": personalization_level,
+        "meta": meta,
     }
+
+@app.get("/api/feed/today", response_model=FeedOut)
+async def get_daily_feed(
+    request: Request,
+    debug: bool = Query(False),
+    x_telegram_auth: Optional[str] = Header(None, alias="X-Telegram-Auth"),
+    x_feed_debug: Optional[str] = Header(None, alias="X-Feed-Debug"),
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Get daily astrological feed (Moon, Vibe) with real LLM advice.
+    # INPUT: Optional Telegram auth header for personalized context.
+    # OUTPUT: FeedOut object.
+    """
+    now = datetime.now(timezone.utc)
+    user = None
+    auth_mode = "none"
+    logger.info(
+        "feed.entry",
+        stage="request_start",
+        path=str(request.url.path),
+        debug=bool(debug),
+        has_auth_header=bool(x_telegram_auth),
+    )
+    if x_telegram_auth:
+        try:
+            user = authenticate_telegram_user(x_telegram_auth, db)
+            auth_mode = "telegram"
+        except HTTPException as exc:
+            auth_mode = "fallback_anonymous"
+            logger.info(
+                "feed.debug",
+                stage="auth_fallback",
+                path=str(request.url.path),
+                auth_mode=auth_mode,
+                reason="telegram_auth_invalid",
+                detail=exc.detail,
+            )
+
+    debug_enabled = debug or str(x_feed_debug or "").lower() in {"1", "true", "yes", "on"}
+
+    fallback_sign = "Луна"
+    fallback_phase = "Текущий день"
+    fallback_vibe = build_daily_vibe_fallback(fallback_sign, fallback_phase, "Нет мажорных аспектов")
+
+    try:
+        facts = build_personalized_daily_facts(now, user=user)
+        prompt_context = summarize_personalization_for_prompt(facts)
+        logger.info(
+            "feed.debug",
+            stage="llm_prompt_path",
+            path=str(request.url.path),
+            auth_mode=auth_mode,
+            personalization_level=prompt_context.get("level"),
+            cache_scope=prompt_context.get("cache_scope"),
+            prompt_path=prompt_context.get("prompt_contract"),
+        )
+        vibe = await get_daily_vibe_llm(
+            facts["moon_sign"],
+            facts["moon_phase"],
+            facts["aspect_summary"],
+            personalization_context=prompt_context,
+            cache_scope=prompt_context.get("cache_scope"),
+        )
+
+        logger.info(
+            "feed.debug",
+            stage="request_success",
+            auth_mode=auth_mode,
+            personalization_level=facts.get("personalization_level"),
+            cache_scope=facts.get("cache_scope"),
+            debug=debug_enabled,
+            path=str(request.url.path),
+            fallback_mode=bool((facts.get("meta") or {}).get("fallback_mode")),
+        )
+        return _build_feed_payload(
+            now,
+            moon_sign=facts["moon_sign"],
+            moon_phase=facts["moon_phase"],
+            moon_emoji=facts["moon_emoji"],
+            general_vibe=vibe,
+            aspects_count=int(facts.get("aspects_count", 0) or 0),
+            traffic_lights=facts.get("traffic_lights"),
+            moon={"sign": facts.get("moon_sign"), "phase": facts.get("moon_phase"), "emoji": facts.get("moon_emoji")},
+            fast_hits=facts.get("fast_hits") or [],
+            personalization_level=facts.get("personalization_level"),
+            meta=(facts.get("meta") if debug_enabled and bool(x_telegram_auth) else None),
+        )
+    except Exception as exc:
+        logger.error(
+            "feed.error",
+            stage="fallback_path",
+            error=str(exc),
+            auth_mode=auth_mode,
+            debug=debug_enabled,
+            path=str(request.url.path),
+            fallback_reason="endpoint_error",
+        )
+        return _build_feed_payload(
+            now,
+            moon_sign=fallback_sign,
+            moon_phase=fallback_phase,
+            moon_emoji="🌙",
+            general_vibe=fallback_vibe,
+            aspects_count=0,
+            traffic_lights={
+                "health": "yellow",
+                "money": "yellow",
+                "love": "yellow",
+            },
+            moon={"sign": fallback_sign, "phase": fallback_phase, "emoji": "🌙"},
+            fast_hits=[],
+            personalization_level="anonymous",
+            meta=({"fallback": True, "reason": "endpoint_error"} if debug_enabled and bool(x_telegram_auth) else None),
+        )
 # #END_BLOCK_FEED_ENDPOINT
+
+
+class B2CReportCreateRequest(BaseModel):
+    report_type: str
+    question: Optional[str] = None
+    focus_area: Optional[str] = None
+    llm_mode: Optional[str] = None
+    partner_name: Optional[str] = None
+    partner_birth_date: Optional[str] = None
+    partner_birth_location: Optional[str] = None
+    partner_birth_lat: Optional[float] = None
+    partner_birth_lon: Optional[float] = None
+    partner_birth_timezone: Optional[str] = None
+    partner_birth_place_id: Optional[str] = None
+    solar_current_location: Optional[str] = None
+    solar_current_lat: Optional[float] = None
+    solar_current_lon: Optional[float] = None
+    solar_current_timezone: Optional[str] = None
+    solar_current_place_id: Optional[str] = None
+
+    @validator("report_type", pre=True)
+    @classmethod
+    def normalize_report_type_value(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_report_type(value)
+
+
+def _validate_b2c_report_inputs(payload: B2CReportCreateRequest) -> None:
+    if payload.report_type != "synastry":
+        return
+
+    missing_fields = []
+    if not (payload.partner_birth_date or "").strip():
+        missing_fields.append("partner_birth_date")
+    if not (payload.partner_birth_location or "").strip():
+        missing_fields.append("partner_birth_location")
+
+    if missing_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Synastry requires partner birth date/time and partner birth location "
+                f"({', '.join(missing_fields)})."
+            ),
+        )
+
+
+@app.post("/api/reports/create", response_model=ReportWorkflowStartResponse)
+def create_b2c_report(
+    payload: B2CReportCreateRequest,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: B2C Endpoint to create a report (consumes quota/credits).
+    # INPUT: report_type, question.
+    # OUTPUT: Report metadata.
+    """
+    from .services.access_control import (
+        AccessConsumptionError,
+        consume_report_access,
+        resolve_report_access,
+    )
+    
+    _validate_b2c_report_inputs(payload)
+
+    # 1. Resolve access before creating the report row.
+    access_decision = resolve_report_access(user, payload.report_type, db)
+    if not access_decision.allowed:
+        raise HTTPException(
+            status_code=402,
+            detail="Access unavailable. Please check your subscription or payment status."
+        )
+
+    # 2. Build Payload from User Profile
+    if not user.birth_date or not user.birth_place:
+        raise HTTPException(
+            status_code=400, 
+            detail="Profile incomplete. Please set birth data in Profile."
+        )
+
+    # Parse User Birth Date
+    # user.birth_date is "YYYY-MM-DD", user.birth_time is "HH:MM"
+    birth_dt_iso = user.birth_date
+    if user.birth_time:
+        birth_dt_iso = f"{user.birth_date}T{user.birth_time}:00"
+    
+    # Prepare Workflow Request
+    # We create a new Client record for this report to ensure data isolation/snapshotting
+    # or reuse if we had logic for that. For now, create new to be safe.
+    
+    solar_current_location = payload.solar_current_location
+    solar_current_lat = payload.solar_current_lat
+    solar_current_lon = payload.solar_current_lon
+    solar_current_timezone = payload.solar_current_timezone
+    solar_current_place_id = payload.solar_current_place_id
+
+    if not solar_current_location:
+        solar_current_location = user.current_location or user.birth_place
+        solar_current_lat = user.current_lat or user.birth_lat
+        solar_current_lon = user.current_lon or user.birth_lon
+        solar_current_timezone = user.current_timezone or user.birth_timezone
+
+    wf_payload = ReportWorkflowRequest(
+        client_name=user.full_name or "User",
+        client_note=f"Telegram ID: {user.telegram_id}",
+        question=payload.question,
+        birth_date=birth_dt_iso,
+        birth_location=user.birth_place,
+        birth_lat=user.birth_lat,
+        birth_lon=user.birth_lon,
+        birth_timezone=user.birth_timezone,
+        partner_name=payload.partner_name,
+        partner_birth_date=payload.partner_birth_date,
+        partner_birth_location=payload.partner_birth_location,
+        partner_birth_lat=payload.partner_birth_lat,
+        partner_birth_lon=payload.partner_birth_lon,
+        partner_birth_timezone=payload.partner_birth_timezone,
+        partner_birth_place_id=payload.partner_birth_place_id,
+        solar_current_location=solar_current_location,
+        solar_current_lat=solar_current_lat,
+        solar_current_lon=solar_current_lon,
+        solar_current_timezone=solar_current_timezone,
+        solar_current_place_id=solar_current_place_id,
+        report_type=payload.report_type,
+        birth_time_known=user.birth_time_known if user.birth_time_known is not None else True,
+        llm_mode=payload.llm_mode,
+        house_system="placidus", # Default
+        include_fixed_stars=True
+    )
+    
+    # 3. Create Client & Report
+    client = upsert_client_from_payload(wf_payload, db, owner_user_id=user.id)
+    db.flush()
+    
+    report = Report(
+        client_id=client.id,
+        user_id=user.id,
+        report_type=payload.report_type,
+        status="in_progress",
+        paid=False, # Marked as paid only if direct money transaction? Or generic "authorized"?
+                    # Let's keep False, as it wasn't a direct "purchase" of this specific report object,
+                    # but a consumption of rights.
+        is_test=user.is_test
+    )
+    report.input_payload = json.dumps(wf_payload.model_dump(), ensure_ascii=True)
+    db.add(report)
+    db.flush()
+
+    try:
+        consume_report_access(user, report, db, decision=access_decision)
+    except AccessConsumptionError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Access could not be consumed: {exc}",
+        ) from exc
+    
+    # 4. Initialize & Run
+    section_specs = build_section_specs(wf_payload)
+    initialize_report_chunks(report, section_specs, db, reset=True)
+    db.commit()
+    
+    background_tasks.add_task(
+        run_report_generation, report.id, wf_payload.model_dump(), False
+    )
+    
+    if payload.report_type == "week_forecast":
+        logger.info("week_generate_started", user_id=str(user.id), report_id=str(report.id))
+
+    # 5. Notify if Horary
+    if payload.report_type.startswith("horary"):
+        # Log analytics
+        log_analytics_event(
+            db,
+            "horary_asked",
+            user_id=user.id,
+            telegram_id=user.telegram_id,
+            source="webapp",
+            metadata={"question_len": len(payload.question or "")}
+        )
+
+    return {
+        "report_id": str(report.id),
+        "client_id": str(client.id),
+        "status": report.status
+    }
+
 # #END_BLOCK_USER_ENDPOINTS
 # #END_BLOCK_ENDPOINTS

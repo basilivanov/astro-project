@@ -18,8 +18,17 @@ PLANET_GLYPHS = {
     "Neptune": '<path d="M12 20V4M8 4v8c0 2 4 2 4 0s4 2 4 0V4M5 18h14" stroke="currentColor" stroke-width="2" fill="none"/>',
     "Pluto": '<circle cx="12" cy="6" r="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 9a4 4 0 0 0 8 0M12 9v13M8 18h8" stroke="currentColor" stroke-width="2" fill="none"/>',
     "North Node": '<path d="M7 18a4 4 0 1 1 8 0 4 4 0 1 1 8 0" stroke="currentColor" stroke-width="2" fill="none"/><path d="M11 18a4 4 0 0 0 8 0" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "True Node": '<path d="M7 18a4 4 0 1 1 8 0 4 4 0 1 1 8 0" stroke="currentColor" stroke-width="2" fill="none"/><path d="M11 18a4 4 0 0 0 8 0" stroke="currentColor" stroke-width="2" fill="none"/>',
     "South Node": '<path d="M7 6a4 4 0 1 0 8 0 4 4 0 1 0 8 0" stroke="currentColor" stroke-width="2" fill="none"/><path d="M11 6a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="2" fill="none"/>',
     "Chiron": '<circle cx="12" cy="18" r="4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 14V6M8 10l8-8" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Lilith": '<path d="M14 2C9 2 5 6 5 12s4 10 9 10c-3 0-5-4-5-10s2-10 5-10z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 18v5M9 21h6" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Mean Apogee": '<path d="M14 2C9 2 5 6 5 12s4 10 9 10c-3 0-5-4-5-10s2-10 5-10z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 18v5M9 21h6" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Selena": '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 4v2M12 20v2M4 12h2M20 12h2" stroke="currentColor" stroke-width="2"/>',
+    "Part of Fortune": '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 5l14 14M5 19L19 5" stroke="currentColor" stroke-width="2"/>',
+    "Ceres": '<path d="M12 4a8 8 0 0 0 0 16M12 12h8" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Pallas": '<path d="M12 4l6 8-6 8-6-8z" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Juno": '<path d="M12 4v12M8 8h8M12 16a4 4 0 1 0 0 8 4 4 0 0 0 0-8" stroke="currentColor" stroke-width="2" fill="none"/>',
+    "Vesta": '<path d="M8 20V10l4-6 4 6v10M6 20h12" stroke="currentColor" stroke-width="2" fill="none"/>',
 }
 # #END_BLOCK_ASSETS_PLANETS
 

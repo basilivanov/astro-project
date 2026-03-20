@@ -8,7 +8,6 @@ import os
 import json
 import time
 import pytest
-from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -152,3 +151,4 @@ def test_auth_invalid_hash_real_check(client):
         
     assert response.status_code == 401
 
+# #END_BLOCK_AUTH_TEST_REAL_SIG

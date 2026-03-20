@@ -12,6 +12,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
     ports:
       - "3001:3000"
-    command: sh -c "if [ ! -d node_modules ]; then npm install; fi && npm run dev"
+    command: sh -c "mkdir -p /app/.next && find /app/.next -mindepth 1 -maxdepth 1 -exec rm -rf {} + && if [ ! -d node_modules ]; then npm install; fi && npm run dev"

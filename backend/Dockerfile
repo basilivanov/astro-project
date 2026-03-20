@@ -26,6 +26,9 @@ RUN addgroup --system app \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        curl \
+        nodejs \
+        npm \
         libcairo2 \
         libffi8 \
         libharfbuzz0b \
@@ -33,8 +36,11 @@ RUN apt-get update \
         libpangoft2-1.0-0 \
         libfribidi0 \
         fonts-dejavu-core \
+        fonts-noto-color-emoji \
+        fonts-symbola \
     && (apt-get install -y --no-install-recommends libgdk-pixbuf2.0-0 \
         || apt-get install -y --no-install-recommends libgdk-pixbuf-xlib-2.0-0) \
+    && npm install -g @google/gemini-cli @openai/codex \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONPATH=/app

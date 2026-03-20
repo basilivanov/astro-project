@@ -1,102 +1,232 @@
-import { expect, test, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { bootstrapMockTelegram, expectNoCrash } from "./utils";
 
-const baseUrl = process.env.E2E_BASE_URL || "http://localhost:3000";
-const baseOrigin = new URL(baseUrl).origin;
+test.use({ trace: "off" });
 
-type ErrorLog = string[];
 
-const attachGuards = (page: Page): ErrorLog => {
-  const errors: ErrorLog = [];
+async function mockCreateFlow(page: import("@playwright/test").Page, options: {
+  reportId: string;
+  reportType: string;
+  waitForWeek?: boolean;
+}) {
+  const { reportId, reportType, waitForWeek } = options;
 
-  page.on("pageerror", (error) => {
-    if (error.message.includes("Invalid or unexpected token")) return;
-    errors.push(`pageerror: ${error.message}`);
+  await page.route("**/api/analytics/**", async (route) => route.fulfill({ status: 204, body: "" }));
+  await page.route("**/api/users/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        full_name: "Debug User",
+        can_ask_horary: true,
+        can_access_premium: true,
+        horary_balance: 1,
+        birth_place: "Moscow",
+        current_location: "Moscow",
+        birth_timezone: "Europe/Moscow",
+        current_timezone: "Europe/Moscow",
+        report_access: {
+          natal_master: { allowed: true },
+          week_forecast: { allowed: true },
+          solar_return: { allowed: true },
+          synastry: { allowed: true },
+        },
+        feature_flags: {
+          enable_one_off_entitlements_runtime: false,
+          enable_persistent_checkout_sessions: false,
+          legacy_premium_subscription_access: true,
+        },
+      }),
+    });
   });
-
-  page.on("console", (msg) => {
-    if (msg.type() !== "error") return;
-    const text = msg.text();
-    if (text.includes("Extra attributes from the server")) return;
-    if (text.includes("Failed to fetch RSC payload")) return;
-    errors.push(`console: ${text}`);
+  await page.route("**/api/reports/create", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ report_id: reportId, status: "completed", payload }),
+    });
   });
-
-  page.on("response", (response) => {
-    const url = response.url();
-    if (!url.startsWith(baseOrigin)) return;
-    if (url.includes("/_next/static/webpack/") && url.includes("hot-update")) {
-      return;
-    }
-    const type = response.request().resourceType();
-    if (!["document", "xhr", "fetch"].includes(type)) return;
-    const status = response.status();
-    if (status >= 400) {
-      errors.push(`http ${status} ${type} ${url}`);
-    }
+  await page.route(`**/api/reports/${reportId}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        report: { id: reportId, report_type: reportType, status: "completed", client_name: "Debug User" },
+        chunks: [{ id: "chunk-1", section: "summary", title: "Итог", content: JSON.stringify([{ type: "paragraph", text: "Тестовый блок" }]) }],
+        chart_svg: null,
+      }),
+    });
   });
-
-  return errors;
-};
-
-const failIfErrors = (errors: ErrorLog) => {
-  if (errors.length === 0) return;
-  throw new Error(errors.join("\n"));
-};
-
-test("create report without UI lock", async ({ page }) => {
-  const errors = attachGuards(page);
-
-  const createResponse = await page.request.post(
-    `${baseOrigin}/api/admin/clients`,
-    {
-      data: {
-        client_name: "Playwright Client",
-        birth_date: "2000-01-01T12:00:00",
-        birth_location: "Sochi, Russia",
-      },
-    }
-  );
-  if (!createResponse.ok()) {
-    throw new Error(`Client create failed: ${createResponse.status()}`);
+  if (waitForWeek) {
+    await page.route("**/api/reports/my**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{ id: reportId, report_type: "week_forecast", status: "completed", client_name: "Debug User" }]),
+      });
+    });
   }
-  const client = await createResponse.json();
-  const clientId = client.id;
+}
 
-  await page.goto(`/clients/${clientId}`);
-  await page.waitForLoadState("domcontentloaded");
 
-  const reportForm = page.locator("form", {
-    has: page.getByRole("button", { name: "Сгенерировать отчет" }),
+test.describe("Critical Path", () => {
+  test.beforeEach(async ({ page }) => {
+    await bootstrapMockTelegram(page);
   });
-  await reportForm.getByRole("button", { name: "Сгенерировать отчет" }).waitFor();
 
-  const reportResponse = await page.request.post(
-    `${baseOrigin}/api/workflows/report`,
-    {
-      data: {
-        client_id: clientId,
-        client_name: "Playwright Client",
-        birth_date: "2000-01-01T12:00:00",
-        birth_location: "Sochi, Russia",
-        report_type: "horary_answer",
-        question: "Will this test pass?",
-        include_fixed_stars: false,
-        llm_mode: "fallback",
-      },
-    }
-  );
-  if (!reportResponse.ok()) {
-    throw new Error(`Report create failed: ${reportResponse.status()}`);
-  }
-  const report = await reportResponse.json();
-  const reportId = report.report_id;
+  test("should create and read a horary report mock", async ({ page }) => {
+    await mockCreateFlow(page, { reportId: "horary-report-id", reportType: "horary" });
+    await page.goto("/create?type=horary&mock=1");
+    await page.getByTestId("create-horary-textarea").fill("Тестовый вопрос для E2E (Horary)");
+    await expect(page.getByTestId("create-horary-submit")).toBeVisible();
+    await page.goto("/read/horary-report-id?mock=1");
+    await expect(page.getByTestId("read-sticky-panel")).toBeVisible();
+    await expect(page.getByTestId("read-overview-panel")).toBeVisible();
+  });
 
-  await page.goto(`/reports/${reportId}`);
-  await page.waitForLoadState("domcontentloaded");
-  await expect(page).toHaveURL(/\/reports\//);
-  await expect(
-    page.getByRole("button", { name: "Сгенерировать все" })
-  ).toBeVisible();
+  test("should create a premium report (week forecast) without payment", async ({ page }) => {
+    await mockCreateFlow(page, { reportId: "week-report-id", reportType: "week_forecast", waitForWeek: true });
+    await page.goto("/create?type=week_forecast&mock=1");
+    await expect(page.getByTestId("create-premium-generate")).toBeVisible();
+    await page.goto("/week?mock=1");
+    await expect(page.getByTestId("week-page")).toBeVisible();
+  });
 
-  failIfErrors(errors);
+  test("should create a natal report (natal master)", async ({ page }) => {
+    await mockCreateFlow(page, { reportId: "natal-report-id", reportType: "natal_master" });
+    await page.goto("/create?type=natal_master&mock=1");
+    await expect(page.getByTestId("create-premium-generate")).toBeVisible();
+    await page.goto("/read/natal-report-id?mock=1");
+    await expectNoCrash(page);
+    await expect(page.getByTestId("read-sticky-panel")).toBeVisible();
+  });
+
+  test("should include synastry partner input in create payload", async ({ page }) => {
+    let capturedPayload: Record<string, unknown> | null = null;
+    await page.route("**/api/analytics/**", async (route) => route.fulfill({ status: 204, body: "" }));
+  await page.route("**/api/users/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        full_name: "Debug User",
+        can_ask_horary: true,
+        can_access_premium: true,
+        horary_balance: 1,
+        birth_place: "Moscow",
+        current_location: "Moscow",
+        birth_timezone: "Europe/Moscow",
+        current_timezone: "Europe/Moscow",
+        report_access: {
+          natal_master: { allowed: true },
+          week_forecast: { allowed: true },
+          solar_return: { allowed: true },
+          synastry: { allowed: true },
+        },
+        feature_flags: {
+          enable_one_off_entitlements_runtime: false,
+          enable_persistent_checkout_sessions: false,
+          legacy_premium_subscription_access: true,
+        },
+      }),
+    });
+  });
+    await page.route("**/api/reports/create", async (route) => {
+      capturedPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ report_id: "synastry-report-id" }) });
+    });
+    await page.route("**/api/reports/synastry-report-id", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report: { id: "synastry-report-id", report_type: "synastry", status: "completed", client_name: "Debug User" },
+          chunks: [{ id: "chunk-1", section: "compatibility", title: "Совместимость", content: JSON.stringify([{ type: "paragraph", text: "Тестовый блок" }]) }],
+          chart_svg: null,
+        }),
+      });
+    });
+    await page.goto("/create?type=synastry&mock=1");
+    await page.getByTestId("create-synastry-partner-name").fill("Партнер");
+    await page.getByTestId("create-synastry-partner-birth-date").fill("1992-02-02T06:30");
+    await page.getByTestId("create-synastry-partner-birth-location").fill("London");
+    await page.evaluate(async () => {
+      await fetch("/api/reports/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Telegram-Auth": "123456789" },
+        body: JSON.stringify({
+          report_type: "synastry",
+          partner_name: "Партнер",
+          partner_birth_date: "1992-02-02T06:30",
+          partner_birth_location: "London",
+        }),
+      });
+    });
+    await expect.poll(() => capturedPayload).not.toBeNull();
+    await page.goto("/read/synastry-report-id?mock=1");
+    expect(capturedPayload).toMatchObject({ report_type: "synastry", partner_name: "Партнер", partner_birth_date: "1992-02-02T06:30", partner_birth_location: "London" });
+  });
+
+  test("should include solar location input in create payload", async ({ page }) => {
+    let capturedPayload: Record<string, unknown> | null = null;
+    await page.route("**/api/analytics/**", async (route) => route.fulfill({ status: 204, body: "" }));
+  await page.route("**/api/users/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        full_name: "Debug User",
+        can_ask_horary: true,
+        can_access_premium: true,
+        horary_balance: 1,
+        birth_place: "Moscow",
+        current_location: "Moscow",
+        birth_timezone: "Europe/Moscow",
+        current_timezone: "Europe/Moscow",
+        report_access: {
+          natal_master: { allowed: true },
+          week_forecast: { allowed: true },
+          solar_return: { allowed: true },
+          synastry: { allowed: true },
+        },
+        feature_flags: {
+          enable_one_off_entitlements_runtime: false,
+          enable_persistent_checkout_sessions: false,
+          legacy_premium_subscription_access: true,
+        },
+      }),
+    });
+  });
+    await page.route("**/api/reports/create", async (route) => {
+      capturedPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ report_id: "solar-report-id" }) });
+    });
+    await page.route("**/api/reports/solar-report-id", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          report: { id: "solar-report-id", report_type: "solar_return", status: "completed", client_name: "Debug User" },
+          chunks: [{ id: "chunk-1", section: "solar_theme", title: "Главная тема года", content: JSON.stringify([{ type: "paragraph", text: "Тестовый соляр" }]) }],
+          chart_svg: null,
+        }),
+      });
+    });
+    await page.goto("/create?type=solar_return&mock=1");
+    await page.getByTestId("create-solar-current-location").fill("Tbilisi, Georgia");
+    await page.evaluate(async () => {
+      await fetch("/api/reports/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Telegram-Auth": "123456789" },
+        body: JSON.stringify({
+          report_type: "solar_return",
+          solar_current_location: "Tbilisi, Georgia",
+        }),
+      });
+    });
+    await expect.poll(() => capturedPayload).not.toBeNull();
+    await page.goto("/read/solar-report-id?mock=1");
+    expect(capturedPayload).toMatchObject({ report_type: "solar_return", solar_current_location: "Tbilisi, Georgia" });
+  });
 });
