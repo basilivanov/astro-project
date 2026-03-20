@@ -53,6 +53,8 @@ tmp/
 *.sqlite
 backend/app/__pycache__/
 bot/app/__pycache__/
+logs/
+!logs/.gitkeep
 
 # Node/Frontend
 node_modules/
