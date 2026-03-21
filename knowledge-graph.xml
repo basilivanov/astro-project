@@ -1,4 +1,5 @@
-<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-20">
+<?xml version='1.0' encoding='utf-8'?>
+<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-21">
   <nodes>
     <use_case id="UC-AUTH-PROFILE" />
     <use_case id="UC-B2C-REPORT" />
@@ -40,6 +41,7 @@
     <flow id="FLOW-BILLING-RETURN" name="Billing and one-off return" />
     <flow id="FLOW-DAILY-FEED" name="Daily feed" />
     <flow id="FLOW-ADMIN-OPS" name="Admin operations" />
+    <flow id="FLOW-FORECAST-CATALOG" name="Forecast ladder catalog" />
 
     <module id="M-API-GATEWAY" path="backend/app/main.py;backend/app/routers/billing.py">
       <export>create_report_async</export>
@@ -150,6 +152,14 @@
       <export>extractReportFallbackText</export>
       <export>ReportRenderer</export>
     </module>
+    <module id="M-FORECAST-CATALOG-SURFACE" path="frontend/app/reports/page.tsx;frontend/app/reports/history/page.tsx;frontend/components/consumer-page-shell.tsx;frontend/components/forecast-section-card.tsx;frontend/lib/product-billing.ts;frontend/app/create/page.tsx">
+      <export>/reports</export>
+      <export>/reports/history</export>
+      <export>ConsumerPageShell</export>
+      <export>forecast product cards</export>
+      <export>product billing bridge</export>
+      <export>create flow bridge</export>
+    </module>
     <module id="M-DAILY-FEED-SURFACE" path="frontend/app/page.tsx;backend/app/main.py;backend/app/services/feed_service.py">
       <export>/</export>
       <export>get_daily_feed</export>
@@ -236,6 +246,11 @@
     <edge from="FLOW-ADMIN-OPS" to="UC-ADMIN-OPERATIONS" type="covers" />
     <edge from="FLOW-ADMIN-OPS" to="SCN-ADMIN-REPORT-VIEW" type="covers" />
     <edge from="FLOW-ADMIN-OPS" to="SCN-ADMIN-DIAGNOSTICS" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="UC-B2C-REPORT" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="UC-BILLING-ACCESS" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-B2C-REPORT-CREATE" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-BILLING-ONE-OFF-PHASE2" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-ASYNC-REPORT-GENERATE" type="covers" />
 
     <edge from="SCN-AUTH-VALID-INITDATA" to="PHASE-IDENTITY" type="gated_by" />
     <edge from="SCN-B2C-REPORT-CREATE" to="PHASE-ACCESS" type="gated_by" />
@@ -315,5 +330,5 @@
     <edge from="DEFECT-DIAGNOSTICS-MARKDOWN" to="M-OPS-AUTOMATION" type="impacts" />
     <edge from="DEFECT-ADMIN-SERVER-AUTH" to="SCN-ADMIN-REPORT-VIEW" type="blocks" />
     <edge from="DEFECT-ADMIN-SERVER-AUTH" to="M-FRONTEND-ADMIN" type="impacts" />
-  </edges>
+  <edge from="FLOW-FORECAST-CATALOG" to="M-FORECAST-CATALOG-SURFACE" type="covers" /><edge from="FLOW-FORECAST-CATALOG" to="M-ACCESS-COMMERCE" type="covers" /><edge from="FLOW-FORECAST-CATALOG" to="M-FORECAST-DATA-ENGINE" type="covers" /></edges>
 </knowledge_graph>

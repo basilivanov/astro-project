@@ -10,6 +10,12 @@
 
 | Slice | Artifact | Owner | Status |
 | --- | --- | --- | --- |
+| `FORECAST-LADDER-CATALOG-FLIP` | `GRACE_SLICE_FORECAST_LADDER.md` | Architect | Baseline doc |
+| `FORECAST-LADDER-CATALOG-FLIP` | `frontend/app/reports/page.tsx`; `frontend/app/reports/history/page.tsx`; `frontend/components/consumer-page-shell.tsx`; `frontend/lib/product-billing.ts` | AI Agent (Developer) | In Progress |
+| `FORECAST-LADDER-CATALOG-FLIP` | `backend/app/services/access_control.py`; `backend/app/services/one_off_entitlements.py`; `backend/app/services/report_workflow.py`; `backend/app/core/config_business.py` | AI Agent (Developer) | In Progress |
+| `FORECAST-LADDER-CATALOG-FLIP` | `docs/BILLING_CATALOG_ALIGNMENT_2026-03-19.md`; `docs/REPORT_STRUCTURES.md`; `docs/SYNASTRY_SOLAR_CREATE_CLEANUP_2026-03-19.md` | Architect | Baseline |
+| `FORECAST-LADDER-CATALOG-FLIP` | `frontend/e2e/billing-catalog-alignment.spec.ts`; `frontend/e2e/history-cta.spec.ts`; `frontend/e2e/month-forecast-bridge-storefront.spec.ts`; `frontend/e2e/year-forecast-bridge-storefront.spec.ts`; `frontend/e2e/solar-return-bridge-storefront.spec.ts`; `frontend/e2e/synastry-bridge-storefront.spec.ts`; `frontend/e2e/report-create.spec.ts`; `frontend/e2e/report-failure.spec.ts` | AI Agent (QA) | In Progress |
+| `FORECAST-LADDER-CATALOG-FLIP` | `tests/test_billing_checkout_sessions.py`; `tests/test_billing_checkout_resume.py`; `tests/test_one_off_access_runtime.py`; `tests/test_one_off_entitlements_scaffold.py`; `tests/test_legacy_workflow_one_off_alignment.py`; `tests/test_report_contract.py` | AI Agent (QA) | In Progress |
 | `M-NATAL-SUMMARY-LAYER` | `docs/ASTRO_QUALITY_BENCHMARK_2026-03-19_NATAL_EXEC_SUMMARY_FOLLOWUP.md` | AI Agent (Developer/QA) | In Progress |
 | `M-NATAL-SUMMARY-LAYER` | `docs/benchmark_manifests/natal_rerun_2026-03-19.json` | AI Agent (QA) | Ready |
 | `M-NATAL-SUMMARY-LAYER` | `backend/app/services/report_workflow.py` | AI Agent (Developer) | In Progress |
@@ -302,6 +308,7 @@ flowchart LR
 | `M-NATAL-SUMMARY-LAYER` | `FLOW-REPORT-GENERATION` | baseline fixed, quality loop active | AI Agent (Developer/QA) | `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; natal targeted verifies; representative rerun | clean benchmark rerun + updated summary note |
 | `FEED-PERSONALIZED-DAILY` | `FLOW-DAILY-FEED` | implementation present, retention QA active | AI Agent (Developer/QA) | `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; feed targeted pytest; `./scripts/run_e2e.sh e2e/core-ux.spec.ts` | stable feed smoke with factual logs |
 | `ADMIN-ENTITLEMENTS-FLOW` | `FLOW-ADMIN-OPS` | Gate 3 evidence recorded | AI Agent (Developer/QA) | `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; admin e2e targeted | hold green while adjacent one-off/catalog work lands |
+| `FORECAST-LADDER-CATALOG-FLIP` | `FLOW-FORECAST-CATALOG` | baseline doc only (needs execution plan) | Architect + AI Agent (Developer) | `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; `tests/test_billing_checkout_sessions.py`; `tests/test_one_off_access_runtime.py`; `./scripts/run_e2e.sh e2e/billing-catalog-alignment.spec.ts e2e/report-create.spec.ts e2e/month-forecast-bridge-storefront.spec.ts e2e/year-forecast-bridge-storefront.spec.ts e2e/solar-return-bridge-storefront.spec.ts e2e/synastry-bridge-storefront.spec.ts` | controller packet + Gate 2 rollout note for catalog/runtime alignment |
 
 ### Step-by-step plan
 
@@ -310,8 +317,9 @@ flowchart LR
 3. `Natal quality hardening` — Owner: AI Agent (Developer/QA). Continue tightening `backend/app/services/report_workflow.py` around `executive_summary` and `final_synthesis`; regression hooks: `tests/verify_natal_generation.py`, `tests/test_natal_section_context.py`, `tests/verify_natal_style.py`, representative benchmark rerun.
 4. `Feed retention stabilization` — Owner: AI Agent (Developer/QA). Keep `/api/feed/today` factual and deterministic, preserve auth fallback behavior, and hold targeted UX smoke green; regression hooks: `tests/test_personalized_daily_service.py`, `tests/test_daily_feed_robustness.py`, `tests/verify_daily_feed.py`, `frontend/e2e/core-ux.spec.ts`, `tools/feed_logs/replay_last.py`.
 5. `Admin rollout preservation` — Owner: AI Agent (Developer/QA). Treat `ADMIN-ENTITLEMENTS-FLOW` as reference Gate 3 slice; any adjacent one-off/catalog/admin changes must keep `tests/test_entitlements.py`, `tests/test_entitlements_unit.py`, `tests/test_one_off_entitlements_scaffold.py`, `frontend/e2e/admin.entitlements.spec.ts`, and `frontend/e2e/admin.smoke.spec.ts` green.
-6. `Cross-slice Gate 3 check` — Owner: AI Agent (QA). Before handoff, run `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; then run only the slice-specific quick checks for the touched path and attach the controller packet evidence set: logs facts, benchmark/replay note, regression facts.
-7. `Next slice candidate` — Owner: Architect + AI Agent (Developer). Новый slice открывается только после stabilizing current pilot execution или отдельного controller decision; предпочтителен narrow document-first slice tied to the forecast ladder / one-off catalog boundary, with explicit artifact map, regression hooks, and replay evidence before code expansion.
+6. `Forecast ladder execution` — Owner: Architect + AI Agent (Developer/QA). Build controller packet for `FORECAST-LADDER-CATALOG-FLIP`: exact write scope (catalog surfaces, checkout bridge, backend access), logging hooks, regression profile (catalog e2e + billing tests), and Gate evidence.
+7. `Cross-slice Gate 3 check` — Owner: AI Agent (QA). Before handoff, run `docker exec astro-project-backend-1 python3 scripts/pipeline.py`; then run only the slice-specific quick checks for the touched path and attach the controller packet evidence set: logs facts, benchmark/replay note, regression facts.
+8. `Next slice candidate` — Owner: Architect + AI Agent (Developer). Новый slice открывается только после stabilizing current pilot execution или отдельного controller decision; предпочтителен document-first slice (например, `BOT-DELIVERY` или `READ-STICKY-CLEANUP`) с явными flow ID, log contour, regression hooks и правилом по размеру файлов/функций.
 
 ### Suggested next slices
 
@@ -369,3 +377,68 @@ python3 tools/log_watch/feed_admin_watch.py \
 ```
 
 - Cron (every 15 minutes): add to host/user crontab — `*/15 * * * * cd /opt/astro-project && PYTHONPATH=/opt/astro-project python3 tools/log_watch/feed_admin_watch.py --feed-log /var/log/astro/feed.jsonl --admin-log /var/log/astro/admin.jsonl >> /var/log/astro/feed_admin_watch.log 2>&1`. Cron failure (exit 1) surfaces via standard monitoring hooks; log tails can be shipped to Slack or PagerDuty by wrapping this command.
+  subgraph S4["Slice: FORECAST-LADDER-CATALOG-FLIP"]
+    SF4["FLOW-FORECAST-CATALOG"]:::slice
+    C1F["docs/GRACE_SLICE_FORECAST_LADDER.md"]:::slice
+    C2F["frontend/app/reports/page.tsx"]:::code
+    C3F["frontend/app/reports/history/page.tsx"]:::code
+    C4F["frontend/components/consumer-page-shell.tsx"]:::code
+    C5F["frontend/lib/product-billing.ts"]:::code
+    C6F["frontend/app/create/page.tsx"]:::code
+    B1F["backend/app/services/access_control.py"]:::code
+    B2F["backend/app/services/one_off_entitlements.py"]:::code
+    B3F["backend/app/services/report_workflow.py"]:::code
+    B4F["backend/app/core/config_business.py"]:::code
+    T1F["tests/test_billing_checkout_sessions.py"]:::test
+    T2F["tests/test_billing_checkout_resume.py"]:::test
+    T3F["tests/test_one_off_access_runtime.py"]:::test
+    T4F["tests/test_one_off_entitlements_scaffold.py"]:::test
+    T5F["tests/test_legacy_workflow_one_off_alignment.py"]:::test
+    T6F["tests/test_report_contract.py"]:::test
+    E1F["frontend/e2e/billing-catalog-alignment.spec.ts"]:::test
+    E2F["frontend/e2e/history-cta.spec.ts"]:::test
+    E3F["frontend/e2e/report-create.spec.ts"]:::test
+    E4F["frontend/e2e/report-failure.spec.ts"]:::test
+    E5F["frontend/e2e/month-forecast-bridge-storefront.spec.ts"]:::test
+    E6F["frontend/e2e/year-forecast-bridge-storefront.spec.ts"]:::test
+    E7F["frontend/e2e/solar-return-bridge-storefront.spec.ts"]:::test
+    E8F["frontend/e2e/synastry-bridge-storefront.spec.ts"]:::test
+    G4["Gate TBD: forecast ladder catalog flip"]:::gate
+    SF4 --> C2F
+    C1F --> SF4
+    SF4 --> C3F
+    SF4 --> C4F
+    SF4 --> C5F
+    SF4 --> C6F
+    SF4 --> B1F
+    SF4 --> B2F
+    SF4 --> B3F
+    SF4 --> B4F
+    B1F --> T1F
+    B1F --> T2F
+    B2F --> T3F
+    B2F --> T4F
+    B3F --> T6F
+    C2F --> E1F
+    C2F --> E2F
+    C6F --> E3F
+    C6F --> E4F
+    C2F --> E5F
+    C2F --> E6F
+    C2F --> E7F
+    C2F --> E8F
+    T1F --> G4
+    T2F --> G4
+    T3F --> G4
+    T4F --> G4
+    T5F --> G4
+    T6F --> G4
+    E1F --> G4
+    E2F --> G4
+    E3F --> G4
+    E4F --> G4
+    E5F --> G4
+    E6F --> G4
+    E7F --> G4
+    E8F --> G4
+  end
