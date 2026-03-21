@@ -1,8 +1,8 @@
 <technology project="astro-project" mode="strict-grace" updated_at="2026-03-17">
   <repo_boundary>
     <root>/opt/astro-project</root>
-    <git_snapshot commit="8f9f894a4338c2fb33a4ed198b7c5f26b90c75e8" tag="grace-2026-03-20" worktree_state="clean" strict_grace_status="ready" captured_at="2026-03-20" />
-    <assumption local_adaptation="true">This artifact pack is now anchored to the clean tagged snapshot `grace-2026-03-20` (commit 8f9f894a4338c2fb33a4ed198b7c5f26b90c75e8). All files present in the current worktree are part of that tag, so the boundary satisfies strict GRACE reproducibility.</assumption>
+    <git_snapshot commit="c20f25fbadc1ffb146c541638a025cc8f324e106" tag="grace-2026-03-21" worktree_state="clean" strict_grace_status="ready" captured_at="2026-03-21" />
+    <assumption local_adaptation="true">This artifact pack is now anchored to the clean tagged snapshot `grace-2026-03-21` (commit c20f25fbadc1ffb146c541638a025cc8f324e106). All files present in the current worktree are part of that tag, so the boundary satisfies strict GRACE reproducibility.</assumption>
     <follow_up>When the next major drift occurs, repeat the clean-tag process (scripts/grace_snapshot.sh export --tag &lt;new-tag&gt;) and refresh these fields immediately so downstream packs inherit a reproducible baseline.</follow_up>
   </repo_boundary>
   <runtime_stack>
