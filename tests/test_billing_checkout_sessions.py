@@ -22,7 +22,7 @@ from backend.app.routers.billing import (
     initiate_payment,
 )
 from backend.app.services.billing import handle_payment_canceled, handle_payment_succeeded
-from backend.app.services.one_off_entitlements import BillingKind
+from backend.app.services.one_off_entitlements import BillingKind, CheckoutSessionStatus
 
 
 @pytest.fixture()
@@ -169,6 +169,46 @@ def test_initiate_payment_normalizes_one_off_alias_product_type(
     assert kwargs["metadata"]["report_type"] == "solar_return"
 
 
+@patch("backend.app.routers.billing.log_checkout_status")
+@patch("backend.app.routers.billing.log_checkout_payment_created")
+@patch("backend.app.routers.billing.log_checkout_start")
+@patch("backend.app.routers.billing.create_payment")
+def test_initiate_payment_emits_catalog_events(
+    mock_create_payment,
+    mock_log_start,
+    mock_log_payment_created,
+    mock_log_status,
+    db_session,
+    user,
+):
+    mock_create_payment.return_value = json.dumps(
+        {
+            "id": "pay_catalog_1",
+            "status": "pending",
+            "confirmation": {"confirmation_url": "https://pay.example/redirect"},
+        }
+    )
+
+    with patch.dict(
+        os.environ,
+        {
+            "ENABLE_PERSISTENT_CHECKOUT_SESSIONS": "true",
+            "PAYMENTS_MODE": "real",
+            "WEBAPP_URL": "https://app.example.com",
+        },
+        clear=False,
+    ):
+        initiate_payment(
+            CreatePaymentRequest(product_type="month_forecast"),
+            user=user,
+            db=db_session,
+        )
+
+    assert mock_log_start.call_count == 1
+    assert mock_log_payment_created.call_count == 1
+    assert mock_log_status.call_count == 1
+
+
 def test_get_checkout_session_status_returns_owned_session(db_session, user):
     checkout_session = _create_checkout_session(
         db_session,
@@ -188,6 +228,25 @@ def test_get_checkout_session_status_returns_owned_session(db_session, user):
     assert response["product_code"] == "natal_master"
     assert response["has_draft_payload"] is True
     assert response["return_path"] == "/create?type=natal_master"
+
+
+@patch("backend.app.routers.billing.log_catalog_event")
+def test_get_checkout_session_status_logs_resume_ready(mock_log_event, db_session, user):
+    checkout_session = _create_checkout_session(
+        db_session,
+        user,
+        billing_kind=BillingKind.REPORT_UNLOCK.value,
+        product_code="natal_master",
+        report_type="natal_master",
+        status=CheckoutSessionStatus.SUCCEEDED.value,
+    )
+
+    response = get_checkout_session_status(checkout_session.resume_token, user=user, db=db_session)
+
+    assert response["checkout_token"] == checkout_session.resume_token
+    assert response["status"] == CheckoutSessionStatus.SUCCEEDED.value
+    events = [call.args[0] for call in mock_log_event.call_args_list]
+    assert "catalog.checkout_resume_ready" in events
 
 
 @patch("backend.app.services.referral_service.process_partner_reward")

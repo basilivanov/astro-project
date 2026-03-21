@@ -1,7 +1,8 @@
 "use client";
 
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { useEffect, useRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "../lib/utils";
+import { trackCatalogEvent, type CatalogAnalyticsEvent } from "./catalog/catalog-analytics";
 
 type StatusTone = "emerald" | "indigo" | "amber" | "rose" | "slate";
 
@@ -18,12 +19,24 @@ export function ConsumerPageShell({
   className,
   contentClassName,
   testId,
+  analyticsEvent,
 }: {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
   testId?: string;
+  analyticsEvent?: CatalogAnalyticsEvent;
 }) {
+  const hasTrackedViewRef = useRef(false);
+
+  useEffect(() => {
+    if (!analyticsEvent || hasTrackedViewRef.current) {
+      return;
+    }
+    hasTrackedViewRef.current = true;
+    void trackCatalogEvent(analyticsEvent.event_name, analyticsEvent.payload);
+  }, [analyticsEvent]);
+
   return (
     <div
       data-testid={testId}

@@ -15,9 +15,12 @@ os.environ["TELEGRAM_BOT_TOKEN"] = TEST_BOT_TOKEN
 os.environ["ENVIRONMENT"] = "test"
 
 from backend.app.main import app, get_db
+import backend.app.auth as auth_module
 from backend.app.models import Base, BillingCheckoutSession, Report, ReportEntitlement, User
 from backend.app.services.one_off_entitlements import AccessGrantSource, BillingKind, EntitlementSource
 from tests.utils import sign_init_data
+
+auth_module.BOT_TOKEN = TEST_BOT_TOKEN
 
 
 def _build_auth_headers(telegram_id: int) -> dict[str, str]:
@@ -141,7 +144,9 @@ class BillingCheckoutResumeTestCase(unittest.TestCase):
         self.db_session.refresh(checkout_session)
         return entitlement
 
-    def test_resume_checkout_session_creates_report_and_is_idempotent(self):
+    @patch("backend.app.routers.billing.log_bridge_resume_success")
+    @patch("backend.app.routers.billing.log_bridge_resume_start")
+    def test_resume_checkout_session_creates_report_and_is_idempotent(self, mock_log_start, mock_log_success):
         user = self._seed_profiled_user(telegram_id=560001)
         headers = _build_auth_headers(user.telegram_id)
         checkout_session = self._create_checkout_session(
@@ -201,6 +206,9 @@ class BillingCheckoutResumeTestCase(unittest.TestCase):
         self.assertEqual(refreshed_entitlement.consumed_report_id, report.id)
         self.assertEqual(refreshed_checkout.status, "resumed")
         self.assertEqual(refreshed_checkout.resumed_report_id, report.id)
+
+        assert mock_log_start.call_count >= 1
+        assert mock_log_success.call_count >= 1
 
     def test_get_checkout_session_status_includes_draft_payload(self):
         user = self._seed_profiled_user(telegram_id=560010)

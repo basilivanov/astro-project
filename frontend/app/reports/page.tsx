@@ -24,6 +24,7 @@ import {
   ConsumerPanel,
   ConsumerStatusBadge,
 } from "../../components/consumer-page-shell";
+import { trackCatalogEvent } from "../../components/catalog/catalog-analytics";
 import {
   HORARY_PRICE_LABEL,
   SUBSCRIPTION_PRICE_LABEL,
@@ -98,7 +99,15 @@ const SUBSCRIPTION_PRODUCTS_COUNT = PRODUCTS.filter((product) =>
 // #START_BLOCK_CATALOG_UI
 export default function CatalogPage() {
   return (
-    <ConsumerPageShell testId="reports-catalog-page">
+    <ConsumerPageShell
+      testId="reports-catalog-page"
+      analyticsEvent={{
+        event_name: "catalog.catalog_view",
+        payload: {
+          surface: "catalog",
+        },
+      }}
+    >
       <ConsumerHero
         eyebrow="Каталог"
         title="Разборы и прогнозы"

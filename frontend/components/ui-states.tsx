@@ -70,6 +70,8 @@ export function EmptyState({
   message,
   actionLabel,
   actionHref,
+  onActionClick,
+  actionTestId,
   compact = false,
   className,
 }: {
@@ -77,6 +79,8 @@ export function EmptyState({
   message: string;
   actionLabel?: string;
   actionHref?: string;
+  onActionClick?: () => void;
+  actionTestId?: string;
 } & BaseStateProps) {
   return (
     <div
@@ -92,7 +96,12 @@ export function EmptyState({
       <h3 className="text-base font-bold text-slate-800 mb-1">{title}</h3>
       <p className="text-slate-500 text-xs mb-6 max-w-[260px] leading-relaxed">{message}</p>
       {actionLabel && actionHref && (
-        <Link href={actionHref} className="text-purple-600 font-bold text-sm hover:underline">
+        <Link
+          href={actionHref}
+          onClick={onActionClick}
+          data-testid={actionTestId}
+          className="text-purple-600 font-bold text-sm hover:underline"
+        >
           {actionLabel} →
         </Link>
       )}

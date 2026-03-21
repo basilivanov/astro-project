@@ -74,6 +74,22 @@ from .services.one_off_entitlements import (
     normalize_report_type,
 )
 
+from .catalog_logging import (
+    log_bridge_resume_start,
+    log_bridge_resume_success,
+    log_catalog_surface_error,
+    log_checkout_decision,
+    log_checkout_denied,
+    log_checkout_error,
+    log_checkout_start,
+    log_checkout_success,
+    log_history_error,
+    log_history_start,
+    log_history_success,
+    log_report_detail_error,
+    log_report_detail_start,
+    log_report_detail_success,
+)
 from .routers import billing
 from .services.feed_service import (
     build_daily_vibe_fallback,
@@ -3562,27 +3578,37 @@ def get_my_reports(
     # INPUT: Auth Dependency.
     # OUTPUT: List of user reports.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    reports = (
-        db.query(Report)
-        .filter(Report.user_id == user.id)
-        .filter(Report.created_at >= cutoff)
-        .order_by(Report.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-    return [
-        {
-            "id": str(r.id),
-            "report_type": r.report_type,
-            "status": r.status,
-            "created_at": r.created_at.isoformat(),
-            "client_name": r.client.full_name if r.client else "Unknown",
-            "access_source": r.access_source,
-        }
-        for r in reports
-    ]
+    log_history_start(user, limit=limit, offset=offset)
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        reports = (
+            db.query(Report)
+            .filter(Report.user_id == user.id)
+            .filter(Report.created_at >= cutoff)
+            .order_by(Report.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        items = [
+            {
+                "id": str(r.id),
+                "report_type": r.report_type,
+                "status": r.status,
+                "created_at": r.created_at.isoformat(),
+                "client_name": r.client.full_name if r.client else "Unknown",
+                "access_source": r.access_source,
+            }
+            for r in reports
+        ]
+        log_history_success(user, count=len(items), has_more=len(reports) == limit)
+        return items
+    except HTTPException as exc:
+        log_history_error(user, error=str(exc.detail or exc), status_code=exc.status_code)
+        raise
+    except Exception as exc:
+        log_history_error(user, error=str(exc))
+        raise
 
 @app.get("/api/reports/{report_id}", response_model=ReportDetailOut)
 def get_report_detail(
@@ -3593,52 +3619,57 @@ def get_report_detail(
     """
     # PURPOSE: Get full report content for the owner.
     """
+    log_report_detail_start(user, report_id=report_id)
     try:
-        r_uuid = uuid.UUID(report_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid ID")
+        try:
+            r_uuid = uuid.UUID(report_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid ID")
 
-    report = db.query(Report).filter(Report.id == r_uuid, Report.user_id == user.id).first()
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
+        report = db.query(Report).filter(Report.id == r_uuid, Report.user_id == user.id).first()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
 
-    # Get Chunks
-    chunks_out = []
-    
-    # Sort chunks by order_index
-    sorted_chunks = sorted(report.chunks, key=lambda c: c.order_index)
-    
-    for chunk in sorted_chunks:
-        if chunk.section != "input_frame": # Optionally exclude technical chunks
-             chunks_out.append({
-                 "section": chunk.section,
-                 "content": chunk.content,
-                 "status": chunk.status,
-                 "order_index": chunk.order_index
-             })
+        chunks_out = []
+        sorted_chunks = sorted(report.chunks, key=lambda c: c.order_index)
 
-    # Generate SVG if applicable
-    chart_svg = None
-    # For MVP, generate for all types that have chart data
-    try:
-        payload = load_report_payload(report)
-        chart_data = build_chart_data(payload)
-        chart_svg = build_natal_chart_svg(chart_data)
-    except Exception as e:
-        logger.warning("svg.gen_failed", report_id=str(report.id), error=str(e))
+        for chunk in sorted_chunks:
+            if chunk.section != "input_frame":  # Optionally exclude technical chunks
+                chunks_out.append({
+                    "section": chunk.section,
+                    "content": chunk.content,
+                    "status": chunk.status,
+                    "order_index": chunk.order_index,
+                })
 
-    return {
-        "report": {
-            "id": str(report.id),
-            "report_type": report.report_type,
-            "status": report.status,
-            "created_at": report.created_at.isoformat(),
-            "client_name": report.client.full_name if report.client else "Unknown",
-            "access_source": report.access_source,
-        },
-        "chart_svg": chart_svg,
-        "chunks": chunks_out
-    }
+        chart_svg = None
+        try:
+            payload = load_report_payload(report)
+            chart_data = build_chart_data(payload)
+            chart_svg = build_natal_chart_svg(chart_data)
+        except Exception as e:
+            logger.warning("svg.gen_failed", report_id=str(report.id), error=str(e))
+
+        response = {
+            "report": {
+                "id": str(report.id),
+                "report_type": report.report_type,
+                "status": report.status,
+                "created_at": report.created_at.isoformat(),
+                "client_name": report.client.full_name if report.client else "Unknown",
+                "access_source": report.access_source,
+            },
+            "chart_svg": chart_svg,
+            "chunks": chunks_out
+        }
+        log_report_detail_success(user, report=report, chunk_count=len(chunks_out))
+        return response
+    except HTTPException as exc:
+        log_report_detail_error(user, report_id=report_id, error=str(exc.detail or exc), status_code=exc.status_code)
+        raise
+    except Exception as exc:
+        log_report_detail_error(user, report_id=report_id, error=str(exc))
+        raise
 
 
 
@@ -3654,16 +3685,40 @@ def user_regenerate_report(
     # INPUT: report_id.
     # OUTPUT: ReportWorkflowStartResponse.
     """
+    log_bridge_resume_start(None, user=user, surface="bridge_regenerate", report_id=report_id)
+
     try:
         rid = uuid.UUID(report_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid report ID")
+    except ValueError as exc:
+        log_catalog_surface_error(
+            surface="bridge_regenerate",
+            user=user,
+            error="invalid_report_id",
+            report_id=report_id,
+            status_code=400,
+        )
+        raise HTTPException(status_code=400, detail="Invalid report ID") from exc
 
     report = db.query(Report).filter(Report.id == rid, Report.user_id == user.id).first()
     if not report:
+        log_catalog_surface_error(
+            surface="bridge_regenerate",
+            user=user,
+            error="report_not_found",
+            report_id=report_id,
+            status_code=404,
+        )
         raise HTTPException(status_code=404, detail="Report not found")
     
     if report.status != "failed":
+        log_catalog_surface_error(
+            surface="bridge_regenerate",
+            user=user,
+            report=report,
+            error="report_not_failed",
+            report_status=report.status,
+            status_code=400,
+        )
         raise HTTPException(status_code=400, detail="Only failed reports can be regenerated by user")
         
     payload = load_report_payload(report)
@@ -3682,6 +3737,8 @@ def user_regenerate_report(
         payload.model_dump(),
         True,
     )
+
+    log_bridge_resume_success(None, user=user, surface="bridge_regenerate", report=report)
 
     return {
         "report_id": str(report.id),
@@ -3937,130 +3994,152 @@ def create_b2c_report(
         consume_report_access,
         resolve_report_access,
     )
-    
+
     _validate_b2c_report_inputs(payload)
 
-    # 1. Resolve access before creating the report row.
-    access_decision = resolve_report_access(user, payload.report_type, db)
-    if not access_decision.allowed:
-        raise HTTPException(
-            status_code=402,
-            detail="Access unavailable. Please check your subscription or payment status."
-        )
+    log_checkout_start(user=user, report_type=payload.report_type)
 
-    # 2. Build Payload from User Profile
-    if not user.birth_date or not user.birth_place:
-        raise HTTPException(
-            status_code=400, 
-            detail="Profile incomplete. Please set birth data in Profile."
-        )
-
-    # Parse User Birth Date
-    # user.birth_date is "YYYY-MM-DD", user.birth_time is "HH:MM"
-    birth_dt_iso = user.birth_date
-    if user.birth_time:
-        birth_dt_iso = f"{user.birth_date}T{user.birth_time}:00"
-    
-    # Prepare Workflow Request
-    # We create a new Client record for this report to ensure data isolation/snapshotting
-    # or reuse if we had logic for that. For now, create new to be safe.
-    
-    solar_current_location = payload.solar_current_location
-    solar_current_lat = payload.solar_current_lat
-    solar_current_lon = payload.solar_current_lon
-    solar_current_timezone = payload.solar_current_timezone
-    solar_current_place_id = payload.solar_current_place_id
-
-    if not solar_current_location:
-        solar_current_location = user.current_location or user.birth_place
-        solar_current_lat = user.current_lat or user.birth_lat
-        solar_current_lon = user.current_lon or user.birth_lon
-        solar_current_timezone = user.current_timezone or user.birth_timezone
-
-    wf_payload = ReportWorkflowRequest(
-        client_name=user.full_name or "User",
-        client_note=f"Telegram ID: {user.telegram_id}",
-        question=payload.question,
-        birth_date=birth_dt_iso,
-        birth_location=user.birth_place,
-        birth_lat=user.birth_lat,
-        birth_lon=user.birth_lon,
-        birth_timezone=user.birth_timezone,
-        partner_name=payload.partner_name,
-        partner_birth_date=payload.partner_birth_date,
-        partner_birth_location=payload.partner_birth_location,
-        partner_birth_lat=payload.partner_birth_lat,
-        partner_birth_lon=payload.partner_birth_lon,
-        partner_birth_timezone=payload.partner_birth_timezone,
-        partner_birth_place_id=payload.partner_birth_place_id,
-        solar_current_location=solar_current_location,
-        solar_current_lat=solar_current_lat,
-        solar_current_lon=solar_current_lon,
-        solar_current_timezone=solar_current_timezone,
-        solar_current_place_id=solar_current_place_id,
-        report_type=payload.report_type,
-        birth_time_known=user.birth_time_known if user.birth_time_known is not None else True,
-        llm_mode=payload.llm_mode,
-        house_system="placidus", # Default
-        include_fixed_stars=True
-    )
-    
-    # 3. Create Client & Report
-    client = upsert_client_from_payload(wf_payload, db, owner_user_id=user.id)
-    db.flush()
-    
-    report = Report(
-        client_id=client.id,
-        user_id=user.id,
-        report_type=payload.report_type,
-        status="in_progress",
-        paid=False, # Marked as paid only if direct money transaction? Or generic "authorized"?
-                    # Let's keep False, as it wasn't a direct "purchase" of this specific report object,
-                    # but a consumption of rights.
-        is_test=user.is_test
-    )
-    report.input_payload = json.dumps(wf_payload.model_dump(), ensure_ascii=True)
-    db.add(report)
-    db.flush()
+    error_log_context: dict[str, Any] = {}
 
     try:
-        consume_report_access(user, report, db, decision=access_decision)
-    except AccessConsumptionError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail=f"Access could not be consumed: {exc}",
-        ) from exc
-    
-    # 4. Initialize & Run
-    section_specs = build_section_specs(wf_payload)
-    initialize_report_chunks(report, section_specs, db, reset=True)
-    db.commit()
-    
-    background_tasks.add_task(
-        run_report_generation, report.id, wf_payload.model_dump(), False
-    )
-    
-    if payload.report_type == "week_forecast":
-        logger.info("week_generate_started", user_id=str(user.id), report_id=str(report.id))
+        access_decision = resolve_report_access(user, payload.report_type, db)
+        error_log_context["decision"] = access_decision
+        log_checkout_decision(user=user, report_type=payload.report_type, decision=access_decision)
+        if not access_decision.allowed:
+            log_checkout_denied(user=user, report_type=payload.report_type, decision=access_decision)
+            raise HTTPException(
+                status_code=402,
+                detail="Access unavailable. Please check your subscription or payment status."
+            )
 
-    # 5. Notify if Horary
-    if payload.report_type.startswith("horary"):
-        # Log analytics
-        log_analytics_event(
-            db,
-            "horary_asked",
-            user_id=user.id,
-            telegram_id=user.telegram_id,
-            source="webapp",
-            metadata={"question_len": len(payload.question or "")}
+        if not user.birth_date or not user.birth_place:
+            error_log_context["error_phase"] = "profile_validation"
+            raise HTTPException(
+                status_code=400,
+                detail="Profile incomplete. Please set birth data in Profile."
+            )
+
+        birth_dt_iso = user.birth_date
+        if user.birth_time:
+            birth_dt_iso = f"{user.birth_date}T{user.birth_time}:00"
+
+        solar_current_location = payload.solar_current_location or user.current_location or user.birth_place
+        solar_current_lat = payload.solar_current_lat or user.current_lat or user.birth_lat
+        solar_current_lon = payload.solar_current_lon or user.current_lon or user.birth_lon
+        solar_current_timezone = payload.solar_current_timezone or user.current_timezone or user.birth_timezone
+        solar_current_place_id = payload.solar_current_place_id
+
+        wf_payload = ReportWorkflowRequest(
+            client_name=user.full_name or "User",
+            client_note=f"Telegram ID: {user.telegram_id}",
+            question=payload.question,
+            birth_date=birth_dt_iso,
+            birth_location=user.birth_place,
+            birth_lat=user.birth_lat,
+            birth_lon=user.birth_lon,
+            birth_timezone=user.birth_timezone,
+            partner_name=payload.partner_name,
+            partner_birth_date=payload.partner_birth_date,
+            partner_birth_location=payload.partner_birth_location,
+            partner_birth_lat=payload.partner_birth_lat,
+            partner_birth_lon=payload.partner_birth_lon,
+            partner_birth_timezone=payload.partner_birth_timezone,
+            partner_birth_place_id=payload.partner_birth_place_id,
+            solar_current_location=solar_current_location,
+            solar_current_lat=solar_current_lat,
+            solar_current_lon=solar_current_lon,
+            solar_current_timezone=solar_current_timezone,
+            solar_current_place_id=solar_current_place_id,
+            report_type=payload.report_type,
+            birth_time_known=user.birth_time_known if user.birth_time_known is not None else True,
+            llm_mode=payload.llm_mode,
+            house_system="placidus",  # Default
+            include_fixed_stars=True,
         )
 
-    return {
-        "report_id": str(report.id),
-        "client_id": str(client.id),
-        "status": report.status
-    }
+        client = upsert_client_from_payload(wf_payload, db, owner_user_id=user.id)
+        db.flush()
+
+        report = Report(
+            client_id=client.id,
+            user_id=user.id,
+            report_type=payload.report_type,
+            status="in_progress",
+            paid=False,
+            is_test=user.is_test,
+        )
+        report.input_payload = json.dumps(wf_payload.model_dump(), ensure_ascii=True)
+        db.add(report)
+        db.flush()
+
+        try:
+            consume_report_access(user, report, db, decision=access_decision)
+        except AccessConsumptionError as exc:
+            error_log_context.update(
+                {
+                    "report": report,
+                    "error_phase": "consume_report_access",
+                    "error_detail": str(exc),
+                }
+            )
+            raise HTTPException(
+                status_code=409,
+                detail=f"Access could not be consumed: {exc}",
+            ) from exc
+
+        section_specs = build_section_specs(wf_payload)
+        initialize_report_chunks(report, section_specs, db, reset=True)
+        db.commit()
+
+        log_checkout_success(
+            user=user,
+            report=report,
+            decision=access_decision,
+            access_source=report.access_source,
+        )
+
+        background_tasks.add_task(
+            run_report_generation,
+            report.id,
+            wf_payload.model_dump(),
+            False,
+        )
+
+        if payload.report_type == "week_forecast":
+            logger.info("week_generate_started", user_id=str(user.id), report_id=str(report.id))
+
+        if payload.report_type.startswith("horary"):
+            log_analytics_event(
+                db,
+                "horary_asked",
+                user_id=user.id,
+                telegram_id=user.telegram_id,
+                source="webapp",
+                metadata={"question_len": len(payload.question or "")},
+            )
+
+        return {
+            "report_id": str(report.id),
+            "client_id": str(client.id),
+            "status": report.status,
+        }
+    except HTTPException as exc:
+        db.rollback()
+        log_checkout_error(
+            user=user,
+            report=error_log_context.get("report"),
+            report_type=payload.report_type,
+            decision=error_log_context.get("decision"),
+            status_code=exc.status_code,
+            error=str(exc.detail or exc),
+            error_phase=error_log_context.get("error_phase"),
+            error_detail=error_log_context.get("error_detail"),
+        )
+        raise
+    except Exception as exc:
+        db.rollback()
+        log_checkout_error(user=user, report_type=payload.report_type, error=str(exc))
+        raise
 
 # #END_BLOCK_USER_ENDPOINTS
 # #END_BLOCK_ENDPOINTS
