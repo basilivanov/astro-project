@@ -1,0 +1,38 @@
+version: 1
+models:
+  codex-codex1/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex2/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex3/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex4/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex5/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex6/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex7/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex8/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'
+  codex-codex9/gpt-5.4:
+    status: healthy
+    checked_at: '2026-03-27T08:26:06.319702+00:00'
+    retry_at: '2026-03-27T08:26:06.319702+00:00'

@@ -95,10 +95,16 @@ from .services.feed_service import (
     build_daily_vibe_fallback,
     get_daily_vibe_llm,
 )
+from .services.day_brief import (
+    build_day_brief_payload,
+    build_day_brief_fallback,
+)
 from .services.personalized_daily import (
     build_personalized_daily_facts,
     summarize_personalization_for_prompt,
 )
+from .services.week_map import build_week_map
+from .services.week_map import build_week_map
 from .services.scheduler import start_scheduler
 from .auth import authenticate_telegram_user, get_current_user, get_current_user_from_query, get_admin_user
 from .reporting.static_content import SECTION_INTROS
@@ -3763,6 +3769,70 @@ class FeedOut(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+
+class WeekMapOut(BaseModel):
+    theme: Optional[str] = None
+    thesis: Optional[str] = None
+    day_cards: list[dict[str, Any]] = Field(default_factory=list)
+    domains: dict[str, int] = Field(default_factory=dict)
+    major_factors: list[dict[str, Any]] = Field(default_factory=list)
+    actions: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    deep_sections: list[str] = Field(default_factory=list)
+    explainability: dict[str, Any]
+    timezone: Optional[str] = None
+    location: Optional[str] = None
+    week_start: Optional[str] = None
+
+
+class DayBriefSummaryOut(BaseModel):
+    headline: str
+    subhead: str
+    day_type: str
+
+
+class DayBriefScoresOut(BaseModel):
+    energy: int
+    work: int
+    relationships: int
+    focus: int
+
+
+class DayBriefWindowOut(BaseModel):
+    label: str
+    start: str
+    end: str
+    type: str
+    focus: str
+    explanation: str
+
+
+class DayBriefFactorOut(BaseModel):
+    id: str
+    label: str
+    explanation: str
+    domain: str
+    impact: float
+    polarity: str
+    source: str
+
+
+class DayBriefExplainabilityOut(BaseModel):
+    confidence: float
+    uses_precise_birth_time: bool
+    factors_considered: int
+    personalization_level: str
+
+
+class DayBriefOut(BaseModel):
+    summary: DayBriefSummaryOut
+    scores: DayBriefScoresOut
+    windows: list[DayBriefWindowOut]
+    best_uses: list[str]
+    risks: list[str]
+    personalized_factors: list[DayBriefFactorOut]
+    explainability: DayBriefExplainabilityOut
+
 def get_moon_phase_emoji(phase_angle: float) -> str:
     # 0=New, 90=First Quarter, 180=Full, 270=Last Quarter
     if phase_angle < 45: return "🌑" # New
@@ -3898,7 +3968,12 @@ async def get_daily_feed(
             general_vibe=vibe,
             aspects_count=int(facts.get("aspects_count", 0) or 0),
             traffic_lights=facts.get("traffic_lights"),
-            moon={"sign": facts.get("moon_sign"), "phase": facts.get("moon_phase"), "emoji": facts.get("moon_emoji")},
+            moon={
+                "sign": facts.get("moon_sign"),
+                "phase": facts.get("moon_phase"),
+                "emoji": facts.get("moon_emoji"),
+                "degree": facts.get("moon_degree"),
+            },
             fast_hits=facts.get("fast_hits") or [],
             personalization_level=facts.get("personalization_level"),
             meta=(facts.get("meta") if debug_enabled and bool(x_telegram_auth) else None),
@@ -3931,6 +4006,80 @@ async def get_daily_feed(
             meta=({"fallback": True, "reason": "endpoint_error"} if debug_enabled and bool(x_telegram_auth) else None),
         )
 # #END_BLOCK_FEED_ENDPOINT
+
+
+@app.get("/api/week/map", response_model=WeekMapOut)
+async def get_week_map_endpoint(
+    x_telegram_auth: Optional[str] = Header(None, alias="X-Telegram-Auth"),
+    db: Session = Depends(get_db),
+):
+    user = None
+    if x_telegram_auth:
+        user = authenticate_telegram_user(x_telegram_auth, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="WeekMap requires authenticated user")
+    now = datetime.now(timezone.utc)
+    return build_week_map(now, user)
+
+
+@app.get("/api/day/brief", response_model=DayBriefOut)
+async def get_day_brief(
+    request: Request,
+    debug: bool = Query(False),
+    x_telegram_auth: Optional[str] = Header(None, alias="X-Telegram-Auth"),
+    db: Session = Depends(get_db),
+):
+    """
+    # PURPOSE: Provide aggregated personalized day brief.
+    # INPUT: Optional Telegram auth header for personalization.
+    # OUTPUT: DayBriefOut object.
+    """
+    now = datetime.now(timezone.utc)
+    user = None
+    auth_mode = "none"
+    logger.info(
+        "day_brief.entry",
+        stage="request_start",
+        path=str(request.url.path),
+        debug=bool(debug),
+        has_auth_header=bool(x_telegram_auth),
+    )
+    if x_telegram_auth:
+        try:
+            user = authenticate_telegram_user(x_telegram_auth, db)
+            auth_mode = "telegram"
+        except HTTPException as exc:
+            auth_mode = "fallback_anonymous"
+            logger.info(
+                "day_brief.debug",
+                stage="auth_fallback",
+                path=str(request.url.path),
+                auth_mode=auth_mode,
+                reason="telegram_auth_invalid",
+                detail=exc.detail,
+            )
+
+    try:
+        facts = build_personalized_daily_facts(now, user=user)
+        payload = build_day_brief_payload(facts, user=user)
+        logger.info(
+            "day_brief.debug",
+            stage="request_success",
+            auth_mode=auth_mode,
+            personalization_level=facts.get("personalization_level"),
+            cache_scope=facts.get("cache_scope"),
+            path=str(request.url.path),
+        )
+        return payload
+    except Exception as exc:
+        logger.error(
+            "day_brief.error",
+            stage="fallback",
+            error=str(exc),
+            auth_mode=auth_mode,
+            path=str(request.url.path),
+        )
+        return build_day_brief_fallback(now)
 
 
 class B2CReportCreateRequest(BaseModel):

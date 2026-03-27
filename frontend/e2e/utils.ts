@@ -16,6 +16,7 @@ export async function bootstrapMockTelegram(page: Page, options?: {
 
     if (guest) {
       window.sessionStorage.removeItem("mock_telegram_user");
+      delete (window as Window & typeof globalThis & { Telegram?: unknown }).Telegram;
       return;
     }
 

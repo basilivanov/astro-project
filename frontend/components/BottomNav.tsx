@@ -12,6 +12,7 @@ export default function BottomNav() {
     pathname.startsWith("/create") ||
     pathname.startsWith("/start") ||
     pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/profile/edit") ||
     pathname.startsWith("/read/")
   ) {
     return null;

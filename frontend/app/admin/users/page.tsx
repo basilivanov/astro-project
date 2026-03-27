@@ -6,12 +6,21 @@ import Link from "next/link";
 import { useDebounce } from "use-debounce";
 
 import { useTelegram } from "../../../hooks/useTelegram";
+import { trackEvent } from "../../../lib/analytics";
 
 export const dynamic = "force-dynamic";
+
+type AdminUsersDeniedState = {
+  role?: string;
+  allowed_roles?: string[];
+  task_href?: string;
+  detail?: string;
+};
 
 export default function AdminUsersPage() {
   const { initData, isReady } = useTelegram();
   const [users, setUsers] = useState<any[]>([]);
+  const [deniedState, setDeniedState] = useState<AdminUsersDeniedState | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 500);
   const [loading, setLoading] = useState(true);
@@ -24,7 +33,49 @@ export default function AdminUsersPage() {
         headers: { "X-Telegram-Auth": initData }
       });
       const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 403) {
+          const nextDeniedState: AdminUsersDeniedState = {
+            role: typeof data?.role === "string" ? data.role : undefined,
+            allowed_roles: Array.isArray(data?.allowed_roles) ? data.allowed_roles : undefined,
+            task_href: typeof data?.task_href === "string" ? data.task_href : "/Task.md",
+            detail: typeof data?.detail === "string" ? data.detail : "forbidden",
+          };
+          setUsers([]);
+          setDeniedState(nextDeniedState);
+          void trackEvent("admin.rbac_denied", {
+            role: nextDeniedState.role ?? "unknown",
+            allowed_roles: nextDeniedState.allowed_roles ?? [],
+            target_path: "/admin/users",
+            task_href: nextDeniedState.task_href,
+            block: "RBAC_DENIED",
+            semantic_block: "RBAC_DENIED",
+            surface: "admin_users",
+          }, {
+            flowId: "FLOW-ADMIN-OPS",
+            block: "RBAC_DENIED",
+            semanticBlock: "RBAC_DENIED",
+          });
+          return;
+        }
+        setUsers([]);
+        setDeniedState(null);
+        return;
+      }
+      setDeniedState(null);
       setUsers(data);
+      void trackEvent("admin.users_view", {
+        role: "admin",
+        target_path: "/admin/users",
+        result_count: Array.isArray(data) ? data.length : 0,
+        block: "USERS_LIST",
+        semantic_block: "USERS_LIST",
+        surface: "admin_users",
+      }, {
+        flowId: "FLOW-ADMIN-OPS",
+        block: "USERS_LIST",
+        semanticBlock: "USERS_LIST",
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -74,6 +125,16 @@ export default function AdminUsersPage() {
             />
           </div>
         </div>
+
+        {deniedState ? (
+          <div className="mx-6 mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900" data-testid="admin-users-rbac-denied">
+            <p className="font-semibold">Доступ ограничен для роли {deniedState.role ?? "unknown"}.</p>
+            <p className="mt-1">Эта операция доступна только администраторам.</p>
+            <Link href={deniedState.task_href ?? "/Task.md"} className="mt-3 inline-flex text-amber-800 underline underline-offset-4">
+              Task.md
+            </Link>
+          </div>
+        ) : null}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left">

@@ -3,8 +3,8 @@
 # ROLE: Utilities for generating valid Telegram auth data for testing.
 ############################################################################
 
-import hmac
 import hashlib
+import hmac
 import json
 import time
 from urllib.parse import quote
@@ -17,7 +17,9 @@ def sign_init_data(user_data: dict, bot_token: str, **kwargs) -> str:
     """
     data_list = []
     
-    # Add user field
+    # Add user field. Telegram initData transport is urlencoded, and the
+    # backend validates against parse_qsl-decoded values, so tests should sign
+    # the decoded payload but transport the encoded one.
     user_json = json.dumps(user_data, separators=(',', ':'))
     data_list.append(f"user={user_json}")
     
@@ -43,7 +45,10 @@ def sign_init_data(user_data: dict, bot_token: str, **kwargs) -> str:
     # but for basic tests simple join is often enough if data is simple.
     
     # Let's reconstruct the list with hash
-    final_list = list(data_list)
-    final_list.append(f"hash={hash_value}")
-    
-    return "&".join(final_list)
+    final_pairs = []
+    for item in data_list:
+        key, value = item.split("=", 1)
+        final_pairs.append(f"{key}={quote(value, safe='')}" )
+    final_pairs.append(f"hash={hash_value}")
+
+    return "&".join(final_pairs)

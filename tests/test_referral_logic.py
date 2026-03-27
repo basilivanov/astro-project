@@ -36,7 +36,7 @@ def create_test_user(db: Session, is_partner=False) -> User:
 def test_referral_regular_user(db_session):
     """
     # SCENARIO: Regular user invites New user.
-    # EXPECT: Both get +15 days.
+    # EXPECT: Both get +14 days.
     """
     referrer = create_test_user(db_session, is_partner=False)
     new_user = create_test_user(db_session, is_partner=False)
@@ -51,15 +51,15 @@ def test_referral_regular_user(db_session):
     db_session.refresh(referrer)
     db_session.refresh(new_user)
     
-    # Validate New User (+15 days from moment of processing)
+    # Validate New User (+14 days from moment of processing)
     # Since process_referral takes 'now' inside, it should be slightly after 'before'
     assert new_user.subscription_active_until is not None
-    expected_duration = timedelta(days=15)
+    expected_duration = timedelta(days=14)
     actual_duration = new_user.subscription_active_until - before
     # Allow small drift (e.g., 5 seconds execution time)
     assert abs(actual_duration - expected_duration) < timedelta(seconds=10)
     
-    # Validate Referrer (+15 days)
+    # Validate Referrer (+14 days)
     assert referrer.subscription_active_until is not None
     actual_duration_ref = referrer.subscription_active_until - before
     assert abs(actual_duration_ref - expected_duration) < timedelta(seconds=10)
@@ -73,7 +73,7 @@ def test_referral_regular_user(db_session):
 def test_referral_partner(db_session):
     """
     # SCENARIO: Partner invites New user.
-    # EXPECT: New user +15 days, Partner +0 days (pending).
+    # EXPECT: New user +14 days, Partner stays pending monetary reward.
     """
     referrer = create_test_user(db_session, is_partner=True)
     new_user = create_test_user(db_session, is_partner=False)
@@ -89,19 +89,19 @@ def test_referral_partner(db_session):
     # New User gets days
     assert new_user.subscription_active_until is not None
     actual_duration = new_user.subscription_active_until - before
-    assert abs(actual_duration - timedelta(days=15)) < timedelta(seconds=10)
+    assert abs(actual_duration - timedelta(days=14)) < timedelta(seconds=10)
     
     # Partner gets NO days (remains None or 0)
     assert referrer.subscription_active_until is None
     
-    # Referral Record is pending
+    # Referral Record marks active money reward awaiting payout credit
     ref_record = db_session.query(Referral).filter(Referral.referee_id == new_user.id).first()
-    assert ref_record.status == "pending"
+    assert ref_record.status == "active"
 
 def test_referral_stacking(db_session):
     """
     # SCENARIO: Referrer already has active sub.
-    # EXPECT: Adds 15 days to existing date.
+    # EXPECT: Adds 14 days to existing date.
     """
     referrer = create_test_user(db_session)
     
@@ -116,8 +116,8 @@ def test_referral_stacking(db_session):
     process_referral(referrer.id, new_user.id, db_session)
     db_session.refresh(referrer)
     
-    # Should be initial_end + 15 days
-    expected_end = initial_end + timedelta(days=15)
+    # Should be initial_end + 14 days
+    expected_end = initial_end + timedelta(days=14)
     
     # Check
     assert referrer.subscription_active_until is not None

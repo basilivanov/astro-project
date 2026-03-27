@@ -6,10 +6,10 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { useTelegram } from "../../../hooks/useTelegram";
 
@@ -26,12 +26,74 @@ export default function BillingCompletePageClient() {
   const checkoutToken = searchParams.get("checkout");
   const mockEnabled = searchParams.get("mock") === "1";
   const runtimeEnabled = searchParams.get("runtime") === "1";
+  const statusOverride = searchParams.get("status");
+  const reasonOverride = searchParams.get("reason");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState(
     "Проверяем платежную сессию и подхватываем ваш разовый unlock.",
   );
+  const [swipeBackHintVisible, setSwipeBackHintVisible] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const fallbackHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (mockEnabled || mode === "mock") {
+      params.set("mock", "1");
+    }
+    if (runtimeEnabled || mockEnabled || mode === "mock") {
+      params.set("runtime", "1");
+    }
+    const query = params.toString();
+    return query ? `/reports?${query}` : "/reports";
+  }, [mockEnabled, mode, runtimeEnabled]);
 
   useEffect(() => {
+    if (!statusOverride) {
+      return;
+    }
+    if (statusOverride === "failed") {
+      if (reasonOverride === "provider_return_failed") {
+        setError("ЮMoney вернул оплату с ошибкой. Проверьте статус платежа и попробуйте снова.");
+      } else {
+        setError("Платежная сессия завершилась с ошибкой. Попробуйте снова.");
+      }
+    }
+    if (statusOverride === "canceled") {
+      setError("Оплата была отменена. Вернитесь к оформлению и попробуйте снова.");
+    }
+  }, [reasonOverride, statusOverride]);
+
+  useEffect(() => {
+    const handleTouchStart = (event: TouchEvent) => {
+      touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      const startX = touchStartX.current;
+      const endX = event.changedTouches[0]?.clientX ?? null;
+      touchStartX.current = null;
+      if (startX === null || endX === null) {
+        return;
+      }
+      if (endX - startX < 72) {
+        return;
+      }
+      setSwipeBackHintVisible(true);
+      router.push(fallbackHref);
+    };
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [fallbackHref, router]);
+
+  useEffect(() => {
+    if (error) {
+      return;
+    }
     if (!isReady) {
       return;
     }
@@ -129,18 +191,39 @@ export default function BillingCompletePageClient() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [checkoutToken, initData, isReady, mockEnabled, mode, router, runtimeEnabled]);
+  }, [checkoutToken, error, initData, isReady, mockEnabled, mode, router, runtimeEnabled]);
 
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
         <div className="max-w-sm rounded-3xl border border-rose-100 bg-white p-6 shadow-sm">
+          <button
+            type="button"
+            onClick={() => router.push(fallbackHref)}
+            className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            <ArrowLeft size={16} /> Назад
+          </button>
           <p className="text-sm font-semibold text-slate-800">{error}</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
             Вернитесь к оформлению и попробуйте снова.
           </p>
+          <button
+            type="button"
+            data-testid="billing-complete-swipe-back"
+            onClick={() => {
+              setSwipeBackHintVisible(true);
+              router.push(fallbackHref);
+            }}
+            className="mt-3 inline-flex rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"
+          >
+            Смахнуть назад
+          </button>
+          {swipeBackHintVisible ? (
+            <p className="mt-2 text-xs text-slate-400">Жест назад обработан.</p>
+          ) : null}
           <Link
-            href="/reports"
+            href={fallbackHref}
             className="mt-5 inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
           >
             К каталогу
@@ -153,13 +236,18 @@ export default function BillingCompletePageClient() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
       <div className="max-w-sm rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <button
+          type="button"
+          onClick={() => router.push(fallbackHref)}
+          className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+        >
+          <ArrowLeft size={16} /> Назад
+        </button>
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
           <Loader2 className="animate-spin" size={24} />
         </div>
         <p className="mt-4 text-sm font-semibold text-slate-800">Возвращаем вас к оформлению</p>
-        <p className="mt-2 text-sm leading-relaxed text-slate-500">
-          {message}
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-500">{message}</p>
       </div>
     </div>
   );

@@ -72,5 +72,21 @@ class TestReferralFlow(unittest.TestCase):
         self.assertEqual(partner.balance, 200)
         self.db.add.assert_called() # Transaction added
 
+    def test_partner_reward_idempotent_when_already_rewarded(self):
+        partner = User(id=uuid.uuid4(), is_partner=True, balance=Decimal(50))
+        payer = User(id=uuid.uuid4())
+        ref_link = Referral(referrer_id=partner.id, referee_id=payer.id, status="rewarded")
+
+        mock_query = MagicMock()
+        mock_query.filter.return_value = mock_query
+        mock_query.first.side_effect = [ref_link]
+        self.db.query.return_value = mock_query
+
+        process_partner_reward(payer.id, 1000.0, self.db)
+
+        self.assertEqual(partner.balance, Decimal(50))
+        self.db.add.assert_not_called()
+        self.db.commit.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

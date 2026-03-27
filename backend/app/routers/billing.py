@@ -59,6 +59,10 @@ from ..services.one_off_entitlements import (
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
+
+def log_catalog_event(event: str, **fields: Any) -> None:
+    logger.info(event, **fields)
+
 class CreatePaymentRequest(BaseModel):
     amount: Optional[float] = None
     description: Optional[str] = None
@@ -356,6 +360,7 @@ def get_checkout_session_status(
             user=user,
             ready_status=checkout_session.status,
         )
+        log_catalog_event("catalog.checkout_resume_ready")
     return payload
 
 

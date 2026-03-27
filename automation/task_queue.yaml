@@ -1,0 +1,1731 @@
+version: 1
+tasks:
+- id: GRACE-201
+  title: Profile pages e2e verification
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  ask_user_only_if: Requires new scope outside GRACE slice
+  acceptance_criteria: '- ./scripts/run_e2e.sh e2e/profile.spec.ts → PASS (или задокументированный
+    блокер)
+
+    - Task summary в формате DONE/Files/Tests/Evidence/Risks
+
+    '
+  prompt: 'Контекст: /opt/astro-project/AGENTS.md, GRACE.md, frontend/app/profile/page.tsx,
+    frontend/app/profile/edit/page.tsx.
+
+    Цель: после последних GRACE контрактов запустить e2e для profile/profile_edit,
+    собрать логи, обновить Task.md.
+
+    '
+  worker_task_id: 643c7356
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T08:31:15.240290'
+- id: GRACE-202
+  title: History telemetry audit
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- Проверены и при необходимости обновлены trackCatalogEvent
+    блоки истории
+
+    - e2e history spec прогнан или документирован блокер
+
+    '
+  prompt: 'Контекст: frontend/app/reports/history/page.tsx, catalog analytics helpers,
+    TaskMemory прошлых задач.
+
+    Проверить semantic blocks/telemetry истории, обновить Task.md.
+
+    '
+  worker_task_id: 398d7b2e
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T08:31:15.240293'
+- id: GRACE-203
+  title: Start page mock retry follow-up
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- ./scripts/run_e2e.sh e2e/landing.spec.ts → PASS
+
+    - TaskMemory фиксирует, что mock redirect стабилен
+
+    '
+  prompt: 'Контекст: frontend/app/start/page.tsx, frontend/e2e/landing.spec.ts. Убедиться
+    в стабильности mock redirect и e2e.
+
+    '
+  worker_task_id: 6f2deeb8
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-25T09:43:06.853589'
+- id: GRACE-204
+  title: Home analytics semantic block pass
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- frontend/lib/home-analytics.ts и consumers выровнены по
+    semantic_block
+
+    - ./scripts/run_e2e.sh e2e/core-ux.spec.ts -g home → PASS или блокер
+
+    '
+  prompt: 'Контекст: frontend/lib/home-analytics.ts, frontend/app/page.tsx, catalog
+    analytics. Донастроить semantic_block propagation.
+
+    '
+  worker_task_id: c3492b91
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-25T09:43:06.853591'
+- id: GRACE-205
+  title: Report workflow validation rerun
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- docker exec astro-project-backend-1 python3 scripts/pipeline.py
+    → PASS
+
+    - docker exec ... pytest tests/test_report_contract.py tests/test_report_context.py
+    → PASS/блокер
+
+    '
+  prompt: 'Контекст: backend/app/services/report_workflow.py, section_templates. Перезапустить
+    обязательные пайплайны, обновить Task.md.
+
+    '
+  worker_task_id: 3d3e18d0
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T10:15:18.645517'
+- id: GRACE-206
+  title: Billing targeted pytest artifacts
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-205
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- docker exec astro-project-backend-1 python3 -m pytest tests/test_billing_checkout_sessions.py
+    tests/test_billing_checkout_resume.py
+
+    - Логи приложены к Task.md / test-results
+
+    '
+  prompt: 'Контекст: backend/app/services/billing.py. Прогнать targeted pytest в контейнере,
+    собрать артефакты.
+
+    '
+  worker_task_id: 37314ecd
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T10:17:04.417366+00:00'
+- id: GRACE-207
+  title: Notification admin replay smoke
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- docker exec astro-project-backend-1 python3 -m pytest -q
+    tests/test_notification_mock.py tests/test_admin_logs_replay.py
+
+    - Запуск scripts/tools/admin_logs/replay_last.py проверен
+
+    '
+  prompt: 'Контекст: backend/app/services/notification.py, tests/test_admin_logs_replay.py.
+    Smoke-check admin replay + Task.md summary.
+
+    '
+  worker_task_id: f1bd6e10
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T10:15:18.645519'
+- id: GRACE-208
+  title: Personalized daily docs sync
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_SLICE_NATAL_DAILY.md обновлён визави кода
+
+    - В Task.md описаны изменения
+
+    '
+  prompt: 'Контекст: backend/app/services/personalized_daily.py, docs/GRACE_SLICE_NATAL_DAILY.md.
+    Выравнивание документации под текущее поведение.
+
+    '
+  worker_task_id: 4ecb5279
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T10:26:51.281634+00:00'
+- id: GRACE-209
+  title: Test matrix draft
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- docs/TEST_MATRIX.md создан и описывает связи GRACE slice
+    ↔ тесты
+
+    - Task.md summary
+
+    '
+  prompt: 'Создать docs/TEST_MATRIX.md со списком тестов по GRACE-срезам (backend/front).
+    Использовать текущие DoD чек-листы.
+
+    '
+  worker_task_id: 304b89f5
+  last_error: null
+  result_summary: Done
+  updated_at: '2026-03-25T10:26:51.281636+00:00'
+- id: GRACE-210
+  title: Logging audit doc cleanup
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- docs/LOGGING_AUDIT.md обновлён с новыми путями/хелперами
+
+    - Task.md summary
+
+    '
+  prompt: 'Обновить docs/LOGGING_AUDIT.md и сопутствующие документы под новые logging_utils.
+
+    '
+  worker_task_id: b49efe71
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-25T10:29:00.306414+00:00'
+- id: GRACE-211
+  title: E2E fleet status report
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- Собран список e2e спецификаций + их статус (PASS/FAIL/Not
+    Run)
+
+    - Вывод сохранён в docs/GRACE_TEST_PLAYBOOK.md или Task.md
+
+    '
+  prompt: 'Проанализировать frontend/e2e/*.spec.ts, текущее состояние TaskMemory,
+    сформировать отчёт по покрытию.
+
+    '
+  worker_task_id: 8fe4ce88
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-25T10:29:00.306417+00:00'
+- id: GRACE-212
+  title: Knowledge graph/doc sync
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- knowledge-graph.xml и docs/GRACE_ARTIFACTS.md отражают последние
+    изменения
+
+    - Task.md summary
+
+    '
+  prompt: 'Синхронизировать knowledge-graph.xml и docs/GRACE_ARTIFACTS.md с текущим
+    состоянием GRACE-кода.
+
+    '
+  worker_task_id: 21736b9e
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-26T09:15:02.884643+00:00'
+- id: GRACE-213
+  title: Catalog analytics global pass
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- catalog analytics helpers + consumers проверены на block/semantic_block
+    consistency
+
+    - ./scripts/run_e2e.sh --last-failed → PASS
+
+    '
+  prompt: 'Проверить frontend/components/catalog/catalog-analytics.ts и всех потребителей,
+    выровнять payloadы и логи.
+
+    '
+  worker_task_id: 9a8bf401
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-26T09:15:02.884646+00:00'
+- id: GRACE-214
+  title: Backend logging helpers follow-up
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- backend/app/logging_utils.py и сервисы подтверждены (pytests
+    greace logging если есть)
+
+    - Task summary
+
+    '
+  prompt: 'Просмотреть logging_utils + сервисы, убедиться в едином API, добавить тесты
+    при необходимости.
+
+    '
+  worker_task_id: c449959f
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-26T09:15:20.724781+00:00'
+  resolved_model: codex-codex1/gpt-5.4
+- id: GRACE-215
+  title: Frontend create-page semantic audit
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Проверена вся create-page разметка, добавлены недостающие
+    semantic wrappers/test ids
+
+    - ./scripts/run_e2e.sh e2e/report-create.spec.ts -g semantic → PASS
+
+    '
+  prompt: 'audit frontend/app/create/create-page-client.tsx на консистентность semantic
+    blocks, обновить тесты.
+
+    '
+  worker_task_id: 439321e4
+  last_error: cancelled by user
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:37:23.199047+00:00'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-216
+  title: Reports page TS parse fix
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- cd frontend && npm exec tsc --noEmit → PASS без parse errors
+
+    - ./scripts/run_e2e.sh --last-failed → PASS - Task.md summary с описанием изменений
+
+    '
+  prompt: 'Контекст: frontend/app/reports/page.tsx (есть parse warning), ConsumerPageShell,
+    catalog analytics. Починить синтаксис/типизацию, убедиться что tsc проходит, обновить
+    Task.md.
+
+    '
+  worker_task_id: 66317bfa
+  last_error: '{"type":"thread.started","thread_id":"019d296d-480b-7f22-a4f9-5b6b53069196"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex3/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex3/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex3/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:48:08.729916+00:00'
+  resolved_model: codex-codex4/gpt-5.4
+- id: GRACE-217
+  title: Profile edit e2e spec
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-201
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Создан новый Playwright spec e2e/profile-edit.spec.ts (или
+    аналог) покрывающий /profile/edit
+
+    - ./scripts/run_e2e.sh e2e/profile-edit.spec.ts → PASS - Task.md summary + evidence
+
+    '
+  prompt: 'Контекст: frontend/app/profile/edit/page.tsx, Consumer shell. Добавить
+    e2e сценарий для формы профиля, зафиксировать логи.
+
+    '
+  worker_task_id: cfae9321
+  last_error: '{"type":"thread.started","thread_id":"019d296d-4897-7d82-9be8-e212de7a9dbf"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex4/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex4/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex4/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:48:08.729919+00:00'
+  resolved_model: codex-codex5/gpt-5.4
+- id: GRACE-218
+  title: Checkout resume hashed token tests
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Добавлены unit/e2e проверки, что catalog checkout resume
+    не логирует raw checkout_token
+
+    - ./scripts/run_e2e.sh e2e/billing-catalog-alignment.spec.ts -g "resume" → PASS
+    или документированный блокер - Task.md summary
+
+    '
+  prompt: 'Контекст: frontend/components/catalog/catalog-checkout-resume.tsx, frontend/components/catalog/catalog-analytics.ts.
+    Добавить тест(ы) подтверждающие hash/отсутствие сырого токена в telemetry.
+
+    '
+  worker_task_id: 43e61f1d
+  last_error: '{"type":"thread.started","thread_id":"019d296e-0b94-73c2-97f6-a9bc937a3154"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex5/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex5/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex5/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:17.768246+00:00'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-219
+  title: History CTA docs refresh
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-202
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_ARTIFACTS.md и/или GRACE_SLICE_FORECAST_LADDER.md
+    обновлены с новыми history CTA labels
+
+    - Task.md summary
+
+    '
+  prompt: 'Синхронизировать документацию (GRACE artifacts) с актуальной history telemetry
+    (CTA_TRACKING, resume banner и т.п.).
+
+    '
+  worker_task_id: 050527e5
+  last_error: '{"type":"thread.started","thread_id":"019d296e-0c20-7103-961a-a61fef62108b"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex6/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex6/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex6/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:17.768249+00:00'
+  resolved_model: codex-codex2/gpt-5.4
+- id: GRACE-220
+  title: Week resume telemetry doc update
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_SLICE_FORECAST_LADDER.md описывает week resume
+    blocks
+
+    - Task.md summary
+
+    '
+  prompt: 'Контекст: frontend/app/week/page.tsx, CatalogCheckoutResumeBanner. Обновить
+    документацию по telemetry week surface.
+
+    '
+  worker_task_id: c7d9ec20
+  last_error: '{"type":"thread.started","thread_id":"019d296e-d4d5-7883-a0e8-793c8a516fd1"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex7/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex7/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex7/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:29.232945+00:00'
+  resolved_model: codex-codex2/gpt-5.4
+- id: GRACE-221
+  title: datetime.utcnow cleanup
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- astro_workloop.py и связанные скрипты больше не используют
+    datetime.utcnow (warnings исчезают)
+
+    - python3 astro_workloop.py --dry-run → PASS без предупреждений - Task.md summary
+
+    '
+  prompt: 'Заменить datetime.utcnow() на timezone-aware datetime.now(datetime.UTC)
+    в astro_workloop и automation скриптах.
+
+    '
+  worker_task_id: 7cf5709a
+  last_error: '{"type":"thread.started","thread_id":"019d296e-d54e-7952-987f-9bf2514f0640"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex1/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex1/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex1/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:29.232947+00:00'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-222
+  title: Logging helper regression tests
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- tests/test_logging_utils_grace.py расширен новыми кейсами
+    (correlation + semantic_block)
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_logging_utils_grace.py
+    → PASS - Task.md summary
+
+    '
+  prompt: 'Контекст: backend/app/logging_utils.py, сервисные helpers. Добавить дополнительные
+    регрессионные тесты, покрывающие новые поля.
+
+    '
+  worker_task_id: de537b35
+  last_error: '{"type":"thread.started","thread_id":"019d296f-c06e-7c02-8193-4136e6cb8379"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex2/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex2/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex2/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:45.783459+00:00'
+  resolved_model: codex-codex4/gpt-5.4
+- id: GRACE-223
+  title: Notification admin replay docs
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-207
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_ARTIFACTS.md + RUNBOOK.md описывают admin log
+    replay поток
+
+    - Task.md summary
+
+    '
+  prompt: 'Описать admin log replay/notification flow в документации, указать команды
+    и тесты.
+
+    '
+  worker_task_id: 45e2ada9
+  last_error: '{"type":"thread.started","thread_id":"019d296f-c0bf-7453-806d-08111838de1b"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex3/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex3/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex3/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:57:45.783462+00:00'
+  resolved_model: codex-codex5/gpt-5.4
+- id: GRACE-224
+  title: Personalized daily prompt tests
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Добавлены unit-тесты для summarize_personalization_for_prompt
+    (facts/meta соответствуют docs)
+
+    - docker exec ... python3 -m pytest -q tests/test_personalized_daily_service.py
+    → PASS - Task.md summary
+
+    '
+  prompt: 'Контекст: backend/app/services/personalized_daily.py. Добавить тесты на
+    публичный prompt slice output.
+
+    '
+  worker_task_id: bb377a4b
+  last_error: '{"type":"thread.started","thread_id":"019d2970-bc17-7433-a74f-5ae0d490172c"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex4/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex4/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex4/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:58:29.589016+00:00'
+  resolved_model: codex-codex6/gpt-5.4
+- id: GRACE-225
+  title: Billing pipeline doc update
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_SLICE_AUTOMATION_MAP.md (FORECAST-LADDER-CATALOG-FLIP)
+    обновлена с новой billing bridge логикой
+
+    - Task.md summary
+
+    '
+  prompt: 'Обновить документацию по billing checkout bridge, отражая новые contracts/logs.
+
+    '
+  worker_task_id: fa5216a6
+  last_error: '{"type":"thread.started","thread_id":"019d2970-bc45-7932-9024-486aa9702565"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex5/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex5/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex5/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:58:29.589018+00:00'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-226
+  title: Access control TaskMemory cleanup
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-205
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- TaskMemory и Task.md для access_control актуализированы
+    (только свежие инструкции)
+
+    - Нет устаревших ссылок на старые воркеры
+
+    '
+  prompt: 'Пройти TaskMemory слои для access_control задач, удалить дубликаты/устаревшие
+    пункты, привести к актуальному состоянию.
+
+    '
+  worker_task_id: 2dba6961
+  last_error: '{"type":"thread.started","thread_id":"019d2971-a5f1-7f22-bf0a-a5298a8899c4"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex6/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex6/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex6/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T06:00:33.552245+00:00'
+  resolved_model: codex-codex8/gpt-5.4
+- id: GRACE-227
+  title: One-off entitlements doc sync
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_SLICE_ONE_OFF_ENTITLEMENTS.md синхронизирован
+    с новым кодом
+
+    - Task.md summary
+
+    '
+  prompt: 'Сопоставить backend/app/services/one_off_entitlements.py с документацией,
+    обновить карты flow.
+
+    '
+  worker_task_id: 9faa7262
+  last_error: '{"type":"thread.started","thread_id":"019d2971-a6d6-7b51-8c79-2dd38bf9f2f5"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex7/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex7/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex7/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T06:00:33.552248+00:00'
+  resolved_model: codex-codex9/gpt-5.4
+- id: GRACE-228
+  title: Feed service doc alignment
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_SLICE_FORECAST_LADDER.md обновлён описанием feed_service
+    contracts
+
+    - Task.md summary
+
+    '
+  prompt: 'Документировать новые функции feed_service (build_personalized_feed, enqueue_regeneration)
+    в GRACE docs.
+
+    '
+  worker_task_id: '14903673'
+  last_error: '{"type":"thread.started","thread_id":"019d2972-8a08-7de3-909e-1dec17fcffa7"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex1/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex1/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex1/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T06:01:00.543927+00:00'
+  resolved_model: codex-codex1/gpt-5.4
+- id: GRACE-229
+  title: Start/Create knowledge entry
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- docs/GRACE_ARTIFACTS.md и knowledge-graph.xml содержат свежие
+    описания start/create flows
+
+    - Task.md summary
+
+    '
+  prompt: 'Добавить/обновить узлы knowledge graph и docs для start gateway и create-page
+    flows.
+
+    '
+  worker_task_id: dd5edd9f
+  last_error: '{"type":"thread.started","thread_id":"019d2972-8a21-7be1-b08b-03d0e67f21cf"}
+
+    {"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model
+    metadata for `codex-codex2/gpt-5.4` not found. Defaulting to fallback metadata;
+    this can degrade performance and cause issues."}}
+
+    {"type":"turn.started"}
+
+    {"type":"error","message":"{\"detail\":\"The ''codex-codex2/gpt-5.4'' model is
+    not supported when using Codex with a ChatGPT account.\"}"}
+
+    {"type":"turn.failed","error":{"message":"{\"detail\":\"The ''codex-codex2/gpt-5.4''
+    model is not supported when using Codex with a ChatGPT account.\"}"}}'
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T06:01:00.543929+00:00'
+  resolved_model: codex-codex2/gpt-5.4
+- id: GRACE-230
+  title: Catalog history bridge doc
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- Документирован bridge между history и checkout resume (docs/GRACE_ARTIFACTS.md)
+
+    - Task.md summary
+
+    '
+  prompt: 'Описать как history surface взаимодействует с resume banner + catalog analytics
+    в документации.
+
+    '
+  worker_task_id: 98f326dc
+  last_error: null
+  result_summary: Docs updated (History → Resume bridge)
+  updated_at: '2026-03-27T11:50:19'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-231
+  title: Test evidence archiver script
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Написан скрипт (automation/export_evidence.py) который собирает
+    последние логи из .task-logs → test-results/evidence
+
+    - Документация по использованию в README или docs/GRACE_TEST_PLAYBOOK.md
+
+    '
+  prompt: 'Создать скрипт агрегации тестовых логов, чтобы проще прикладывать артефакты.
+
+    '
+  worker_task_id: cc82a900
+  last_error: null
+  result_summary: export_evidence.py готов, docs обновлены
+  updated_at: '2026-03-27T11:51:18'
+  resolved_model: codex-codex4/gpt-5.4
+- id: GRACE-232
+  title: Cron supervisor doc
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- README или docs/GRACE_AUTONOMY.md описывает astro_workloop
+    cron + queue формат
+
+    - Task.md summary
+
+    '
+  prompt: 'Документировать новую систему очередей/супервизора (task_queue.yaml, autonomy
+    policy, cron job).
+
+    '
+  worker_task_id: 4338cd80
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:36:35.947083+00:00'
+  resolved_model: codex-codex5/gpt-5.4
+- id: GRACE-233
+  title: Worker question router doc
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- README/automation docs объясняют worker_questions.yaml и
+    auto-answer rules
+
+    - Task.md summary
+
+    '
+  prompt: 'Описать pipeline обработки ask_parent вопросов (log_worker_question.py,
+    astro_workloop).
+
+    '
+  worker_task_id: d8015753
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:36:35.947085+00:00'
+  resolved_model: codex-codex6/gpt-5.4
+- id: GRACE-234
+  title: Task queue README
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- automation/README.md создан, описывает task_queue/autonomy_policy
+
+    - Task.md summary
+
+    '
+  prompt: 'Добавить README в automation/ с описанием файлов и сценариев запуска.
+
+    '
+  worker_task_id: a0d97704
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:37:23.199051+00:00'
+  resolved_model: codex-codex1/gpt-5.4
+- id: GRACE-235
+  title: Knowledge graph automation script
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Скрипт (automation/update_knowledge_graph.py) который собирает
+    данные из task_queue и обновляет knowledge-graph.xml шаблон
+
+    - Тестовый запуск + Task.md summary
+
+    '
+  prompt: 'Создать утилиту для полуавтоматического обновления knowledge-graph.xml
+    на основе task_queue.yaml и docs.
+
+    '
+  worker_task_id: 9b54582a
+  last_error: null
+  result_summary: Worker finished (not in list).
+  updated_at: '2026-03-27T05:47:51.293853+00:00'
+  resolved_model: codex-codex2/gpt-5.4
+- id: GRACE-240
+  title: Profile edit e2e stabilization
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-215
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- ./scripts/run_e2e.sh e2e/profile-edit.spec.ts → PASS (без
+    зависаний)
+
+    - Добавлены stable selectors/mocks + Task.md summary (DONE/Files/Tests/Evidence/Risks)
+
+    '
+  prompt: 'Контекст: frontend/app/profile/edit/page.tsx, frontend/e2e/profile-edit.spec.ts,
+    Consumer shell. Стабилизировать новый e2e профильной формы и зафиксировать evidence.'
+  worker_task_id: 60ab51e6
+  last_error: null
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex5/gpt-5.4
+  updated_at: '2026-03-27T07:01:01.680642+00:00'
+- id: GRACE-241
+  title: Billing negative flow e2e
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-212
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Создан новый Playwright spec (decline/timeout/cancel) +
+    ./scripts/run_e2e.sh e2e/billing-negative.spec.ts → PASS
+
+    - Task.md summary + evidence'
+  prompt: 'Контекст: frontend/e2e/billing*.spec.ts, checkout telemetry. Добавить е2e
+    покрытие негативных платежных кейсов и закрепить evidence.'
+  worker_task_id: df32e6ad
+  last_error: null
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex6/gpt-5.4
+  updated_at: '2026-03-27T07:01:01.680645+00:00'
+- id: GRACE-242
+  title: Localization & accessibility sweep
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- Обновлён docs/TEST_MATRIX.md + добавлены aria/localization
+    проверки минимум на 3 поверхностях
+
+    - ./scripts/run_e2e.sh e2e/localization.spec.ts -g "aria" → PASS'
+  prompt: 'Контекст: frontend/e2e/localization.spec.ts, Consumer shell. Усилить покрытие
+    локализации/доступности и синхронизировать тестовую матрицу.'
+  worker_task_id: fd14b546
+  last_error: 'Codex CLI unavailable: auto-resubmit'
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex2/gpt-5.4
+  updated_at: '2026-03-27T07:40:02.944295+00:00'
+- id: GRACE-243
+  title: Admin RBAC e2e coverage
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-201
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Новый e2e/admin-rbac.spec.ts (role gating) + ./scripts/run_e2e.sh
+    e2e/admin-rbac.spec.ts → PASS'
+  prompt: 'Контекст: frontend/app/admin/*, e2e/admin.*.spec.ts. Добавить scenario
+    проверки ролей/ограниченных действий и telemetry.'
+  worker_task_id: bdcb04ea
+  last_error: 'Codex CLI unavailable: auto-resubmit'
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex3/gpt-5.4
+  updated_at: '2026-03-27T07:40:02.944299+00:00'
+- id: GRACE-244
+  title: Logging helper regression suite
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-214
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Расширенный pytest bundle (logging helpers) добавлен в pipeline
+    + docker exec astro-project-backend-1 python3 -m pytest -q tests/test_logging_service_api.py
+    tests/test_logging_utils_grace.py → PASS'
+  prompt: 'Контекст: backend/app/logging_utils.py и сервисные _log helpers. Настроить
+    regression suite и включить в обязательный pipeline.'
+  worker_task_id: 0e59505d
+  last_error: null
+  result_summary: Regression bundle wired into pipeline
+  resolved_model: codex-codex9/gpt-5.4
+  updated_at: '2026-03-27T11:56:30'
+- id: GRACE-245
+  title: Report workflow regression tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-205
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- Новый tests/test_report_workflow_regression.py покрывает
+    build/resume/error пути + docker exec astro-project-backend-1 python3 -m pytest
+    -q tests/test_report_workflow_regression.py → PASS'
+  prompt: 'Контекст: backend/app/services/report_workflow.py, section_templates. Создать
+    regression pytest набор для ключевых workflow сцен.'
+  worker_task_id: 97c01632
+  last_error: null
+  result_summary: Added tests/test_report_workflow_regression.py
+  resolved_model: codex-codex1/gpt-5.4
+  updated_at: '2026-03-27T11:56:46'
+- id: GRACE-246
+  title: Test evidence archiver script v2
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-231
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- automation/export_evidence.py собирает свежие логи из .task-logs
+    → test-results/evidence + README/docs Playbook про использование'
+  prompt: 'Контекст: automation/, test-results/evidence. Реализовать новый evidence
+    archiver для автоматической сборки артефактов.'
+  worker_task_id: dcff44bb
+  last_error: null
+  result_summary: Exporter v2 + nightly bundle ready
+  resolved_model: codex-codex4/gpt-5.4
+  updated_at: '2026-03-27T12:13:26'
+- id: GRACE-247
+  title: Nightly e2e/full regression automation
+  status: queued
+  owner: architect
+  depends_on:
+  - GRACE-240
+  - GRACE-241
+  - GRACE-246
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- Настроен cron/automation job для nightly ./scripts/run_e2e.sh
+    full + backend pipeline (evidence → test-results)
+
+    - Docs/GRACE_TEST_PLAYBOOK.md обновлены инструкциями'
+  prompt: 'Контекст: automation/cron, scripts/run_e2e.sh. Настроить nightly full regression
+    (UI+backend) с автоматическим сбором артефактов для достижения 95% покрытия.'
+  worker_task_id: null
+  last_error: null
+  result_summary: null
+  updated_at: '2026-03-27T07:40:02+00:00'
+- id: GRACE-248
+  title: Codex CLI health monitor
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: medium
+  acceptance_criteria: '- Скрипт automation/cli_health.py, который пингует codex --version
+    и обновляет health state, вызываемый supervisor
+
+    - Task.md summary, описание variables'
+  prompt: 'Контекст: astro_workloop, codex CLI. Реализовать health monitor для codex
+    (пинг + state), чтобы supervisor не запускал задачи при падении CLI.'
+  worker_task_id: d2fbdf49
+  last_error: null
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex4/gpt-5.4
+  updated_at: '2026-03-27T08:21:00.775104+00:00'
+- id: GRACE-249
+  title: TaskHub auto-fail for CLI errors
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-248
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- patch/hook TaskHub чтобы ловить AssertionError cli и ставить
+    task status=failed (message)
+
+    - проверено, что supervisor сам реqueue задач без ручного вмешательства'
+  prompt: 'Контекст: ductor_bot/tasks/hub.py. Добавить авто-fail для случаев когда
+    CLI отсутствует (assert cli is not None) + integration с supervisor (реqueue).'
+  worker_task_id: fa857360
+  last_error: null
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex5/gpt-5.4
+  updated_at: '2026-03-27T08:21:17.746508+00:00'
+- id: GRACE-250
+  title: Workloop orphan cleanup + warmup
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-248
+  auto_run: true
+  provider: codex
+  model: auto
+  reasoning: high
+  acceptance_criteria: '- astro_workloop.py автоматически удаляет orphan tasks из
+    /tasks/list (delete_task) + теплый старт после restart
+
+    - Telegram уведомления о CLI warmup/ready'
+  prompt: 'Контекст: astro_workloop.py. Добавить orphan cleanup (сверка с API, delete
+    если worker отсутствует локально) и warmup delay + уведомления о состоянии CLI.'
+  worker_task_id: cf5a3cad
+  last_error: null
+  result_summary: Worker finished (not in list).
+  resolved_model: codex-codex6/gpt-5.4
+  updated_at: '2026-03-27T08:21:17.746511+00:00'
+- id: GRACE-251
+  title: Admin RBAC e2e coverage
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex8/gpt-5.4
+  reasoning: high
+  ask_user_only_if: Needs new admin scope beyond RBAC
+  acceptance_criteria: '- ./scripts/run_e2e.sh e2e/admin.rbac.spec.ts -> PASS (или
+    документированный блокер)
+
+    - Task.md summary и evidence'
+  prompt: 'Контекст: frontend/app/admin/*, frontend/e2e/admin.*.spec.ts, docs/GRACE_TEST_PLAYBOOK.md.
+    Усилить e2e покрытие RBAC/ограниченных действий, добавить telemetry проверки и
+    обновить Task.md.'
+  worker_task_id: d93a32b4
+  last_error: null
+  result_summary: admin.rbac e2e added
+  updated_at: '2026-03-27T12:14:34'
+  resolved_model: codex-codex8/gpt-5.4
+- id: GRACE-252
+  title: Localization & accessibility sweep
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex7/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- frontend/e2e/localization.spec.ts расширен (Plural forms,
+    lang switch)
+
+    - Accessibility smoke (aria landmarks) задокументирован
+
+    - Task.md summary + риски'
+  prompt: 'Контекст: frontend/e2e/localization.spec.ts, ConsumerPageShell, docs/GRACE_TEST_PLAYBOOK.md.
+    Усилить покрытие локализации и базовых accessibility проверок.'
+  worker_task_id: 6bba8b2a
+  last_error: null
+  result_summary: Localization spec widened + a11y smoke
+  updated_at: '2026-03-27T12:18:31'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-001
+  title: VM-BOT-NOTIFY regression
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex6/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_bot_notification.py покрывает blocked chat, non-fatal
+    delivery, log_grace_event
+
+    - ./scripts/run_e2e.sh e2e/bot-notify.spec.ts → PASS или документированный блокер
+
+    - Task.md summary + Evidence'
+  prompt: 'Контекст: backend/app/services/notification.py, backend/app/logging_utils.py,
+    tests/test_notification_mock.py, docs/GRACE_ARTIFACTS.md. Добавить VM-BOT-NOTIFY
+    regression: unit тесты для blocked chat/non-fatal delivery и Playwright сценарий
+    подтверждающий передачу телеметрии. Обновить Task.md и docs при необходимости.'
+  worker_task_id: c3fb3cca
+  last_error: backend pipeline container still has stale file
+  result_summary: bot-notify regression added
+  updated_at: '2026-03-27T12:32:35'
+  resolved_model: codex-codex6/gpt-5.4
+- id: GRACE-002
+  title: VM-BOT-VOICE coverage
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex7/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_bot_voice_transcribe.py покрывает транскрипцию/ошибки/ретраи
+
+    - Документация/Task.md обновлена
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_bot_voice_transcribe.py
+    → PASS'
+  prompt: 'Контекст: backend/app/services/notification.py, media_tools/transcribe,
+    docs/GRACE_ARTIFACTS.md. Реализовать VM-BOT-VOICE: regression тесты для загрузки
+    аудио, транскрипции, ошибок подписи. Обновить документацию и Task.md.'
+  worker_task_id: 0c4998ad
+  last_error: null
+  result_summary: tests/test_bot_voice_transcribe.py added
+  updated_at: '2026-03-27T12:35:51'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-003
+  title: VM-REFERRAL-SIGNUP policy tests
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex5/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_referral_policy_15days.py проверяет self-referral,
+    duplicate links, 15-дневное окно
+
+    - Task.md summary с Evidence, docs обновлены'
+  prompt: 'Контекст: backend/app/services/referral_service.py, docs/GRACE_ARTIFACTS.md,
+    tests/test_referral_flow.py. Добавить VM-REFERRAL-SIGNUP regression: 15-дневная
+    политика, запрет self-referral, duplicate links, telemetry. Обновить Task.md.'
+  worker_task_id: 963fdce0
+  last_error: backend pipeline blocked by existing syntax error
+  result_summary: tests/test_referral_policy_15days.py added
+  updated_at: '2026-03-27T12:31:22'
+  resolved_model: codex-codex5/gpt-5.4
+- id: GRACE-004
+  title: VM-REFERRAL-PARTNER reward tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-003
+  auto_run: true
+  provider: codex
+  model: codex-codex5/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_referral_partner_reward.py покрывает партнёрские
+    бонусы, double-credit guard и telemetry
+
+    - Task.md summary + docs обновлены'
+  prompt: 'Контекст: backend/app/services/referral_service.py, docs/GRACE_ARTIFACTS.md,
+    tests/test_referral_flow.py. Добавить VM-REFERRAL-PARTNER regression: партнёрские
+    бонусы, защита от двойного начисления, telemetry. Обновить Task.md/docs.'
+  worker_task_id: null
+  last_error: null
+  result_summary: tests/test_referral_partner_reward.py added
+  updated_at: '2026-03-27T12:44:17'
+- id: GRACE-008
+  title: Start gateway E2E (UC-AUTH-PROFILE)
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- новый e2e/start-gateway.spec.ts покрывает mock redirect,
+    auth wait, profile route telemetry
+
+    - ./scripts/run_e2e.sh e2e/start-gateway.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/start/page.tsx, frontend/hooks/useTelegram.ts, frontend/e2e/landing.spec.ts,
+    docs/GRACE_ARTIFACTS.md. Добавить UC-AUTH-PROFILE e2e: отдельный spec для /start,
+    проверка redirect/auth wait/profile completion + telemetry. Обновить Task.md/docs.'
+  worker_task_id: null
+  last_error: null
+  result_summary: start-gateway e2e spec added
+  updated_at: '2026-03-27T12:51:36'
+- id: GRACE-009
+  title: Auth/profile backend regression
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-008
+  auto_run: true
+  provider: codex
+  model: codex-codex1/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_auth_profile_flow.py покрывает start gateway
+    handlers, correlation, telemetry
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_auth_profile_flow.py
+    → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: backend/app/services/auth_gateway.py, backend/app/services/profile_service.py,
+    docs/GRACE_ARTIFACTS.md. Добавить targeted regression (UC-AUTH-PROFILE backend):
+    тесты по start gateway, auth wait, profile completion, correlation/telemetry.
+    Обновить Task.md/docs.'
+  worker_task_id: null
+  last_error: null
+  result_summary: tests/test_auth_profile_flow.py added
+  updated_at: '2026-03-27T12:44:58'
+- id: GRACE-006
+  title: VM-ADMIN-DIAGNOSTICS regression
+  status: done
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex8/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_admin_diagnostics.py покрывает diagnostics runner,
+    log evidence, telemetry
+
+    - Task.md summary + docs обновлены
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_admin_diagnostics.py
+    → PASS'
+  prompt: 'Контекст: backend/app/services/admin_diagnostics.py, docs/GRACE_ARTIFACTS.md,
+    tests/test_admin_logs_replay.py. Добавить VM-ADMIN-DIAGNOSTICS regression: тесты
+    для diagnostics runner, логирования evidence, telemetry hooks. Обновить Task.md/docs.'
+  worker_task_id: f828a30a
+  last_error: null
+  result_summary: tests/test_admin_diagnostics.py added
+  updated_at: '2026-03-27T12:59:21'
+  resolved_model: codex-codex8/gpt-5.4
+- id: GRACE-007
+  title: Admin RBAC extended flow
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-006
+  auto_run: true
+  provider: codex
+  model: codex-codex8/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- e2e/admin.rbac.spec.ts расширен (dashboard/report actions,
+    denied paths)
+
+    - ./scripts/run_e2e.sh e2e/admin.rbac.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/admin/*, frontend/e2e/admin.rbac.spec.ts, docs/GRACE_ARTIFACTS.md.
+    Добавить расширенный admin RBAC сценарий: dashboard/report actions для admin,
+    denied paths для analyst, telemetry. Обновить Task.md/docs.'
+  worker_task_id: 5774a487
+  last_error: null
+  result_summary: admin.rbac spec extended
+  updated_at: '2026-03-27T13:04:32'
+  resolved_model: codex-codex8/gpt-5.4
+- id: GRACE-010
+  title: Admin operations E2E
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-007
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- e2e/admin.operations.spec.ts покрывает detail view, section
+    regenerate, export telemetry
+
+    - ./scripts/run_e2e.sh e2e/admin.operations.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/admin/*, docs/GRACE_ARTIFACTS.md, frontend/e2e/admin.*.spec.ts.
+    Добавить admin operations e2e: detail view, section regenerate, export flow +
+    telemetry. Обновить Task.md/docs.'
+  worker_task_id: 46cd776b
+  last_error: null
+  result_summary: e2e/admin.operations.spec.ts added
+  updated_at: '2026-03-27T13:01:42'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-011
+  title: Admin diagnostics E2E
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-006
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- frontend/e2e/admin.diagnostics.spec.ts покрывает diagnostics
+    dashboard, run trigger, evidence download, telemetry
+
+    - ./scripts/run_e2e.sh e2e/admin.diagnostics.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/admin/*, frontend/e2e/admin.*.spec.ts, docs/GRACE_ARTIFACTS.md.
+    Добавить admin diagnostics e2e: запуск diagnostics runner, ожидание, проверка
+    evidence/telemetry. Обновить Task.md/docs.'
+  worker_task_id: 6184b4fe
+  last_error: null
+  result_summary: e2e/admin.diagnostics.spec.ts added
+  updated_at: '2026-03-27T13:17:28'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-012
+  title: Notification delivery flow tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-001
+  auto_run: true
+  provider: codex
+  model: codex-codex6/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_notification_delivery_flow.py покрывает send_report_ready_notification,
+    send_failure_notification, enqueue_notification_job, log telemetry
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_notification_delivery_flow.py
+    → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: backend/app/services/notification.py, docs/GRACE_ARTIFACTS.md,
+    tests/test_notification_mock.py. Добавить интеграционный regression набор для
+    notification delivery: success/failure paths, enqueue job telemetry. Обновить
+    Task.md/docs.'
+  worker_task_id: cd4248d5
+  last_error: null
+  result_summary: tests/test_notification_delivery_flow.py added
+  updated_at: '2026-03-27T13:16:47'
+  resolved_model: codex-codex6/gpt-5.4
+- id: GRACE-013
+  title: Bot voice integration E2E
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-002
+  auto_run: true
+  provider: codex
+  model: codex-codex7/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- bot/tests/test_voice_flow.py или эквивалент покрывает telegram
+    voice update → STT → response → telemetry
+
+    - Acceptance командой docker exec ... pytest ботового теста
+
+    - Task.md summary'
+  prompt: 'Контекст: bot/app/main.py, bot/tests, docs/GRACE_ARTIFACTS.md. Добавить
+    интеграционный тест для голосового сценария (voice message → STT → текстовый ответ
+    → telemetry). Обновить Task.md/docs.'
+  worker_task_id: 7515f906
+  last_error: Acceptance pytest skipped in current container (bot/app missing)
+  result_summary: tests/test_voice_flow.py added (skipped in container)
+  updated_at: '2026-03-27T13:17:03'
+  resolved_model: codex-codex7/gpt-5.4
+- id: GRACE-014
+  title: Feed service regression tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-005
+  auto_run: true
+  provider: codex
+  model: codex-codex4/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_feed_service_regression.py покрывает build_personalized_feed,
+    fetch_daily_blocks, enqueue_regeneration fallbacks
+
+    - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_feed_service_regression.py
+    → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: backend/app/services/feed_service.py, docs/GRACE_ARTIFACTS.md,
+    tests/test_daily_feed_robustness.py. Добавить regression тесты для feed service
+    (build_personalized_feed, fetch_daily_blocks, enqueue_regeneration). Обновить
+    Task.md/docs.'
+  worker_task_id: db4062da
+  last_error: null
+  result_summary: tests/test_feed_service_regression.py added
+  updated_at: '2026-03-27T13:25:39'
+  resolved_model: codex-codex4/gpt-5.4
+- id: GRACE-015
+  title: Report workflow async E2E
+  status: running
+  owner: architect
+  depends_on:
+  - GRACE-005
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- frontend/e2e/report-workflow.spec.ts покрывает async chunk
+    lifecycle, resume, fallback telemetry
+
+    - ./scripts/run_e2e.sh e2e/report-workflow.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/reports/*, docs/GRACE_ARTIFACTS.md, frontend/e2e/history-cta.spec.ts.
+    Добавить e2e spec для async report workflow: запуск генерации, ожидание, resume,
+    fallback telemetry. Обновить Task.md/docs.'
+  worker_task_id: 6e9bb427
+  last_error: null
+  result_summary: null
+  updated_at: '2026-03-27T13:24:10'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-016
+  title: Week forecast fallback tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-002
+  auto_run: true
+  provider: codex
+  model: codex-codex5/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- tests/test_week_forecast_fallback.py покрывает week fetch
+    fallback, telemetry
+
+    - ./scripts/run_e2e.sh e2e/week-fallback.spec.ts или pytest (указать в Task.md)
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/week/page.tsx, backend/app/services/feed_service.py,
+    docs/GRACE_ARTIFACTS.md. Добавить regression для week forecast fallback (backend
+    тест + e2e/week-fallback.spec.ts). Обновить Task.md/docs.'
+  worker_task_id: f624d561
+  last_error: null
+  result_summary: tests/test_week_forecast_fallback.py + e2e/week-fallback.regression.spec.ts
+    added
+  updated_at: '2026-03-27T13:28:11'
+  resolved_model: codex-codex5/gpt-5.4
+- id: GRACE-017
+  title: Read failure telemetry doc/tests
+  status: done
+  owner: architect
+  depends_on:
+  - GRACE-004
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- tests/test_read_failure_flow.py покрывает failure CTA/resume
+    telemetry
+
+    - docs/GRACE_ARTIFACTS.md section updated
+
+    - ./scripts/run_e2e.sh e2e/report-failure.spec.ts → PASS
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/read/[id]/page.tsx, docs/GRACE_ARTIFACTS.md, tests/test_read_page_grace_telemetry.py.
+    Добавить расширенный regression для read failure (unit + e2e). Обновить Task.md/docs.'
+  worker_task_id: 8d5aa0fd
+  last_error: null
+  result_summary: tests/test_read_failure_flow.py + e2e/report-failure.spec.ts updated
+  updated_at: '2026-03-27T13:28:33'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-018
+  title: 'UX overhaul: home + week + subscription UI'
+  status: running
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex3/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- /frontend/app/page.tsx и /week/page.tsx переработаны: табы
+    Лента/Неделя/Каталог, персональные подсказки, светофор недели
+
+    - Блок премиума показывает оставшиеся дни + кнопки "Продлить" и "По ссылке"
+
+    - e2e/home-week-regression.spec.ts добавлен или обновлён
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/page.tsx, frontend/app/week/page.tsx, frontend/components/catalog/catalog-checkout-resume.tsx,
+    docs/GRACE_ARTIFACTS.md. Переработать домашний экран и неделю: табы, персональные
+    подсказки, светофор, раздел "Продлить" с двумя CTA. Обновить e2e/regression и
+    Task.md/docs.'
+  worker_task_id: 94b2bcfc
+  last_error: null
+  result_summary: null
+  updated_at: '2026-03-27T13:47:01'
+  resolved_model: codex-codex3/gpt-5.4
+- id: GRACE-019
+  title: ЮMoney интеграция + платежный UX
+  status: running
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex4/gpt-5.4
+  reasoning: high
+  acceptance_criteria: '- backend/app/payment/yoomoney.py (или экв.) реализован с
+    ShopID/secret
+
+    - frontend платежные экраны обрабатывают успех/ошибку без перезапуска
+
+    - e2e/payment-yoomoney.spec.ts или pytest интеграция
+
+    - Task.md summary'
+  prompt: 'Контекст: backend/app/payment/*, frontend payment flows, docs/GRACE_ARTIFACTS.md.
+    Подключить ЮMoney (ShopID, Secret) для подписки/хорара, обработать ошибки, добавить
+    кнопку "Назад"/свайп. Настроить regression tests и обновить Task.md/docs.'
+  worker_task_id: 68ab8c9e
+  last_error: null
+  result_summary: null
+  updated_at: '2026-03-27T13:47:01'
+  resolved_model: codex-codex4/gpt-5.4
+- id: GRACE-020
+  title: Admin switch for Vasiliy + магазин витрина
+  status: running
+  owner: architect
+  depends_on: []
+  auto_run: true
+  provider: codex
+  model: codex-codex1/gpt-5.4
+  reasoning: medium
+  acceptance_criteria: '- для chat_id Василия есть переключатель Клиент/Админ
+
+    - Магазин разделён на "Подписка" vs "Разовые" + кнопки с ценами (299/199)
+
+    - e2e/admin-switch.spec.ts или unit tests
+
+    - Task.md summary'
+  prompt: 'Контекст: frontend/app/profile/page.tsx, frontend/app/store/page.tsx, backend/app/services/premium_service.py.
+    Реализовать admin switch для конкретного chat_id (продление, выдача отчётов) и
+    перерисовать магазин: подписка отдельно, набор разовых продуктов (натал 299, соляр
+    299, совместимость 299, хорар 199) + описания. Task.md/docs обновить.'
+  worker_task_id: f8543ff7
+  last_error: null
+  result_summary: null
+  updated_at: '2026-03-27T13:47:01'
+  resolved_model: codex-codex1/gpt-5.4

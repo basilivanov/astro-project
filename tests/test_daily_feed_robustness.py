@@ -1,16 +1,26 @@
 import unittest
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
-from backend.app.services.feed_service import normalize_daily_vibe_text
+from backend.app.services.feed_service import (
+    _FEED_CACHE,
+    build_personalized_feed,
+    enqueue_regeneration,
+    fetch_daily_blocks,
+    normalize_daily_vibe_text,
+)
 
 
 client = TestClient(app)
 
 
 class TestDailyFeedRobustness(unittest.TestCase):
+    def setUp(self):
+        _FEED_CACHE.clear()
+
     def test_normalize_daily_vibe_extracts_text_from_json_blocks(self):
         raw = '[{"type":"paragraph","text":"Сегодня полезно держать темп спокойно и ровно."}]'
 
@@ -74,6 +84,62 @@ class TestDailyFeedRobustness(unittest.TestCase):
         self.assertIn("разговор", text.lower())
         self.assertNotIn("венера-венера", text.lower())
         self.assertNotIn("марс-солнце", text.lower())
+
+    @patch("backend.app.services.feed_service.log_grace_event")
+    def test_fetch_daily_blocks_returns_semantic_bundle(self, mock_log_grace_event):
+        blocks = fetch_daily_blocks(
+            "Рыбы",
+            "Растущая Луна",
+            "Венера Соединение (0°) Венера, Марс Квадрат (90°) Солнце",
+            personalization_context={
+                "fact_lines": ["Быстрые транзиты к наталу: Венера Соединение (0°) Венера."],
+                "traffic_lights": {"money": "green", "love": "yellow", "health": "red"},
+                "semantic_layer": {
+                    "headline": "День просит мягкого контакта без нажима.",
+                    "practical_move": "Выбери один разговор и не разгоняй эмоции.",
+                },
+            },
+            correlation_id="cid-feed-blocks",
+        )
+
+        self.assertIn("Персональный factual context", blocks["personalization_prompt"])
+        self.assertEqual(blocks["prompt_contract"]["version"], "2026-03-20")
+        self.assertEqual(blocks["semantic_layer"]["headline"], "День просит мягкого контакта без нажима.")
+        self.assertTrue(any(call.kwargs.get("fn") == "fetch_daily_blocks" for call in mock_log_grace_event.call_args_list))
+
+    @patch("backend.app.services.feed_service.log_grace_event")
+    def test_enqueue_regeneration_invalidates_cache(self, mock_log_grace_event):
+        _FEED_CACHE[("2026-03-24", "Овен", "scope-a")] = "cached vibe"
+
+        with patch("backend.app.services.feed_service.datetime") as mock_datetime:
+            mock_datetime.utcnow.return_value.strftime.return_value = "2026-03-24"
+            removed = enqueue_regeneration("Овен", cache_scope="scope-a", correlation_id="cid-regenerate")
+
+        self.assertTrue(removed)
+        self.assertNotIn(("2026-03-24", "Овен", "scope-a"), _FEED_CACHE)
+        self.assertTrue(any(call.args[1] == "feed.regeneration_enqueued" for call in mock_log_grace_event.call_args_list))
+
+    @patch("backend.app.services.feed_service.log_grace_event")
+    def test_build_personalized_feed_uses_fallback_mode_with_correlation(self, mock_log_grace_event):
+        with patch("backend.app.services.feed_service.resolve_feed_llm_mode", return_value="fallback"):
+            result = asyncio.run(
+                build_personalized_feed(
+                    "Овен",
+                    "Новолуние",
+                    "Сатурн Квадрат Венера",
+                    personalization_context={
+                        "level": "personalized_v2",
+                        "fact_lines": ["Контекст недели: 🔴 Шторм."],
+                        "semantic_layer": {"headline": "День лучше сузить до одного приоритета."},
+                    },
+                    cache_scope="scope-build",
+                    correlation_id="cid-build",
+                )
+            )
+
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 20)
+        self.assertTrue(any(call.args[1] == "feed.generated" for call in mock_log_grace_event.call_args_list))
 
     @patch("backend.app.main.build_personalized_daily_facts")
     def test_feed_endpoint_returns_fallback_payload_on_chart_error(self, mock_daily_facts):

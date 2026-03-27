@@ -19,7 +19,12 @@ def test_admin_logs_replay_summary():
             encoding="utf-8",
         )
         result = subprocess.run(
-            ["python3", "tools/admin_logs/replay_last.py", str(log_path), "50"],
+            [
+                "python3",
+                str(Path(__file__).resolve().parent / "tools" / "admin_logs" / "replay_last.py"),
+                str(log_path),
+                "50",
+            ],
             check=True,
             capture_output=True,
             text=True,

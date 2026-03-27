@@ -26,6 +26,7 @@ def main():
     critical_scripts = [
         f"{python_exe} tests/test_entitlements_unit.py",
         f"{python_exe} -m pytest tests/test_one_off_runtime_smoke.py -q",
+        f"{python_exe} -m pytest -q tests/test_logging_service_api.py tests/test_logging_utils_grace.py",
         f"{python_exe} tests/verify_horary_quota.py",
         f"{python_exe} tests/verify_history_feed.py",
         f"{python_exe} tests/test_notification_mock.py",

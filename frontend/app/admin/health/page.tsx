@@ -3,9 +3,22 @@
 import { useEffect, useState } from "react";
 import { Activity, Database, Server, RefreshCw } from "lucide-react";
 
+type DiagnosticsStep = {
+  name?: string;
+  ok?: boolean;
+};
+
+type DiagnosticsResult = {
+  status?: string;
+  steps?: DiagnosticsStep[];
+};
+
 export default function HealthPage() {
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
   const checkHealth = () => {
     setLoading(true);
@@ -14,6 +27,58 @@ export default function HealthPage() {
       .then(setHealth)
       .catch(e => setHealth({ status: "error", db: String(e) }))
       .finally(() => setLoading(false));
+  };
+
+  const runDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    setDiagnosticsError(null);
+    setDiagnostics(null);
+
+    console.info("admin.diagnostics", {
+      stage: "request",
+      surface: "admin_health",
+      block: "DIAGNOSTICS_RUNNER",
+      semantic_block: "DIAGNOSTICS_RUNNER",
+      flow_id: "FLOW-ADMIN-OPS",
+      evidence: "Task.md",
+    });
+
+    try {
+      const response = await fetch("/api/diagnostics/run", { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMessage = typeof payload?.detail === "string" ? payload.detail : "Diagnostics failed";
+        throw new Error(errorMessage);
+      }
+
+      setDiagnostics(payload);
+      console.info("admin.diagnostics", {
+        stage: "success",
+        status: typeof payload?.status === "string" ? payload.status : "unknown",
+        steps_count: Array.isArray(payload?.steps) ? payload.steps.length : 0,
+        telemetry_ready: true,
+        evidence: "Task.md",
+        surface: "admin_health",
+        block: "DIAGNOSTICS_RUNNER",
+        semantic_block: "DIAGNOSTICS_RUNNER",
+        flow_id: "FLOW-ADMIN-OPS",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Diagnostics failed";
+      setDiagnosticsError(message);
+      console.info("admin.diagnostics", {
+        stage: "error",
+        error: message,
+        evidence: "Task.md",
+        surface: "admin_health",
+        block: "DIAGNOSTICS_RUNNER",
+        semantic_block: "DIAGNOSTICS_RUNNER",
+        flow_id: "FLOW-ADMIN-OPS",
+      });
+    } finally {
+      setDiagnosticsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -64,6 +129,62 @@ export default function HealthPage() {
             </span>
         </div>
       </div>
+
+      <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm" data-testid="admin-diagnostics-runner">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Diagnostics runner</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Запускает диагностический прогон и сохраняет evidence/telemetry для admin flow.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={runDiagnostics}
+            disabled={diagnosticsLoading}
+            data-testid="admin-diagnostics-run"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={diagnosticsLoading ? "animate-spin" : ""} />
+            {diagnosticsLoading ? "Запуск…" : "Run diagnostics"}
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600" data-testid="admin-diagnostics-evidence">
+          <div><span className="font-semibold text-slate-900">Evidence:</span> diagnostics runner response + Task.md summary</div>
+          <div className="mt-1"><span className="font-semibold text-slate-900">Telemetry:</span> <code>admin.diagnostics</code> with request/success/error stages</div>
+        </div>
+
+        {diagnosticsError ? (
+          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700" data-testid="admin-diagnostics-error">
+            {diagnosticsError}
+          </div>
+        ) : null}
+
+        {diagnostics ? (
+          <div className="mt-4 space-y-3" data-testid="admin-diagnostics-result">
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+              <span className="text-sm font-semibold text-slate-700">Runner status</span>
+              <span data-testid="admin-diagnostics-status" className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase text-emerald-700">
+                {diagnostics.status ?? "unknown"}
+              </span>
+            </div>
+
+            <div className="grid gap-2" data-testid="admin-diagnostics-steps">
+              {(diagnostics.steps ?? []).map((step) => (
+                <div
+                  key={step.name ?? "unknown"}
+                  className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3 text-sm"
+                  data-testid={`admin-diagnostics-step-${step.name ?? "unknown"}`}
+                >
+                  <span className="font-medium text-slate-700">{step.name ?? "unknown"}</span>
+                  <span className={step.ok ? "text-emerald-600" : "text-rose-600"}>{step.ok ? "ok" : "failed"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

@@ -156,6 +156,19 @@
 ### Daily
 `/` -> `/api/users/me` + `/api/feed/today` + `X-Telegram-Auth` -> optional `authenticate_telegram_user` -> `build_personalized_daily_facts` -> `get_daily_vibe_llm` -> `ready|fallback|empty|error`; feed fallback не должен блокировать страницу.
 
+**Actual current daily facts behavior**
+- `build_personalized_daily_facts` кеширует deterministic facts по ключу `(local_date, timezone, location_label, profile_fingerprint)`; fingerprint включает natal/current geo + timezone + `sun_sign`.
+- timezone резолвится как `current_timezone -> birth_timezone -> UTC`; invalid timezone деградирует в `UTC`, а локальная дата для кеша считается уже в resolved timezone.
+- transit location приоритетит current lat/lon, затем birth lat/lon, затем строковые `current_location`/`birth_place`, и только потом fallback `Moscow`.
+- `full` personalization включается только при наличии `birth_date` и `birth_place`; иначе сервис остается в generic/day-transit режиме без natal fast hits.
+- fast hits ограничены быстрыми транзитами `Sun/Mercury/Venus/Mars` к личным натальным точкам `Sun/Moon/Mercury/Venus/Mars/ASC/MC`, сортируются по orb и режутся до top-5.
+- fallback daily aspects берутся только из transit-to-transit набора по `Sun..Saturn`, тоже сортируются по orb и режутся до top-5.
+- fact lines сейчас канонически собирают: local context, moon sign + phase, optional sun-sign profile, fast hits или общий фон дня, weekly context, month status/events, personalized traffic lights и short yearly month summary.
+- `cache_scope` — это sha256 по публичным deterministic facts (`date`, personalization level, timezone, location, aspect summary, traffic lights, fact lines) и он не равен raw cache key.
+- public meta публикует только безопасный срез (`date`, `timezone`, `location_label`, `personalization_level`, counts/flags и short summaries) без сырых natal coordinates.
+- failure policy: отсутствие Sun/Moon ephemeris остается hard failure (`ValueError`), а week/month/year forecast layers деградируют по месту с warning logs вместо полного падения daily feed.
+- traffic lights считаются в двух режимах: generic score от weekday traffic/day aspects/moon phase, либо personalized score от weekday base + natal hit effects + month status adjustments; результат clamp в `0..100` и map в `green/yellow/red`.
+
 ## Verification Mapping / Верификация
 
 ### VM-NATAL-CONTEXT
@@ -224,7 +237,8 @@
   - `./scripts/run_e2e.sh e2e/core-ux.spec.ts`
 - Доказывает:
   - API fallback payload shape стабилен;
-  - personalized facts layer собирает fast hits + horizon context без поломки fallback path;
+  - personalized facts layer собирает fast hits, deterministic cache/meta и horizon context без поломки fallback path;
+  - personalized/generic traffic-light scoring и cache-scope contract остаются детерминированными;
   - homepage выдерживает normal/fallback/empty/error daily states.
 
 ## Current Gaps / Текущие пробелы

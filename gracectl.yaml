@@ -1,0 +1,163 @@
+defaults:
+  report_path: test-results/grace-report.json
+  log_dir: logs/gracectl
+  frontend_container: astro-project-frontend_dev-1
+  backend_container: astro-project-backend-1
+  repo_root: /opt/astro-project
+
+slices:
+  M-NATAL-SUMMARY-LAYER:
+    title: "Natal Summary Layer"
+    description: "Harden executive_summary/final_synthesis and style hints."
+    gate: "Gate 3: quality rerun clean + benchmark note"
+    vm_ids:
+      - VM-NATAL-CONTEXT
+      - VM-NATAL-STYLE-CONTRACT
+      - VM-NATAL-SUMMARY-REPAIR
+      - VM-FORECAST-CREATE-READ
+      - VM-FORECAST-SEMANTICS
+      - VM-READ-QUALITY
+    docs:
+      - docs/GRACE_SLICE_NATAL_DAILY.md
+      - docs/ASTRO_QUALITY_BENCHMARK_2026-03-19_NATAL_EXEC_SUMMARY_FOLLOWUP.md
+    commands:
+      backend:
+        - docker exec astro-project-backend-1 python3 scripts/pipeline.py
+        - PYTHONPATH=. python3 -m pytest tests/test_natal_section_context.py tests/test_report_contract.py tests/test_report_context.py
+        - PYTHONPATH=. python3 -m pytest tests/test_validation_relaxed.py tests/test_validation_template_fallback.py
+        - PYTHONPATH=. python3 -m pytest tests/verify_natal_generation.py tests/verify_natal_style.py
+      frontend:
+        - ./scripts/run_e2e.sh e2e/quality.spec.ts
+        - ./scripts/run_e2e.sh e2e/report-create.spec.ts -g "week forecast"
+        - ./scripts/run_e2e.sh e2e/forecast-realdata.spec.ts
+      replay:
+        - python3 scripts/live_quality_benchmark.py --manifest docs/benchmark_manifests/natal_rerun_2026-03-19.json
+    evidence:
+      - docs/ASTRO_QUALITY_BENCHMARK_2026-03-19_NATAL_EXEC_SUMMARY_FOLLOWUP.md
+      - docs/benchmark_manifests/natal_rerun_2026-03-19.json
+
+  FEED-PERSONALIZED-DAILY:
+    title: "Feed Personalized Daily"
+    description: "Daily feed API + homepage states"
+    gate: "Gate 3: backend quick + targeted UX smoke"
+    vm_ids:
+      - VM-FEED-ROBUSTNESS
+    docs:
+      - docs/personalized_daily_feed_v2.md
+    commands:
+      backend:
+        - docker exec astro-project-backend-1 python3 scripts/pipeline.py
+        - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_daily_feed_robustness.py tests/test_personalized_daily_service.py tests/verify_daily_feed.py
+      frontend:
+        - FRONTEND_HEALTH_CONTAINER=astro-project-frontend-1 E2E_BASE_URL=http://astro-project-frontend-1:3000 ./scripts/run_e2e.sh e2e/core-ux.spec.ts
+      replay:
+        - python3 tools/feed_logs/replay_last.py /var/log/astro/feed.jsonl
+    evidence:
+      - docs/personalized_daily_feed_v2.md
+      - frontend/test-results/
+
+  ADMIN-ENTITLEMENTS-FLOW:
+    title: "Admin Entitlements Flow"
+    description: "Grant/consume entitlements via admin UI"
+    gate: "Gate 3 rollout-ready on 2026-03-20"
+    vm_ids:
+      - VM-BILLING-ACCESS
+      - VM-REPORTS-UX-CONSISTENCY
+    docs:
+      - docs/rollout_notes/admin-entitlements-gate3-2026-03-20.md
+      - GRACE_SLICE_ONE_OFF_ENTITLEMENTS.md
+    commands:
+      backend:
+        - docker exec astro-project-backend-1 python3 scripts/pipeline.py
+        - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_entitlements.py tests/test_entitlements_unit.py tests/test_one_off_entitlements_scaffold.py
+        - PYTHONPATH=. python3 -m pytest tests/test_admin_grant_one_off_alignment.py
+      frontend:
+        - FRONTEND_HEALTH_CONTAINER=astro-project-frontend-1 E2E_BASE_URL=http://astro-project-frontend-1:3000 ./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/admin.entitlements.spec.ts
+      replay:
+        - python3 tools/admin_logs/replay_last.py /var/log/astro/admin.jsonl 200
+    evidence:
+      - docs/rollout_notes/admin-entitlements-gate3-2026-03-20.md
+      - frontend/test-results/
+
+  FORECAST-LADDER-CATALOG-FLIP:
+    title: "Forecast Ladder Catalog"
+    description: "Catalog/storefront alignment for forecasts and one-off bridge"
+    gate: "Gate TBD: forecast ladder catalog flip"
+    vm_ids:
+      - VM-FORECAST-CREATE-READ
+      - VM-FORECAST-SEMANTICS
+      - VM-READ-QUALITY
+      - VM-REPORTS-UX-CONSISTENCY
+      - VM-BILLING-ACCESS
+    docs:
+      - docs/GRACE_SLICE_FORECAST_LADDER.md
+      - docs/BILLING_CATALOG_ALIGNMENT_2026-03-19.md
+      - GRACE_SLICE_ONE_OFF_ENTITLEMENTS.md
+    commands:
+      backend:
+        - docker exec astro-project-backend-1 python3 scripts/pipeline.py
+        - docker exec astro-project-backend-1 python3 -m pytest -q tests/test_billing_checkout_sessions.py tests/test_billing_checkout_resume.py tests/test_one_off_access_runtime.py tests/test_one_off_entitlements_scaffold.py tests/test_legacy_workflow_one_off_alignment.py tests/test_report_contract.py
+        - PYTHONPATH=. python3 -m pytest tests/test_one_off_runtime_smoke.py tests/test_admin_grant_one_off_alignment.py
+      frontend:
+        - ./scripts/run_e2e.sh e2e/billing-catalog-alignment.spec.ts
+        - ./scripts/run_e2e.sh e2e/history-cta.spec.ts
+        - ./scripts/run_e2e.sh e2e/report-create.spec.ts
+        - ./scripts/run_e2e.sh e2e/report-failure.spec.ts
+        - ./scripts/run_e2e.sh e2e/month-forecast-bridge-storefront.spec.ts
+        - ./scripts/run_e2e.sh e2e/year-forecast-bridge-storefront.spec.ts
+        - ./scripts/run_e2e.sh e2e/solar-return-bridge-storefront.spec.ts
+        - ./scripts/run_e2e.sh e2e/synastry-bridge-storefront.spec.ts
+        - E2E_ENABLE_ONE_OFF_RUNTIME=1 ./scripts/run_e2e.sh e2e/billing-mock.spec.ts -g "should bridge natal one-off mock checkout through billing complete to read"
+      replay:
+        - PYTHONPATH=/opt/astro-project python3 tools/log_watch/forecast_catalog_watch.py --catalog-log /opt/astro-project/logs/catalog.jsonl --window-minutes 30
+    evidence:
+      - docs/GRACE_SLICE_FORECAST_LADDER.md
+      - docs/BILLING_CATALOG_ALIGNMENT_2026-03-19.md
+      - logs/forecast-catalog-watch_MEMORY.md
+
+watch:
+  flows:
+    - id: FLOW-FEED-ADMIN
+      label: "Feed & Admin"
+      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/feed_admin_watch.py
+      args:
+        --feed-log: /var/log/astro/feed.jsonl
+        --admin-log: /var/log/astro/admin.jsonl
+        --window-minutes: 30
+      slices:
+        - FEED-PERSONALIZED-DAILY
+        - ADMIN-ENTITLEMENTS-FLOW
+    - id: FLOW-SCHEDULER
+      label: "Scheduler & Notifications"
+      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/scheduler_watch.py
+      args:
+        --scheduler-log: /var/log/astro/scheduler.jsonl
+        --window-minutes: 60
+        --job: FLOW-DAILY-FEED
+        --job: FLOW-NOTIFY
+        --json: true
+      json_output: true
+      stale_after: 90m
+      slices:
+        - FEED-PERSONALIZED-DAILY
+        - ADMIN-ENTITLEMENTS-FLOW
+    - id: FLOW-FORECAST-CATALOG
+      label: "Forecast Catalog"
+      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/forecast_catalog_watch.py
+      args:
+        --catalog-log: /opt/astro-project/logs/catalog.jsonl
+        --window-minutes: 30
+      json_output: true
+      slices:
+        - FORECAST-LADDER-CATALOG-FLIP
+    - id: FLOW-BILLING
+      label: "Billing & Credits"
+      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py
+      args:
+        --billing-log: /var/log/astro/billing.jsonl
+        --window-minutes: 20
+        --json: true
+      json_output: true
+      stale_after: 30m
+      slices:
+        - FORECAST-LADDER-CATALOG-FLIP

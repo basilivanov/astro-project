@@ -5,6 +5,70 @@
 # GRACE_ANCHORS: [WORKFLOW_UTILS, WORKFLOW_CONTEXT, WORKFLOW_CHART, WORKFLOW_SECTIONS, WORKFLOW_MARKDOWN, WORKFLOW_GENERATION]
 # ############################################################################
 
+# START_MODULE_CONTRACT: M-REPORT-WORKFLOW
+# purpose: Orchestrate report context assembly, chart calculation, section generation, persistence, and delivery notifications.
+# inputs:
+#   - Report payload/request objects with client, chart, and report-type fields
+#   - SQLAlchemy session plus Report / ReportChunk / ReportRun rows
+#   - LLM orchestration dependencies, chart engines, and semantic-layer builders
+# outputs:
+#   - Report context dictionaries, chart payloads, section specs, section content, and delivery side effects
+#   - Report row/chunk/run mutations aligned with backend runtime and admin flows
+# trace_obligations:
+#   - Public workflow entrypoints emit contract/block-aware logs through shared workflow helper
+#   - Every lifecycle log carries module, contract, block, and correlation_id or report_id
+#   - Resume/checkout/admin bridge wording stays aligned with access_control and one_off_entitlements semantics
+# vm_ids:
+#   - VM-REPORT-WORKFLOW-PIPELINE
+#   - VM-REPORT-CONTRACT
+#   - VM-REPORT-CONTEXT
+# dependencies:
+#   - backend/app/services/access_control.py
+#   - backend/app/services/one_off_entitlements.py
+#   - backend/app/llm/orchestrator.py
+#   - backend/app/reporting/section_templates.py
+# side_effects:
+#   - Persists ReportRun/ReportChunk/report status changes
+#   - Emits workflow/admin trace logs and telegram delivery notifications
+# invariants:
+#   - Section ordering remains stable for persisted chunks and rendered delivery
+#   - Fallback content preserves usable report output when allowed by workflow policy
+# failure_policy:
+#   - Propagates unrecoverable generation/chart failures to caller-managed flows
+#   - Marks report/chunks/runs failed or partial with structured trace evidence
+# non_goals:
+#   - Does not decide billing/access entitlements directly
+#   - Does not own checkout resume state transitions outside workflow logging alignment
+# END_MODULE_CONTRACT: M-REPORT-WORKFLOW
+
+# START_MODULE_MAP: M-REPORT-WORKFLOW
+# purpose: Map workflow entrypoints to semantic generation blocks and verification traces.
+# entrypoints:
+#   - start_report_run -> RUN_START_RECORD
+#   - build_section_specs -> SECTION_SPEC_RESOLUTION
+#   - load_section_specs_for_report -> SECTION_SPEC_RESTORE
+#   - build_chart_data -> CHART_ENGINE_DISPATCH / HORARY_ADAPTER_BRIDGE / SOLAR_RETURN_BRIDGE / SYNASTRY_BRIDGE
+#   - build_report_context -> FORECAST_WINDOW_RESOLUTION / CLIENT_PROFILE_NORMALIZATION / FACTS_CONTEXT_TRIM / FORECAST_SEMANTIC_LAYER
+#   - initialize_report_chunks -> CHUNK_RESET / CHUNK_UPSERT / CHUNK_STATUS_SUMMARY
+#   - generate_section_content -> SECTION_STATIC_OVERRIDE / SECTION_LLM_GENERATION / SECTION_FALLBACK_POLICY
+#   - generate_report_sections -> GENERATION_PREPARE / GENERATION_PARALLEL_SECTIONS / GENERATION_FINAL_SYNTHESIS / GENERATION_FINALIZE / REPORT_READY_NOTIFY
+# trace_obligations:
+#   - Logs use workflow helper with module, contract, block, and report_id/correlation_id
+#   - Admin queue/resume/checkout wording stays aligned with access_control and one_off_entitlements bridges
+# vm_ids:
+#   - VM-REPORT-WORKFLOW-PIPELINE
+#   - VM-REPORT-CONTRACT
+#   - VM-REPORT-CONTEXT
+# owned_tests:
+#   - tests/test_report_workflow.py
+#   - tests/test_report_contract.py
+#   - tests/test_report_context.py
+# adjacent_modules:
+#   - backend/app/services/access_control.py
+#   - backend/app/services/one_off_entitlements.py
+#   - backend/app/reporting/section_templates.py
+# END_MODULE_MAP: M-REPORT-WORKFLOW
+
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +106,17 @@ from ..llm.validator import validate_llm_hallucinations
 from ..horary.core import HoraryCore
 from ..horary.adapters import detect_adapter
 from ..models import Report, ReportChunk, ReportRun, User
-from ..reporting.section_templates import get_default_sections
+from ..reporting.section_templates import (
+    build_horary_sections,
+    build_month_sections,
+    build_natal_sections,
+    build_solar_sections,
+    build_synastry_sections,
+    build_ten_year_sections,
+    build_week_sections,
+    build_year_sections,
+    get_default_sections,
+)
 from ..reporting.static_content import SECTION_INTROS
 from ..reporting.markdown_helpers import (
     format_technical_appendix, 
@@ -51,6 +125,7 @@ from ..reporting.markdown_helpers import (
     get_chart_facts_json
 )
 from ..reporting.telegram_renderer import render_report_chunks_to_messages
+from ..logging_utils import get_correlation_ids, log_grace_event
 from .notification import send_bot_notification
 from .forecast_semantics import (
     build_month_forecast_semantic_layer,
@@ -58,6 +133,20 @@ from .forecast_semantics import (
 )
 
 logger = structlog.get_logger()
+MODULE_ID = "M-REPORT-WORKFLOW"
+
+
+CANONICAL_TEMPLATE_BUILDERS = {
+    "week_forecast": build_week_sections,
+    "month_forecast": build_month_sections,
+    "year_forecast": build_year_sections,
+    "ten_year_forecast": build_ten_year_sections,
+    "natal_master": build_natal_sections,
+    "solar_return": build_solar_sections,
+    "synastry": build_synastry_sections,
+    "horary": build_horary_sections,
+    "horary_answer": build_horary_sections,
+}
 
 
 def _admin_report_log_context(report: Report | None, **fields: object) -> dict[str, object]:
@@ -69,6 +158,95 @@ def _admin_report_log_context(report: Report | None, **fields: object) -> dict[s
         context["client_id"] = str(report.client_id)
     context.update({key: value for key, value in fields.items() if value is not None})
     return context
+
+
+def _workflow_trace_context(
+    *,
+    correlation_id: Optional[str] = None,
+    report: Optional[Report] = None,
+    report_id: Optional[object] = None,
+) -> dict[str, Optional[str]]:
+    """Return normalized workflow trace identifiers for report lifecycle logs."""
+    trace_context = get_correlation_ids()
+    resolved_report_id = str(report.id) if report is not None else (str(report_id) if report_id is not None else None)
+    return {
+        "correlation_id": correlation_id or trace_context.get("correlation_id"),
+        "trace_id": trace_context.get("trace_id"),
+        "correlation_source": trace_context.get("correlation_source"),
+        "report_id": resolved_report_id,
+    }
+
+
+def _build_workflow_logger(
+    *,
+    contract: str,
+    block: str,
+    correlation_id: Optional[str] = None,
+    report_id: Optional[str] = None,
+    **fields,
+):
+    """Create a bound workflow logger with canonical GRACE trace fields."""
+    return logger.bind(
+        module=MODULE_ID,
+        contract=contract,
+        block=block,
+        correlation_id=correlation_id,
+        report_id=report_id,
+        **fields,
+    )
+
+
+def _workflow_log(
+    level: str,
+    event: str,
+    *,
+    fn: str,
+    contract: str,
+    block: str,
+    correlation_id: Optional[str] = None,
+    report: Optional[Report] = None,
+    report_id: Optional[object] = None,
+    **fields,
+) -> None:
+    """Emit canonical workflow logs aligned with access and entitlement modules."""
+    trace_context = _workflow_trace_context(
+        correlation_id=correlation_id,
+        report=report,
+        report_id=report_id,
+    )
+    payload = {
+        **(
+            {
+                key: value
+                for key, value in _admin_report_log_context(report).items()
+                if key != "report_id"
+            }
+            if report is not None
+            else {}
+        ),
+        **{key: value for key, value in fields.items() if value is not None},
+    }
+    bound_logger = _build_workflow_logger(
+        contract=contract,
+        block=block,
+        correlation_id=trace_context["correlation_id"],
+        report_id=trace_context["report_id"],
+        fn=fn,
+    )
+    getattr(bound_logger, level)(event, **payload)
+    log_grace_event(
+        level,
+        event,
+        module=MODULE_ID,
+        fn=fn,
+        contract=contract,
+        block=block,
+        correlation_id=trace_context["correlation_id"],
+        report_id=trace_context["report_id"],
+        trace_id=trace_context["trace_id"],
+        correlation_source=trace_context["correlation_source"],
+        **payload,
+    )
 
 PLANET_EMOJI_MAP = {
     "Солнце": "☀️",
@@ -533,11 +711,25 @@ def build_forecast_window(report_type: str, tz_str: str = "UTC") -> dict:
 
 def start_report_run(report: Report, db: Session) -> ReportRun:
     """
-    # PURPOSE: Create a report run record for observability.
-    # INPUT: report, db session.
-    # OUTPUT: ReportRun instance.
-    # CONTEXT: Used by workflow entrypoints before generation.
+    # START_CONTRACT: FN-START-REPORT-RUN
+    # purpose: Persist a workflow run record before section generation begins.
+    # inputs: report entity, db session.
+    # returns: ReportRun instance bound to report lifecycle.
+    # side_effects: inserts ReportRun row and emits workflow lifecycle logs.
+    # errors: propagates database write failures to caller-managed transaction scope.
+    # END_CONTRACT: FN-START-REPORT-RUN
     """
+
+    # START_BLOCK: RUN_START_RECORD
+    _workflow_log(
+        "info",
+        "report.workflow.run_start",
+        fn="start_report_run",
+        contract="FN-START-REPORT-RUN",
+        block="RUN_START_RECORD",
+        report=report,
+        status="in_progress",
+    )
 
     run = ReportRun(
         report_id=report.id,
@@ -547,6 +739,16 @@ def start_report_run(report: Report, db: Session) -> ReportRun:
     db.add(run)
     db.commit()
     db.refresh(run)
+    _workflow_log(
+        "info",
+        "report.workflow.run_started",
+        fn="start_report_run",
+        contract="FN-START-REPORT-RUN",
+        block="RUN_START_RECORD",
+        report=report,
+        run_id=str(run.id),
+    )
+    # END_BLOCK: RUN_START_RECORD
     return run
 
 
@@ -3104,6 +3306,26 @@ def finish_report_run(
 
 
 def build_section_specs(payload: Any) -> List[SectionSpec]:
+    """Resolve semantic section specs using canonical builders and workflow overrides.
+
+    # START_CONTRACT: FN-BUILD-REPORT-SECTIONS
+    # purpose: Resolve semantic section specs for a report request.
+    # inputs: report workflow payload with report_type and optional custom section data.
+    # returns: ordered list of SectionSpec entries for generation/resume flows.
+    # side_effects: emits semantic section-resolution logs only.
+    # errors: propagates template/spec normalization failures.
+    # END_CONTRACT: FN-BUILD-REPORT-SECTIONS
+    """
+    # START_BLOCK: SECTION_SPEC_RESOLUTION
+    _workflow_log(
+        "info",
+        "report.workflow.section_specs_resolve",
+        fn="build_section_specs",
+        contract="FN-BUILD-REPORT-SECTIONS",
+        block="SECTION_SPEC_RESOLUTION",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+    )
     """
     # PURPOSE: Resolve section specs from payload or defaults.
     # INPUT: payload (ReportWorkflowRequest-like).
@@ -3112,7 +3334,7 @@ def build_section_specs(payload: Any) -> List[SectionSpec]:
     """
 
     if getattr(payload, "sections", None):
-        return [
+        specs = [
             SectionSpec(
                 section_id=section.section_id,
                 title=section.title,
@@ -3121,19 +3343,65 @@ def build_section_specs(payload: Any) -> List[SectionSpec]:
             )
             for section in payload.sections
         ]
+        _workflow_log(
+            "info",
+            "report.workflow.section_specs_resolved",
+            fn="build_section_specs",
+            contract="FN-BUILD-REPORT-SECTIONS",
+            block="SECTION_SPEC_RESOLUTION",
+            report_id=getattr(payload, "report_id", None),
+            report_type=getattr(payload, "report_type", None),
+            section_total=len(specs),
+            source="payload_sections",
+        )
+        # END_BLOCK: SECTION_SPEC_RESOLUTION
+        return specs
     
     mode = getattr(payload, "report_mode", "full")
-    sections = get_default_sections(payload.report_type, mode=mode)
+    canonical_builder = CANONICAL_TEMPLATE_BUILDERS.get(payload.report_type)
+    sections = canonical_builder() if canonical_builder and mode == "full" else get_default_sections(payload.report_type, mode=mode)
     
     # Filter out house-based sections if time is unknown
     if not getattr(payload, "birth_time_known", True):
         house_based = {"axes_truths", "balance_wheel_1_6", "balance_wheel_7_12", "solar_money", "solar_love"}
         sections = [s for s in sections if s.section_id not in house_based]
         
+    _workflow_log(
+        "info",
+        "report.workflow.section_specs_resolved",
+        fn="build_section_specs",
+        contract="FN-BUILD-REPORT-SECTIONS",
+        block="SECTION_SPEC_RESOLUTION",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+        section_total=len(sections),
+        source="default_catalog",
+        report_mode=mode,
+    )
+    # END_BLOCK: SECTION_SPEC_RESOLUTION
     return sections
 
 
 def load_section_specs_for_report(report: Report, payload_data: Optional[dict]) -> List[SectionSpec]:
+    """
+    # START_CONTRACT: FN-RESUME-REPORT-CREATION
+    # purpose: Restore section specs for persisted report resume/admin replay flows.
+    # inputs: report row and optional serialized payload data.
+    # returns: ordered list of SectionSpec entries for resumed workflow execution.
+    # side_effects: emits resume-bridge workflow logs aligned with checkout/admin wording.
+    # errors: propagates invalid payload/spec restoration failures.
+    # END_CONTRACT: FN-RESUME-REPORT-CREATION
+    """
+    # START_BLOCK: SECTION_SPEC_RESTORE
+    _workflow_log(
+        "info",
+        "report.workflow.resume_restore_start",
+        fn="load_section_specs_for_report",
+        contract="FN-RESUME-REPORT-CREATION",
+        block="SECTION_SPEC_RESTORE",
+        report=report,
+        payload_present=payload_data is not None,
+    )
     """
     # PURPOSE: Resolve section specs for a report without raising errors.
     # INPUT: report, payload_data (dict|None).
@@ -3152,15 +3420,43 @@ def load_section_specs_for_report(report: Report, payload_data: Optional[dict]) 
                         self.report_mode = data.get("report_mode", "full")
 
                 payload = PayloadShim(payload_data)
-            return build_section_specs(payload)
+            specs = build_section_specs(payload)
+            _workflow_log(
+                "info",
+                "report.workflow.resume_restore_complete",
+                fn="load_section_specs_for_report",
+                contract="FN-RESUME-REPORT-CREATION",
+                block="SECTION_SPEC_RESTORE",
+                report=report,
+                section_total=len(specs),
+                source="payload_data",
+            )
+            # END_BLOCK: SECTION_SPEC_RESTORE
+            return specs
         except Exception as exc:
-            logger.error(
-                "report.payload.invalid",
-                block_id="REPORT_PAYLOAD",
-                report_id=str(report.id),
+            _workflow_log(
+                "error",
+                "report.workflow.resume_restore_invalid_payload",
+                fn="load_section_specs_for_report",
+                contract="FN-RESUME-REPORT-CREATION",
+                block="SECTION_SPEC_RESTORE",
+                report=report,
                 error=str(exc),
             )
-    return get_default_sections(report.report_type, mode="full")
+    specs = get_default_sections(report.report_type, mode="full")
+    _workflow_log(
+        "info",
+        "report.workflow.resume_restore_complete",
+        fn="load_section_specs_for_report",
+        contract="FN-RESUME-REPORT-CREATION",
+        block="SECTION_SPEC_RESTORE",
+        report=report,
+        section_total=len(specs),
+        source="default_catalog",
+        bridge="resume_checkout_fallback",
+    )
+    # END_BLOCK: SECTION_SPEC_RESTORE
+    return specs
 # #END_BLOCK_WORKFLOW_UTILS
 
 
@@ -3222,6 +3518,25 @@ def resolve_solar_return_target_year(payload: Any, now: Optional[datetime] = Non
 
 
 def build_chart_data(payload: Any) -> dict:
+    """
+    # START_CONTRACT: FN-CREATE-REPORT-CHART-DATA
+    # purpose: Build canonical chart payload for report generation and resume flows.
+    # inputs: report workflow payload with report_type, birth data, and optional bridge fields.
+    # returns: chart data dictionary used by context builders and sections.
+    # side_effects: emits chart-engine and bridge-aligned workflow logs.
+    # errors: propagates engine/adaptor failures to caller.
+    # END_CONTRACT: FN-CREATE-REPORT-CHART-DATA
+    """
+    # START_BLOCK: CHART_ENGINE_DISPATCH
+    _workflow_log(
+        "info",
+        "report.workflow.chart_build_start",
+        fn="build_chart_data",
+        contract="FN-CREATE-REPORT-CHART-DATA",
+        block="CHART_ENGINE_DISPATCH",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+    )
     """
     # PURPOSE: Calculate chart data for report context.
     # INPUT: payload (ReportWorkflowRequest-like).
@@ -7280,12 +7595,16 @@ def build_section_context(section_id: str, global_context: dict, chart_data: dic
 
 def build_report_context(payload: Any, chart_data: dict) -> dict:
     """
-    # PURPOSE: Build the LLM prompt context for report generation.
-    # INPUT: payload (ReportWorkflowRequest-like), chart_data (dict).
-    # OUTPUT: Context dict for LLM.
-    # CONTEXT: Used by the LLM orchestrator.
+    # START_CONTRACT: FN-BUILD-REPORT-CONTEXT
+    # purpose: Assemble canonical prompt/runtime context for report generation and resume flows.
+    # inputs: report payload plus canonical chart_data dictionary.
+    # returns: context dict for semantic blocks, llm orchestration, and fallback rendering.
+    # side_effects: emits context assembly and forecast semantic-layer logs.
+    # errors: suppresses forecast enrichment failures into logs while preserving base context output.
+    # END_CONTRACT: FN-BUILD-REPORT-CONTEXT
     """
     
+    # START_BLOCK: FORECAST_WINDOW_RESOLUTION
     # Determine forecast timezone (current location > birth location > UTC)
     forecast_tz = (
         payload.solar_current_timezone 
@@ -7294,14 +7613,36 @@ def build_report_context(payload: Any, chart_data: dict) -> dict:
     )
     
     forecast_window = build_forecast_window(payload.report_type, forecast_tz)
-    
+    _workflow_log(
+        "info",
+        "report.workflow.context_forecast_window",
+        fn="build_report_context",
+        contract="FN-BUILD-REPORT-CONTEXT",
+        block="FORECAST_WINDOW_RESOLUTION",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+        forecast_timezone=forecast_tz,
+    )
+    # END_BLOCK: FORECAST_WINDOW_RESOLUTION
+
+    # START_BLOCK: CLIENT_PROFILE_NORMALIZATION
     # Clean client name (remove text in parentheses)
     clean_name = payload.client_name
     clean_name = re.sub(r'\s*\(.*?\)', '', clean_name)
     clean_name = re.sub(r'\s*\[.*?\]', '', clean_name)
     clean_name = clean_name.strip()
-    logger.info("context.client_name.cleaned", original=payload.client_name, cleaned=clean_name)
-    
+    _workflow_log(
+        "info",
+        "report.workflow.context_client_name_cleaned",
+        fn="build_report_context",
+        contract="FN-BUILD-REPORT-CONTEXT",
+        block="CLIENT_PROFILE_NORMALIZATION",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+        original=payload.client_name,
+        cleaned=clean_name,
+    )
+
     # Inferred gender
     gender = infer_gender(clean_name)
     
@@ -7366,11 +7707,23 @@ def build_report_context(payload: Any, chart_data: dict) -> dict:
         "facts": get_chart_facts_json(chart_data)
     }
 
+    # END_BLOCK: CLIENT_PROFILE_NORMALIZATION
+
+    # START_BLOCK: FACTS_CONTEXT_TRIM
     # Optimization: context size control for free models
     # If facts JSON is too large, it can trigger 402 on OpenRouter free accounts
     facts_json = json.dumps(context["facts"])
     if len(facts_json) > 3000:
-        logger.info("context.facts.truncated", original_len=len(facts_json))
+        _workflow_log(
+            "info",
+            "report.workflow.context_facts_truncated",
+            fn="build_report_context",
+            contract="FN-BUILD-REPORT-CONTEXT",
+            block="FACTS_CONTEXT_TRIM",
+            report_id=getattr(payload, "report_id", None),
+            report_type=getattr(payload, "report_type", None),
+            original_len=len(facts_json),
+        )
         # Simple truncation of aspects if too many
         if len(context["facts"].get("aspects", [])) > 10:
             context["facts"]["aspects"] = context["facts"]["aspects"][:10]
@@ -7381,6 +7734,9 @@ def build_report_context(payload: Any, chart_data: dict) -> dict:
     if payload.report_type not in ["horary", "horary_answer"]:
         context["chart"] = chart_data
 
+    # END_BLOCK: FACTS_CONTEXT_TRIM
+
+    # START_BLOCK: FORECAST_SEMANTIC_LAYER
     # Inject detailed forecast data
     if payload.report_type in ["year_forecast", "week_forecast", "month_forecast", "ten_year_forecast"]:
         try:
@@ -7459,8 +7815,28 @@ def build_report_context(payload: Any, chart_data: dict) -> dict:
                 )
 
         except Exception as exc:
-            logger.error("context.forecast.error", error=str(exc))
-            
+            _workflow_log(
+                "error",
+                "report.workflow.context_forecast_error",
+                fn="build_report_context",
+                contract="FN-BUILD-REPORT-CONTEXT",
+                block="FORECAST_SEMANTIC_LAYER",
+                report_id=getattr(payload, "report_id", None),
+                report_type=getattr(payload, "report_type", None),
+                error=str(exc),
+            )
+
+    _workflow_log(
+        "info",
+        "report.workflow.context_ready",
+        fn="build_report_context",
+        contract="FN-BUILD-REPORT-CONTEXT",
+        block="FORECAST_SEMANTIC_LAYER",
+        report_id=getattr(payload, "report_id", None),
+        report_type=getattr(payload, "report_type", None),
+        keys=sorted(context.keys()),
+    )
+    # END_BLOCK: FORECAST_SEMANTIC_LAYER
     return context
 # #END_BLOCK_WORKFLOW_CONTEXT
 
@@ -7473,16 +7849,32 @@ def initialize_report_chunks(
     reset: bool = False,
 ) -> dict:
     """
-    # PURPOSE: Ensure chunk placeholders exist for each section.
-    # INPUT: report, section_specs, db, reset flag.
-    # OUTPUT: Dict[section_id, ReportChunk].
-    # CONTEXT: Used before generation to show progress.
+    # START_CONTRACT: FN-SAVE-SECTION-PAYLOAD
+    # purpose: Ensure persisted section payload/chunk placeholders exist before generation or resume.
+    # inputs: report row, section specs, db session, reset flag.
+    # returns: mapping of section_id to ReportChunk rows.
+    # side_effects: mutates chunk rows and emits admin/workflow queue logs.
+    # errors: propagates database persistence failures.
+    # END_CONTRACT: FN-SAVE-SECTION-PAYLOAD
     """
 
     if reset:
+        # START_BLOCK: CHUNK_RESET
         db.query(ReportChunk).filter(ReportChunk.report_id == report.id).delete()
         db.flush()
-        logger.info("admin.queue", **_admin_report_log_context(report, stage="reset", reset=True, section_total=len(section_specs)))
+        _workflow_log(
+            "info",
+            "report.workflow.queue_reset",
+            fn="initialize_report_chunks",
+            contract="FN-SAVE-SECTION-PAYLOAD",
+            block="CHUNK_RESET",
+            report=report,
+            stage="reset",
+            reset=True,
+            section_total=len(section_specs),
+            bridge="admin_resume_checkout",
+        )
+        # END_BLOCK: CHUNK_RESET
 
     chunks = {
         chunk.section: chunk
@@ -7491,6 +7883,7 @@ def initialize_report_chunks(
         .all()
     }
 
+    # START_BLOCK: CHUNK_UPSERT
     for index, spec in enumerate(section_specs):
         chunk = chunks.get(spec.section_id)
         if chunk:
@@ -7511,18 +7904,23 @@ def initialize_report_chunks(
             db.add(chunk)
         chunks[spec.section_id] = chunk
 
-    logger.info(
-        "admin.queue",
-        **_admin_report_log_context(
-            report,
-            stage="initialized",
-            reset=reset,
-            section_total=len(section_specs),
-            pending=sum(1 for chunk in chunks.values() if chunk.status == "pending"),
-            running=sum(1 for chunk in chunks.values() if chunk.status == "in_progress"),
-            error=sum(1 for chunk in chunks.values() if chunk.status in {"failed", "error"}),
-        ),
+    # END_BLOCK: CHUNK_UPSERT
+    # START_BLOCK: CHUNK_STATUS_SUMMARY
+    _workflow_log(
+        "info",
+        "report.workflow.queue_initialized",
+        fn="initialize_report_chunks",
+        contract="FN-SAVE-SECTION-PAYLOAD",
+        block="CHUNK_STATUS_SUMMARY",
+        report=report,
+        stage="initialized",
+        reset=reset,
+        section_total=len(section_specs),
+        pending=sum(1 for chunk in chunks.values() if chunk.status == "pending"),
+        running=sum(1 for chunk in chunks.values() if chunk.status == "in_progress"),
+        error=sum(1 for chunk in chunks.values() if chunk.status in {"failed", "error"}),
     )
+    # END_BLOCK: CHUNK_STATUS_SUMMARY
 
     return chunks
 # #END_BLOCK_WORKFLOW_SECTIONS
@@ -7537,13 +7935,41 @@ async def generate_section_content(
     retry_attempts: int,
     use_template: bool
 ) -> SectionResult:
+    """
+    # START_CONTRACT: FN-ENQUEUE-REPORT-GENERATION
+    # purpose: Produce a single section payload through static override, llm generation, or fallback policy.
+    # inputs: section spec, section/global context, chart data, llm client config, retry/fallback settings.
+    # returns: SectionResult with normalized content and usage metrics.
+    # side_effects: emits section generation trace logs aligned with workflow/admin monitoring.
+    # errors: propagates non-fallback generation failures to caller.
+    # END_CONTRACT: FN-ENQUEUE-REPORT-GENERATION
+    """
     import time
     start_t = time.perf_counter()
-    logger.info("gen.content.check", block_id="REPORT_GEN", section_id=spec.section_id, title=spec.title)
-    
+    _workflow_log(
+        "info",
+        "report.workflow.section_generation_start",
+        fn="generate_section_content",
+        contract="FN-ENQUEUE-REPORT-GENERATION",
+        block="SECTION_STATIC_OVERRIDE",
+        report_id=context.get("report_id") or context.get("client", {}).get("report_id"),
+        section_id=spec.section_id,
+        title=spec.title,
+    )
+
+    # START_BLOCK: SECTION_STATIC_OVERRIDE
     # 1. Static Overrides
     if spec.section_id == "input_frame":
-        logger.info("gen.content.static", block_id="REPORT_GEN", section="input_frame")
+        _workflow_log(
+            "info",
+            "report.workflow.section_static_override",
+            fn="generate_section_content",
+            contract="FN-ENQUEUE-REPORT-GENERATION",
+            block="SECTION_STATIC_OVERRIDE",
+            report_id=context.get("report_id") or context.get("client", {}).get("report_id"),
+            section="input_frame",
+            section_id=spec.section_id,
+        )
         
         blocks = []
         
@@ -7949,8 +8375,21 @@ async def generate_section_content(
             # But generate_section_with_retries should guarantee valid JSON if valid.
             pass
         
+    # END_BLOCK: SECTION_STATIC_OVERRIDE
+    # START_BLOCK: SECTION_LLM_GENERATION
     result.content = inject_planet_emojis(raw)
     result.duration_ms = int((time.perf_counter() - start_t) * 1000)
+    _workflow_log(
+        "info",
+        "report.workflow.section_generation_complete",
+        fn="generate_section_content",
+        contract="FN-ENQUEUE-REPORT-GENERATION",
+        block="SECTION_LLM_GENERATION",
+        report_id=context.get("report_id") or context.get("client", {}).get("report_id"),
+        section_id=spec.section_id,
+        duration_ms=result.duration_ms,
+    )
+    # END_BLOCK: SECTION_LLM_GENERATION
     return result
 
 # #START_BLOCK_WORKFLOW_GENERATION
@@ -7966,12 +8405,16 @@ async def generate_report_sections(
     run: Optional[ReportRun] = None,
 ) -> tuple[list, dict]:
     """
-    # PURPOSE: Generate sections in parallel and persist chunks.
-    # INPUT: report, payload, db, llm_client, reset_chunks, raise_on_error.
-    # OUTPUT: (generated_sections, chart_data).
-    # CONTEXT: Async workflow with notifications.
+    # START_CONTRACT: FN-HANDLE-GENERATION-RESULT
+    # purpose: Orchestrate full report generation, persistence, fallback handling, and ready notification.
+    # inputs: report row, payload, db session, llm config, reset flag, error policy, optional run row.
+    # returns: generated section results and chart_data for downstream rendering/export.
+    # side_effects: mutates report/chunks/run state, emits admin/workflow logs, schedules telegram delivery.
+    # errors: propagates unrecoverable generation failures when raise_on_error is enabled.
+    # END_CONTRACT: FN-HANDLE-GENERATION-RESULT
     """
 
+    # START_BLOCK: GENERATION_PREPARE
     section_specs = build_section_specs(payload)
     total_expected = len(section_specs)
     
@@ -7996,13 +8439,18 @@ async def generate_report_sections(
     if effective_mode in {"openrouter", "cheap"}:
         fallback_models = resolve_llm_fallback_chain()
     
-    logger.info(
-        "report.gen.start",
-        report_id=str(report.id),
+    _workflow_log(
+        "info",
+        "report.workflow.generation_start",
+        fn="generate_report_sections",
+        contract="FN-HANDLE-GENERATION-RESULT",
+        block="GENERATION_PREPARE",
+        report=report,
         mode=effective_mode,
         sections_total=total_expected,
-        fallback_chain=fallback_models
+        fallback_chain=fallback_models,
     )
+    # END_BLOCK: GENERATION_PREPARE
 
     # Semaphore for rate limiting (OpenRouter limit or CLI concurrency control)
     semaphore = asyncio.Semaphore(resolve_llm_concurrency(effective_mode))
@@ -8015,6 +8463,7 @@ async def generate_report_sections(
     total_total_tokens = 0
 
     # Helper for single section processing
+    # START_BLOCK: GENERATION_PARALLEL_SECTIONS
     async def process_section(spec: SectionSpec, index: int) -> SectionResult:
         nonlocal success_count, fallback_count, total_prompt_tokens, total_completion_tokens, total_total_tokens
         async with semaphore:
@@ -8064,15 +8513,31 @@ async def generate_report_sections(
                 # If content contains error callout, it's a soft fallback
                 if "Ошибка генерации" in content:
                     fallback_count += 1
-                    logger.info("admin.error", **_admin_report_log_context(report, stage="fallback_content", section_id=spec.section_id, run_id=str(run.id), fallback=True))
+                    _workflow_log(
+                        "info",
+                        "report.workflow.section_fallback_content",
+                        fn="generate_report_sections",
+                        contract="FN-HANDLE-GENERATION-RESULT",
+                        block="GENERATION_PARALLEL_SECTIONS",
+                        report=report,
+                        stage="fallback_content",
+                        section_id=spec.section_id,
+                        run_id=str(run.id) if run else None,
+                        fallback=True,
+                    )
                 else:
                     success_count += 1
                 
-                logger.info(
-                    "report.section.done",
+                _workflow_log(
+                    "info",
+                    "report.workflow.section_done",
+                    fn="generate_report_sections",
+                    contract="FN-HANDLE-GENERATION-RESULT",
+                    block="GENERATION_PARALLEL_SECTIONS",
+                    report=report,
                     section_id=spec.section_id,
                     duration_ms=getattr(result, "duration_ms", 0),
-                    status="completed"
+                    status="completed",
                 )
                     
                 return result
@@ -8084,8 +8549,20 @@ async def generate_report_sections(
                     # Validation errors are also allowed to fallback
                     allow_fallback = True
                 
-                logger.error("report.section.error", block_id="REPORT_GEN", section_id=spec.section_id, error=error_msg, exc_type=type(exc).__name__, allow_fallback=allow_fallback)
-                logger.error("admin.error", **_admin_report_log_context(report, stage="section_error", section_id=spec.section_id, run_id=str(run.id), allow_fallback=allow_fallback, error_type=type(exc).__name__))
+                _workflow_log(
+                    "error",
+                    "report.workflow.section_error",
+                    fn="generate_report_sections",
+                    contract="FN-HANDLE-GENERATION-RESULT",
+                    block="GENERATION_PARALLEL_SECTIONS",
+                    report=report,
+                    section_id=spec.section_id,
+                    error=error_msg,
+                    exc_type=type(exc).__name__,
+                    allow_fallback=allow_fallback,
+                    stage="section_error",
+                    run_id=str(run.id) if run else None,
+                )
 
                 if allow_fallback:
                     if isinstance(exc, LLMContentValidationError):
@@ -8095,7 +8572,18 @@ async def generate_report_sections(
                     else:
                         fb_content = inject_planet_emojis(build_section_fallback_content(spec, section_context))
                     fallback_count += 1
-                    logger.info("admin.error", **_admin_report_log_context(report, stage="fallback_applied", section_id=spec.section_id, run_id=str(run.id), fallback=True))
+                    _workflow_log(
+                        "info",
+                        "report.workflow.section_fallback_applied",
+                        fn="generate_report_sections",
+                        contract="FN-HANDLE-GENERATION-RESULT",
+                        block="GENERATION_PARALLEL_SECTIONS",
+                        report=report,
+                        stage="fallback_applied",
+                        section_id=spec.section_id,
+                        run_id=str(run.id) if run else None,
+                        fallback=True,
+                    )
                     if chunk:
                         chunk.content = fb_content
                         chunk.status = "completed" # Mark completed with error content
@@ -8133,6 +8621,9 @@ async def generate_report_sections(
         if raise_on_error: raise e
         return [], {}
 
+    # END_BLOCK: GENERATION_PARALLEL_SECTIONS
+
+    # START_BLOCK: GENERATION_FINAL_SYNTHESIS
     # Run Final Synthesis if others succeeded
     if final_spec and not failed:
         try:
@@ -8141,6 +8632,9 @@ async def generate_report_sections(
         except Exception as e:
             if raise_on_error: raise e
 
+    # END_BLOCK: GENERATION_FINAL_SYNTHESIS
+
+    # START_BLOCK: GENERATION_FINALIZE
     # HARD CHECK: Minimum successful sections
     # For natal_master (approx 18 sections), we expect at least 5 to consider it "usable"
     # For others (1-3 sections), we expect at least 1.
@@ -8161,16 +8655,34 @@ async def generate_report_sections(
         run.estimated_cost = Decimal(str(round(total_total_tokens * 0.0000001, 4)))
         db.commit()
 
-    logger.info(
-        "report.gen.stats",
-        report_id=str(report.id),
+    _workflow_log(
+        "info",
+        "report.workflow.generation_stats",
+        fn="generate_report_sections",
+        contract="FN-HANDLE-GENERATION-RESULT",
+        block="GENERATION_FINALIZE",
+        report=report,
         success=success_count,
         fallback=fallback_count,
         total=total_expected,
         min_required=min_required,
         total_ok=total_ok,
     )
-    logger.info("admin.queue", **_admin_report_log_context(report, stage="generation_complete", run_id=str(run.id), success=success_count, fallback=fallback_count, pending=sum(1 for chunk in chunk_map.values() if chunk.status == "pending"), running=sum(1 for chunk in chunk_map.values() if chunk.status == "in_progress"), error=sum(1 for chunk in chunk_map.values() if chunk.status in {"failed", "error"})))
+    _workflow_log(
+        "info",
+        "report.workflow.generation_complete",
+        fn="generate_report_sections",
+        contract="FN-HANDLE-GENERATION-RESULT",
+        block="GENERATION_FINALIZE",
+        report=report,
+        stage="generation_complete",
+        run_id=str(run.id) if run else None,
+        success=success_count,
+        fallback=fallback_count,
+        pending=sum(1 for chunk in chunk_map.values() if chunk.status == "pending"),
+        running=sum(1 for chunk in chunk_map.values() if chunk.status == "in_progress"),
+        error=sum(1 for chunk in chunk_map.values() if chunk.status in {"failed", "error"}),
+    )
 
     if success_count < min_required and not use_template:
         report.status = "failed"
@@ -8180,7 +8692,16 @@ async def generate_report_sections(
         )
         report.error_at = datetime.now(timezone.utc)
         db.commit()
-        logger.error("report.gen.failed_threshold", report_id=str(report.id), success=success_count, fallback=fallback_count)
+        _workflow_log(
+            "error",
+            "report.workflow.failed_threshold",
+            fn="generate_report_sections",
+            contract="FN-HANDLE-GENERATION-RESULT",
+            block="GENERATION_FINALIZE",
+            report=report,
+            success=success_count,
+            fallback=fallback_count,
+        )
     else:
         report.status = "completed"
         if fallback_count:
@@ -8193,6 +8714,9 @@ async def generate_report_sections(
             report.error_at = None
         db.commit()
         
+        # END_BLOCK: GENERATION_FINALIZE
+
+        # START_BLOCK: REPORT_READY_NOTIFY
         # Notification Logic
         if report.user_id:
             user = db.query(User).filter(User.id == report.user_id).first()
@@ -8218,18 +8742,44 @@ async def generate_report_sections(
                     )
                     messages = render_report_chunks_to_messages(chunks, title=report_name)
                 except Exception as exc:
-                    logger.error(
-                        "report.notify.render_failed",
-                        report_id=str(report.id),
+                    _workflow_log(
+                        "error",
+                        "report.workflow.notify_render_failed",
+                        fn="generate_report_sections",
+                        contract="FN-HANDLE-GENERATION-RESULT",
+                        block="REPORT_READY_NOTIFY",
+                        report=report,
                         error=str(exc),
                     )
 
                 if messages:
+                    _workflow_log(
+                        "info",
+                        "report.workflow.notify_report_ready",
+                        fn="generate_report_sections",
+                        contract="FN-HANDLE-GENERATION-RESULT",
+                        block="REPORT_READY_NOTIFY",
+                        report=report,
+                        delivery="chunked_messages",
+                        message_total=len(messages),
+                        bridge="resume_checkout_ready",
+                    )
                     asyncio.create_task(
                         _send_report_delivery_messages(user.telegram_id, messages)
                     )
                 else:
+                    _workflow_log(
+                        "info",
+                        "report.workflow.notify_report_ready",
+                        fn="generate_report_sections",
+                        contract="FN-HANDLE-GENERATION-RESULT",
+                        block="REPORT_READY_NOTIFY",
+                        report=report,
+                        delivery="single_fallback_message",
+                        bridge="resume_checkout_ready",
+                    )
                     asyncio.create_task(send_bot_notification(user.telegram_id, fallback_msg))
-    
+        # END_BLOCK: REPORT_READY_NOTIFY
+
     return generated_sections, chart_data
 # #END_BLOCK_WORKFLOW_GENERATION

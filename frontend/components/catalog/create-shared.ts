@@ -1,5 +1,22 @@
 import type { RuntimeFeatureFlags } from "../../lib/product-billing";
 
+// START_MODULE_CONTRACT: M-CATALOG-CREATE-SHARED
+// purpose: Keep shared catalog/create semantic labels and lightweight helper constants aligned across checkout/resume/read surfaces.
+// inputs:
+//   - report types, block ids, telemetry metadata fragments
+// outputs:
+//   - canonical GRACE labels and payload helper fragments for catalog flows
+// invariants:
+//   - module/block labels stay stable across catalog, checkout, history, and read pages
+// END_MODULE_CONTRACT: M-CATALOG-CREATE-SHARED
+
+// START_MODULE_MAP: M-CATALOG-CREATE-SHARED
+// entrypoints:
+//   - CATALOG_GRACE_MODULES
+//   - CATALOG_GRACE_BLOCKS
+//   - withCatalogTrace
+// END_MODULE_MAP: M-CATALOG-CREATE-SHARED
+
 export type ProductInputDraft = {
   partnerName: string;
   partnerBirthDate: string;
@@ -123,4 +140,85 @@ export function formatCreateAccessError(isOneOffFlow: boolean): string {
     return "Разовый доступ к этому разбору пока недоступен. Проверьте оплату или попробуйте снова через пару секунд.";
   }
   return "У вас нет активной подписки или закончились лимиты. Пожалуйста, оплатите доступ.";
+}
+
+
+export const CATALOG_GRACE_MODULES = {
+  analytics: "M-CATALOG-ANALYTICS",
+  checkoutResume: "M-CATALOG-CHECKOUT-RESUME",
+  reportsCatalog: "M-REPORTS-CATALOG",
+  reportsHistory: "M-REPORTS-HISTORY",
+  readReport: "M-READ-REPORT-PAGE",
+  createCheckout: "M-CREATE-CHECKOUT",
+  homeFeed: "M-HOME-FEED",
+} as const;
+
+export const CATALOG_GRACE_BLOCKS = {
+  analytics: {
+    contextMerge: "CONTEXT_MERGE",
+    payloadBuild: "PAYLOAD_BUILD",
+    correlationResolution: "CORRELATION_RESOLUTION",
+  },
+  catalog: {
+    analyticsBootstrap: "ANALYTICS_CONTEXT_BOOTSTRAP",
+    ctaTracking: "CTA_TRACKING",
+    catalogSection: "CATALOG_SECTION",
+    billingNote: "BILLING_NOTE",
+  },
+  history: {
+    analyticsBootstrap: "ANALYTICS_CONTEXT_BOOTSTRAP",
+    dataFetch: "DATA_FETCH",
+    ctaTracking: "CTA_TRACKING",
+    resumeState: "RESUME_STATE",
+  },
+  checkoutResume: {
+    tokenResolution: "TOKEN_RESOLUTION",
+    resumeLinkState: "RESUME_LINK_STATE",
+    analyticsBootstrap: "ANALYTICS_CONTEXT_BOOTSTRAP",
+    ctaReady: "CTA_READY",
+    resumeState: "RESUME_STATE",
+    ctaPrimary: "CTA_PRIMARY",
+    ctaCancel: "CTA_CANCEL",
+  },
+  read: {
+    loading: "LOADING_STATE",
+    share: "SHARE_SECTION",
+    ctaTracking: "CTA_TRACKING",
+    resumeEntry: "RESUME_ENTRY",
+    analyticsBootstrap: "ANALYTICS_CONTEXT_BOOTSTRAP",
+  },
+  create: {
+    checkoutInit: "CHECKOUT_INIT",
+    checkoutPayload: "CHECKOUT_PAYLOAD",
+    checkoutRedirect: "CHECKOUT_RESULT_REDIRECT",
+    checkoutProvider: "CHECKOUT_RESULT_PROVIDER",
+    checkoutResume: "CHECKOUT_RESULT_RESUME",
+    checkoutError: "CHECKOUT_ERROR",
+  },
+} as const;
+
+export function withCatalogTrace<T extends Record<string, unknown>>(
+  meta: T,
+  trace: {
+    module: string;
+    contract: string;
+    block: string;
+    semantic_block?: string;
+    correlation_id?: string | null;
+  },
+): T & {
+  module: string;
+  contract: string;
+  block: string;
+  semantic_block: string;
+  correlation_id?: string | null;
+} {
+  return {
+    ...meta,
+    module: trace.module,
+    contract: trace.contract,
+    block: trace.block,
+    semantic_block: trace.semantic_block ?? trace.block,
+    ...(trace.correlation_id ? { correlation_id: trace.correlation_id } : {}),
+  };
 }

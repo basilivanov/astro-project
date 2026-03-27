@@ -41,7 +41,7 @@ const detailResponse = {
   chart_svg: null,
 };
 
-async function mockNatalMasterRoutes(page: Parameters<typeof test.beforeEach>[0]['page']) {
+async function mockNatalMasterRoutes(page: import('@playwright/test').Page) {
   await page.route(reportsListRoute, async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(queueResponse) });
   });

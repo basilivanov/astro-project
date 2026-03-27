@@ -5,6 +5,51 @@
 # GRACE_ANCHORS: [BILLING_CONFIG, CREATE_PAYMENT, WEBHOOK_HANDLER]
 # ############################################################################
 
+# START_MODULE_CONTRACT: M-BILLING-CHECKOUT
+# purpose: Owns checkout session lifecycle, YooKassa integration, and downstream billing side effects.
+# owns:
+#   - backend/app/services/billing.py
+# inputs:
+#   - FastAPI billing router commands
+#   - YooKassa webhook payloads
+# outputs:
+#   - BillingCheckoutSession persistence, transactions, entitlements
+# dependencies:
+#   - yookassa SDK
+#   - SQLAlchemy Session factory
+#   - backend.app.services.one_off_entitlements
+# side_effects:
+#   - Emits billing.* structured logs
+#   - Mutates subscriptions, transactions, entitlements
+# invariants:
+#   - Resume tokens remain idempotent per checkout session
+#   - subscription_active_until never regresses when extending access
+# failure_policy:
+#   - Raises ValueError when provider config missing
+#   - Surfaces webhook errors via structured logs for watcher detection
+# non_goals:
+#   - UI orchestration or catalog pricing decisions
+# END_MODULE_CONTRACT: M-BILLING-CHECKOUT
+
+# START_MODULE_MAP: M-BILLING-CHECKOUT
+# entrypoints:
+#   - create_checkout_session
+#   - create_payment
+#   - handle_payment_succeeded
+#   - handle_payment_canceled
+#   - serialize_checkout_session
+# queues:
+#   - YooKassa webhook fan-in via /api/billing/webhook
+# owned_tests:
+#   - tests/test_billing_checkout_sessions.py
+#   - tests/test_billing_checkout_resume.py
+#   - tests/test_one_off_runtime_smoke.py
+# adjacent_modules:
+#   - backend/app/routers/billing.py (API surface)
+#   - backend/app/services/one_off_entitlements.py (grant flows)
+#   - backend/app/main.py (report bridge)
+# END_MODULE_MAP: M-BILLING-CHECKOUT
+
 import json
 import os
 import uuid
@@ -17,6 +62,7 @@ from yookassa import Configuration, Payment
 from sqlalchemy.orm import Session
 
 from ..core.feature_flags import is_one_off_entitlements_runtime_enabled
+from ..logging_utils import get_correlation_ids, log_grace_event
 from ..models import BillingCheckoutSession, Subscription, Transaction, User
 from ..services.analytics import log_analytics_event
 from .one_off_entitlements import (
@@ -30,16 +76,85 @@ from .one_off_entitlements import (
 )
 
 logger = structlog.get_logger()
+MODULE_ID = "M-BILLING-CHECKOUT"
+
+
+def _billing_log(
+    level: str,
+    event: str,
+    *,
+    fn: str,
+    block: str,
+    correlation_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    correlation_source: Optional[str] = None,
+    **fields,
+) -> None:
+    log_grace_event(
+        level,
+        event,
+        module=MODULE_ID,
+        fn=fn,
+        block=block,
+        correlation_id=correlation_id,
+        trace_id=trace_id,
+        correlation_source=correlation_source,
+        **fields,
+    )
+
+
+def _trace_context(*, checkout_session_id: Optional[uuid.UUID | str] = None) -> dict[str, Optional[str]]:
+    trace_context = get_correlation_ids()
+    resolved_checkout_session_id = (
+        str(checkout_session_id) if checkout_session_id is not None else trace_context.get("correlation_id")
+    )
+    return {
+        "correlation_id": resolved_checkout_session_id,
+        "trace_id": trace_context.get("trace_id"),
+        "correlation_source": trace_context.get("correlation_source"),
+        "checkout_session_id": resolved_checkout_session_id,
+    }
+
+
+def _emit_contract_log(
+    *,
+    event: str,
+    fn: str,
+    block: str,
+    contract: str,
+    checkout_session_id: Optional[uuid.UUID | str] = None,
+    level: str = "info",
+    **fields,
+) -> None:
+    trace_context = _trace_context(checkout_session_id=checkout_session_id)
+    _billing_log(
+        level,
+        event,
+        fn=fn,
+        block=block,
+        contract=contract,
+        correlation_id=trace_context["correlation_id"],
+        trace_id=trace_context["trace_id"],
+        correlation_source=trace_context["correlation_source"],
+        checkout_session_id=trace_context["checkout_session_id"],
+        **fields,
+    )
 
 # #START_BLOCK_BILLING_CONFIG
-SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
-SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+SHOP_ID = os.getenv("YOOMONEY_SHOP_ID") or os.getenv("YOOKASSA_SHOP_ID")
+SECRET_KEY = os.getenv("YOOMONEY_SECRET") or os.getenv("YOOKASSA_SECRET_KEY")
 
 if SHOP_ID and SECRET_KEY:
     Configuration.account_id = SHOP_ID
     Configuration.secret_key = SECRET_KEY
 else:
-    logger.warning("billing.config_missing", msg="YooKassa credentials not found.")
+    _billing_log(
+        "warning",
+        "billing.config_missing",
+        fn="module_init",
+        block="BILLING_CONFIG",
+        msg="YooKassa credentials not found.",
+    )
 # #END_BLOCK_BILLING_CONFIG
 
 
@@ -48,12 +163,27 @@ def build_checkout_return_url(resume_token: str) -> str:
     return f"{base_url}/billing/complete?checkout={resume_token}"
 
 
+def build_checkout_failure_url(resume_token: str, reason: str) -> str:
+    base_url = os.getenv("WEBAPP_URL", "https://t.me/AstroGraceBot").rstrip("/")
+    return f"{base_url}/billing/complete?checkout={resume_token}&status=failed&reason={reason}"
+
+
 def _serialize_draft_payload(draft_payload: Optional[dict]) -> Optional[str]:
     if draft_payload is None:
         return None
     return json.dumps(draft_payload, ensure_ascii=True, separators=(",", ":"))
 
 
+# START_CONTRACT: FN-CREATE-CHECKOUT-SESSION
+# purpose: Persist checkout session metadata for later resume handling.
+# inputs:
+#   - SQLAlchemy session, user_id, billing kind, product code, amount
+# returns: BillingCheckoutSession row with resume token
+# side_effects:
+#   - Writes BillingCheckoutSession to DB and emits billing log
+# errors:
+#   - Propagates DB exceptions to caller for retry
+# END_CONTRACT: FN-CREATE-CHECKOUT-SESSION
 def create_checkout_session(
     db: Session,
     *,
@@ -68,9 +198,25 @@ def create_checkout_session(
     return_path: Optional[str] = None,
     draft_payload: Optional[dict] = None,
 ) -> BillingCheckoutSession:
+    contract = "FN-CREATE-CHECKOUT-SESSION"
+    # START_BLOCK: CREATE_SESSION_NORMALIZE
     normalized_product_code = normalize_product_code(product_code) or product_code
     normalized_report_type = normalize_report_type(report_type)
+    draft_blob = _serialize_draft_payload(draft_payload)
+    _emit_contract_log(
+        event="billing.checkout.contract.start",
+        fn="create_checkout_session",
+        block="CREATE_SESSION_NORMALIZE",
+        contract=contract,
+        user_id=str(user_id),
+        billing_kind=billing_kind,
+        product_code=normalized_product_code,
+        report_type=normalized_report_type,
+        stage="start",
+    )
+    # END_BLOCK: CREATE_SESSION_NORMALIZE
 
+    # START_BLOCK: CREATE_SESSION_PERSIST
     checkout_session = BillingCheckoutSession(
         user_id=user_id,
         provider=provider,
@@ -84,18 +230,28 @@ def create_checkout_session(
         idempotence_key=str(uuid.uuid4()),
         resume_token=uuid.uuid4().hex,
         return_path=return_path,
-        draft_payload=_serialize_draft_payload(draft_payload),
+        draft_payload=draft_blob,
     )
     db.add(checkout_session)
     db.commit()
     db.refresh(checkout_session)
-    logger.info(
-        "billing.checkout_session_created",
-        session_id=str(checkout_session.id),
+    # END_BLOCK: CREATE_SESSION_PERSIST
+
+    # START_BLOCK: CREATE_SESSION_LOG
+    _emit_contract_log(
+        event="billing.checkout_session.created",
+        fn="create_checkout_session",
+        block="CREATE_SESSION_LOG",
+        contract=contract,
+        checkout_session_id=checkout_session.id,
         user_id=str(user_id),
         billing_kind=billing_kind,
-        product_code=product_code,
+        product_code=normalized_product_code,
+        report_type=normalized_report_type,
+        result="ok",
+        stage="end",
     )
+    # END_BLOCK: CREATE_SESSION_LOG
     return checkout_session
 
 
@@ -129,6 +285,15 @@ def mark_checkout_session_pending(
     checkout_session: BillingCheckoutSession,
     payment_data: dict,
 ) -> BillingCheckoutSession:
+    # START_CONTRACT: FN-MARK-CHECKOUT-PENDING
+    # purpose: Bridge provider payment creation into canonical checkout pending state.
+    # inputs: db session, persisted checkout session, provider payment payload.
+    # returns: refreshed BillingCheckoutSession with provider linkage.
+    # side_effects: updates checkout state and emits checkout bridge logs.
+    # errors: propagates DB exceptions.
+    # END_CONTRACT: FN-MARK-CHECKOUT-PENDING
+    contract = "FN-MARK-CHECKOUT-PENDING"
+    # START_BLOCK: CHECKOUT_PENDING_UPDATE
     _update_checkout_session_status(
         checkout_session,
         status=CheckoutSessionStatus.PENDING.value,
@@ -140,7 +305,18 @@ def mark_checkout_session_pending(
     db.add(checkout_session)
     db.commit()
     db.refresh(checkout_session)
+    _emit_contract_log(
+        event="billing.checkout_session.pending",
+        fn="mark_checkout_session_pending",
+        block="CHECKOUT_PENDING_UPDATE",
+        contract=contract,
+        checkout_session_id=checkout_session.id,
+        provider_payment_id=payment_data.get("id"),
+        provider_status=payment_data.get("status"),
+        result="ok",
+    )
     return checkout_session
+    # END_BLOCK: CHECKOUT_PENDING_UPDATE
 
 
 def mark_checkout_session_failed(
@@ -150,6 +326,15 @@ def mark_checkout_session_failed(
     error_code: str,
     error_message: str,
 ) -> BillingCheckoutSession:
+    # START_CONTRACT: FN-MARK-CHECKOUT-FAILED
+    # purpose: Persist checkout provider failure for resume/access bridge consumers.
+    # inputs: db session, persisted checkout session, provider error code/message.
+    # returns: refreshed BillingCheckoutSession in failed state.
+    # side_effects: updates checkout state and emits failure bridge logs.
+    # errors: propagates DB exceptions.
+    # END_CONTRACT: FN-MARK-CHECKOUT-FAILED
+    contract = "FN-MARK-CHECKOUT-FAILED"
+    # START_BLOCK: CHECKOUT_FAILED_UPDATE
     _update_checkout_session_status(
         checkout_session,
         status=CheckoutSessionStatus.FAILED.value,
@@ -159,7 +344,18 @@ def mark_checkout_session_failed(
     db.add(checkout_session)
     db.commit()
     db.refresh(checkout_session)
+    _emit_contract_log(
+        event="billing.checkout_session.failed",
+        fn="mark_checkout_session_failed",
+        block="CHECKOUT_FAILED_UPDATE",
+        contract=contract,
+        checkout_session_id=checkout_session.id,
+        error_code=error_code,
+        error_message=error_message,
+        result="ok",
+    )
     return checkout_session
+    # END_BLOCK: CHECKOUT_FAILED_UPDATE
 
 
 def get_checkout_session_by_token(
@@ -168,15 +364,30 @@ def get_checkout_session_by_token(
     *,
     user_id: Optional[uuid.UUID] = None,
 ) -> Optional[BillingCheckoutSession]:
+    # START_CONTRACT: FN-GET-CHECKOUT-BY-TOKEN
+    # purpose: Resolve checkout resume token for billing/access bridge consumers.
+    # inputs: db session, resume token, optional user scope.
+    # returns: BillingCheckoutSession or None.
+    # side_effects: none.
+    # errors: none.
+    # END_CONTRACT: FN-GET-CHECKOUT-BY-TOKEN
+    # START_BLOCK: TOKEN_LOOKUP
     query = db.query(BillingCheckoutSession).filter(
         BillingCheckoutSession.resume_token == resume_token
     )
     if user_id is not None:
         query = query.filter(BillingCheckoutSession.user_id == user_id)
     return query.first()
+    # END_BLOCK: TOKEN_LOOKUP
 
 
 def serialize_checkout_session(checkout_session: BillingCheckoutSession) -> dict[str, object]:
+    # START_CONTRACT: FN-SERIALIZE-CHECKOUT
+    # purpose: Produce JSON-ready representation of a checkout session for client resumes.
+    # inputs: BillingCheckoutSession ORM instance.
+    # returns: dict payload with token, status, provider metadata, timestamps.
+    # side_effects: none.
+    # END_CONTRACT: FN-SERIALIZE-CHECKOUT
     return {
         "checkout_token": checkout_session.resume_token,
         "status": checkout_session.status,
@@ -204,6 +415,11 @@ def _resolve_checkout_session_from_metadata(
     metadata: dict,
     db: Session,
 ) -> Optional[BillingCheckoutSession]:
+    # START_CONTRACT: FN-RESOLVE-CHECKOUT-FROM-METADATA
+    # purpose: Map YooKassa webhook metadata to persisted checkout session.
+    # inputs: raw metadata dict, db session.
+    # returns: BillingCheckoutSession or None; logs warning on malformed UUID.
+    # END_CONTRACT: FN-RESOLVE-CHECKOUT-FROM-METADATA
     checkout_session_id = metadata.get("checkout_session_id")
     if not checkout_session_id:
         return None
@@ -211,7 +427,13 @@ def _resolve_checkout_session_from_metadata(
     try:
         checkout_session_uuid = uuid.UUID(checkout_session_id)
     except ValueError:
-        logger.warning("billing.webhook_bad_checkout_session_uuid", checkout_session_id=checkout_session_id)
+        _billing_log(
+            "warning",
+            "billing.webhook_bad_checkout_session_uuid",
+            fn="_resolve_checkout_session_from_metadata",
+            block="METADATA_PARSE",
+            checkout_session_id=checkout_session_id,
+        )
         return None
 
     return db.query(BillingCheckoutSession).filter(
@@ -284,30 +506,200 @@ def _ensure_report_unlock_entitlement(
     transaction: Transaction,
     metadata: dict,
 ):
+    # START_CONTRACT: FN-ENSURE-REPORT-UNLOCK
+    # purpose: Create or reuse one-off entitlement corresponding to checkout metadata.
+    # inputs: db session, user entity, checkout session, transaction, webhook metadata.
+    # returns: entitlement or None when report type resolution fails.
+    # END_CONTRACT: FN-ENSURE-REPORT-UNLOCK
+    contract = "FN-ENSURE-REPORT-UNLOCK"
+    checkout_session_id = checkout_session.id if checkout_session else None
+    # START_BLOCK: REPORT_UNLOCK_RESOLUTION
     report_type = _resolve_report_unlock_type(metadata, checkout_session)
+    _emit_contract_log(
+        event="billing.report_unlock.contract.start",
+        fn="_ensure_report_unlock_entitlement",
+        block="REPORT_UNLOCK_RESOLUTION",
+        contract=contract,
+        checkout_session_id=checkout_session_id,
+        user_id=str(user.id),
+        transaction_id=str(transaction.id),
+        stage="start",
+    )
+
     if not report_type:
-        logger.error(
-            "billing.report_unlock_missing_report_type",
+        _emit_contract_log(
+            event="billing.report_unlock.missing_report_type",
+            fn="_ensure_report_unlock_entitlement",
+            block="REPORT_UNLOCK_RESOLUTION",
+            contract=contract,
+            checkout_session_id=checkout_session_id,
+            level="error",
             user_id=str(user.id),
-            checkout_session_id=str(checkout_session.id) if checkout_session else None,
+            transaction_id=str(transaction.id),
             metadata=metadata,
+            result="missing_report_type",
         )
         return None
+    # END_BLOCK: REPORT_UNLOCK_RESOLUTION
 
+    # START_BLOCK: ENTITLEMENT_BRIDGE_GRANT
     entitlement = grant_report_entitlement(
         db,
         user_id=user.id,
         report_type=report_type,
         source=EntitlementSource.PAYMENT,
-        checkout_session_id=checkout_session.id if checkout_session else None,
+        checkout_session_id=checkout_session_id,
         granted_transaction_id=transaction.id,
     )
+    _emit_contract_log(
+        event="billing.report_unlock.bridge_granted",
+        fn="_ensure_report_unlock_entitlement",
+        block="ENTITLEMENT_BRIDGE_GRANT",
+        contract=contract,
+        checkout_session_id=checkout_session_id,
+        user_id=str(user.id),
+        transaction_id=str(transaction.id),
+        entitlement_id=str(entitlement.id),
+        report_type=entitlement.report_type,
+        source=EntitlementSource.PAYMENT.value,
+        result="ok",
+    )
+    # END_BLOCK: ENTITLEMENT_BRIDGE_GRANT
 
+    # START_BLOCK: LINK_CHECKOUT_ENTITLEMENT
     if checkout_session is not None and checkout_session.entitlement_id != entitlement.id:
         checkout_session.entitlement_id = entitlement.id
         db.add(checkout_session)
+        _emit_contract_log(
+            event="billing.checkout_bridge.entitlement_linked",
+            fn="_ensure_report_unlock_entitlement",
+            block="LINK_CHECKOUT_ENTITLEMENT",
+            contract=contract,
+            checkout_session_id=checkout_session.id,
+            entitlement_id=str(entitlement.id),
+            result="ok",
+            stage="end",
+        )
+    # END_BLOCK: LINK_CHECKOUT_ENTITLEMENT
 
     return entitlement
+
+
+# START_CONTRACT: FN-RECORD-PAYMENT
+# purpose: Persist provider payment transaction and expose Decimal amount for downstream flows.
+# inputs:
+#   - db session, user entity, provider payment id, string amount, currency
+# returns: Tuple(Transaction, Decimal amount)
+# side_effects:
+#   - Inserts Transaction row with type="payment"
+# errors:
+#   - Propagates DB errors to caller
+# END_CONTRACT: FN-RECORD-PAYMENT
+def record_payment(
+    db: Session,
+    *,
+    user: User,
+    payment_id: str,
+    amount_value: str,
+    currency: str,
+) -> tuple[Transaction, Decimal]:
+    contract = "FN-RECORD-PAYMENT"
+    # START_BLOCK: RECORD_PAYMENT_PERSIST
+    amount_numeric = Decimal(str(amount_value))
+    transaction = Transaction(
+        user_id=user.id,
+        amount=amount_numeric,
+        currency=currency,
+        type="payment",
+        status="success",
+        provider_id=payment_id,
+    )
+    db.add(transaction)
+    db.flush()
+    # END_BLOCK: RECORD_PAYMENT_PERSIST
+
+    # START_BLOCK: RECORD_PAYMENT_LOG
+    _emit_contract_log(
+        event="billing.payment.recorded",
+        fn="record_payment",
+        block="RECORD_PAYMENT_LOG",
+        contract=contract,
+        checkout_session_id=payment_id,
+        user_id=str(user.id),
+        payment_id=payment_id,
+        amount=float(amount_numeric),
+        currency=currency,
+        transaction_id=str(transaction.id),
+        result="ok",
+    )
+    # END_BLOCK: RECORD_PAYMENT_LOG
+    return transaction, amount_numeric
+
+
+# START_CONTRACT: FN-APPLY-CREDIT-DELTAS
+# purpose: Apply credit transactions derived from billing metadata.
+# inputs:
+#   - db session, user entity, provider payment id, metadata dict
+# returns: integer quantity of credits applied
+# side_effects:
+#   - Inserts credit_topup transaction if not already recorded
+# errors:
+#   - Propagates DB errors to caller
+# END_CONTRACT: FN-APPLY-CREDIT-DELTAS
+def apply_credit_deltas(
+    db: Session,
+    *,
+    user: User,
+    payment_id: str,
+    metadata: dict,
+) -> int:
+    contract = "FN-APPLY-CREDIT-DELTAS"
+    # START_BLOCK: APPLY_CREDITS_PAYLOAD
+    credits_qty = int(metadata.get("credits_qty", 1))
+    _emit_contract_log(
+        event="billing.credits.contract.start",
+        fn="apply_credit_deltas",
+        block="APPLY_CREDITS_PAYLOAD",
+        contract=contract,
+        checkout_session_id=payment_id,
+        user_id=str(user.id),
+        credits_qty=credits_qty,
+        stage="start",
+    )
+    # END_BLOCK: APPLY_CREDITS_PAYLOAD
+
+    # START_BLOCK: APPLY_CREDITS_PERSIST
+    existing_credit = db.query(Transaction).filter(
+        Transaction.type == "credit_topup",
+        Transaction.provider_id == payment_id,
+    ).first()
+    if not existing_credit:
+        credit_trx = Transaction(
+            user_id=user.id,
+            amount=credits_qty,
+            currency="CRD",
+            type="credit_topup",
+            status="success",
+            provider_id=payment_id,
+        )
+        db.add(credit_trx)
+    # END_BLOCK: APPLY_CREDITS_PERSIST
+
+    # START_BLOCK: APPLY_CREDITS_LOG
+    _emit_contract_log(
+        event="billing.credits.applied",
+        fn="apply_credit_deltas",
+        block="APPLY_CREDITS_LOG",
+        contract=contract,
+        checkout_session_id=payment_id,
+        user_id=str(user.id),
+        qty=credits_qty,
+        payment_id=payment_id,
+        result="ok",
+        stage="end",
+    )
+    # END_BLOCK: APPLY_CREDITS_LOG
+    return credits_qty
 
 
 # #START_BLOCK_CREATE_PAYMENT
@@ -325,7 +717,14 @@ def create_payment(
     # INPUT: user_id, amount, desc, recurring flag, metadata.
     # OUTPUT: JSON string with confirmation URL.
     """
-    if not SHOP_ID:
+    if not SHOP_ID or not SECRET_KEY:
+        _billing_log(
+            "error",
+            "billing.config_missing",
+            fn="create_payment",
+            block="PRECONDITION",
+            reason="provider_credentials_missing",
+        )
         raise ValueError("Billing not configured")
 
     idempotence_key = idempotence_key or str(uuid.uuid4())
@@ -355,9 +754,15 @@ def create_payment(
     try:
         payment = Payment.create(payload, idempotence_key)
         return json.dumps(payment, default=str)
-    except Exception as e:
-        logger.error("billing.create_failed", error=str(e))
-        raise e
+    except Exception as exc:
+        _billing_log(
+            "error",
+            "billing.create_failed",
+            fn="create_payment",
+            block="PAYMENT_CREATE_CALL",
+            error=str(exc),
+        )
+        raise exc
 # #END_BLOCK_CREATE_PAYMENT
 
 
@@ -380,8 +785,11 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
         and checkout_session.provider_payment_id == payment_id
         and checkout_session.status in {CheckoutSessionStatus.SUCCEEDED.value, CheckoutSessionStatus.RESUMED.value}
     ):
-        logger.info(
+        _billing_log(
+            "info",
             "billing.webhook_duplicate_checkout_session",
+            fn="handle_payment_succeeded",
+            block="DUPLICATE_CHECKOUT",
             payment_id=payment_id,
             session_id=str(checkout_session.id),
         )
@@ -399,18 +807,36 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
     saved = payment_method.get("saved", False)
 
     if not user_id_str:
-        logger.error("billing.webhook_no_user", payment_id=payment_object.get("id"))
+        _billing_log(
+            "error",
+            "billing.webhook_no_user",
+            fn="handle_payment_succeeded",
+            block="PAYMENT_METADATA",
+            payment_id=payment_object.get("id"),
+        )
         return
 
     try:
         user_uuid = uuid.UUID(user_id_str)
     except ValueError:
-        logger.error("billing.webhook_bad_uuid", user_id=user_id_str)
+        _billing_log(
+            "error",
+            "billing.webhook_bad_uuid",
+            fn="handle_payment_succeeded",
+            block="PAYMENT_METADATA",
+            user_id=user_id_str,
+        )
         return
 
     user = db.query(User).filter(User.id == user_uuid).first()
     if not user:
-        logger.error("billing.webhook_user_not_found", user_id=user_id_str)
+        _billing_log(
+            "error",
+            "billing.webhook_user_not_found",
+            fn="handle_payment_succeeded",
+            block="PAYMENT_METADATA",
+            user_id=user_id_str,
+        )
         return
 
     existing_payment = db.query(Transaction).filter(
@@ -437,20 +863,23 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
             needs_commit = True
         if needs_commit:
             db.commit()
-        logger.info("billing.webhook_duplicate_payment", payment_id=payment_id, user_id=str(user.id))
+        _billing_log(
+            "info",
+            "billing.webhook_duplicate_payment",
+            fn="handle_payment_succeeded",
+            block="DUPLICATE_PAYMENT",
+            payment_id=payment_id,
+            user_id=str(user.id),
+        )
         return
 
-    amount_numeric = Decimal(str(amount_val))
-    trx = Transaction(
-        user_id=user.id,
-        amount=amount_numeric,
+    trx, amount_numeric = record_payment(
+        db,
+        user=user,
+        payment_id=payment_id,
+        amount_value=amount_val,
         currency=currency,
-        type="payment",
-        status="success",
-        provider_id=payment_id,
     )
-    db.add(trx)
-    db.flush()
 
     # 2. Update Subscription OR Add Credits OR Grant Report Unlock
     product_type = normalize_product_code(metadata.get("product_type")) or "subscription"
@@ -461,23 +890,12 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
         # For MVP, assume 1 payment = 1 credit (simplification)
         # Or parse description? 
         # Ideally metadata has 'credits_amount'.
-        credits_qty = int(metadata.get("credits_qty", 1))
-        
-        existing_credit = db.query(Transaction).filter(
-            Transaction.type == "credit_topup",
-            Transaction.provider_id == payment_id,
-        ).first()
-        if not existing_credit:
-            credit_trx = Transaction(
-                user_id=user.id,
-                amount=credits_qty,
-                currency="CRD",
-                type="credit_topup",
-                status="success",
-                provider_id=payment_id,
-            )
-            db.add(credit_trx)
-        logger.info("billing.credits_added", user_id=str(user.id), qty=credits_qty)
+        apply_credit_deltas(
+            db,
+            user=user,
+            payment_id=payment_id,
+            metadata=metadata,
+        )
 
     elif (
         billing_kind == BillingKind.REPORT_UNLOCK.value
@@ -490,8 +908,11 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
             transaction=trx,
             metadata=metadata,
         )
-        logger.info(
+        _billing_log(
+            "info",
             "billing.report_unlock_granted",
+            fn="handle_payment_succeeded",
+            block="GRANT_REPORT_UNLOCK",
             user_id=str(user.id),
             report_type=entitlement.report_type if entitlement else None,
             checkout_session_id=str(checkout_session.id) if checkout_session else None,
@@ -532,7 +953,15 @@ def handle_payment_succeeded(payment_object: dict, db: Session):
         db.add(checkout_session)
 
     db.commit()
-    logger.info("billing.success", user_id=str(user.id), amount=amount_val)
+    _billing_log(
+        "info",
+        "billing.success",
+        fn="handle_payment_succeeded",
+        block="PAYMENT_COMPLETE",
+        user_id=str(user.id),
+        amount=amount_val,
+        billing_kind=billing_kind,
+    )
     log_analytics_event(
         db,
         "payment_success",

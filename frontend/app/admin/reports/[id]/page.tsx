@@ -19,6 +19,7 @@ import { AdminNav } from "../../../../components/AdminNav";
 import { RegenerateReportButton } from "../../../../components/admin/RegenerateReportButton";
 import { ReportRenderer, type ReportBlock } from "../../../../components/blocks/report-renderer";
 import { useTelegram } from "../../../../hooks/useTelegram";
+import { trackEvent } from "../../../../lib/analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,13 @@ type ApiReportDetail = {
   chunks: ApiChunk[];
   runs: ApiRun[];
   chart_svg?: string | null;
+};
+
+type AdminReportDeniedState = {
+  role?: string;
+  allowed_roles?: string[];
+  task_href?: string;
+  detail?: string;
 };
 
 type ReportQueueItem = {
@@ -359,6 +367,7 @@ export default function AdminNatalMasterPage() {
   const [reports, setReports] = useState<ApiReport[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [detail, setDetail] = useState<ApiReportDetail | null>(null);
+  const [deniedState, setDeniedState] = useState<AdminReportDeniedState | null>(null);
   const [loading, setLoading] = useState(true);
   const [queueLoading, setQueueLoading] = useState(true);
   const [globalRunning, setGlobalRunning] = useState(false);
@@ -407,8 +416,36 @@ export default function AdminNatalMasterPage() {
       const response = await fetch(`/api/admin/reports/${selectedId}?include_content=1`, {
         headers: { "X-Telegram-Auth": initData },
       });
-      if (!response.ok) throw new Error(`detail ${response.status}`);
+      if (!response.ok) {
+        if (response.status === 403) {
+          const payload = await response.json().catch(() => ({}));
+          const nextDeniedState: AdminReportDeniedState = {
+            role: typeof payload?.role === "string" ? payload.role : undefined,
+            allowed_roles: Array.isArray(payload?.allowed_roles) ? payload.allowed_roles : undefined,
+            task_href: typeof payload?.task_href === "string" ? payload.task_href : "/Task.md",
+            detail: typeof payload?.detail === "string" ? payload.detail : "forbidden",
+          };
+          setDetail(null);
+          setDeniedState(nextDeniedState);
+          void trackEvent("admin.report_detail_rbac_denied", {
+            role: nextDeniedState.role ?? "unknown",
+            allowed_roles: nextDeniedState.allowed_roles ?? [],
+            target_path: `/admin/reports/${selectedId}`,
+            task_href: nextDeniedState.task_href,
+            block: "REPORT_DETAIL_RBAC_DENIED",
+            semantic_block: "REPORT_DETAIL_RBAC_DENIED",
+            surface: "admin_report_detail",
+          }, {
+            flowId: "FLOW-ADMIN-OPS",
+            block: "REPORT_DETAIL_RBAC_DENIED",
+            semanticBlock: "REPORT_DETAIL_RBAC_DENIED",
+          });
+          return;
+        }
+        throw new Error(`detail ${response.status}`);
+      }
       const data = (await response.json()) as ApiReportDetail;
+      setDeniedState(null);
       const sectionMap = new Map(SECTION_ORDER.map((item) => [item.section, item]));
       const normalizedChunks = [...data.chunks].sort((a, b) => {
         const aOrder = sectionMap.get(a.section)?.order ?? a.order_index;
@@ -540,6 +577,26 @@ export default function AdminNatalMasterPage() {
       })),
     [reports]
   );
+
+  if (deniedState) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AdminNav />
+        <main className="pb-24 md:pl-64">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+            <section className="rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-5 text-amber-900 shadow-sm" data-testid="admin-report-detail-denied">
+              <h1 className="text-xl font-bold">Доступ ограничен</h1>
+              <p className="mt-2 text-sm">Детали отчета доступны только администраторам.</p>
+              <p className="mt-1 text-sm">Текущая роль: {deniedState.role ?? "unknown"}.</p>
+              <Link href={deniedState.task_href ?? "/Task.md"} className="mt-4 inline-flex text-sm font-semibold underline underline-offset-4">
+                Task.md
+              </Link>
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">

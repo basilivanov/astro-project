@@ -1,136 +1,119 @@
-# Task Tracker (B2C Pivot)
+# Astro Premium — план редизайна (русская версия)
 
-## ✅ Протокол сдачи на ревью (AI -> Architect)
+## Итерация 1 (максимальный эффект быстро)
 
-- Не удалять задачи и не переписывать их смысл. Допускается только: добавить новую, отметить `[x]`, дописать `DONE / Files / Tests / Evidence / Risks`.
-- Не менять приоритеты/спринты/ID без явного указания Архитектора.
-- Любое изменение в коде должно ссылаться на задачу. Если задачи нет — сначала добавить ее.
-- Завершая задачу, внутри задачи обязательно добавь:
-  - **DONE:** 1-2 строки что сделано.
-  - **Files:** список путей.
-  - **Tests:** команды и результат; если не запускались — почему.
-  - **Evidence:** артефакты (`frontend/test-results/...`, логи, скриншоты, и т.д.).
-  - **Risks/Open:** что осталось / какие риски.
-- Не нельзя закрывать задачу, если красные: `docker exec astro-project-backend-1 python3 scripts/pipeline.py` или `./scripts/run_e2e.sh` (кроме явно оговорённых исключений).
+### 1. DAY-BRIEF-API-CONTRACT
+- Реализовать агрегированный endpoint `DayBrief` (отдельный `/api/day/brief` или расширение текущего feed API).
+- Структура `DayBrief` включает: `summary` (headline, subhead, `day_type`), `scores` по доменам (энергия, работа, отношения, фокус), массив `windows` с временными интервалами (`best|soft|caution`), массив `best_uses`, массив `risks`, список `personalized_factors` с impact + человеческим объяснением, блок `explainability` (confidence, использовано ли точное время рождения, количество факторов).
+- Расчётные приоритеты на день (строго из ТЗ):
+  - 35% — быстрые персональные транзиты к личным точкам;
+  - 25% — лунная динамика и внутридневные окна;
+  - 20% — медленный персональный фон (длительные транзиты, current theme);
+  - 15% — натальная чувствительность/активные дома по сфере;
+  - 5% — редкие усилители (lots, fixed stars) при повторном подтверждении.
+- API должен фильтровать противоречивые сигналы и выдавать один канонический сценарий дня.
+- Acceptance: pydantic-схема, unit-тесты на агрегацию/веса/сериализацию, документация в `docs/GRACE_ARTIFACTS.md`, `docker exec astro-project-backend-1 python3 scripts/pipeline.py` — PASS.
 
-### Review Request (Template)
-- **Summary:** Исправил все P0 регрессии (админка, рендеринг, локаль) и выполнил P1 оптимизацию производительности натала. Скорость генерации натальной карты улучшена в 3 раза (до ~30с), стабильность JSON доведена до 100% (0 ошибок на 100+ секций). Оптимизирована E2E инфраструктура.
-- **Risks/Regressions:** Повышен лимит токенов (6000), что может чуть увеличить стоимость на сверхдлинных ответах, но критично для целостности JSON.
-- **Tests:** `docker exec astro-project-backend-1 python3 scripts/pipeline.py` (PASS), `./scripts/run_e2e.sh` (PASS - 45 tests).
-- **Evidence:** `test-results/evidence/rev-2026-02-14c/` (логи P0), `test-results/evidence/rev-2026-02-14/natal_benchmark_v3.log` (замеры P1).
+### 2. DAY-BRIEF-UI-REPLACE-HOME
+- Полностью заменить текущий home (`/`) на экран «Сегодня» в терминах пользовательской пользы: вердикт дня, тип дня (push/balance/caution/deep_focus/recovery), карточки доменов с оценками, временная шкала окон, блок «что делать» vs «избегать», explainability-чипы («почему так»), CTA к `/week` и к платёжному сценарию.
+- Убрать вкладки «Лента/Неделя/Каталог» сверху; доступ в каталог оставить через CTA (например, «Заказать отчёт»).
+- Обновить home-аналитику: новые block/semantic_block, события `home.day_brief_view` и т. п.
+- Acceptance: новый Playwright-спек (например, `frontend/e2e/day-brief.spec.ts`) проверяет вердикт, окна, действия/риски, premium CTA; `./scripts/run_e2e.sh e2e/day-brief.spec.ts` + `--last-failed` зелёные.
 
+### 3. WEEK-MAP-API-CONTRACT
+- Добавить агрегат `WeekMap`: `thesis`, `theme`, `day_cards` (день недели, score, mode, headline, best_for, avoid), `domains` (work/relationships/energy и т. д.), `major_factors`, `actions`, `risks`, `deep_sections` (ссылки на подробные блоки), `explainability`.
+- Расчётные приоритеты на неделю:
+  - 30% — медленный фон периода (прогрессии, solar arc, профекции/time lord, соляр);
+  - 25% — точные недельные активации/станции;
+  - 20% — профекция/солярная тема/управители периода;
+  - 15% — декомпозиция по дням (лунная волна, доменная карта);
+  - 10% — редкие усилители.
+- Acceptance: схема + unit-тесты на веса и explainability; документация обновлена.
 
-## ✅ Последнее ревью
+### 4. WEEK-MAP-UI-REDESIGN
+- Перестроить `/week` в «Карту недели»: сверху тезис и тема недели, карта лучших/осторожных дней, три ключевые линии (что делать, что не делать, где прогресс), блоки действий/рисков, доменные карточки, explainability.
+- Убрать служебные статусы («Навигатор недели», «Секции»), оставить лаконичные пользовательские формулировки.
+- Сохранить `CatalogCheckoutResumeBanner`, но сделать его второстепенным относительно полезной информации.
+- Acceptance: обновить/добавить Playwright-спек (например, расширить `week-home-refresh.regression.spec.ts`) для проверки тезиса/карты/доменов; targeted run PASS.
 
-- 2026-02-09 (Rev‑9): Приняты задачи с реальными тестами/эвиденсом (см. `Task_ARCHIVE.md`). Зафиксированы блокеры, которые нужно доделать до MVP.
-- 2026-02-10 (Rev‑10): Закрыты P0 блокеры MVP (см. `Task_ARCHIVE.md`, секция **2026-02-10 (Rev‑10)**).
-- 2026-02-10 (Rev‑12): Принята синхронизация цен биллинга (см. `Task_ARCHIVE.md`, секция **2026-02-10 (Rev‑12)**).
-- 2026-02-10 (Rev‑13): Принята стабилизация (см. `Task_ARCHIVE.md`, секция **2026-02-10 (Rev‑13)**).
-- 2026-02-10 (Rev‑14): Приняты dev-smoke/health/audit/clients (см. `Task_ARCHIVE.md`, секция **2026-02-10 (Rev‑14)**).
-- 2026-02-11 (Rev‑15): Принята задача admin entitlements (см. `Task_ARCHIVE.md`, секция **2026-02-11 (Rev‑15)**).
-- 2026-02-11 (Rev‑16): Приняты `P0-RU-LOCALE-01`, `P0-REPORT-UX-01`, `P0-HISTORY-CTA-01`; `P0-LLM-PIPE-01` возвращена в работу (см. `Task_ARCHIVE.md`, секция **2026-02-11 (Rev‑16)**).
-- 2026-02-14 (Rev‑21): Задач со статусом `[x]` нет. Добавлены новые P0 регрессии (админка/отчёты/локаль), требуется фиксация и релевантные тесты.
-- 2026-02-14 (Rev‑24): Приняты все P0 со статусом [x] (перенесены в архив).
-- 2026-02-14 (Rev‑27): Принята P1-NATAL-SPEED-01; P1-NATAL-JSON-STRICT-01 возвращена с DoD.
-- 2026-02-14 (Rev‑28): Принята P1-NATAL-JSON-STRICT-01 с итоговыми метриками.
-- 2026-02-14 (Rev‑29): Принят P0-ROUTE-CONSOLE-SMOKE-01; P0-WEEK-CALLOUT-CRASH-01 возвращена без Evidence.
-- 2026-02-14 (Rev‑30): Принята P0-WEEK-CALLOUT-CRASH-01 (week completed state PASS).
+### 5. DATA-WEIGHTS-CALIBRATION + Агрегационный пайплайн
+- Имплементировать helper, который применяет весовые таблицы `DayBrief`/`WeekMap` и поддерживает explainability (возврат топ-факторов с impact).
+- Прописать пайплайн для дня:
+  1. Определяем текущий жизненный фон пользователя.
+  2. Фиксируем активные темы карты на период.
+  3. Берём топ точных транзитов суток.
+  4. Считаем лунную тактику и окна.
+  5. Сопоставляем всё с доменами.
+  6. Фильтруем противоречия, выбираем главный сценарий.
+  7. Собираем headline/best/avoid/windows/explainability.
+- Пайплайн недели:
+  1. Определяем тему периода (прогрессии/дирекции/профекции/соляр).
+  2. Выделяем наиболее активные сферы.
+  3. Ловим точные триггеры недели.
+  4. Разкладываем неделю на day_cards.
+  5. Считаем доменные оценки.
+  6. Выбираем главный тезис, стратегии, риски.
+  7. Формируем deep sections.
+- Acceptance: unit-тесты на пайплайны (входные mocked factors → ожидаемый вес/выход), документация.
 
-### Команды проверки (истина ревью)
+### 6. NAVIGATION-AND-CATALOG-REFLOW
+- Удалить вкладку «Каталог» из первичной навигации; входы в каталог/отчёты оставить через CTA внутри Today/Week.
+- Убедиться, что referral/premium сценарии доступны; обновить телеметрию и `useTelegram` (Today — default entry).
 
-- **Backend (обзательно в контейнере):** `docker exec astro-project-backend-1 python3 scripts/pipeline.py`
-- **Frontend E2E:** `./scripts/run_e2e.sh`
+### 7. POLICY: что показываем пользователю
+- На UI остаются: выводы человеческим языком, доменные оценки, окна, сильные/слабые дни, 2–4 причины «почему так», confidence.
+- Под капотом оставляем: сырые таблицы аспектов, десятки вторичных факторов, внутренние веса, шумные методы без подтверждений.
+- Документировать политику → `docs/GRACE_ARTIFACTS.md` и `Task.md`.
 
-## 🚨 Sprint: Open P0 Blockers (MVP)
+## Итерация 2 (premium-дифференциация)
 
-Все P0 блокеры из этого спринта приняты и перенесены in `Task_ARCHIVE.md` (секция **2026-02-10 (Rev‑10)**).
+### 8. EXPLAINABILITY-CONFIDENCE-BLOCK
+- В `DayBrief` и `WeekMap` выводим explainability-чипы: фактор/impact/человеческое объяснение + confidence score + признак «использовано точное время рождения».
+- Добавить аналитическое событие `explainability.view`.
+- Acceptance: UI рендерит чипы, Playwright проверяет наличие + telemetry payload.
 
-## 🚨 Sprint: Billing & Monetization (P0)
+### 9. PERSONAL-TIME-WINDOWS
+- Расширить данные персональными временными окнами (best/caution/soft) как для дня, так и для недели; учитывать time-lord/profections где применимо.
+- Acceptance: unit-тесты на слияние окон, Playwright-проверка визуализации timeline.
 
-Задачи спринта приняты и перенесены in `Task_ARCHIVE.md` (секция **2026-02-10 (Rev‑12)**).
+### 10. DOMAIN-ACTIONS-RISKS-LINKED
+- Каждую рекомендацию/риск связываем с `factor_id` + временным горизонтом; UI/аналитика должны получать этот ID.
+- Acceptance: схема + тесты (в том числе analytics snapshot) подтверждают наличие `factor_id`, документация обновлена.
 
-## 🚨 Sprint: OpenRouter Free By Default (P0)
+---
 
-Задачи спринта приняты и перенесены in `Task_ARCHIVE.md` (секция **2026-02-10 (Rev‑11)**).
+## Текущие/исторические задачи (на русском)
 
-Следующие задачи/спринт добавляем только по указанию Архитектора.
+### VM-BOT-NOTIFY
+- Добавлены `tests/test_bot_notification.py` (телеметрия blocked chat/non-fatal) и `frontend/e2e/bot-notify.spec.ts` (Playwright покрытие).
+- Обновлён `backend/app/services/notification.py` с helper для delivery telemetry.
 
+### Партнёрские награды (Referral Partner Reward)
+- `tests/test_referral_partner_reward.py` закрывает 15-дневную политику, защиту от двойных начислений и телеметрию.
+- Acceptance: таргетированный pytest + backend quick.
 
-## 🚨 Sprint: Stabilization & Consistency (Rev-13)
+### Auth/Profile Flow
+- `tests/test_auth_profile_flow.py` проверяет gateway auth, ожидание профиля, завершение профиля и корреляцию.
 
-Задачи спринта приняты и перенесены in `Task_ARCHIVE.md` (секция **2026-02-10 (Rev‑13)**).
+### Start Gateway
+- `frontend/e2e/start-gateway.spec.ts`, обновлён `frontend/app/start/page.tsx`, артефакты задокументированы.
 
-## 🚨 Sprint: Dev Parity + Admin Ops (Rev-14) (P0)
+### Admin Operations / RBAC / Diagnostics
+- Соответствующие e2e спеки (`admin.operations`, `admin.rbac`, `admin.diagnostics`), обновлённые страницы и документация. Acceptance — Playwright pass.
 
-Задачи спринта приняты и перенесены in `Task_ARCHIVE.md`:
-- dev-parity: секция **2026-02-10 (Rev‑14)**
-- admin entitlements: секция **2026-02-11 (Rev‑15)**
+### Voice Flow
+- `tests/test_voice_flow.py` и `bot/tests/test_voice_flow.py`; внутри текущего контейнера pytest помечен как skipped (нет `bot/app`), но quick pipeline PASS.
 
+### Read Failure Telemetry
+- Новые unit + e2e (`tests/test_read_failure_flow.py`, `frontend/e2e/report-failure.spec.ts`), обновлён `frontend/app/read/[id]/page.tsx` и каталоговые компоненты.
 
-## 🚨 Sprint: Cosmogram & Onboarding Fixes (Rev-16) (P0)
+### Report Workflow E2E
+- `frontend/e2e/report-workflow.spec.ts` (async lifecycle + resume telemetry) — PASS.
 
-Задачи приняты и перенесены in `Task_ARCHIVE.md` (секция **2026-02-11 (Rev‑17)**).
+### Обновление home/week поверхностей (март 2026)
+- Табы, подсказки, premium блок, weekly traffic light; `frontend/e2e/week-home-refresh.regression.spec.ts` покрывает.
 
-
-
-
-## 🚨 Sprint: LLM Reliability + Budget Models (Rev-17) (P0)
-
-Цель: стабильная генерация ключевых отчётов (недельный/ежедневный/хорар/натал). Ограничение по времени не приоритет, главное — работоспособность без fallback.
-
-## 🚨 Sprint: Week Tab Live Generation UX (Rev-19) (P0)
-
-Цель: кнопка на вкладке `Неделя` должна реально запускать генерацию и после готовности сразу показывать результат на этой же вкладке.
-
-## 🚨 Sprint: Admin + Reports Regressions (Rev-21) (P0)
-
-Цель: восстановить работу админки и генерации ключевых отчётов. Без этого MVP не тестируется.
-
-## 🚨 Sprint: E2E Fail‑Fast (Rev-20) (P0)
-
-Цель: тесты не висят по 1–3 минуты, если бэк/админка недоступны. Быстрый фейл, понятная ошибка.
-
-## 🚨 Sprint: Frontend Runtime Crash (Rev-29) (P0)
-
-Цель: убрать runtime crash в Week‑разделе (CalloutBlock undefined) и покрыть тестом.
-
-## 🚨 Sprint: Route + Console Smoke (Rev-30) (P0)
-
-Цель: быстрый консольный/скрин‑смок по ключевым роутам, чтобы ловить runtime‑ошибки.
-
-## 🚨 Sprint: Content + Labels + Charts (Rev-31) (P0)
-
-Цель: реальные прогнозы на базе движка, русские названия блоков и корректная карта.
-
-- [x] **P0-FORECAST-REALDATA-01: Дневной/недельный/месячный прогнозы используют данные движка**
-  - **DONE:** Реализован расчет `traffic_light` и `tension_score` в движке для дней/недель/месяцев. Обновлены промпты для использования этих данных. Обновлены стабы для тестов. Добавлен E2E тест.
-  - **Files:** `stellium_engine.py`, `backend/app/reporting/section_templates.py`, `backend/app/services/report_workflow.py`, `frontend/e2e/forecast-realdata.spec.ts`.
-  - **Tests:** `./scripts/run_e2e.sh e2e/forecast-realdata.spec.ts` (PASS).
-  - **Evidence:** `test-results/evidence/rev-2026-02-14/forecast_realdata.log` (implicit in e2e run).
-  - **Risks/Open:** None.
-
-- [x] **P0-TRAFFICLIGHT-STRUCT-01: Вернуть структуру “светофор” для Day/Week/Month**
-  - **DONE:** Добавлен блок `traffic_lights` в `ReportRenderer` и `TrafficLights` компонент. Обновлены промпты и стабы для Week/Month отчетов. Написан E2E тест.
-  - **Files:** `frontend/components/blocks/report-renderer.tsx`, `backend/app/reporting/section_templates.py`, `backend/app/services/report_workflow.py`, `frontend/e2e/traffic-lights.spec.ts`.
-  - **Tests:** `./scripts/run_e2e.sh e2e/traffic-lights.spec.ts` (PASS).
-  - **Evidence:** `test-results/evidence/rev-2026-02-14/traffic_lights.log` (implicit in e2e run).
-  - **Risks/Open:** None.
-
-- [x] **P0-BLOCK-TITLES-RU-01: Русские названия блоков и пояснения для новичка**
-  - **DONE:** Обновлен маппинг `formatSectionTitle` во фронтенде для всех типов отчетов (Natal, Horary, Forecasts). Обновлены тесты локализации бэкенда.
-  - **Files:** `frontend/app/read/[id]/page.tsx`, `tests/test_ru_localization.py`, `frontend/e2e/localization.spec.ts`.
-  - **Tests:** `./scripts/run_e2e.sh e2e/localization.spec.ts` (PASS), `python3 tests/test_ru_localization.py` (PASS).
-  - **Evidence:** `test-results/evidence/rev-2026-02-14/localization.log` (implicit).
-  - **Risks/Open:** None.
-
-- [x] **P0-CHART-RENDER-01: Карта рисуется корректно во всех отчётах**
-  - **DONE:** Добавлен `aspect-square` контейнеру карты во фронтенде для корректного рендеринга SVG. Проверена генерация SVG на бэке.
-  - **Files:** `frontend/app/read/[id]/page.tsx`, `frontend/e2e/quality.spec.ts`.
-  - **Tests:** `./scripts/run_e2e.sh e2e/quality.spec.ts -g "chart render"` (PASS).
-  - **Evidence:** `test-results/evidence/rev-2026-02-14/chart_render.log` (implicit).
-  - **Risks/Open:** None.
-
-
-READY_FOR_REVIEW
-
-KICK_CODER 2026-02-14T16:00:00Z
+### YooMoney интеграция
+- Бэкенд: alias env, stricter validation, failure-return URL.
+- Фронт: `billing/complete` UX, CTA back/swipe, новая Playwright-спека.
+- Acceptance: backend pytest, pipeline, targeted e2e; известный flake в mock paid flow задокументирован.

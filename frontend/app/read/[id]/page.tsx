@@ -19,7 +19,12 @@ import {
   type ReportBlock,
 } from "../../../components/blocks/report-renderer";
 import { MicroFeedback } from "../../../components/MicroFeedback";
-import { trackEvent } from "../../lib/analytics";
+import { CatalogCheckoutResumeBanner } from "../../../components/catalog/catalog-checkout-resume";
+import {
+  FLOW_FORECAST_CATALOG,
+  setCatalogAnalyticsContext,
+  trackCatalogEvent,
+} from "../../../components/catalog/catalog-analytics";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/ui-states";
 import {
   ConsumerHero,
@@ -37,6 +42,8 @@ import {
   formatReportType,
   formatSectionTitle,
 } from "../../../lib/forecast-ui";
+import { CorrelationManager, correlatedFetch } from "../../../lib/correlation";
+import { CATALOG_GRACE_BLOCKS, CATALOG_GRACE_MODULES, withCatalogTrace } from "../../../components/catalog/create-shared";
 
 type ReportChunk = {
   id?: string;
@@ -70,6 +77,66 @@ type RenderableSection = {
 
 const SECTION_FALLBACK_MESSAGE =
   "Исходный формат секции не удалось разобрать полностью. Показываем безопасную текстовую версию, чтобы содержание не потерялось.";
+const READ_SURFACE = "read" as const;
+const READ_ENTRY_POINT = "read_resume_banner";
+const READ_DIRECT_ENTRY_POINT = "read_direct";
+const FAILURE_SURFACE = "failure" as const;
+const FAILURE_FLOW_ID = FLOW_FORECAST_CATALOG;
+const READ_BLOCKS = {
+  loading: "LOADING_STATE",
+  share: "SHARE_SECTION",
+  ctaTracking: "CTA_TRACKING",
+  resumeEntry: "RESUME_ENTRY",
+  failureContext: "FAILURE_CONTEXT",
+  failureRetry: "FAILURE_RETRY",
+  failureSupport: "FAILURE_SUPPORT",
+} as const;
+
+// START_MODULE_CONTRACT: M-READ-REPORT-PAGE
+// purpose: Render a report read surface with strict GRACE semantics, telemetry, and resume CTA support.
+// owns:
+//   - frontend/app/read/[id]/page.tsx
+// inputs:
+//   - report id from route params, Telegram auth runtime, optional checkout/share query params
+// outputs:
+//   - semantic report reading UI, read-surface catalog analytics, resume CTA banner
+// dependencies:
+//   - frontend/hooks/useTelegram.ts
+//   - frontend/components/catalog/catalog-checkout-resume.tsx
+//   - frontend/components/catalog/catalog-analytics.ts
+//   - frontend/lib/correlation.ts
+// invariants:
+//   - read telemetry always uses surface `read` and `FLOW-FORECAST-CATALOG`
+//   - raw checkout tokens and share hashes never leave telemetry payloads
+// non_goals:
+//   - changing report copy structure or backend response contracts
+// END_MODULE_CONTRACT: M-READ-REPORT-PAGE
+
+// START_MODULE_MAP: M-READ-REPORT-PAGE
+// flow_id: FLOW-FORECAST-CATALOG
+// entrypoints:
+//   - ReadReportPage
+// key_blocks:
+//   - LOADING_STATE
+//   - SHARE_SECTION
+//   - CTA_TRACKING
+//   - RESUME_ENTRY
+//   - FAILURE_CONTEXT
+//   - FAILURE_RETRY
+//   - FAILURE_SUPPORT
+// main_effects:
+//   - fetchReport
+//   - handleShare
+//   - handleResumeCTA
+//   - fetchFailureContext
+//   - handleRetry
+//   - handleSupportCTA
+// adjacent_modules:
+//   - frontend/hooks/useTelegram.ts
+//   - frontend/components/catalog/catalog-checkout-resume.tsx
+//   - frontend/components/catalog/catalog-analytics.ts
+// END_MODULE_MAP: M-READ-REPORT-PAGE
+
 export default function ReadReportPage() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
@@ -80,12 +147,90 @@ export default function ReadReportPage() {
   const isMockRoute = searchParams.get("mock") === "1";
   const effectiveMode = isGuestRoute ? "guest" : isMockRoute ? "mock" : mode;
   const effectiveInitData = initData;
+  const checkoutToken = searchParams.get("checkout");
+  const shareToken = searchParams.get("share");
+  const runtimeEnabled = searchParams.get("runtime") === "1" || Boolean(checkoutToken);
   const [report, setReport] = useState<ReportPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const startTime = useRef<number>(Date.now());
+  const correlationIdRef = useRef<string | null>(null);
 
+  if (!correlationIdRef.current) {
+    correlationIdRef.current = CorrelationManager.newCorrelation(FLOW_FORECAST_CATALOG);
+  }
+
+  const ensureCorrelationId = () => {
+    if (!correlationIdRef.current) {
+      correlationIdRef.current = CorrelationManager.ensureCorrelationId();
+    }
+    return correlationIdRef.current;
+  };
+
+  // START_CONTRACT: FN-TRACK-READ-EVENT
+  // purpose: Emit strict GRACE read-surface telemetry with canonical trace metadata.
+  // inputs: event name, telemetry payload fragment, optional block override.
+  // side_effects: dispatches catalog analytics event with read correlation and flow metadata.
+  // invariants:
+  //   - surface remains `read`
+  //   - flow_id remains `FLOW-FORECAST-CATALOG`
+  //   - semantic_block mirrors the canonical read block label
+  // END_CONTRACT: FN-TRACK-READ-EVENT
+  const trackReadEvent = (
+    eventName: string,
+    payload: Record<string, unknown>,
+    options: {
+      contract: string;
+      block: (typeof READ_BLOCKS)[keyof typeof READ_BLOCKS];
+    },
+  ) => {
+    const correlationId = ensureCorrelationId();
+    return trackCatalogEvent(
+      eventName,
+      withCatalogTrace(
+        {
+          surface: READ_SURFACE,
+          flow_id: FLOW_FORECAST_CATALOG,
+          ...payload,
+        },
+        {
+          module: CATALOG_GRACE_MODULES.readReport,
+          contract: options.contract,
+          block: options.block,
+          semantic_block: options.block,
+          correlation_id: correlationId,
+        },
+      ),
+      {
+        correlationId,
+        flowId: FLOW_FORECAST_CATALOG,
+        block: options.block,
+      },
+    );
+  };
+
+  // START_CONTRACT: FN-BOOTSTRAP-READ-CONTEXT
+  // purpose: Seed read page analytics context so checkout/resume/read share one correlation chain.
+  // inputs: user id, checkout token.
+  // side_effects: updates shared analytics context.
+  // END_CONTRACT: FN-BOOTSTRAP-READ-CONTEXT
+  useEffect(() => {
+    // START_BLOCK: ANALYTICS_CONTEXT_BOOTSTRAP
+    setCatalogAnalyticsContext({
+      user_id: user?.id ?? null,
+      checkout_token: checkoutToken,
+      correlation_id: ensureCorrelationId(),
+      flow_id: FLOW_FORECAST_CATALOG,
+    });
+    // END_BLOCK: ANALYTICS_CONTEXT_BOOTSTRAP
+  }, [checkoutToken, user?.id]);
+
+  // START_CONTRACT: fetchReport
+  // purpose: Load report payload using Telegram auth and correlated fetch headers.
+  // inputs: report id, initData, readiness state.
+  // side_effects: updates read page state and emits sanitized open telemetry.
+  // END_CONTRACT: fetchReport
   const loadReport = async () => {
     if (!effectiveInitData || !reportId) {
       return;
@@ -95,11 +240,20 @@ export default function ReadReportPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/reports/${reportId}`, {
-        headers: {
-          "X-Telegram-Auth": effectiveInitData,
+      // START_BLOCK: CTA_TRACKING
+      const res = await correlatedFetch(
+        `/api/reports/${reportId}`,
+        {
+          headers: {
+            "X-Telegram-Auth": effectiveInitData,
+          },
         },
-      });
+        {
+          correlationId: ensureCorrelationId(),
+          flowId: FLOW_FORECAST_CATALOG,
+          block: READ_BLOCKS.ctaTracking,
+        },
+      );
 
       if (!res.ok) {
         let message = res.status === 404 ? "Отчет не найден" : "Не удалось загрузить отчет";
@@ -109,7 +263,6 @@ export default function ReadReportPage() {
             message = payload.detail;
           }
         } catch {
-          // Keep the fallback message when the response is not JSON.
         }
         throw new Error(message);
       }
@@ -120,15 +273,20 @@ export default function ReadReportPage() {
       setReport(data);
       setExpandedSections(buildExpandedSections(sections));
 
-      if (user?.id) {
-        trackEvent("report_opened", {
-          telegramId: user.id,
-          metadata: {
-            report_id: reportId,
-            type: data?.report?.report_type || "unknown",
-          },
-        });
-      }
+      void trackReadEvent(
+        "catalog.read_opened",
+        {
+          report_id: reportId,
+          report_type: data?.report?.report_type || "unknown",
+          status: data?.report?.status || "unknown",
+          entry_point: checkoutToken ? READ_ENTRY_POINT : READ_DIRECT_ENTRY_POINT,
+        },
+        {
+          contract: "FN-LOAD-REPORT",
+          block: READ_BLOCKS.ctaTracking,
+        },
+      );
+      // END_BLOCK: CTA_TRACKING
     } catch (loadError) {
       setReport(null);
       setExpandedSections({});
@@ -150,9 +308,19 @@ export default function ReadReportPage() {
     return () => {
       const elapsed = Date.now() - startTime.current;
       if (elapsed > 1000) {
-        trackEvent("time_on_report", {
-          metadata: { report_id: reportId, duration_ms: elapsed },
-        });
+        // START_BLOCK: CTA_TRACKING
+        void trackReadEvent(
+          "catalog.read_time_spent",
+          {
+            report_id: reportId,
+            duration_ms: elapsed,
+          },
+          {
+            contract: "FN-TRACK-READ-SESSION",
+            block: READ_BLOCKS.ctaTracking,
+          },
+        );
+        // END_BLOCK: CTA_TRACKING
       }
     };
   }, [reportId]);
@@ -185,16 +353,146 @@ export default function ReadReportPage() {
     );
   };
 
-  const handleRegenerate = async () => {
+  // START_CONTRACT: handleShare
+  // purpose: Share or copy read page URL without leaking raw share token into telemetry.
+  // inputs: current page URL and optional navigator share capability.
+  // side_effects: invokes Web Share / clipboard and emits sanitized share telemetry.
+  // END_CONTRACT: handleShare
+  const handleShare = async () => {
+    if (typeof window === "undefined" || !reportId) {
+      return;
+    }
+
+    const shareUrl = new URL(window.location.href);
+    const shareUrlForUser = shareUrl.toString();
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title,
+          text: `Поделиться разбором «${title}»`,
+          url: shareUrlForUser,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrlForUser);
+      }
+
+      // START_BLOCK: SHARE_SECTION
+      void trackReadEvent(
+        "catalog.read_share",
+        {
+          report_id: reportId,
+          report_type: report?.report?.report_type || "unknown",
+          action: navigator.share ? "native_share" : "clipboard_copy",
+          entry_point: "share_button",
+          has_share_token: Boolean(shareToken),
+        },
+        {
+          contract: "FN-HANDLE-SHARE",
+          block: READ_BLOCKS.share,
+        },
+      );
+      // END_BLOCK: SHARE_SECTION
+    } catch (shareError) {
+      if (shareError instanceof Error && shareError.name === "AbortError") {
+        return;
+      }
+      setError(toErrorMessage(shareError, "Не удалось поделиться разбором"));
+    }
+  };
+
+  // START_CONTRACT: handleResumeCTA
+  // purpose: Track read-surface resume CTA interactions emitted by local UI elements.
+  // inputs: action name and optional entry point override.
+  // side_effects: dispatches correlation-aware catalog telemetry.
+  // END_CONTRACT: handleResumeCTA
+  const handleResumeCTA = (action: string, entryPoint = READ_ENTRY_POINT) => {
+    // START_BLOCK: RESUME_ENTRY
+    void trackReadEvent(
+      `catalog.read_${action}`,
+      {
+        report_id: reportId,
+        report_type: report?.report?.report_type || "unknown",
+        entry_point: entryPoint,
+        action,
+      },
+      {
+        contract: "FN-HANDLE-RESUME-CTA",
+        block: READ_BLOCKS.resumeEntry,
+      },
+    );
+    // END_BLOCK: RESUME_ENTRY
+  };
+
+  // START_CONTRACT: FN-FETCH-FAILURE-CONTEXT
+  // purpose: Build strict-GRACE failure telemetry context for the read fallback surface.
+  // inputs: current report snapshot, route report id, checkout token presence.
+  // returns: sanitized failure metadata for CTA telemetry and semantic rendering.
+  // side_effects: none.
+  // END_CONTRACT: FN-FETCH-FAILURE-CONTEXT
+  const fetchFailureContext = () => {
+    // START_BLOCK: FAILURE_CONTEXT
+    return {
+      report_id: reportId,
+      report_type: report?.report?.report_type || "unknown",
+      status: report?.report?.status || "failed",
+      entry_point: checkoutToken ? READ_ENTRY_POINT : READ_DIRECT_ENTRY_POINT,
+      retry_cta_id: "read-regenerate-button",
+      support_cta_id: "read-failure-history-link",
+      surface: FAILURE_SURFACE,
+      flow_id: FAILURE_FLOW_ID,
+    };
+    // END_BLOCK: FAILURE_CONTEXT
+  };
+
+  // START_CONTRACT: FN-HANDLE-REGENERATE
+  // purpose: Trigger failure-surface regeneration and emit strict catalog CTA telemetry.
+  // inputs: report id and Telegram auth.
+  // side_effects: POST regenerate endpoint, reloads page on success.
+  // END_CONTRACT: FN-HANDLE-REGENERATE
+  const handleRetry = async () => {
     if (!effectiveInitData || !reportId) return;
+    const failureContext = fetchFailureContext();
     setLoading(true);
     try {
-      const res = await fetch(`/api/reports/${reportId}/regenerate`, {
-        method: "POST",
-        headers: {
-          "X-Telegram-Auth": effectiveInitData,
+      // START_BLOCK: FAILURE_RETRY
+      void trackCatalogEvent(
+        "catalog.read_regenerate_click",
+        withCatalogTrace(
+          {
+            ...failureContext,
+            action: "regenerate",
+          },
+          {
+            module: CATALOG_GRACE_MODULES.readReport,
+            contract: "FN-HANDLE-REGENERATE",
+            block: READ_BLOCKS.failureRetry,
+            semantic_block: READ_BLOCKS.failureRetry,
+            correlation_id: ensureCorrelationId(),
+          },
+        ),
+        {
+          correlationId: ensureCorrelationId(),
+          flowId: FAILURE_FLOW_ID,
+          block: READ_BLOCKS.failureRetry,
         },
-      });
+      );
+      // END_BLOCK: FAILURE_RETRY
+
+      const res = await correlatedFetch(
+        `/api/reports/${reportId}/regenerate`,
+        {
+          method: "POST",
+          headers: {
+            "X-Telegram-Auth": effectiveInitData,
+          },
+        },
+        {
+          correlationId: ensureCorrelationId(),
+          flowId: FAILURE_FLOW_ID,
+          block: READ_BLOCKS.failureRetry,
+        },
+      );
       if (!res.ok) throw new Error("Не удалось запустить перегенерацию");
       window.location.reload();
     } catch (regenerateError) {
@@ -203,11 +501,47 @@ export default function ReadReportPage() {
     }
   };
 
+  // START_CONTRACT: FN-HANDLE-SUPPORT-CTA
+  // purpose: Track support/history CTA clicks from the failure fallback surface.
+  // inputs: local click event on failure support CTA.
+  // side_effects: emits strict catalog telemetry only.
+  // END_CONTRACT: FN-HANDLE-SUPPORT-CTA
+  const handleSupportCTA = () => {
+    // START_BLOCK: FAILURE_SUPPORT
+    const failureContext = fetchFailureContext();
+    void trackCatalogEvent(
+      "catalog.read_support_click",
+      withCatalogTrace(
+        {
+          ...failureContext,
+          action: "history",
+        },
+        {
+          module: CATALOG_GRACE_MODULES.readReport,
+          contract: "FN-HANDLE-SUPPORT-CTA",
+          block: READ_BLOCKS.failureSupport,
+          semantic_block: READ_BLOCKS.failureSupport,
+          correlation_id: ensureCorrelationId(),
+        },
+      ),
+      {
+        correlationId: ensureCorrelationId(),
+        flowId: FAILURE_FLOW_ID,
+        block: READ_BLOCKS.failureSupport,
+      },
+    );
+    // END_BLOCK: FAILURE_SUPPORT
+  };
+
   if ((!isReady && !isMockRoute) || loading) {
     return (
       <ConsumerPageShell>
         <ConsumerPanel className="p-5">
-          <LoadingState compact message="Загрузка отчета..." />
+          {/* START_BLOCK: LOADING_STATE */}
+          <div data-testid="read-loading-state">
+            <LoadingState compact message="Загрузка отчета..." />
+          </div>
+          {/* END_BLOCK: LOADING_STATE */}
         </ConsumerPanel>
       </ConsumerPageShell>
     );
@@ -290,8 +624,26 @@ export default function ReadReportPage() {
   }
 
   if (report.report.status === "failed") {
+    const failureContext = fetchFailureContext();
     return (
-      <ConsumerPageShell>
+      <ConsumerPageShell contentClassName="gap-0 px-0 pb-24 pt-0 sm:px-0 sm:pt-0">
+        {checkoutToken && (
+          <div data-testid="read-resume-entry" className="px-4 pt-6 sm:px-6 sm:pt-8">
+            <div className="mx-auto max-w-3xl">
+              <CatalogCheckoutResumeBanner
+                surface="read"
+                entryPoint={READ_ENTRY_POINT}
+                checkoutToken={checkoutToken}
+                mockEnabled={isMockRoute}
+                runtimeEnabled={runtimeEnabled}
+                initData={effectiveInitData}
+                isReady={isReady || isMockRoute}
+                mode={effectiveMode}
+                onTrackAction={handleResumeCTA}
+              />
+            </div>
+          </div>
+        )}
         <ConsumerHero
           eyebrow="Разбор"
           title={title}
@@ -306,27 +658,39 @@ export default function ReadReportPage() {
           meta={<ConsumerMetaPill label="Для" value={clientName} />}
         />
         <div className="mx-auto w-full max-w-md">
-          <ConsumerPanel className="p-8 text-center">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-400">
+          <ConsumerPanel data-testid="report-failure-surface" data-grace-surface="failure" className="p-8 text-center">
+            <section data-testid="report-failure-context" data-grace-block="FAILURE_CONTEXT" className="space-y-4">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-400">
               <RefreshCw size={32} />
-            </div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-800">Отчет не удалось собрать</h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-500">
-              Произошла ошибка при анализе данных. Попробуйте запустить генерацию снова, это бесплатно.
-            </p>
-            <button
-              onClick={handleRegenerate}
-              className="mt-8 flex w-full items-center justify-center gap-2 rounded-[22px] bg-slate-900 py-4 font-bold text-white shadow-lg shadow-slate-200"
-            >
-              <RefreshCw size={20} />
-              Перегенерировать
-            </button>
-          <Link
-            href="/reports/history"
-            className="mt-6 inline-flex text-sm font-bold text-slate-400 transition-colors hover:text-slate-600"
-          >
-            Вернуться в историю
-          </Link>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight text-slate-800">Отчет не удалось собрать</h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-500">
+                Произошла ошибка при анализе данных. Попробуйте запустить генерацию снова, это бесплатно.
+              </p>
+              <p data-testid="report-failure-meta" className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                {failureContext.report_type} • {failureContext.entry_point}
+              </p>
+            </section>
+            <section data-testid="report-failure-retry-block" data-grace-block="FAILURE_RETRY" className="mt-8">
+              <button
+                onClick={handleRetry}
+                data-testid="read-regenerate-button"
+                className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-slate-900 py-4 font-bold text-white shadow-lg shadow-slate-200"
+              >
+                <RefreshCw size={20} />
+                Перегенерировать
+              </button>
+            </section>
+            <section data-testid="report-failure-support-block" data-grace-block="FAILURE_SUPPORT" className="mt-6">
+              <Link
+                href="/reports/history"
+                onClick={handleSupportCTA}
+                data-testid="read-failure-history-link"
+                className="inline-flex text-sm font-bold text-slate-400 transition-colors hover:text-slate-600"
+              >
+                Вернуться в историю
+              </Link>
+            </section>
           </ConsumerPanel>
         </div>
       </ConsumerPageShell>
@@ -354,6 +718,21 @@ export default function ReadReportPage() {
 
       <div className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto max-w-3xl space-y-5">
+          {checkoutToken && (
+            <div data-testid="read-resume-entry"><CatalogCheckoutResumeBanner
+                surface="read"
+                entryPoint={READ_ENTRY_POINT}
+                checkoutToken={checkoutToken}
+                mockEnabled={isMockRoute}
+                runtimeEnabled={runtimeEnabled}
+                initData={effectiveInitData}
+                isReady={isReady || isMockRoute}
+                mode={effectiveMode}
+                onTrackAction={handleResumeCTA}
+              />
+            </div>
+          )}
+
           <ConsumerHero
             eyebrow="Разбор"
             title={title}
@@ -462,6 +841,28 @@ export default function ReadReportPage() {
             </ConsumerPanel>
           )}
 
+          <ConsumerPanel data-testid="read-share-section" className="p-4 sm:p-6">
+            {/* START_BLOCK: SHARE_SECTION */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Поделиться</p>
+                <h2 className="mt-2 text-lg font-black tracking-tight text-slate-900">Отправьте ссылку на разбор без потери контекста</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                  Внешний вид и структура чтения сохраняются. Если кнопка share недоступна, ссылка просто скопируется.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleShare}
+                data-testid="read-share-button"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              >
+                Поделиться разбором
+              </button>
+            </div>
+            {/* END_BLOCK: SHARE_SECTION */}
+          </ConsumerPanel>
+
           {chartSvg && (
             <ConsumerPanel className="overflow-hidden p-4 sm:p-6">
               <div className="space-y-4">
@@ -484,7 +885,7 @@ export default function ReadReportPage() {
           )}
 
           {showPendingState && (
-            <ConsumerPanel className="py-16 text-center">
+            <ConsumerPanel data-testid="read-pending-state" className="py-16 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                 <RefreshCw className="animate-spin" size={32} />
               </div>
@@ -512,23 +913,24 @@ export default function ReadReportPage() {
               const showsFallbackOnly = section.blocks.length === 0 && section.fallbackText;
 
               return (
-                <ForecastSectionCard
-                  key={section.id}
-                  index={index + 1}
-                  anchorId={section.anchorId}
-                  title={section.title}
-                  preview={section.preview}
-                  meta={`Секция ${String(index + 1).padStart(2, "0")} • ${formatReadingTime(section.readingMinutes)}`}
-                  expanded={Boolean(isExpanded)}
-                  onToggle={() => toggleSection(section.id)}
-                  badge={showsFallbackOnly ? "Текстовый режим" : null}
-                >
-                  <ReportRenderer
-                    blocks={section.blocks}
-                    fallbackText={section.fallbackText}
-                    fallbackTitle="Секция сохранена в упрощенном виде"
-                  />
-                </ForecastSectionCard>
+                <div key={section.id} data-testid={`read-section-${section.id}`}>
+                  <ForecastSectionCard
+                    index={index + 1}
+                    anchorId={section.anchorId}
+                    title={section.title}
+                    preview={section.preview}
+                    meta={`Секция ${String(index + 1).padStart(2, "0")} • ${formatReadingTime(section.readingMinutes)}`}
+                    expanded={Boolean(isExpanded)}
+                    onToggle={() => toggleSection(section.id)}
+                    badge={showsFallbackOnly ? "Текстовый режим" : null}
+                  >
+                    <ReportRenderer
+                      blocks={section.blocks}
+                      fallbackText={section.fallbackText}
+                      fallbackTitle="Секция сохранена в упрощенном виде"
+                    />
+                  </ForecastSectionCard>
+                </div>
               );
             })}
           </div>

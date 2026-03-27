@@ -1,8 +1,46 @@
+import os
+import sys
+import types
+
+import json
 import unittest
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
-import json
+
+sys.path.append(os.getcwd())
+
+if "stellium" not in sys.modules:
+    stellium = types.ModuleType("stellium")
+    engines = types.ModuleType("stellium.engines")
+    houses = types.ModuleType("stellium.engines.houses")
+
+    class _StubHouseSystem:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    houses.EqualHouses = _StubHouseSystem
+    houses.PlacidusHouses = _StubHouseSystem
+    houses.WholeSignHouses = _StubHouseSystem
+    engines.houses = houses
+    stellium.engines = engines
+    stellium.ChartBuilder = object
+    stellium.ReturnBuilder = object
+    stellium.ChartLocation = object
+    stellium.FIXED_STARS_REGISTRY = {}
+    stellium.get_fixed_star_info = lambda *args, **kwargs: None
+    sys.modules["stellium"] = stellium
+    sys.modules["stellium.engines"] = engines
+    sys.modules["stellium.engines.houses"] = houses
+
+if "stellium_engine" not in sys.modules:
+    stellium_engine = types.ModuleType("stellium_engine")
+
+    class _StubStelliumEngine:
+        pass
+
+    stellium_engine.StelliumEngine = _StubStelliumEngine
+    sys.modules["stellium_engine"] = stellium_engine
 
 from backend.app.services import personalized_daily
 
@@ -91,9 +129,9 @@ class TestPersonalizedDailyService(unittest.TestCase):
         self.assertIn("Контекст месяца: статус GREEN", joined_lines)
         self.assertIn("Годовой фон на этот месяц: GREEN", joined_lines)
 
-    @patch("backend.app.services.personalized_daily.logger")
+    @patch("backend.app.services.personalized_daily.log_grace_event")
     @patch("backend.app.services.personalized_daily.StelliumEngine")
-    def test_build_personalized_daily_facts_emits_structured_logs_without_sensitive_auth(self, mock_engine_cls, mock_logger):
+    def test_build_personalized_daily_facts_emits_structured_logs_without_sensitive_auth(self, mock_engine_cls, mock_log_grace_event):
         moon = type("Body", (), {"name": "Moon", "sign": "Pisces", "longitude": 15.0})()
         sun = type("Body", (), {"name": "Sun", "sign": "Pisces", "longitude": 5.0})()
         transit_chart = type("Chart", (), {"positions": [moon, sun]})()
@@ -114,16 +152,14 @@ class TestPersonalizedDailyService(unittest.TestCase):
             user=user,
         )
 
-        events = [call.args[0] for call in mock_logger.info.call_args_list]
+        events = [call.args[1] for call in mock_log_grace_event.call_args_list]
         self.assertIn("feed.entry", events)
         self.assertIn("feed.debug", events)
-        serialized = json.dumps([call.kwargs for call in mock_logger.info.call_args_list], ensure_ascii=False)
+        serialized = json.dumps(
+            [{"args": call.args, "kwargs": call.kwargs} for call in mock_log_grace_event.call_args_list],
+            ensure_ascii=False,
+        )
         self.assertNotIn("initData", serialized)
-
-
-if __name__ == "__main__":
-    unittest.main()
-
 
     @patch("backend.app.services.personalized_daily.StelliumEngine")
     def test_build_personalized_daily_facts_supports_partial_profile_without_birth_place(self, mock_engine_cls):
@@ -158,3 +194,68 @@ if __name__ == "__main__":
         self.assertEqual(facts["location_label"], "Sochi")
         self.assertEqual(facts["timezone"], "Europe/Moscow")
         self.assertFalse(facts["meta"]["has_fast_hits"])
+
+    def test_summarize_personalization_for_prompt_returns_public_prompt_slice(self):
+        facts = {
+            "personalization_level": "personalized_v2",
+            "fact_lines": [
+                "  Первая строка  ",
+                "",
+                "Вторая строка",
+                "   ",
+                "Третья строка",
+                "Четвертая строка",
+                "Пятая строка",
+                "Шестая строка",
+                "Седьмая строка",
+            ],
+            "cache_scope": "scope-123",
+            "traffic_lights": {"health": "green", "money": "yellow", "love": "red"},
+            "semantic_layer": {"headline": "Фокус дня", "practical_move": "Сделай шаг", "private_hint": "hidden"},
+            "meta": {"internal": "ignored"},
+            "user_id": "secret-user",
+        }
+
+        summary = personalized_daily.summarize_personalization_for_prompt(facts)
+
+        self.assertEqual(summary["level"], "personalized_v2")
+        self.assertEqual(
+            summary["fact_lines"],
+            [
+                "Первая строка",
+                "Вторая строка",
+                "Третья строка",
+                "Четвертая строка",
+                "Пятая строка",
+                "Шестая строка",
+            ],
+        )
+        self.assertEqual(summary["fallback_detail"], "Третья строка Четвертая строка Пятая строка")
+        self.assertEqual(summary["cache_scope"], "scope-123")
+        self.assertEqual(summary["traffic_lights"], {"health": "green", "money": "yellow", "love": "red"})
+        self.assertEqual(summary["semantic_layer"]["headline"], "Фокус дня")
+        self.assertEqual(summary["semantic_layer"]["private_hint"], "hidden")
+        self.assertEqual(summary["prompt_contract"], "personalized_daily_v2")
+        self.assertNotIn("meta", summary)
+        self.assertNotIn("user_id", summary)
+
+    def test_summarize_personalization_for_prompt_uses_second_line_as_fallback_when_slice_is_short(self):
+        facts = {
+            "fact_lines": ["Первая строка", "Вторая строка"],
+            "traffic_lights": None,
+            "semantic_layer": None,
+        }
+
+        summary = personalized_daily.summarize_personalization_for_prompt(facts)
+
+        self.assertEqual(summary["level"], "anonymous")
+        self.assertEqual(summary["fact_lines"], ["Первая строка", "Вторая строка"])
+        self.assertEqual(summary["fallback_detail"], "Вторая строка")
+        self.assertEqual(summary["cache_scope"], None)
+        self.assertIsNone(summary["traffic_lights"])
+        self.assertIsNone(summary["semantic_layer"])
+        self.assertEqual(summary["prompt_contract"], "personalized_daily_v2")
+
+
+if __name__ == "__main__":
+    unittest.main()

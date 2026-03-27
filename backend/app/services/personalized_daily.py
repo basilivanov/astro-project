@@ -5,6 +5,47 @@
 # GRACE_ANCHORS: [PERSONALIZED_DAILY_FACTS, PERSONALIZED_DAILY_SCORING]
 # ############################################################################
 
+# START_MODULE_CONTRACT: M-FEED-PERSONALIZED-DAILY
+# purpose: Build, cache, and expose fact-first daily personalization context for /api/feed/today.
+# owns:
+#   - backend/app/services/personalized_daily.py
+# inputs:
+#   - now_utc: timezone-aware UTC datetime supplied by API layer
+#   - user: Optional authenticated User with profile, timezone, and natal data
+# outputs:
+#   - deterministic fact payload with cache_scope + prompt-ready metadata
+# dependencies:
+#   - stellium_engine.StelliumEngine for charts and forecasts
+#   - backend.app.engine_utils for translation/house system helpers
+#   - build_daily_forecast_semantic_layer for semantic envelope
+# side_effects:
+#   - structured logs feed.entry/feed.debug + warning traces on degraded forecasts
+# invariants:
+#   - never log raw auth tokens or full profile PII
+#   - cache_scope deterministically reflects timezone/date/profile fingerprint
+# failure_policy:
+#   - raise ValueError if Moon/Sun ephemeris missing
+#   - degrade individual forecast layers with warning logs on exception
+# non_goals:
+#   - generating LLM copy or mutating persistent storage
+# END_MODULE_CONTRACT: M-FEED-PERSONALIZED-DAILY
+
+# START_MODULE_MAP: M-FEED-PERSONALIZED-DAILY
+# public_entrypoints:
+#   - build_personalized_daily_facts -> backend/app/main.py:/api/feed/today
+#   - summarize_personalization_for_prompt -> backend/app/services/feed_service.py:get_daily_vibe_llm
+# caches:
+#   - _PERSONALIZED_DAILY_CACHE keyed by (local_date, tz, location_label, profile_fingerprint)
+# structured_logs:
+#   - feed.entry, feed.debug, daily.personalization.*
+# adjacent_modules:
+#   - backend/app/main.py (HTTP wiring)
+#   - backend/app/services/feed_service.py (LLM prompt execution)
+# owned_tests:
+#   - tests/test_personalized_daily_service.py
+#   - tests/test_daily_feed_robustness.py
+# END_MODULE_MAP: M-FEED-PERSONALIZED-DAILY
+
 import copy
 import hashlib
 import json
@@ -17,15 +58,28 @@ import structlog
 from stellium_engine import StelliumEngine
 
 from .. import engine_utils
+from ..logging_utils import get_correlation_ids, log_grace_event
 from .forecast_semantics import build_daily_forecast_semantic_layer
 
 logger = structlog.get_logger()
+MODULE_ID = "M-FEED-PERSONALIZED-DAILY"
 
 _PERSONALIZED_DAILY_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
 
 
-def _emit_feed_log(event: str, **fields: Any) -> None:
-    logger.info(event, **fields)
+def _emit_feed_log(level: str, event: str, *, fn: str, block: str, **fields: Any) -> None:
+    context = get_correlation_ids()
+    log_grace_event(
+        level,
+        event,
+        module=MODULE_ID,
+        fn=fn,
+        block=block,
+        correlation_id=context.get("correlation_id"),
+        trace_id=context.get("trace_id"),
+        correlation_source=context.get("correlation_source"),
+        **fields,
+    )
 
 RU_PLANETS = {
     "Sun": "Солнце",
@@ -554,28 +608,61 @@ def _build_cache_scope(facts: dict[str, Any]) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def _build_public_meta(facts: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "cache_scope": facts.get("cache_scope"),
+        "cache_scope_level": facts.get("cache_scope_level"),
+        "personalization_level": facts.get("personalization_level"),
+        "timezone": facts.get("timezone"),
+        "location_label": facts.get("location_label"),
+        "has_fast_hits": bool(facts.get("fast_hits")),
+        "fallback_mode": facts.get("personalization_level") in {"anonymous", "profile_light"},
+        "fact_lines": copy.deepcopy(facts.get("fact_lines", [])[:6]),
+        "traffic_lights": copy.deepcopy(facts.get("traffic_lights", {})),
+        "prompt_contract": "personalized_daily_v2",
+    }
+
+
 # #START_BLOCK_PERSONALIZED_DAILY_FACTS
 def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None) -> dict[str, Any]:
+    # START_CONTRACT: FN-BUILD-PERSONALIZED-DAILY-FACTS
+    # purpose: Assemble deterministic fact payload for /api/feed/today with cache + personalization metadata.
+    # inputs:
+    #   - now_utc: timezone-aware UTC datetime used as canonical clock.
+    #   - user: optional authenticated profile supplying timezone/location/birth data.
+    # returns: dict payload with facts, semantic_layer, cache_scope, and meta for prompt orchestration.
+    # side_effects: reads/writes _PERSONALIZED_DAILY_CACHE, emits feed.* logs, warns on degraded forecast layers.
+    # errors: raises ValueError when ephemeris lacks Moon/Sun (hard failure so endpoint can downgrade gracefully).
+    # END_CONTRACT: FN-BUILD-PERSONALIZED-DAILY-FACTS
+
+    # START_BLOCK: FACTS_CONTEXT_RESOLUTION
     tz_str = _resolve_timezone(user)
     now_local = _resolve_local_now(now_utc, tz_str)
     transit_location = _resolve_transit_location(user)
     location_label = _resolve_location_label(transit_location, user)
     cache_key = _build_cache_key(now_local, tz_str, location_label, user)
     profile_mode = "authenticated" if user else "anonymous"
-
     _emit_feed_log(
+        "info",
         "feed.entry",
+        fn="build_personalized_daily_facts",
+        block="FACTS_CONTEXT_RESOLUTION",
         stage="facts_start",
         profile_mode=profile_mode,
         timezone=tz_str,
         location=location_label,
         local_date=now_local.date().isoformat(),
     )
+    # END_BLOCK: FACTS_CONTEXT_RESOLUTION
 
+    # START_BLOCK: FACTS_CACHE_CHECK
     cached = _PERSONALIZED_DAILY_CACHE.get(cache_key)
     if cached:
         _emit_feed_log(
+            "info",
             "feed.debug",
+            fn="build_personalized_daily_facts",
+            block="FACTS_CACHE_CHECK",
             stage="facts_cache_hit",
             cache_scope=cached.get("cache_scope"),
             personalization_level=cached.get("personalization_level"),
@@ -584,7 +671,9 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
             profile_mode=profile_mode,
         )
         return copy.deepcopy(cached)
+    # END_BLOCK: FACTS_CACHE_CHECK
 
+    # START_BLOCK: FACTS_TRANSIT_CONTEXT
     engine = StelliumEngine()
     house_system = engine_utils.resolve_house_system("placidus")
     transit_chart = engine.create_transit_chart(
@@ -603,7 +692,9 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
     phase_name = _get_phase_name(phase_angle)
     moon_degree = round(float(moon.longitude % 30), 1)
     day_aspects = _select_transit_day_aspects(engine.find_natal_aspects(transit_chart))
+    # END_BLOCK: FACTS_TRANSIT_CONTEXT
 
+    # START_BLOCK: FACTS_BASELINE_FACTS
     facts: dict[str, Any] = {
         "date": now_local.strftime("%d.%m.%Y"),
         "timezone": tz_str,
@@ -618,6 +709,7 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         "aspects_count": len(day_aspects),
         "traffic_lights": _build_generic_traffic_lights(day_aspects, phase_name, moon_degree),
         "personalization_level": "anonymous",
+        "prompt_contract": "personalized_daily_v2",
         "fact_lines": _build_fact_lines(
             now_local=now_local,
             location_label=location_label,
@@ -638,7 +730,9 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         day_context={},
         month_data={},
     )
+    # END_BLOCK: FACTS_BASELINE_FACTS
 
+    # START_BLOCK: FACTS_PROFILE_BRANCHING
     if _is_full_profile(user):
         natal_chart = _create_natal_chart(engine, user)
         fast_hits = _select_fast_hits(engine.find_transit_aspects(natal_chart, transit_chart, orb=1.2))
@@ -651,17 +745,38 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         try:
             week_data = engine.calculate_forecast_week_data(natal_chart, now_local, forecast_location)
         except Exception as exc:
-            logger.warning("daily.personalization.week_failed", error=str(exc), location=forecast_location)
+            _emit_feed_log(
+                "warning",
+                "daily.personalization.week_failed",
+                fn="build_personalized_daily_facts",
+                block="FACTS_FULL_PROFILE_PATH",
+                error=str(exc),
+                location=forecast_location,
+            )
 
         try:
             month_data = engine.calculate_forecast_month_data(natal_chart, now_local, forecast_location)
         except Exception as exc:
-            logger.warning("daily.personalization.month_failed", error=str(exc), location=forecast_location)
+            _emit_feed_log(
+                "warning",
+                "daily.personalization.month_failed",
+                fn="build_personalized_daily_facts",
+                block="FACTS_FULL_PROFILE_PATH",
+                error=str(exc),
+                location=forecast_location,
+            )
 
         try:
             year_data = engine.calculate_forecast_year_data(natal_chart, now_local.year, forecast_location)
         except Exception as exc:
-            logger.warning("daily.personalization.year_failed", error=str(exc), location=forecast_location)
+            _emit_feed_log(
+                "warning",
+                "daily.personalization.year_failed",
+                fn="build_personalized_daily_facts",
+                block="FACTS_FULL_PROFILE_PATH",
+                error=str(exc),
+                location=forecast_location,
+            )
 
         today_context = _week_today_context(week_data)
         aspect_summary = ", ".join(hit["summary"] for hit in fast_hits) or facts["aspect_summary"]
@@ -709,36 +824,37 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         )
     elif user:
         facts["personalization_level"] = "profile_light"
-        logger.info(
+        _emit_feed_log(
+            "info",
             "daily.personalization.partial_profile",
+            fn="build_personalized_daily_facts",
+            block="FACTS_PARTIAL_PROFILE_PATH",
             timezone=tz_str,
             location=location_label,
             has_birth_date=bool(getattr(user, "birth_date", None)),
             has_birth_place=bool(getattr(user, "birth_place", None)),
         )
     else:
-        logger.info(
+        _emit_feed_log(
+            "info",
             "daily.personalization.general_fallback",
+            fn="build_personalized_daily_facts",
+            block="FACTS_ANONYMOUS_PATH",
             timezone=tz_str,
             location=location_label,
         )
+    # END_BLOCK: FACTS_PROFILE_BRANCHING
 
+    # START_BLOCK: FACTS_FINALIZE_RESPONSE
     facts["cache_scope"] = _build_cache_scope(facts)
     facts["cache_scope_level"] = facts.get("personalization_level")
-    facts["meta"] = {
-        "cache_scope": facts["cache_scope"],
-        "cache_scope_level": facts.get("cache_scope_level"),
-        "personalization_level": facts.get("personalization_level"),
-        "timezone": facts.get("timezone"),
-        "location_label": facts.get("location_label"),
-        "has_fast_hits": bool(facts.get("fast_hits")),
-        "fallback_mode": facts.get("personalization_level") in {"anonymous", "profile_light"},
-        "fact_lines": copy.deepcopy(facts.get("fact_lines", [])[:6]),
-        "traffic_lights": copy.deepcopy(facts.get("traffic_lights", {})),
-    }
+    facts["meta"] = _build_public_meta(facts)
     fallback_mode = facts.get("personalization_level") in {"anonymous", "profile_light"}
     _emit_feed_log(
+        "info",
         "feed.debug",
+        fn="build_personalized_daily_facts",
+        block="FACTS_FINALIZE_RESPONSE",
         stage="facts_built",
         cache_scope=facts["cache_scope"],
         personalization_level=facts.get("personalization_level"),
@@ -751,6 +867,7 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
     )
     _PERSONALIZED_DAILY_CACHE[cache_key] = copy.deepcopy(facts)
     return facts
+    # END_BLOCK: FACTS_FINALIZE_RESPONSE
 
 
 # #END_BLOCK_PERSONALIZED_DAILY_FACTS
@@ -758,6 +875,16 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
 
 # #START_BLOCK_PERSONALIZED_DAILY_SCORING
 def summarize_personalization_for_prompt(facts: dict[str, Any]) -> dict[str, Any]:
+    # START_CONTRACT: FN-SUMMARIZE-PERSONALIZATION-FOR-PROMPT
+    # purpose: Project public daily facts into the prompt-safe GRACE slice consumed by feed_service.
+    # inputs:
+    #   - facts: dict returned by build_personalized_daily_facts with public fact/meta payload.
+    # returns: dict containing level, fact_lines, fallback_detail, cache_scope, semantic_layer, and prompt contract.
+    # side_effects: emits no logs and does not mutate cache/global state.
+    # errors: accepts sparse facts and falls back to empty/default fields.
+    # END_CONTRACT: FN-SUMMARIZE-PERSONALIZATION-FOR-PROMPT
+
+    # START_BLOCK: PROMPT_SUMMARY_EXTRACTION
     fact_lines = [
         line.strip()
         for line in facts.get("fact_lines", [])
@@ -767,7 +894,7 @@ def summarize_personalization_for_prompt(facts: dict[str, Any]) -> dict[str, Any
     if not fallback_detail:
         fallback_detail = fact_lines[1] if len(fact_lines) > 1 else ""
 
-    return {
+    summary = {
         "level": facts.get("personalization_level", "anonymous"),
         "fact_lines": fact_lines[:6],
         "fallback_detail": fallback_detail,
@@ -776,6 +903,8 @@ def summarize_personalization_for_prompt(facts: dict[str, Any]) -> dict[str, Any
         "semantic_layer": copy.deepcopy(facts.get("semantic_layer", {})),
         "prompt_contract": "personalized_daily_v2",
     }
+    # END_BLOCK: PROMPT_SUMMARY_EXTRACTION
+    return summary
 
 
 # #END_BLOCK_PERSONALIZED_DAILY_SCORING

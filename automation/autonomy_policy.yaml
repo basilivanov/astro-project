@@ -1,0 +1,42 @@
+version: 1
+allowed_actions:
+  - write_code
+  - refactor_existing_code
+  - update_documentation
+  - run_backend_quick_tests
+  - run_frontend_e2e_tests
+  - create_background_tasks
+  - resume_background_tasks
+  - answer_standard_worker_questions
+  - restart_local_workers
+restricted_actions:
+  - publish_external_data
+  - delete_databases_or_user_content
+  - run_destructive_migrations
+  - rotate_or_export_secrets
+  - approve_business_scope_changes
+  - push_to_remote_repos
+routing:
+  ask_user_only_if:
+    - "Question touches production data or billing"
+    - "Task proposes business logic change not covered by GRACE"
+  default_user_message: |
+    Воркеры заблокированы на вопросе, требующем архитектурного решения. Проверь очередь и ответь.
+auto_answer_rules:
+  - id: PATHS_AND_STANDARDS
+    description: "Guide workers to AGENTS.md, GRACE.md, and docs paths"
+    keywords: ["where", "path", "agents"]
+    response: |
+      Основные инструкции лежат в /opt/astro-project/AGENTS.md. Для конкретных подсистем смотри вложенные AGENTS.md.
+      GRACE канон и координаты: /opt/astro-project/GRACE.md и docs/GRACE_SLICE_*.md.
+  - id: TEST_COMMANDS
+    description: "Answer about mandatory tests"
+    keywords: ["test", "command"]
+    response: |
+      Backend quick: `docker exec astro-project-backend-1 python3 scripts/pipeline.py`.
+      Frontend quick: `./scripts/run_e2e.sh --last-failed` или точечный запуск через `./scripts/run_e2e.sh e2e/<spec>.spec.ts`.
+  - id: STYLE_GRACE
+    description: "Remind about GRACE semantics and contracts"
+    keywords: ["grace", "contract"]
+    response: |
+      Держим START_MODULE_CONTRACT/MAP на уровне файла и START_CONTRACT/START_BLOCK внутри функций. См. пример в frontend/components/catalog/catalog-checkout-resume.tsx.

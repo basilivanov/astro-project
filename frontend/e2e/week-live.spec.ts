@@ -4,36 +4,34 @@ test.describe('Week Tab Live States', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.sessionStorage.setItem('mock_telegram_user', '1');
-      (window as any).Telegram = { 
-        WebApp: { 
-          initData: '123456789', 
-          ready: () => {}, 
-          expand: () => {}, 
+      (window as any).Telegram = {
+        WebApp: {
+          initData: '123456789',
+          ready: () => {},
+          expand: () => {},
           close: () => {},
           initDataUnsafe: { user: { id: 123456789, first_name: 'Debug', last_name: 'User' } }
-        } 
+        }
       };
     });
   });
 
-  test('should show "Get Forecast" for empty state', async ({ page }) => {
+  test('should show generate action for empty state', async ({ page }) => {
     await page.goto('/week');
-    // Use longer timeout for the initial load
-    await expect(page.getByText('Получить прогноз').or(page.getByText('Навигатор недели'))).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Навигатор недели' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('week-ready-state')).toBeVisible();
+    await expect(page.getByTestId('week-generate-action')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('week-generate-action')).toHaveAttribute('data-semantic-block', 'GENERATE_ACTION');
   });
 
-  test('should show report content for completed state', async ({ page }) => {
+  test('should show valid ready-state content', async ({ page }) => {
     await page.goto('/week');
-    // It should either show the CTA or the report sections
-    const cta = page.getByText('Получить прогноз');
-    const sections = page.locator('.report-content-blocks');
-    
-    // We expect at least the header or the CTA
+    const generateAction = page.getByTestId('week-generate-action');
+    const overviewPanel = page.getByTestId('week-overview-panel');
+    const primaryCta = page.getByTestId('week-primary-cta');
+
     await expect(page.getByText('Навигатор недели')).toBeVisible({ timeout: 10000 });
-    
-    // If completed report exists, we should see sections or the summary
-    // Since we can't easily guarantee report existence without mocking, 
-    // we just check that one of the valid states is visible
-    await expect(cta.or(sections).or(page.getByText('Готовим прогноз'))).toBeVisible();
+    await expect(page.getByTestId('week-ready-state')).toBeVisible();
+    await expect(generateAction.or(overviewPanel).or(primaryCta)).toBeVisible();
   });
 });

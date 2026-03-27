@@ -61,6 +61,16 @@ test.describe("Synastry storefront alignment", () => {
 
     await page.goto("/create?type=synastry&mock=1&runtime=1");
 
+    await expect(page.getByTestId("create-offer-summary")).toHaveAttribute(
+      "aria-labelledby",
+      "create-offer-summary-heading",
+    );
+    await expect(page.locator("#create-offer-summary-heading")).toBeAttached();
+    await expect(page.getByTestId("create-offer-card")).toHaveAttribute("role", "region");
+    await expect(page.getByTestId("create-offer-card")).toHaveAttribute(
+      "aria-label",
+      "Offer summary card",
+    );
     await expect(page.getByTestId("create-subscription-note")).toContainText(
       "через подписку",
     );

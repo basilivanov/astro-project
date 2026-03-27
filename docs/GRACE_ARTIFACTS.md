@@ -24,12 +24,23 @@
 | `M-NATAL-SUMMARY-LAYER` | `tests/verify_natal_style.py` | AI Agent (QA) | Ready |
 | `FEED-PERSONALIZED-DAILY` | `docs/personalized_daily_feed_v2.md` | AI Agent (Developer/QA) | Ready |
 | `FEED-PERSONALIZED-DAILY` | `backend/app/services/personalized_daily.py` | AI Agent (Developer) | Ready |
-| `FEED-PERSONALIZED-DAILY` | `backend/app/main.py` (`/api/feed/today`) | AI Agent (Developer) | In Progress |
+| `FEED-PERSONALIZED-DAILY` | `backend/app/main.py` (`/api/feed/today`, `/api/day/brief`); `backend/app/services/day_brief.py` | AI Agent (Developer) | In Progress |
+| `FEED-PERSONALIZED-DAILY` | `tests/test_day_brief.py`; `tests/test_personalized_daily_service.py`; `tests/test_daily_feed_robustness.py` | AI Agent (QA) | In Progress |
 | `FEED-PERSONALIZED-DAILY` | `tests/test_personalized_daily_service.py` | AI Agent (QA) | Ready |
 | `FEED-PERSONALIZED-DAILY` | `tests/test_daily_feed_robustness.py` | AI Agent (QA) | Ready |
 | `FEED-PERSONALIZED-DAILY` | `tests/verify_daily_feed.py` | AI Agent (QA) | Ready |
 | `FEED-PERSONALIZED-DAILY` | `frontend/app/page.tsx` | AI Agent (Developer) | Ready |
+| `FEED-PERSONALIZED-DAILY` | `frontend/app/week/page.tsx`; `frontend/e2e/week-home-refresh.regression.spec.ts`; `Task.md` | AI Agent (Developer/QA) | In Progress |
+| `UC-REFERRAL-REWARD` | `backend/app/services/referral_service.py`; `backend/app/services/notification.py` | AI Agent (Developer) | In Progress |
+| `VM-BOT-NOTIFY` | `backend/app/services/notification.py`; `backend/app/logging_utils.py` | AI Agent (Developer) | In Progress |
+| `VM-BOT-NOTIFY` | `tests/test_bot_notification.py`; `tests/test_notification_mock.py` | AI Agent (QA) | Ready |
+| `VM-BOT-NOTIFY` | `frontend/e2e/bot-notify.spec.ts`; `Task.md` | AI Agent (QA) | Ready |
+| `UC-REFERRAL-REWARD` | `tests/test_referral_logic.py`; `tests/test_referral_unit.py`; `tests/test_referral_flow.py` | AI Agent (QA) | In Progress |
+| `UC-BOT-DELIVERY` | `bot/app/main.py`; `bot/app/stt.py`; `backend/app/services/notification.py` | AI Agent (Developer) | In Progress |
+| `UC-BOT-DELIVERY` | `tests/test_bot_voice_transcribe.py` | AI Agent (QA) | Ready |
+| `ADMIN-DIAGNOSTICS-RUNNER` | `frontend/app/admin/health/page.tsx`; `frontend/e2e/admin.diagnostics.spec.ts`; `Task.md` | AI Agent (Developer & QA) | In Progress |
 | `ADMIN-ENTITLEMENTS-FLOW` | `frontend/app/admin/reports/[id]/page.tsx` | AI Agent (Developer) | Ready |
+| `ADMIN-ENTITLEMENTS-FLOW` | `frontend/e2e/admin.rbac.spec.ts` | AI Agent (QA) | Ready |
 | `ADMIN-ENTITLEMENTS-FLOW` | `backend/app/services/one_off_entitlements.py` | AI Agent (Developer) | In Progress |
 | `ADMIN-ENTITLEMENTS-FLOW` | `tests/test_entitlements.py` | AI Agent (QA) | Ready |
 | `ADMIN-ENTITLEMENTS-FLOW` | `tests/test_entitlements_unit.py` | AI Agent (QA) | Ready |
@@ -223,12 +234,40 @@ flowchart LR
 | `UC-B2C-REPORT` | `M-NATAL-SUMMARY-LAYER`; read/create forecast surfaces | `SCN-B2C-REPORT-CREATE` | `VM-FORECAST-CREATE-READ`; `VM-READ-QUALITY`; `VM-REPORTS-UX-CONSISTENCY` | `N8` / Gate 3 quality rerun clean + benchmark note |
 | `UC-BILLING-ACCESS` | `ADMIN-ENTITLEMENTS-FLOW`; `backend/app/services/one_off_entitlements.py`; consumer billing bridge | `SCN-BILLING-ONE-OFF-PHASE2` | `VM-BILLING-ACCESS`; `VM-REPORTS-UX-CONSISTENCY` | `A11` / Gate 3 rollout-ready on 2026-03-20 |
 | `UC-FEED-DAILY` | `FEED-PERSONALIZED-DAILY`; `backend/app/services/personalized_daily.py`; `backend/app/main.py` | `SCN-FEED-TODAY` | `VM-FEED-ROBUSTNESS` | `F11` / Gate 3 backend quick + targeted UX smoke |
+| `UC-START-GATEWAY` | `M-START-GATEWAY`; `frontend/app/start/page.tsx`; `frontend/hooks/useTelegram.ts` | `SCN-START-MOCK-REDIRECT`; `SCN-START-AUTH-WAIT`; `SCN-START-PROFILE-COMPLETION` | `VM-START-GATEWAY`; `VM-FEED-ROBUSTNESS` | Playwright `e2e/start-gateway.spec.ts` + telemetry evidence |
+| `UC-BOT-DELIVERY` | `bot/app/main.py`; `bot/app/stt.py`; `backend/app/services/notification.py` | `SCN-BOT-NOTIFY`; `SCN-BOT-VOICE-TRANSCRIBE` | `VM-BOT-VOICE`; `VM-BOT-NOTIFY` | targeted pytest `tests/test_bot_voice_transcribe.py` + backend quick |
 
 ## Verification Matrix Sync Notes
 
 - `verification-matrix.md` is the canonical source of `VM-*` IDs for this markdown graph layer.
 - Current sync result: `docs/GRACE_ARTIFACTS.md` and `verification-matrix.md` both reference the same nine `VM-*` IDs with no extras on either side.
 - When a slice adds or retires a `VM-*`, update both this trace table and the graph edges in the same change so the path `requirement -> module -> scenario -> verification -> gate` remains explicit.
+
+## Admin Diagnostics Regression
+
+- `tests/test_admin_diagnostics.py` locks the diagnostics runner path in `backend/app/diagnostics.py` around runner success/failure summaries, emitted log evidence, and telemetry payload shape.
+
+## Notification Delivery Regression
+
+- `tests/test_notification_delivery_flow.py` locks the notification delivery orchestration in `backend/app/services/notification.py` for report-ready, report-failure, queue-enqueue, and telemetry classification paths.
+- Coverage stubs delegated delivery so the regression remains deterministic while asserting `send_report_ready_notification`, `send_failure_notification`, and `enqueue_notification_job` preserve canonical GRACE `START_*` / `END_*` evidence plus queue outcome semantics.
+- Acceptance profile for this slice: `docker exec astro-project-backend-1 python3 -m pytest -q tests/test_notification_delivery_flow.py`.
+- Coverage isolates the runner with stubbed `StelliumEngine` / `LLMOrchestrator` dependencies so the regression remains deterministic while still asserting `diagnostic.natal`, `diagnostic.transit`, `diagnostic.month`, `diagnostic.synastry`, `diagnostic.llm`, and `diagnostic.report` evidence.
+- Failure-path checks cover telemetry for natal bootstrap, engine/transit execution, LLM section generation, and markdown assembly so `DEFECT-DIAGNOSTICS-MARKDOWN` has an explicit reproduction guard.
+- Acceptance profile for this slice: `docker exec astro-project-backend-1 python3 -m pytest -q tests/test_admin_diagnostics.py`.
+
+## Voice Notification Regression
+
+- `tests/test_bot_voice_transcribe.py` closes the `VM-BOT-VOICE` gap for the bot voice flow around `bot/app/main.py` and `bot/app/stt.py`.
+- Coverage locks the regression path where admin voice messages are transcribed, normalized, persisted with `source="voice"` / `voice_file_id`, and surfaced back for confirmation.
+
+## Read Failure Telemetry Regression
+
+- `tests/test_read_failure_flow.py` locks the read failure surface in `frontend/app/read/[id]/page.tsx` around failure CTA contracts, resume-entry presence, and strict GRACE failure telemetry blocks.
+- `frontend/e2e/report-failure.spec.ts` verifies failure CTA/resume telemetry on the read surface, including resume banner visibility, `catalog.read_resume_click`, regenerate CTA evidence, and support/history CTA evidence.
+- Acceptance profile for this slice: `pytest tests/test_read_failure_flow.py tests/test_read_page_grace_telemetry.py` and `./scripts/run_e2e.sh e2e/report-failure.spec.ts`.
+- The suite also verifies STT helper behavior for invalid `WHISPER_BEAM_SIZE` fallback and `_load_model()` cache reuse without loading real Whisper weights.
+- Acceptance profile for this slice: `docker exec astro-project-backend-1 python3 -m pytest -q tests/test_bot_voice_transcribe.py`, then `docker exec astro-project-backend-1 python3 scripts/pipeline.py` for `backend:quick`.
 
 ## Development Flow
 
@@ -330,6 +369,15 @@ flowchart LR
 ## Summary
 
 Сейчас индекс покрывает три ближайших GRACE-слайса, даёт поддерживаемый graph view и фиксирует минимальный operational loop: сначала baseline docs и artifact map, затем targeted implementation + regression, затем replay/benchmark evidence, затем Gate 3 package перед handoff/rollout.
+
+### History → Resume Bridge
+
+- History surface in `frontend/app/reports/history/page.tsx` is the handoff layer between report-history UI, the inline checkout resume banner, and shared helpers in `frontend/components/catalog/catalog-analytics.ts`.
+- On mount, the page calls `startCatalogCorrelation(checkoutToken ? "history_checkout_resume" : "history_view")` and immediately seeds shared catalog analytics context via `setCatalogAnalyticsContext(...)`, binding `user_id`, `checkout_token`, and `correlation_id` before any fetch or CTA telemetry fires.
+- Shell rendering stays on one canonical payload, `historyShellAnalytics`: `event_name = "catalog.history_view"`, `module = M-REPORTS-HISTORY`, `contract = FN-HISTORY-VIEW`, `block = semantic_block = SHELL_RENDER`, `surface = "history"`, `entry_point = "history-page-shell"`.
+- History fetch / filter / CTA events (`catalog.history_start`, `catalog.history_success`, `catalog.history_error`, `catalog.history_filter`, `catalog.history_cta`, `catalog.history_open_report`) all go through `trackCatalogEvent(...withCatalogTrace(...))`, so they inherit the same correlation envelope and stable GRACE semantic blocks from catalog analytics.
+- `CatalogCheckoutResumeBanner` is embedded on the same page with `surface="history"` and `entryPoint="history-inline-resume"`; because the history page bootstraps shared context first, banner telemetry in the shared `catalog.checkout_resume_*` namespace continues the same session instead of opening an unrelated analytics flow.
+- Result: `/reports/history` works as a history → resume bridge. Past-order intent is described by `catalog.history_*`, while checkout recovery uses the same `correlation_id` / `checkout_token` context for resume-banner attribution and downstream log stitching.
 
 Ближайший следующий шаг: поддерживать `Artifacts Inventory`, `Slice Graph` и `Near-Term Development Plan` синхронно при каждом заметном сдвиге по `M-NATAL-SUMMARY-LAYER`, `FEED-PERSONALIZED-DAILY` и `ADMIN-ENTITLEMENTS-FLOW`, а новые slice-ветки открывать только с явным owner, controller packet, regression hooks и trace evidence.
 

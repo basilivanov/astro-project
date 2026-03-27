@@ -1,7 +1,7 @@
 export const SUBSCRIPTION_PRICE_RUB = 299;
 export const SUBSCRIPTION_PRICE_LABEL = "299₽/мес";
 export const HORARY_PRICE_RUB = 199;
-export const HORARY_PRICE_LABEL = "199₽";
+export const HORARY_PRICE_LABEL = "от 99₽";
 
 const REPORT_UNLOCK_BRIDGE_PRODUCT_TYPES = new Set([
   "natal_master",

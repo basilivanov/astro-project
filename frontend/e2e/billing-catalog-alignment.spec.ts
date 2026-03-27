@@ -6,13 +6,17 @@ import { test, expect } from '@playwright/test';
 // ############################################################################
 
 test.describe('Billing/Catalog alignment', () => {
-  test('catalog presents non-horary as subscription and horary as one-off', async ({ page }) => {
+  test('catalog splits subscription and one-off products with updated pricing', async ({ page }) => {
     await page.goto('/reports');
 
-    await expect(page.getByTestId('catalog-billing-note')).toContainText('299₽/мес');
-    await expect(page.locator('a[href="/create?type=natal_master"]')).toContainText('299₽/мес');
-    await expect(page.locator('a[href="/create?type=year_forecast"]')).toContainText('299₽/мес');
-    await expect(page.locator('a[href="/create?type=horary"]')).toContainText('199₽');
+    await expect(page.getByTestId('catalog-billing-note')).toContainText('Подписка для регулярной навигации');
+    await expect(page.getByTestId('catalog-subscription-summary')).toContainText('299₽/мес');
+    await expect(page.getByTestId('catalog-oneoff-summary')).toContainText('199–299₽');
+    await expect(page.getByTestId('catalog-subscription-section').locator('a[href="/create?type=year_forecast"]')).toContainText('299₽/мес');
+    await expect(page.getByTestId('catalog-oneoff-section').locator('a[href="/create?type=natal_master"]')).toContainText('299₽');
+    await expect(page.getByTestId('catalog-oneoff-section').locator('a[href="/create?type=solar_return"]')).toContainText('299₽');
+    await expect(page.getByTestId('catalog-oneoff-section').locator('a[href="/create?type=synastry"]')).toContainText('299₽');
+    await expect(page.getByTestId('catalog-oneoff-section').locator('a[href="/create?type=horary"]')).toContainText('199₽');
   });
 
   test('create paywall explains subscription access for non-horary products', async ({ page }) => {

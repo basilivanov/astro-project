@@ -31,6 +31,15 @@
 - legacy `/api/workflows/report*` уже переведены на structured access/consume path для one-off типов под флагами;
 - остальной one-off catalog все еще остается rollout-срезом и не считается полностью переведенным.
 
+## Update 2026-03-27 — contracts/logs billing checkout bridge
+
+Дополнение к baseline выше: текущий bridge уже следует не только feature-flow, но и более явному contract/log contract.
+
+- `GET /api/billing/sessions/{resume_token}` теперь документируется как read-contract для resume/status bridge, а не просто служебный endpoint статуса;
+- webhook-ветка `billing_kind=report_unlock` в `backend/app/services/billing.py` теперь имеет явные contract events для старта, ошибки разрешения report type, grant и linkage checkout session;
+- readiness post-payment resume теперь фиксируется отдельным event `catalog.checkout_resume_ready` при `status in {succeeded, resumed}`;
+- `draft_payload` считается частью bridge-contract и возвращается клиенту как parsed JSON, если payload валиден.
+
 ## 2. Что реально есть в коде сейчас
 
 ### 2.1 Billing runtime и typed contract
@@ -42,6 +51,11 @@
 - Для report-like продуктов берет цену из `REPORT_PRICES[...]` и через `resolve_catalog_product(...)` различает `subscription`, `credits`, `report_unlock`.
 - Если `ENABLE_PERSISTENT_CHECKOUT_SESSIONS=true`, создает локальную `billing_checkout_session`, сохраняет `return_path`/`draft_payload`, кладет `checkout_session_id` в metadata и строит `return_url` как `/billing/complete?checkout=...`.
 - Уже есть `GET /api/billing/sessions/{resume_token}` для чтения статуса своей checkout session.
+- Этот endpoint теперь фиксирует следующий read-contract:
+  - доступен только владельцу checkout session;
+  - всегда возвращает serialized session fields, включая `checkout_token`, `status`, `billing_kind`, `product_code`, `return_path`, `has_draft_payload`;
+  - дополнительно возвращает `draft_payload`, если payload успешно парсится из JSON;
+  - при `status = succeeded|resumed` пишет `catalog.checkout_resume_ready`.
 - Уже есть `POST /api/billing/sessions/{resume_token}/resume` для idempotent server-side resume `report_unlock` session через обычный B2C create workflow.
 - В mock-режиме webhook handler вызывается синхронно прямо из роутера.
 
@@ -54,6 +68,11 @@
   - `credits`
   - `report_unlock`
 - При `billing_kind=report_unlock` и `ENABLE_ONE_OFF_ENTITLEMENTS_RUNTIME=true` runtime выдает `report_entitlement`, линкует его к checkout session и не трогает `subscription_active_until`.
+- Для `report_unlock` зафиксирован внутренний contract `FN-ENSURE-REPORT-UNLOCK` с событиями:
+  - `billing.report_unlock.contract.start`;
+  - `billing.report_unlock.missing_report_type`;
+  - `billing.report_unlock.bridge_granted`;
+  - `billing.checkout_bridge.entitlement_linked`.
 - Повторные webhook/payload по тому же `payment_id` или уже-success session обрабатываются идемпотентно.
 - `handle_payment_canceled(...)` уже переводит checkout session в `canceled`.
 
@@ -117,6 +136,10 @@
   - показывает generate CTA вместо pay CTA, если unlock уже есть.
 - Для `solar_return` тот же resume path сохраняет `solar_current_location` через session draft и не теряет его при автозапуске `POST /api/reports/create`.
 - При возврате с `checkout=...` поллит `GET /api/billing/sessions/{resume_token}` и после `status = succeeded` запускает обычный `/api/reports/create`.
+- Bridge readiness определяется через status contract, а не через сам факт возврата в WebApp:
+  - `pending` — оплата/entitlement еще не готовы к resume;
+  - `succeeded` — можно продолжать create-flow;
+  - `resumed` — отчет уже создан, повторный resume/create должен быть идемпотентным.
 
 `frontend/app/billing/complete/billing-complete-page-client.tsx`
 
@@ -145,6 +168,10 @@
 - `tests/test_one_off_entitlements_scaffold.py` проверяет metadata/schema presence, typed catalog и safe defaults rollout-флагов.
 - `tests/test_billing_checkout_sessions.py` проверяет persistent checkout sessions, return URL/resume metadata, cancel handling и idempotent `report_unlock` grant.
 - `tests/test_billing_checkout_resume.py` проверяет idempotent `POST /api/billing/sessions/{resume_token}/resume` и linkage в `Report`.
+- Эти же тестовые срезы теперь фиксируют дополнительные bridge contracts:
+  - `GET /api/billing/sessions/{resume_token}` возвращает parsed `draft_payload`, а не только `has_draft_payload`;
+  - для ready session логируется `catalog.checkout_resume_ready`;
+  - duplicate payment path не должен дублировать grant, но обязан восстанавливать consistent entitlement/session linkage при необходимости.
 - `tests/test_one_off_access_runtime.py` проверяет entitlement-based access decision, consume/linking в `Report` и zero-filled unlock snapshot.
 - `tests/test_one_off_runtime_smoke.py` проверяет HTTP path `pay -> webhook -> /api/users/me.report_unlocks -> create -> consume -> second create = 402` и отдельный `/api/users/me.report_access` snapshot contract.
 - `tests/test_legacy_workflow_one_off_alignment.py` проверяет, что `/api/workflows/report` и `/api/workflows/report/async` уже потребляют one-off entitlement под флагами и сохраняют legacy subscription behavior при выключенном runtime.

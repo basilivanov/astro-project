@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useTelegram } from "../../../hooks/useTelegram";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/ui-states";
@@ -12,6 +13,46 @@ import {
   ConsumerPanel,
   ConsumerStatusBadge,
 } from "../../../components/consumer-page-shell";
+import { CatalogCheckoutResumeBanner } from "../../../components/catalog/catalog-checkout-resume";
+import {
+  setCatalogAnalyticsContext,
+  startCatalogCorrelation,
+  trackCatalogEvent,
+} from "../../../components/catalog/catalog-analytics";
+import { CATALOG_GRACE_BLOCKS, CATALOG_GRACE_MODULES, withCatalogTrace } from "../../../components/catalog/create-shared";
+
+// START_MODULE_CONTRACT: M-REPORTS-HISTORY
+// purpose: Render report history with strict-GRACE telemetry for filters, CTA flows, and checkout resume state.
+// owns:
+//   - frontend/app/reports/history/page.tsx
+// inputs:
+//   - Telegram auth/runtime state, query flags, report history API payload
+// outputs:
+//   - history UI, inline checkout resume banner, correlation-aware analytics
+// dependencies:
+//   - /api/reports/my
+//   - catalog analytics helpers + CatalogCheckoutResumeBanner
+// invariants:
+//   - every telemetry event carries `FLOW-FORECAST-CATALOG` via trackCatalogEvent
+//   - history surface uses stable semantic block labels
+// non_goals:
+//   - payment provider orchestration or read-page rendering
+// END_MODULE_CONTRACT: M-REPORTS-HISTORY
+
+// START_MODULE_MAP: M-REPORTS-HISTORY
+// entrypoints:
+//   - HistoryPage (default export)
+// key_flows:
+//   - analytics context bootstrap
+//   - report history fetch
+//   - filter / CTA tracking
+//   - checkout resume banner for history surface
+// owned_tests:
+//   - frontend/e2e/history-cta.spec.ts
+// adjacent_modules:
+//   - frontend/components/catalog/catalog-checkout-resume.tsx
+//   - frontend/components/catalog/catalog-analytics.ts
+// END_MODULE_MAP: M-REPORTS-HISTORY
 
 type UserReport = {
   id: string;
@@ -145,7 +186,11 @@ const formatReportCount = (count: number) => {
 };
 
 export default function HistoryPage() {
-  const { initData, isReady, mode } = useTelegram();
+  const searchParams = useSearchParams();
+  const checkoutToken = searchParams.get("checkout");
+  const mockEnabled = searchParams.get("mock") === "1";
+  const runtimeEnabled = searchParams.get("runtime") === "1";
+  const { initData, isReady, mode, user } = useTelegram();
   const [reports, setReports] = useState<UserReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +208,46 @@ export default function HistoryPage() {
   );
 
   const completedReportsCount = reports.filter((report) => report.status === "completed").length;
+  const historyShellAnalytics = useMemo(
+    () => ({
+      event_name: "catalog.history_view",
+      payload: withCatalogTrace(
+        { surface: "history", entry_point: "history-page-shell" },
+        {
+          module: CATALOG_GRACE_MODULES.reportsHistory,
+          contract: "FN-HISTORY-VIEW",
+          block: "SHELL_RENDER",
+          semantic_block: "SHELL_RENDER",
+        },
+      ),
+    }),
+    [],
+  );
 
+  // START_CONTRACT: FN-BOOTSTRAP-HISTORY-CONTEXT
+  // purpose: Initialize history analytics context with correlation + checkout token.
+  // inputs: telegram user id, checkout token.
+  // side_effects: updates catalog analytics shared context.
+  // END_CONTRACT: FN-BOOTSTRAP-HISTORY-CONTEXT
+  useEffect(() => {
+    // START_BLOCK: ANALYTICS_CONTEXT_BOOTSTRAP
+    const correlationId = startCatalogCorrelation(checkoutToken ? "history_checkout_resume" : "history_view");
+    setCatalogAnalyticsContext({
+      user_id: user?.id,
+      checkout_token: checkoutToken ?? undefined,
+      correlation_id: correlationId,
+    });
+    // END_BLOCK: ANALYTICS_CONTEXT_BOOTSTRAP
+  }, [checkoutToken, user?.id]);
+
+  // START_CONTRACT: FN-LOAD-HISTORY-STATE
+  // purpose: Fetch user reports and emit block-aware lifecycle telemetry.
+  // inputs: telegram auth state, mock/runtime flags, retry key.
+  // side_effects:
+  //   - requests `/api/reports/my`
+  //   - updates local reports/loading/error state
+  //   - emits history lifecycle events
+  // END_CONTRACT: FN-LOAD-HISTORY-STATE
   useEffect(() => {
     if (!isReady) {
       return;
@@ -181,9 +265,21 @@ export default function HistoryPage() {
       setError(null);
 
       try {
+        // START_BLOCK: DATA_FETCH
+        void trackCatalogEvent("catalog.history_start", withCatalogTrace({
+          surface: "history",
+          entry_point: "history-page-load",
+        }, {
+          module: CATALOG_GRACE_MODULES.reportsHistory,
+          contract: "FN-LOAD-HISTORY-STATE",
+          block: CATALOG_GRACE_BLOCKS.history.dataFetch,
+        }));
         const url = new URL("/api/reports/my", window.location.origin);
         if (mode === "mock" || window.location.search.includes("mock=1")) {
           url.searchParams.set("mock", "1");
+        }
+        if (runtimeEnabled) {
+          url.searchParams.set("runtime", "1");
         }
 
         const response = await fetch(url.toString(), {
@@ -199,17 +295,34 @@ export default function HistoryPage() {
         const payload = await response.json();
         if (!cancelled) {
           setReports(Array.isArray(payload) ? payload : []);
+          void trackCatalogEvent("catalog.history_success", withCatalogTrace({
+            surface: "history",
+            entry_point: "history-page-load",
+          }, {
+            module: CATALOG_GRACE_MODULES.reportsHistory,
+            contract: "FN-LOAD-HISTORY-STATE",
+            block: CATALOG_GRACE_BLOCKS.history.dataFetch,
+          }));
         }
       } catch (loadError) {
         if (!cancelled) {
           setReports([]);
           setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить историю разборов");
+          void trackCatalogEvent("catalog.history_error", withCatalogTrace({
+            surface: "history",
+            entry_point: "history-page-load",
+          }, {
+            module: CATALOG_GRACE_MODULES.reportsHistory,
+            contract: "FN-LOAD-HISTORY-STATE",
+            block: CATALOG_GRACE_BLOCKS.history.dataFetch,
+          }));
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
         }
       }
+      // END_BLOCK: DATA_FETCH
     };
 
     loadReports();
@@ -217,11 +330,73 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [initData, isReady, mode, requestKey]);
+  }, [initData, isReady, mode, requestKey, runtimeEnabled]);
+
+  // START_CONTRACT: FN-HANDLE-FILTER-CHANGE
+  // purpose: Update active filter and track user intent.
+  // inputs: next history filter id.
+  // side_effects: updates local filter state and telemetry.
+  // END_CONTRACT: FN-HANDLE-FILTER-CHANGE
+  const handleFilterChange = useCallback(
+    (next: HistoryFilterId) => {
+      setFilter(next);
+      void trackCatalogEvent("catalog.history_filter", withCatalogTrace({
+        surface: "history",
+        entry_point: "history-filter-chip",
+        filter_id: next,
+      }, {
+        module: CATALOG_GRACE_MODULES.reportsHistory,
+        contract: "FN-HANDLE-FILTER-CHANGE",
+        block: CATALOG_GRACE_BLOCKS.history.ctaTracking,
+      }));
+    },
+    [],
+  );
+
+  // START_CONTRACT: FN-TRACK-HISTORY-CTA
+  // purpose: Emit canonical CTA event for history surface.
+  // inputs: action id and destination href.
+  // END_CONTRACT: FN-TRACK-HISTORY-CTA
+  const trackHistoryCta = useCallback(
+    (action: string, href: string) => {
+      void trackCatalogEvent("catalog.history_cta", withCatalogTrace({
+        surface: "history",
+        action,
+        filter_id: activeFilter.id,
+        cta_href: href,
+        entry_point: action,
+      }, {
+        module: CATALOG_GRACE_MODULES.reportsHistory,
+        contract: "FN-TRACK-HISTORY-CTA",
+        block: CATALOG_GRACE_BLOCKS.history.ctaTracking,
+      }));
+    },
+    [activeFilter.id],
+  );
+
+  // START_CONTRACT: FN-TRACK-HISTORY-REPORT-OPEN
+  // purpose: Track transition from history card to read page.
+  // inputs: report id + report_type.
+  // END_CONTRACT: FN-TRACK-HISTORY-REPORT-OPEN
+  const trackReportOpen = useCallback((report: UserReport) => {
+    void trackCatalogEvent("catalog.history_open_report", withCatalogTrace({
+      surface: "history",
+      entry_point: "history-report-card",
+      report_type: report.report_type,
+      report_id: report.id,
+    }, {
+      module: CATALOG_GRACE_MODULES.reportsHistory,
+      contract: "FN-TRACK-HISTORY-REPORT-OPEN",
+      block: CATALOG_GRACE_BLOCKS.history.ctaTracking,
+    }));
+  }, []);
 
   if (!isReady || loading) {
     return (
-      <ConsumerPageShell testId="reports-history-page">
+      <ConsumerPageShell
+        testId="reports-history-page"
+        analyticsEvent={historyShellAnalytics}
+      >
         <ConsumerHero
           eyebrow="История"
           title="История разборов"
@@ -243,7 +418,10 @@ export default function HistoryPage() {
 
   if (mode === "guest" || mode === "none" || !initData) {
     return (
-      <ConsumerPageShell testId="reports-history-page">
+      <ConsumerPageShell
+        testId="reports-history-page"
+        analyticsEvent={historyShellAnalytics}
+      >
         <ConsumerHero
           eyebrow="История"
           title="История разборов"
@@ -258,6 +436,7 @@ export default function HistoryPage() {
           actions={
             <Link
               href="/reports"
+              onClick={() => trackHistoryCta("catalog_link", "/reports")}
               className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
             >
               К каталогу разборов
@@ -271,6 +450,7 @@ export default function HistoryPage() {
             message="Откройте экран из бота, чтобы мы проверили привязку к вашему профилю и показали сохраненные разборы."
             actionLabel="К каталогу разборов"
             actionHref="/reports"
+            onActionClick={() => trackHistoryCta("catalog_link", "/reports")}
           />
         </ConsumerPanel>
       </ConsumerPageShell>
@@ -279,7 +459,10 @@ export default function HistoryPage() {
 
   if (error) {
     return (
-      <ConsumerPageShell testId="reports-history-page">
+      <ConsumerPageShell
+        testId="reports-history-page"
+        analyticsEvent={{ event_name: "catalog.history_view", payload: withCatalogTrace({ surface: "history" }, { module: CATALOG_GRACE_MODULES.reportsHistory, contract: "FN-HISTORY-VIEW", block: "SHELL_RENDER" }) }}
+      >
         <ConsumerHero
           eyebrow="История"
           title="История разборов"
@@ -294,6 +477,7 @@ export default function HistoryPage() {
           actions={
             <Link
               href="/reports"
+              onClick={() => trackHistoryCta("catalog_link", "/reports")}
               className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700"
             >
               К каталогу разборов
@@ -308,7 +492,10 @@ export default function HistoryPage() {
   }
 
   return (
-    <ConsumerPageShell testId="reports-history-page">
+    <ConsumerPageShell
+      testId="reports-history-page"
+      analyticsEvent={historyShellAnalytics}
+    >
       <ConsumerHero
         eyebrow="История"
         title="История разборов"
@@ -327,26 +514,41 @@ export default function HistoryPage() {
             <ConsumerMetaPill label="Фильтр" value={activeFilter.label} />
           </>
         }
-        actions={
-          <>
-            <Link
-              href="/reports"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700"
-            >
-              Каталог разборов
-            </Link>
-            <Link
-              href={activeFilter.ctaHref}
-              data-testid="history-filter-cta"
-              className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-            >
-              {activeFilter.ctaLabel}
-            </Link>
-          </>
-        }
+          actions={
+            <>
+              <Link
+                href="/reports"
+                onClick={() => trackHistoryCta("catalog_link", "/reports")}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700"
+              >
+                Каталог разборов
+              </Link>
+              <Link
+                href={activeFilter.ctaHref}
+                data-testid="history-filter-cta"
+                data-block={CATALOG_GRACE_BLOCKS.history.ctaTracking}
+                onClick={() => trackHistoryCta("filter_cta", activeFilter.ctaHref)}
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+              >
+                {activeFilter.ctaLabel}
+              </Link>
+            </>
+          }
+      />
+
+      <CatalogCheckoutResumeBanner
+        surface="history"
+        entryPoint="history-inline-resume"
+        checkoutToken={checkoutToken}
+        mockEnabled={mockEnabled}
+        runtimeEnabled={runtimeEnabled}
+        initData={initData}
+        isReady={isReady}
+        mode={mode}
       />
 
       <ConsumerPanel className="p-4 sm:p-5">
+        {/* START_BLOCK: RESUME_STATE */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
             {HISTORY_FILTERS.map((item) => {
@@ -356,7 +558,7 @@ export default function HistoryPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setFilter(item.id)}
+                  onClick={() => handleFilterChange(item.id)}
                   className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                     isActive
                       ? "bg-slate-950 text-white shadow-sm"
@@ -387,6 +589,7 @@ export default function HistoryPage() {
             </div>
           </div>
         </div>
+        {/* END_BLOCK: RESUME_STATE */}
       </ConsumerPanel>
 
       {filteredReports.length === 0 ? (
@@ -397,6 +600,7 @@ export default function HistoryPage() {
             message={activeFilter.emptyMessage}
             actionLabel={activeFilter.ctaLabel}
             actionHref={activeFilter.ctaHref}
+            onActionClick={() => trackHistoryCta("empty_state_cta", activeFilter.ctaHref)}
           />
         </ConsumerPanel>
       ) : (
@@ -409,6 +613,7 @@ export default function HistoryPage() {
               <Link
                 key={report.id}
                 href={`/read/${report.id}`}
+                onClick={() => trackReportOpen(report)}
                 className="group block"
                 aria-label={`${formatHistoryReportType(report.report_type)}: ${clientName}`}
               >

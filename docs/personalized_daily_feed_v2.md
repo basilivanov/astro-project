@@ -33,11 +33,42 @@ Replace the MVP-like Moscow/generic `/api/feed/today` logic with a narrow, facts
 ### 2. `backend/app/services/feed_service.py`
 - Responsibility: convert facts into short vibe text.
 - Changes in v2:
+  - exposes `build_personalized_feed()` as the public GRACE facade for assembling the final feed copy from deterministic astro facts and semantic personalization blocks
+  - exposes `enqueue_regeneration()` as an explicit current-day cache invalidation hook so the next read rebuilds the feed for the same `moon_sign` + `cache_scope`
   - accepts optional `personalization_context`
   - cache key includes `cache_scope`
   - fallback text can include factual emphasis when LLM is unavailable
   - prompt explicitly forbids inventing aspects/events outside supplied facts
   - uses explicit prompt registry entry `personalized_daily_v2` inside `backend/app/services/feed_service.py`
+
+### Feed service public entrypoints
+
+#### `build_personalized_feed()`
+- Async facade over `get_daily_vibe_llm()`.
+- Input contract:
+  - required deterministic day facts: `moon_sign`, `moon_phase`, `aspects_summary`
+  - optional `personalization_context` with fact-first semantic payload from `personalized_daily.py`
+  - optional `cache_scope` for per-profile memoization
+  - optional `correlation_id` for GRACE trace continuity
+- Behavior:
+  - opens a dedicated `BUILD_PERSONALIZED_FEED` trace block
+  - delegates actual prompt/fallback execution to `get_daily_vibe_llm()`
+  - preserves the same normalization and hallucination guardrails as the lower-level LLM path
+- Output:
+  - returns the final normalized `general_vibe` string, still constrained to the short two-sentence style contract
+
+#### `enqueue_regeneration()`
+- Sync invalidation hook for the in-memory daily feed cache.
+- Input contract:
+  - required `moon_sign`
+  - optional `cache_scope`; defaults to shared cache space
+  - optional `correlation_id`
+- Behavior:
+  - targets the current UTC day cache key: `(today, moon_sign, cache_scope)`
+  - removes the cached entry if it exists
+  - emits structured `feed.regeneration_enqueued` log with `cache_hit` so operators can see whether invalidation actually found cached data
+- Output:
+  - returns `True` when a cache entry was invalidated, otherwise `False`
 
 ### 3. `backend/app/main.py`
 - Responsibility: API wiring.
@@ -94,6 +125,8 @@ Replace the MVP-like Moscow/generic `/api/feed/today` logic with a narrow, facts
   - request start in `backend/app/main.py`
   - auth fallback in `backend/app/main.py`
   - facts builder start/cache hit/build result in `backend/app/services/personalized_daily.py`
+  - public feed facade block `BUILD_PERSONALIZED_FEED` in `backend/app/services/feed_service.py`
+  - regeneration invalidation event `feed.regeneration_enqueued` in `backend/app/services/feed_service.py`
   - LLM prompt path in `backend/app/main.py`
   - endpoint fallback path in `backend/app/main.py`
 - Safe fields only: `path`, `auth_mode`, `personalization_level`, `cache_scope`, `timezone`, `location`, `prompt_path`, `fallback_reason`, `has_fast_hits`. Raw `X-Telegram-Auth` / `initData` never enter logs.

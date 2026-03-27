@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-21">
+<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-27">
   <nodes>
     <use_case id="UC-AUTH-PROFILE" />
     <use_case id="UC-B2C-REPORT" />
@@ -9,6 +9,8 @@
     <use_case id="UC-FEED-DAILY" />
     <use_case id="UC-ADMIN-OPERATIONS" />
     <use_case id="UC-BOT-DELIVERY" />
+    <use_case id="UC-START-GATEWAY" />
+    <use_case id="UC-CREATE-CHECKOUT" />
 
     <scenario id="SCN-AUTH-VALID-INITDATA" />
     <scenario id="SCN-PROFILE-COMPLETE-BIRTHDATA" />
@@ -26,6 +28,12 @@
     <scenario id="SCN-ADMIN-DIAGNOSTICS" />
     <scenario id="SCN-BOT-NOTIFY" />
     <scenario id="SCN-BOT-VOICE-TRANSCRIBE" />
+    <scenario id="SCN-START-GUEST-AUTH-GATE" />
+    <scenario id="SCN-START-MOCK-FEED-REDIRECT" />
+    <scenario id="SCN-START-PROFILE-CHECK" />
+    <scenario id="SCN-CREATE-CHECKOUT-TOKEN-RESUME" />
+    <scenario id="SCN-CREATE-REPORT-DIRECT" />
+    <scenario id="SCN-CREATE-PRODUCT-INPUT-HYDRATION" />
 
     <phase id="PHASE-SNAPSHOT" />
     <phase id="PHASE-IDENTITY" />
@@ -42,6 +50,7 @@
     <flow id="FLOW-DAILY-FEED" name="Daily feed" />
     <flow id="FLOW-ADMIN-OPS" name="Admin operations" />
     <flow id="FLOW-FORECAST-CATALOG" name="Forecast ladder catalog" />
+    <flow id="FLOW-HOME-FEED" name="Start gateway and home feed routing" />
 
     <module id="M-API-GATEWAY" path="backend/app/main.py;backend/app/routers/billing.py">
       <export>create_report_async</export>
@@ -52,6 +61,26 @@
       <export>get_my_profile</export>
       <export>get_report_detail</export>
       <export>run_diagnostics_endpoint</export>
+    </module>
+    <module id="M-START-GATEWAY" path="frontend/app/start/page.tsx">
+      <export>StartPage</export>
+      <export>resolveMockRedirect</export>
+      <export>handleAuthWait</export>
+      <export>ensureProfileCompletion</export>
+    </module>
+    <module id="M-CREATE-CHECKOUT" path="frontend/app/create/create-page-client.tsx">
+      <export>CreatePageContent</export>
+      <export>CreatePageClient</export>
+      <export>handleCreateReport</export>
+      <export>handleCheckout</export>
+      <export>syncCheckoutSession</export>
+    </module>
+    <module id="M-CATALOG-CREATE-SHARED" path="frontend/components/catalog/create-shared.ts">
+      <export>PRODUCT_META</export>
+      <export>CATALOG_GRACE_MODULES</export>
+      <export>CATALOG_GRACE_BLOCKS</export>
+      <export>withCatalogTrace</export>
+      <export>buildMockProfile</export>
     </module>
     <module id="M-AUTH-IDENTITY" path="backend/app/auth.py">
       <export>authenticate_telegram_user</export>
@@ -251,6 +280,15 @@
     <edge from="FLOW-FORECAST-CATALOG" to="SCN-B2C-REPORT-CREATE" type="covers" />
     <edge from="FLOW-FORECAST-CATALOG" to="SCN-BILLING-ONE-OFF-PHASE2" type="covers" />
     <edge from="FLOW-FORECAST-CATALOG" to="SCN-ASYNC-REPORT-GENERATE" type="covers" />
+    <edge from="FLOW-HOME-FEED" to="UC-START-GATEWAY" type="covers" />
+    <edge from="FLOW-HOME-FEED" to="UC-FEED-DAILY" type="covers" />
+    <edge from="FLOW-HOME-FEED" to="SCN-START-GUEST-AUTH-GATE" type="covers" />
+    <edge from="FLOW-HOME-FEED" to="SCN-START-MOCK-FEED-REDIRECT" type="covers" />
+    <edge from="FLOW-HOME-FEED" to="SCN-START-PROFILE-CHECK" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="UC-CREATE-CHECKOUT" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-CREATE-CHECKOUT-TOKEN-RESUME" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-CREATE-REPORT-DIRECT" type="covers" />
+    <edge from="FLOW-FORECAST-CATALOG" to="SCN-CREATE-PRODUCT-INPUT-HYDRATION" type="covers" />
 
     <edge from="SCN-AUTH-VALID-INITDATA" to="PHASE-IDENTITY" type="gated_by" />
     <edge from="SCN-B2C-REPORT-CREATE" to="PHASE-ACCESS" type="gated_by" />
@@ -263,6 +301,13 @@
     <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-READOUT" type="gated_by" />
     <edge from="SCN-FEED-TODAY" to="PHASE-READOUT" type="gated_by" />
     <edge from="SCN-ADMIN-DIAGNOSTICS" to="PHASE-READOUT" type="gated_by" />
+    <edge from="SCN-START-GUEST-AUTH-GATE" to="PHASE-IDENTITY" type="gated_by" />
+    <edge from="SCN-START-MOCK-FEED-REDIRECT" to="PHASE-WORKFLOW-INIT" type="gated_by" />
+    <edge from="SCN-START-PROFILE-CHECK" to="PHASE-IDENTITY" type="gated_by" />
+    <edge from="SCN-START-PROFILE-CHECK" to="PHASE-READOUT" type="gated_by" />
+    <edge from="SCN-CREATE-CHECKOUT-TOKEN-RESUME" to="PHASE-ACCESS" type="gated_by" />
+    <edge from="SCN-CREATE-REPORT-DIRECT" to="PHASE-WORKFLOW-INIT" type="gated_by" />
+    <edge from="SCN-CREATE-PRODUCT-INPUT-HYDRATION" to="PHASE-WORKFLOW-INIT" type="gated_by" />
 
     <edge from="UC-AUTH-PROFILE" to="M-FRONTEND-WEBAPP" type="entered_via" />
     <edge from="UC-AUTH-PROFILE" to="M-BOT-CHANNEL" type="entered_via" />
@@ -293,6 +338,15 @@
     <edge from="UC-FEED-DAILY" to="M-OPS-AUTOMATION" type="implemented_by" />
     <edge from="UC-FEED-DAILY" to="M-FORECAST-SEMANTIC-LAYER" type="implemented_by" />
     <edge from="UC-FEED-DAILY" to="M-DAILY-FEED-SURFACE" type="entered_via" />
+    <edge from="UC-START-GATEWAY" to="M-START-GATEWAY" type="implemented_by" />
+    <edge from="UC-START-GATEWAY" to="M-FRONTEND-WEBAPP" type="entered_via" />
+    <edge from="UC-START-GATEWAY" to="M-AUTH-IDENTITY" type="gated_by" />
+    <edge from="UC-START-GATEWAY" to="M-DAILY-FEED-SURFACE" type="routes_to" />
+    <edge from="UC-CREATE-CHECKOUT" to="M-CREATE-CHECKOUT" type="implemented_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="M-CATALOG-CREATE-SHARED" type="uses_contract_from" />
+    <edge from="UC-CREATE-CHECKOUT" to="M-API-GATEWAY" type="implemented_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="M-ACCESS-COMMERCE" type="gated_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="M-READ-RESILIENCE-SURFACE" type="routes_to" />
     <edge from="M-DAILY-FEED-SURFACE" to="M-OPS-AUTOMATION" type="loads_from" />
     <edge from="M-OPS-AUTOMATION" to="EXT-OPENROUTER" type="optional_provider" />
     <edge from="M-OPS-AUTOMATION" to="EXT-GEMINI-CLI" type="optional_provider" />
@@ -317,6 +371,11 @@
     <edge from="UC-REFERRAL-REWARD" to="VM-REFERRAL" type="verified_by" />
     <edge from="UC-FEED-DAILY" to="VM-FEED-DAILY" type="verified_by" />
     <edge from="UC-FEED-DAILY" to="VM-FEED-ROBUSTNESS" type="verified_by" />
+    <edge from="UC-START-GATEWAY" to="VM-FEED-ROBUSTNESS" type="verified_by" />
+    <edge from="UC-START-GATEWAY" to="VM-REPORTS-UX-CONSISTENCY" type="verified_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="VM-FORECAST-CREATE-READ" type="verified_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="VM-BILLING-ACCESS" type="verified_by" />
+    <edge from="UC-CREATE-CHECKOUT" to="VM-REPORTS-UX-CONSISTENCY" type="verified_by" />
     <edge from="UC-ADMIN-OPERATIONS" to="VM-ADMIN-OPS" type="verified_by" />
     <edge from="UC-BOT-DELIVERY" to="VM-BOT-DELIVERY" type="verified_by" />
 

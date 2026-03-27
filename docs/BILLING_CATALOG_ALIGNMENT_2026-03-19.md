@@ -33,6 +33,8 @@
 - `backend/app/services/one_off_entitlements.py` уже держит typed catalog и `report_entitlements`.
 - `backend/app/services/billing.py` уже умеет `report_unlock`, persistent checkout sessions и idempotent webhook path.
 - `/api/billing/sessions/{resume_token}` и `/api/billing/sessions/{resume_token}/resume` уже существуют.
+- Status endpoint теперь является частью bridge-contract: отдает owner-scoped checkout session, parsed `draft_payload` и логирует `catalog.checkout_resume_ready` для `succeeded|resumed`.
+- Webhook-ветка `report_unlock` теперь имеет явные contract/log events: `billing.report_unlock.contract.start`, `billing.report_unlock.missing_report_type`, `billing.report_unlock.bridge_granted`, `billing.checkout_bridge.entitlement_linked`.
 - `/billing/complete` уже возвращает пользователя в `/create` или сразу в `/read/{id}`.
 - `GET /api/users/me` уже отдает не только `report_unlocks`, но и structured `report_access` snapshot для canonical one-off типов.
 

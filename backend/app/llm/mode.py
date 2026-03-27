@@ -28,6 +28,8 @@ def resolve_llm_mode(payload) -> str:
         fallback_default = "openrouter"
 
     default_mode = os.getenv("DEFAULT_LLM_MODE", fallback_default).strip().lower() or fallback_default
+    if os.getenv("LLM_FORCE_DEFAULT"):
+        return default_mode
     mode = (getattr(payload, "llm_mode", None) or default_mode).strip().lower()
     if mode == "cheap":
         return "cheap"

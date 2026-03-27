@@ -21,7 +21,7 @@ from backend.app.routers.billing import (
     get_checkout_session_status,
     initiate_payment,
 )
-from backend.app.services.billing import handle_payment_canceled, handle_payment_succeeded
+from backend.app.services.billing import build_checkout_failure_url, handle_payment_canceled, handle_payment_succeeded
 from backend.app.services.one_off_entitlements import BillingKind, CheckoutSessionStatus
 
 
@@ -435,3 +435,51 @@ def test_handle_payment_succeeded_report_unlock_is_idempotent(
     assert db_session.query(ReportEntitlement).count() == 1
     mock_process_partner_reward.assert_called_once()
     mock_log_analytics_event.assert_called_once()
+
+
+def test_build_checkout_failure_url_uses_yoomoney_return_alias_env(monkeypatch):
+    monkeypatch.setenv("WEBAPP_URL", "https://app.example.com")
+    assert build_checkout_failure_url("resume-token", "provider_return_failed") == (
+        "https://app.example.com/billing/complete?checkout=resume-token&status=failed&reason=provider_return_failed"
+    )
+
+
+def test_create_payment_requires_secret_key_alias(monkeypatch):
+    from importlib import reload
+    import backend.app.services.billing as billing_service
+
+    monkeypatch.delenv("YOOKASSA_SHOP_ID", raising=False)
+    monkeypatch.delenv("YOOKASSA_SECRET_KEY", raising=False)
+    monkeypatch.setenv("YOOMONEY_SHOP_ID", "shop-1")
+    monkeypatch.delenv("YOOMONEY_SECRET", raising=False)
+    reload(billing_service)
+
+    with pytest.raises(ValueError, match="Billing not configured"):
+        billing_service.create_payment(
+            user_id=uuid.uuid4(),
+            amount=199.0,
+            description="Test payment",
+        )
+
+
+def test_create_payment_accepts_yoomoney_aliases(monkeypatch):
+    from importlib import reload
+    import backend.app.services.billing as billing_service
+
+    monkeypatch.delenv("YOOKASSA_SHOP_ID", raising=False)
+    monkeypatch.delenv("YOOKASSA_SECRET_KEY", raising=False)
+    monkeypatch.setenv("YOOMONEY_SHOP_ID", "shop-1")
+    monkeypatch.setenv("YOOMONEY_SECRET", "secret-1")
+    reload(billing_service)
+
+    with patch.object(billing_service.Payment, "create", return_value={"id": "pay_alias"}) as mock_create:
+        payload = billing_service.create_payment(
+            user_id=uuid.uuid4(),
+            amount=199.0,
+            description="Test payment",
+            return_url="https://app.example.com/billing/complete?checkout=tok",
+        )
+
+    assert json.loads(payload)["id"] == "pay_alias"
+    args = mock_create.call_args.args
+    assert args[0]["confirmation"]["return_url"] == "https://app.example.com/billing/complete?checkout=tok"

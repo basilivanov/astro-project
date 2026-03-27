@@ -1,0 +1,73 @@
+name: gracectl slices
+
+on:
+  workflow_dispatch:
+    inputs:
+      slice-id:
+        description: 'Slice identifier from docs/gracectl.md (e.g. FEED-PERSONALIZED-DAILY)'
+        required: true
+        default: FEED-PERSONALIZED-DAILY
+      verify-flags:
+        description: 'Extra flags for gracectl slice verify (e.g. --frontend --backend)'
+        required: false
+        default: '--frontend --backend'
+  schedule:
+    - cron: '15 5 * * *'
+  push:
+    paths:
+      - '.github/workflows/gracectl.yml'
+      - 'gracectl/**'
+      - 'docs/gracectl.md'
+      - 'requirements.txt'
+
+jobs:
+  gracectl:
+    name: Gracectl slice verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+      SLICE_ID: 'FORECAST-LADDER-CATALOG-FLIP'
+      VERIFY_FLAGS: '--frontend --backend'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply manual dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "SLICE_ID=${{ github.event.inputs['slice-id'] }}" >> "$GITHUB_ENV"
+          echo "VERIFY_FLAGS=${{ github.event.inputs['verify-flags'] }}" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: gracectl env check
+        run: |
+          python -m gracectl.cli env check --config gracectl.yaml
+
+      - name: gracectl slice verify
+        run: |
+          python -m gracectl.cli slice verify ${SLICE_ID} ${VERIFY_FLAGS}
+
+      - name: Upload gracectl logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gracectl-logs
+          path: |
+            logs/gracectl
+            test-results
+
+      - name: Summarize result
+        if: success()
+        run: |
+          echo "gracectl slice ${SLICE_ID} verify completed successfully."
