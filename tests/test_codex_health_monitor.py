@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from ductor_bot.cli.codex_health import CodexHealthMonitor
+from ductor_bot.cli.codex_health import CodexHealthMonitor, _default_codex_home
 from ductor_bot.tasks.hub import TaskHub
 from ductor_bot.tasks.models import TaskSubmit
 
@@ -53,6 +54,21 @@ def test_codex_health_monitor_payload_includes_ping_and_state(tmp_path: Path) ->
     assert payload["ping_ok"] is True
     assert payload["state_ok"] is True
     assert "checked_at" in payload
+
+
+def test_default_codex_home_uses_env_override(tmp_path: Path) -> None:
+    explicit = tmp_path / "custom-home"
+    explicit.mkdir()
+    with patch.dict(os.environ, {"CODEX_HOME": str(explicit)}, clear=False):
+        assert _default_codex_home() == explicit
+
+
+def test_default_codex_home_prefers_ductor_cliproxy(tmp_path: Path) -> None:
+    fake_home = tmp_path / "home"
+    cliproxy = fake_home / ".ductor" / "codex-cliproxy-home"
+    cliproxy.mkdir(parents=True)
+    with patch.dict(os.environ, {}, clear=True), patch("pathlib.Path.home", return_value=fake_home):
+        assert _default_codex_home() == cliproxy
 
 
 def test_taskhub_submit_blocks_unhealthy_codex(tmp_path: Path) -> None:

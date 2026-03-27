@@ -40,6 +40,10 @@
     <phase id="PHASE-ACCESS" />
     <phase id="PHASE-WORKFLOW-INIT" />
     <phase id="PHASE-FACTS-CALC" />
+    <phase id="PHASE-DAY-BRIEF" />
+    <phase id="PHASE-WEEK-BRIEF" />
+    <phase id="PHASE-FRONTEND-TODAY" />
+    <phase id="PHASE-FRONTEND-WEEK" />
     <phase id="PHASE-SECTION-GEN" />
     <phase id="PHASE-FINALIZE" />
     <phase id="PHASE-READOUT" />
@@ -155,11 +159,44 @@
       <export>process_referral</export>
       <export>process_partner_reward</export>
     </module>
-    <module id="M-OPS-AUTOMATION" path="backend/app/services/feed_service.py;backend/app/services/scheduler.py;backend/app/services/notification.py;backend/app/diagnostics.py">
-      <export>get_daily_vibe_llm</export>
+    <module id="M-OPS-AUTOMATION" path="backend/app/services/scheduler.py;backend/app/services/notification.py;backend/app/diagnostics.py">
       <export>start_scheduler</export>
       <export>send_bot_notification</export>
       <export>run_diagnostics</export>
+    </module>
+    <module id="M-FACTS-CALC" path="backend/app/services/feed_service.py;backend/app/services/semantic_layer.py;backend/app/services/engine_adapter.py">
+      <export>build_feed_context</export>
+      <export>build_semantic_layer</export>
+      <export>build_fast_hits</export>
+      <export>get_cached_facts</export>
+    </module>
+    <module id="M-DAY-BRIEF-SERVICE" path="backend/app/services/day_brief*.py">
+      <export>build_day_brief_payload</export>
+      <export>build_day_brief_fallback</export>
+      <export>serialize_day_brief</export>
+    </module>
+    <module id="M-WEEK-BRIEF-SERVICE" path="backend/app/services/week_brief*.py">
+      <export>build_week_brief_payload</export>
+      <export>build_week_brief_envelope</export>
+      <export>serialize_week_brief</export>
+    </module>
+    <module id="M-FRONTEND-TODAY" path="frontend/app/page.tsx;frontend/components/today/*;frontend/lib/day-brief*.ts">
+      <export>TodayVerdictCard</export>
+      <export>TrafficLights</export>
+      <export>TodayWindowsPanel</export>
+      <export>TodayActionPlanPanel</export>
+      <export>TodayExplainabilityPanel</export>
+    </module>
+    <module id="M-FRONTEND-WEEK" path="frontend/app/week/page.tsx;frontend/components/week/*;frontend/lib/week-brief.ts">
+      <export>WeekHeroMap</export>
+      <export>WeekDayGrid</export>
+      <export>WeekDomainPanel</export>
+      <export>WeekExplainabilityPanel</export>
+    </module>
+    <module id="M-DAILY-FEED-SURFACE" path="frontend/app/page.tsx;backend/app/main.py;backend/app/services/feed_service.py">
+      <export>/</export>
+      <export>get_daily_feed</export>
+      <export>normalize_daily_vibe_text</export>
     </module>
     <module id="M-FRONTEND-WEBAPP" path="frontend/app/page.tsx;frontend/app/start/page.tsx;frontend/app/onboarding/profile/page.tsx;frontend/app/create/page.tsx;frontend/app/billing/complete/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/profile/page.tsx;frontend/app/reports/page.tsx;frontend/app/reports/history/page.tsx;frontend/app/week/page.tsx;frontend/components/consumer-page-shell.tsx;frontend/lib/product-billing.ts;frontend/app/api/*">
       <export>/</export>

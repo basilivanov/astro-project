@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from ductor_bot.cli.codex_health import CodexHealthMonitor
 
-
-_CODEX_HEALTH = CodexHealthMonitor(codex_home=Path.home() / ".codex")
+_CODEX_HEALTH = CodexHealthMonitor()
 
 
 class TaskHub:

@@ -1,9 +1,9 @@
-<technology project="astro-project" mode="strict-grace" updated_at="2026-03-17">
+<technology project="astro-project" mode="strict-grace" updated_at="2026-03-27">
   <repo_boundary>
     <root>/opt/astro-project</root>
-    <git_snapshot commit="ab97c6122fe143bcdda1cb3cfc5c090921270654" tag="grace-2026-03-21" worktree_state="clean" strict_grace_status="ready" captured_at="2026-03-21" />
-    <assumption local_adaptation="true">Snapshot boundary: commit ab97c6122fe143bcdda1cb3cfc5c090921270654 tagged grace-2026-03-21 (worktree_state=clean), captured_at=2026-03-21. All verification commands reference this tag; reruns MUST use this snapshot or reissue a new GRACE snapshot.</assumption>
-    <follow_up>When the next major drift occurs, repeat the clean-tag process (scripts/grace_snapshot.sh export --tag &lt;new-tag&gt;) and refresh these fields immediately so downstream packs inherit a reproducible baseline.</follow_up>
+    <git_snapshot commit="0cba3cf07ea563306bdd6e887d7b9256c3edc190" tag="prod-release-20260327" worktree_state="dirty" strict_grace_status="in_progress" captured_at="2026-03-27" />
+    <assumption local_adaptation="true">Snapshot boundary bumped to commit 0cba3cf07ea563306bdd6e887d7b9256c3edc190 (tag prod-release-20260327). Controller packet for Day/Week DTO work references this commit; new waves MUST either finish on this snapshot or record a fresh snapshot before coding.</assumption>
+    <follow_up>Once Wave 1/2 land clean, re-run scripts/grace_snapshot.sh export --tag &lt;next-tag&gt; and update this block to re-establish a clean baseline.</follow_up>
   </repo_boundary>
   <runtime_stack>
     <runtime name="backend" language="Python" version="3.12" framework="FastAPI 0.111 plus Uvicorn 0.30" container="backend/Dockerfile" />

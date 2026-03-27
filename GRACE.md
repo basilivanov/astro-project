@@ -99,6 +99,76 @@ MUST содержать:
 
 План должен отвечать не на вопрос "что вообще есть в проекте", а на вопрос "как мы безопасно исполняем изменения".
 
+`development-plan.xml` это execution artifact, а не inventory-файл и не список желаний.
+
+Он должен связывать intended behavior из `requirements.xml` с реальным execution порядком:
+
+- какие phases существуют;
+- какие waves входят в phase;
+- какие modules входят в wave;
+- какие interfaces и data flows эта wave затрагивает;
+- что разрешено менять;
+- что явно frozen;
+- как выглядит gate этой wave.
+
+Нормальный порядок построения `development-plan.xml`:
+
+1. взять use cases и success criteria из `requirements.xml`;
+2. взять runtime limits и external boundaries из `technology.xml`;
+3. выделить bounded modules;
+4. сгруппировать modules в phases;
+5. разрезать phases на маленькие waves;
+6. для каждой wave заранее зафиксировать write scope, verification и acceptance;
+7. явно вынести deferred work, чтобы он не превращался в silent scope drift.
+
+Минимальный skeleton:
+
+```xml
+<DevelopmentPlan>
+  <Phase id="PHASE-1">
+    <Goal>Stabilize bounded execution slice.</Goal>
+
+    <Wave id="WAVE-1">
+      <Goal>Prepare stable core before adjacent runtime changes.</Goal>
+
+      <ModuleRef id="M-ENTRY" />
+      <ModuleRef id="M-PIPELINE" />
+
+      <AllowedWriteScope>
+        <File>path/to/entry.py</File>
+        <File>path/to/pipeline.py</File>
+        <File>tests/test_pipeline.py</File>
+      </AllowedWriteScope>
+
+      <FrozenScope>
+        <File>path/to/publisher.py</File>
+        <File>infra/docker-compose.yml</File>
+      </FrozenScope>
+
+      <Verification>
+        <Command>python3 tests/test_pipeline.py</Command>
+      </Verification>
+
+      <AcceptanceCriteria>
+        <Criterion>Module contracts are in place.</Criterion>
+        <Criterion>Wave gate is green.</Criterion>
+        <Criterion>Out-of-scope files remain untouched.</Criterion>
+      </AcceptanceCriteria>
+
+      <DeferredWork>
+        <Item>Publisher repair moves to a later wave.</Item>
+      </DeferredWork>
+    </Wave>
+  </Phase>
+</DevelopmentPlan>
+```
+
+Хороший `development-plan.xml` позволяет без гадания ответить на три вопроса:
+
+- что делаем сейчас;
+- что можно и нельзя трогать;
+- по каким evidence и gates wave считается завершенной.
+
 ### 5.4 `knowledge-graph.xml`
 
 MUST содержать:
@@ -463,6 +533,112 @@ Parallel execution допустим только если:
 
 Иначе execution SHOULD идти последовательно.
 
+### 10.6 How tasks are set via controller packets
+
+В strict GRACE задача для worker SHOULD ставиться через controller-owned execution packet, а не через свободный текст без границ.
+
+Packet — это bounded execution contract, который выводится из shared artifacts и фиксирует, как именно исполняется одна wave или один repair slice.
+
+Packet MUST опираться на:
+
+- `requirements.xml`
+- `technology.xml`
+- `development-plan.xml`
+- `knowledge-graph.xml`
+- `verification-matrix.md`
+
+Нормальная granularity packet:
+
+- одна bounded wave;
+- один bounded slice внутри wave;
+- один repair packet для конкретного defect или failed gate.
+
+Controller packet SHOULD фиксировать:
+
+- честное текущее состояние;
+- phase/wave/module IDs;
+- goal packet;
+- exact write scope;
+- allowed files;
+- explicitly frozen / out-of-scope surfaces;
+- contracts and invariants that MUST be preserved;
+- required verification commands;
+- expected evidence and gate conditions;
+- escalation rule на случай scope pressure.
+
+Нормальный task-setting flow:
+
+1. controller выбирает phase/wave из `development-plan.xml`;
+2. controller вырезает bounded slice;
+3. controller пишет packet с allowed write scope и verification;
+4. worker исполняет packet буквально;
+5. reviewer проверяет packet compliance и gate readiness;
+6. controller либо закрывает wave, либо выпускает следующий packet, либо формирует failure packet.
+
+Если worker в ходе выполнения понимает, что текущего scope недостаточно, он MUST не расширять его молча, а вернуть escalation для нового packet или packet update.
+
+### 10.7 Canonical controller packet shape
+
+Для нового execution packet SHOULD использоваться единый shape, а не произвольный prose-only format.
+
+Минимальный controller packet MUST содержать:
+
+- packet title;
+- `Phase`, `Wave`, `Modules`;
+- goal;
+- exact write scope;
+- allowed files;
+- explicitly frozen / out-of-scope surfaces;
+- must-preserve invariants;
+- verification commands;
+- expected evidence;
+- escalation rule.
+
+Recommended template:
+
+```md
+# Controller Packet — <slice / wave name>
+
+## IDs
+- Phase: PHASE-...
+- Wave: WAVE-...
+- Modules: M-..., M-...
+
+## Goal
+<one bounded business / execution goal>
+
+## Allowed Write Scope
+- path/to/file_a.py
+- path/to/file_b.py
+- tests/test_target.py
+
+## Frozen / Out Of Scope
+- path/to/neighbor.py
+- frontend/*
+- infra/*
+
+## Must Preserve
+- <runtime invariant>
+- <API / DTO / queue invariant>
+- <legacy behavior that must remain untouched>
+
+## Verification
+- <command 1>
+- <command 2>
+
+## Expected Evidence
+- files changed
+- commands run
+- test results
+- sample payload / trace / artifact
+- residual risks
+
+## Escalation
+If <neighbor scope / schema / frontend / infra> change is required, stop and request a new packet.
+```
+
+Reviewer SHOULD считать packet неполным, если в нём отсутствуют `Frozen / Out Of Scope`, `Must Preserve`, `Verification` или `Escalation`.
+
 ## 11. Hard requirements, best practices, local adaptations
 
 ### 11.1 Hard requirements
@@ -558,13 +734,17 @@ Pilot slice SHOULD:
 
 Packet должен зафиксировать:
 
+- `Phase`, `Wave`, `Modules`;
 - цель первой волны;
 - exact write scope;
 - allowed files;
+- frozen / out-of-scope surfaces;
+- must-preserve invariants;
 - in-scope scenarios;
 - deferred scenarios;
 - fixture/live-input policy;
 - required evidence;
+- verification commands;
 - gate conditions;
 - out-of-scope risks;
 - handoff format для worker.

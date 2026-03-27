@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
 import time
@@ -18,9 +19,21 @@ class CodexHealthStatus:
     checked_at: float
 
 
+def _default_codex_home() -> Path:
+    env_home = os.environ.get("CODEX_HOME", "").strip()
+    if env_home:
+        return Path(env_home).expanduser()
+
+    cliproxy_home = Path.home() / ".ductor" / "codex-cliproxy-home"
+    if cliproxy_home.exists():
+        return cliproxy_home
+
+    return Path.home() / ".codex"
+
+
 class CodexHealthMonitor:
     def __init__(self, codex_home: Path | None = None, ttl_seconds: float = 15.0) -> None:
-        self.codex_home = Path(codex_home or Path.home() / ".codex")
+        self.codex_home = Path(codex_home) if codex_home is not None else _default_codex_home()
         self.ttl_seconds = ttl_seconds
         self._cached_status: CodexHealthStatus | None = None
 

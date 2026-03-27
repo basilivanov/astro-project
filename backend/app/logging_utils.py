@@ -20,7 +20,15 @@ from structlog.contextvars import bind_contextvars, merge_contextvars, unbind_co
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = Path(os.getenv("ASTRO_LOG_DIR", PROJECT_ROOT / "logs")).resolve()
 
-FEED_EVENTS = {"feed.entry", "feed.debug", "feed.error"}
+FEED_EVENTS = {
+    "feed.entry",
+    "feed.debug",
+    "feed.error",
+    "day_brief.built",
+    "day_brief.fallback",
+    "day_brief.validation_failed",
+    "day_brief.response_returned",
+}
 ADMIN_EVENTS = {
     "admin.entry",
     "admin.queue",

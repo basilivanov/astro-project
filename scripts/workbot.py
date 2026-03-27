@@ -114,7 +114,7 @@ DEFAULT_CONFIG = {
     "roles": {
         "architect": {
             "tool": "codex",
-            "model": "gpt-5.2-codex",
+            "model": "codex-codex3/gpt-5.4",
             "reasoning": "xhigh",
             "enabled": True,
         },
@@ -132,7 +132,7 @@ DEFAULT_CONFIG = {
         },
         "reviewer": {
             "tool": "codex",
-            "model": "gpt-5.2-codex",
+            "model": "codex-codex4/gpt-5.4",
             "reasoning": "xhigh",
             "enabled": True,
         },

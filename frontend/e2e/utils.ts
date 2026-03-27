@@ -1,18 +1,17 @@
 import { expect, type Page } from "@playwright/test";
 
-export async function bootstrapMockTelegram(page: Page, options?: {
+type BootstrapOptions = {
   guest?: boolean;
   feedState?: "ready" | "fallback" | "empty" | "error";
   feedOverride?: Record<string, unknown>;
   profileOverride?: Record<string, unknown>;
-}) {
+  weekBriefOverride?: Record<string, unknown>;
+  weekMapOverride?: Record<string, unknown>;
+};
+
+export async function bootstrapMockTelegram(page: Page, options?: BootstrapOptions) {
   await page.addInitScript((payload) => {
-    const { guest, feedState, feedOverride, profileOverride } = payload as {
-      guest?: boolean;
-      feedState?: "ready" | "fallback" | "empty" | "error";
-      feedOverride?: Record<string, unknown>;
-      profileOverride?: Record<string, unknown>;
-    };
+    const { guest, feedState, feedOverride, profileOverride, weekBriefOverride, weekMapOverride } = payload as BootstrapOptions;
 
     if (guest) {
       window.sessionStorage.removeItem("mock_telegram_user");
@@ -35,14 +34,28 @@ export async function bootstrapMockTelegram(page: Page, options?: {
       },
     };
 
+    const w = window as Window & typeof globalThis & {
+      MOCK_FEED_STATE?: unknown;
+      MOCK_FEED_OVERRIDE?: unknown;
+      MOCK_PROFILE_OVERRIDE?: unknown;
+      MOCK_WEEK_BRIEF_OVERRIDE?: unknown;
+      MOCK_WEEK_MAP_OVERRIDE?: unknown;
+    };
+
     if (feedState) {
-      (window as Window & typeof globalThis & { MOCK_FEED_STATE?: unknown }).MOCK_FEED_STATE = feedState;
+      w.MOCK_FEED_STATE = feedState;
     }
     if (feedOverride) {
-      (window as Window & typeof globalThis & { MOCK_FEED_OVERRIDE?: unknown }).MOCK_FEED_OVERRIDE = feedOverride;
+      w.MOCK_FEED_OVERRIDE = feedOverride;
     }
     if (profileOverride) {
-      (window as Window & typeof globalThis & { MOCK_PROFILE_OVERRIDE?: unknown }).MOCK_PROFILE_OVERRIDE = profileOverride;
+      w.MOCK_PROFILE_OVERRIDE = profileOverride;
+    }
+    if (weekBriefOverride) {
+      w.MOCK_WEEK_BRIEF_OVERRIDE = weekBriefOverride;
+    }
+    if (weekMapOverride) {
+      w.MOCK_WEEK_MAP_OVERRIDE = weekMapOverride;
     }
   }, options ?? {});
 }

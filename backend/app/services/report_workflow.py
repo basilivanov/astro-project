@@ -1414,11 +1414,39 @@ def _build_month_campaign_arc(
     }
 
 
-def _build_week_forecast_prompt_context(context: dict[str, Any]) -> dict[str, Any]:
-    client = context.get("client", {}) or {}
+def _build_week_brief_seed_bundle(context: dict[str, Any]) -> dict[str, Any]:
     week_data = copy.deepcopy(context.get("week_forecast_data") or {})
     days = [_normalize_week_day_payload(day) for day in week_data.get("days", [])[:7]]
     summary = _normalize_week_summary(week_data, days)
+    semantic_layer = week_data.get("semantic_layer")
+    if not isinstance(semantic_layer, dict) or not semantic_layer:
+        semantic_layer = build_week_forecast_semantic_layer(summary, days)
+
+    month_data = copy.deepcopy(context.get("month_forecast_data") or {})
+    year_data = copy.deepcopy(context.get("year_forecast_data") or {})
+    return {
+        "forecast_window": copy.deepcopy(context.get("forecast_window") or {}),
+        "summary": summary,
+        "days": days,
+        "semantic_layer": semantic_layer,
+        "month_forecast_data": month_data,
+        "year_forecast_data": year_data,
+        "slow_background": {
+            "profection": copy.deepcopy(year_data.get("profection") or {}),
+            "solar_return": copy.deepcopy(year_data.get("solar_return") or {}),
+            "solar_arcs": copy.deepcopy((year_data.get("solar_arcs") or [])[:6]),
+            "long_transits": copy.deepcopy((month_data.get("major_transits") or [])[:6]),
+            "retrogrades": copy.deepcopy((month_data.get("retrogrades") or [])[:4]),
+            "lunations": copy.deepcopy((month_data.get("lunations") or [])[:3]),
+        },
+    }
+
+
+def _build_week_forecast_prompt_context(context: dict[str, Any]) -> dict[str, Any]:
+    client = context.get("client", {}) or {}
+    week_seed = _build_week_brief_seed_bundle(context)
+    days = week_seed["days"]
+    summary = week_seed["summary"]
 
     return {
         "client": {
@@ -1430,7 +1458,7 @@ def _build_week_forecast_prompt_context(context: dict[str, Any]) -> dict[str, An
         "week_forecast_data": {
             "summary": summary,
             "days": days,
-            "semantic_layer": build_week_forecast_semantic_layer(summary, days),
+            "semantic_layer": week_seed["semantic_layer"],
         },
     }
 
@@ -7788,6 +7816,43 @@ def build_report_context(payload: Any, chart_data: dict) -> dict:
                     start_dt,
                     forecast_loc
                 )
+                try:
+                    context["month_forecast_data"] = engine.calculate_forecast_month_data(
+                        natal_chart,
+                        start_dt,
+                        forecast_loc
+                    )
+                except Exception as exc:
+                    _workflow_log(
+                        "warning",
+                        "report.workflow.context_week_brief_layer_partial",
+                        fn="build_report_context",
+                        contract="FN-BUILD-REPORT-CONTEXT",
+                        block="FORECAST_SEMANTIC_LAYER",
+                        report_id=getattr(payload, "report_id", None),
+                        report_type=getattr(payload, "report_type", None),
+                        layer="month_forecast_data",
+                        error=str(exc),
+                    )
+                try:
+                    context["year_forecast_data"] = engine.calculate_forecast_year_data(
+                        natal_chart,
+                        start_dt.year,
+                        forecast_loc
+                    )
+                except Exception as exc:
+                    _workflow_log(
+                        "warning",
+                        "report.workflow.context_week_brief_layer_partial",
+                        fn="build_report_context",
+                        contract="FN-BUILD-REPORT-CONTEXT",
+                        block="FORECAST_SEMANTIC_LAYER",
+                        report_id=getattr(payload, "report_id", None),
+                        report_type=getattr(payload, "report_type", None),
+                        layer="year_forecast_data",
+                        error=str(exc),
+                    )
+                context["week_brief_seed"] = _build_week_brief_seed_bundle(context)
                 
             elif payload.report_type == "month_forecast":
                 try:

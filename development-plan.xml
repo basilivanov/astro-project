@@ -1,127 +1,141 @@
-<development_plan project="astro-project" mode="strict-grace" updated_at="2026-03-20">
+<development_plan project="astro-project" mode="strict-grace" updated_at="2026-03-27">
   <assumptions>
-    <assumption local_adaptation="true">Module boundaries below aggregate adjacent files into change-safe units because the current repository mixes route, service, and rendering code inside large files.</assumption>
+    <assumption local_adaptation="true">Consumer mini-app keeps App Router shell + BottomNav; product changes happen via DTO adapters, not structural rewrites.</assumption>
+    <assumption local_adaptation="true">Day/Week DTOs follow tmp/day_week_models.py strictly; frontend cannot synthesize scores/windows/actions.</assumption>
   </assumptions>
   <execution_phases>
-    <phase id="PHASE-SNAPSHOT">Freeze the repo boundary, identify the active slice, and record known blockers before changing code.</phase>
-    <phase id="PHASE-IDENTITY">Resolve Telegram auth, admin rights, and the current User profile.</phase>
-    <phase id="PHASE-ACCESS">Apply entitlement, pricing, referral, and billing gating before report creation.</phase>
-    <phase id="PHASE-WORKFLOW-INIT">Persist or load Client and Report records, create ReportRun, and initialize ordered ReportChunk rows.</phase>
-    <phase id="PHASE-FACTS-CALC">Build chart data, derived facts, and prompt context from engine outputs and profile payload.</phase>
-    <phase id="PHASE-SECTION-GEN">Generate sections through template or LLM paths, validate content, and persist per-section state.</phase>
-    <phase id="PHASE-FINALIZE">Mark report status, store usage/error metadata, emit analytics, and send best-effort bot notification.</phase>
-    <phase id="PHASE-READOUT">Expose report/feed/admin state to frontend or bot surfaces and run diagnostics/scheduler follow-up.</phase>
+    <phase id="PHASE-SNAPSHOT">Freeze repo boundary and confirm prod-release-20260327 snapshot before changes.</phase>
+    <phase id="PHASE-IDENTITY">Ensure Telegram auth + referral context ready for premium slices.</phase>
+    <phase id="PHASE-ACCESS">Apply entitlement/billing/referral gating before exposing premium day/week.</phase>
+    <phase id="PHASE-FACTS-CALC">Compute natal/fast facts, semantic layer, progression background.</phase>
+    <phase id="PHASE-DAY-BRIEF">Aggregate day facts into DayBrief DTO, validate, log trace, expose via /api/feed/today.</phase>
+    <phase id="PHASE-WEEK-BRIEF">Merge week_data + slow background (progressions, solar, profection) into WeekBrief + envelope.</phase>
+    <phase id="PHASE-FRONTEND-TODAY">Render Today surface from DayBrief only, remove legacy builders, lock telemetry.</phase>
+    <phase id="PHASE-FRONTEND-WEEK">Render /week map from WeekBrief, keep deep sections as secondary layer.</phase>
+    <phase id="PHASE-FINALIZE">Mark report status, emit analytics, send notifications.</phase>
+    <phase id="PHASE-READOUT">Expose admin/client readouts, diagnostics, quality traces.</phase>
   </execution_phases>
   <modules>
     <module id="M-API-GATEWAY">
-      <owned_paths>backend/app/main.py; backend/app/routers/billing.py</owned_paths>
-      <responsibility>Expose user, admin, workflow, billing, feed, geo, health, and diagnostics HTTP contracts; launch background report tasks.</responsibility>
-      <public_interfaces>/api/workflows/report; /api/workflows/report/async; /api/reports/create; /api/reports/*; /api/users/me; /api/admin/*; /api/feed/today; /api/geo/*; /api/diagnostics/run; /api/billing/*; GET /api/billing/sessions/{resume_token}; POST /api/billing/sessions/{resume_token}/resume</public_interfaces>
-      <depends_on>M-AUTH-IDENTITY M-DATA-PERSISTENCE M-REPORT-WORKFLOW M-ACCESS-COMMERCE M-OPS-AUTOMATION</depends_on>
-      <write_scope>clients, reports, report_runs, report_chunks, support_tickets, analytics_events, report_feedback, user profile rows</write_scope>
+      <owned_paths>backend/app/main.py; backend/app/routers/*</owned_paths>
+      <responsibility>Expose HTTP contracts including /api/feed/today + /api/reports/* with new brief payloads, attach trace metadata.</responsibility>
+      <public_interfaces>/api/feed/today; /api/reports/*; /api/users/me; /api/admin/*; /api/billing/*</public_interfaces>
+      <depends_on>M-AUTH-IDENTITY M-DAY-BRIEF-SERVICE M-WEEK-BRIEF-SERVICE M-ACCESS-COMMERCE</depends_on>
+      <write_scope>clients, reports, report_runs, report_chunks, analytics_events</write_scope>
     </module>
     <module id="M-AUTH-IDENTITY">
       <owned_paths>backend/app/auth.py</owned_paths>
-      <responsibility>Validate Telegram initData, provide development bypass, upsert User records, resolve admin authorization.</responsibility>
-      <public_interfaces>authenticate_telegram_user; get_current_user; get_current_user_from_query; get_admin_user</public_interfaces>
+      <responsibility>Telegram initData validation, admin resolution, profile fetch for personalization.</responsibility>
+      <public_interfaces>authenticate_telegram_user; get_current_user; get_admin_user</public_interfaces>
       <depends_on>M-DATA-PERSISTENCE M-ACCESS-COMMERCE</depends_on>
-      <write_scope>users; referral linkage on first auth through service calls</write_scope>
+      <write_scope>users; referral linkage on first auth</write_scope>
     </module>
     <module id="M-DATA-PERSISTENCE">
       <owned_paths>backend/app/db.py; backend/app/models.py; backend/app/migrations_v2.py; db/init.sql</owned_paths>
-      <responsibility>Own schema bootstrap, sessions, ORM entities, and additive runtime migrations.</responsibility>
-      <public_interfaces>get_db; apply_runtime_migrations; ORM tables for User, Client, Report, ReportChunk, ReportRun, Subscription, Referral, Transaction, ReportEntitlement, BillingCheckoutSession, SupportTicket, AgentTask</public_interfaces>
+      <responsibility>ORM schema, sessions, runtime migrations, premium/subscription tables.</responsibility>
+      <public_interfaces>get_db; ORM entities</public_interfaces>
       <depends_on>PostgreSQL</depends_on>
       <write_scope>entire relational schema</write_scope>
     </module>
     <module id="M-REPORT-WORKFLOW">
       <owned_paths>backend/app/services/report_workflow.py; backend/app/reporting/*</owned_paths>
-      <responsibility>Build section specs, chart data, context, chunk initialization, per-section generation, report finalization rules, and chart/report helper content.</responsibility>
-      <public_interfaces>build_section_specs; build_chart_data; build_report_context; initialize_report_chunks; generate_section_content; generate_report_sections; finish_report_run</public_interfaces>
-      <depends_on>M-DATA-PERSISTENCE M-LLM-ORCHESTRATION M-OPS-AUTOMATION</depends_on>
-      <write_scope>report_chunks, report_runs, report status/error fields</write_scope>
+      <responsibility>Week report runs, chunk lifecycle, slow background fact exports to WeekBrief seeds.</responsibility>
+      <public_interfaces>build_section_specs; generate_report_sections; build_week_sections; finish_report_run</public_interfaces>
+      <depends_on>M-DATA-PERSISTENCE M-LLM-ORCHESTRATION</depends_on>
+      <write_scope>report_chunks, report_runs, report metadata</write_scope>
     </module>
     <module id="M-LLM-ORCHESTRATION">
-      <owned_paths>backend/app/llm/orchestrator.py; backend/app/llm/mode.py; backend/app/llm/validator.py</owned_paths>
-      <responsibility>Resolve LLM mode, build prompts, call providers, parse JSON, repair content, and enforce hallucination/shape validation.</responsibility>
-      <public_interfaces>build_llm_client; build_cli_client_from_env; build_section_prompt; validate_section_content; LLMOrchestrator</public_interfaces>
+      <owned_paths>backend/app/llm/*</owned_paths>
+      <responsibility>Call nano/mini prompts for Day/Week polish, enforce JSON-only contract, repair text degradation.</responsibility>
+      <public_interfaces>LLMOrchestrator; build_llm_client; validate_section_content</public_interfaces>
       <depends_on>OpenRouter or CLI providers</depends_on>
-      <write_scope>no durable writes; returns validated section content and usage metadata</write_scope>
+      <write_scope>no durable writes</write_scope>
+    </module>
+    <module id="M-FACTS-CALC">
+      <owned_paths>backend/app/services/feed_service.py; backend/app/services/semantic_layer.py; backend/app/services/engine_adapter.py</owned_paths>
+      <responsibility>Compose natal chart, lunar state, fast hits, semantic layer seeds, and cache deterministic facts for day/week.</responsibility>
+      <public_interfaces>build_feed_context; build_semantic_layer; build_fast_hits; get_cached_facts</public_interfaces>
+      <depends_on>M-DATA-PERSISTENCE M-OPS-AUTOMATION</depends_on>
+      <write_scope>cache tables, telemetry</write_scope>
     </module>
     <module id="M-ACCESS-COMMERCE">
-      <owned_paths>backend/app/services/access_control.py; backend/app/services/billing.py; backend/app/services/one_off_entitlements.py; backend/app/services/referral_service.py; backend/app/core/config_business.py; backend/app/core/feature_flags.py</owned_paths>
-      <responsibility>Own pricing, persistent checkout sessions, subscription, credit, and one-off unlock rules, payment processing, referral rewards, and access consumption.</responsibility>
-      <public_interfaces>check_user_access; consume_access_if_needed; resolve_report_access; consume_report_access; create_payment; create_checkout_session; build_checkout_return_url; get_checkout_session_by_token; serialize_checkout_session; handle_payment_succeeded; resolve_catalog_product; build_report_unlock_snapshot; build_report_access_snapshot; process_referral; process_partner_reward; resolve_referrer</public_interfaces>
-      <depends_on>M-DATA-PERSISTENCE M-OPS-AUTOMATION</depends_on>
-      <write_scope>users.subscription_active_until, users.balance, subscriptions, transactions, billing_checkout_sessions, report_entitlements, reports.access_source/entitlement_id/checkout_session_id, referrals</write_scope>
+      <owned_paths>backend/app/services/access_control.py; backend/app/services/billing.py; backend/app/services/referral_service.py; backend/app/core/config_business.py</owned_paths>
+      <responsibility>pricing, entitlements, checkout sessions, referral rewards, paywall gating for day/week.</responsibility>
+      <public_interfaces>check_user_access; create_checkout_session; process_referral; build_report_access_snapshot</public_interfaces>
+      <depends_on>M-DATA-PERSISTENCE</depends_on>
+      <write_scope>users, subscriptions, transactions</write_scope>
     </module>
-    <module id="M-OPS-AUTOMATION">
-      <owned_paths>backend/app/services/feed_service.py; backend/app/services/scheduler.py; backend/app/services/notification.py; backend/app/diagnostics.py</owned_paths>
-      <responsibility>Generate daily feed text, schedule background reminders, deliver bot notifications, and run log-driven diagnostics.</responsibility>
-      <public_interfaces>get_daily_vibe_llm; start_scheduler; send_bot_notification; run_diagnostics</public_interfaces>
-      <depends_on>M-LLM-ORCHESTRATION M-DATA-PERSISTENCE M-BOT-CHANNEL</depends_on>
-      <write_scope>subscription status updates from scheduler; otherwise log and network side effects</write_scope>
+    <module id="M-DAY-BRIEF-SERVICE">
+      <owned_paths>backend/app/services/day_brief.py; backend/app/services/day_brief_types.py; backend/app/services/day_brief_validators.py</owned_paths>
+      <responsibility>Build DayBrief seeds from feed_service outputs, compute scores/windows/actions/risks/explainability, handle fallback + logging.</responsibility>
+      <public_interfaces>build_day_brief_payload; build_day_brief_fallback; serialize_day_brief</public_interfaces>
+      <depends_on>M-FACTS-CALC M-LLM-ORCHESTRATION</depends_on>
+      <write_scope>no direct DB writes; emits trace + analytics</write_scope>
+    </module>
+    <module id="M-WEEK-BRIEF-SERVICE">
+      <owned_paths>backend/app/services/week_brief_service.py; backend/app/services/week_brief_types.py; backend/app/services/week_brief_validators.py</owned_paths>
+      <responsibility>Merge week_data, slow background factors, deep sections into WeekBrief + envelope, manage fallback and explainability.</responsibility>
+      <public_interfaces>build_week_brief_payload; build_week_brief_envelope; serialize_week_brief</public_interfaces>
+      <depends_on>M-REPORT-WORKFLOW M-LLM-ORCHESTRATION</depends_on>
+      <write_scope>attach to report detail payload</write_scope>
+    </module>
+    <module id="M-FRONTEND-TODAY">
+      <owned_paths>frontend/app/page.tsx; frontend/components/today/*; frontend/lib/day-brief-adapter.ts</owned_paths>
+      <responsibility>Render Today screen via DayBrief, legacy adapter fallback, telemetry + CTA wiring.</responsibility>
+      <public_interfaces>/</public_interfaces>
+      <depends_on>M-API-GATEWAY</depends_on>
+      <write_scope>none</write_scope>
+    </module>
+    <module id="M-FRONTEND-WEEK">
+      <owned_paths>frontend/app/week/page.tsx; frontend/components/week/*; frontend/lib/week-brief-adapter.ts</owned_paths>
+      <responsibility>Render Week map (thesis, day grid, domains, actions/risks, explainability) + deep sections.</responsibility>
+      <public_interfaces>/week</public_interfaces>
+      <depends_on>M-API-GATEWAY</depends_on>
+      <write_scope>none</write_scope>
     </module>
     <module id="M-FRONTEND-WEBAPP">
-      <owned_paths>frontend/app/page.tsx; frontend/app/start/page.tsx; frontend/app/onboarding/profile/page.tsx; frontend/app/create/page.tsx; frontend/app/billing/complete/page.tsx; frontend/app/read/[id]/page.tsx; frontend/app/reports/page.tsx; frontend/app/reports/history/page.tsx; frontend/app/week/page.tsx; frontend/app/profile*.tsx; frontend/app/share/page.tsx; frontend/app/partner/page.tsx; frontend/app/support/page.tsx; frontend/app/api/*; frontend/lib/product-billing.ts</owned_paths>
-      <responsibility>Provide the Telegram mini-app shell for onboarding, purchase/create flow, one-off checkout return bridge, report read flow, profile/referral views, support, and thin API proxy routes.</responsibility>
-      <public_interfaces>/; /start; /onboarding/profile; /create; /billing/complete; /read/[id]; /reports; /reports/history; /week; /profile; /share; /partner; /support; Next proxy routes for health and geo</public_interfaces>
-      <depends_on>M-API-GATEWAY M-AUTH-IDENTITY</depends_on>
-      <write_scope>no direct durable writes; backend writes are triggered through fetch calls</write_scope>
+      <owned_paths>frontend/app/* (shell); frontend/lib/*</owned_paths>
+      <responsibility>Maintain Consumer shell, navigation, billing/profile surfaces.</responsibility>
+      <public_interfaces>/start; /create; /reports; /profile; /billing/complete; /support; /share</public_interfaces>
+      <depends_on>M-API-GATEWAY</depends_on>
+      <write_scope>none</write_scope>
     </module>
-    <module id="M-FRONTEND-ADMIN">
-      <owned_paths>frontend/app/admin/*; frontend/app/reports/[id]/page.tsx</owned_paths>
-      <responsibility>Expose admin dashboards and report detail/regeneration surfaces over backend admin APIs.</responsibility>
-      <public_interfaces>/admin/dashboard; /admin/reports; /admin/users; /admin/clients; /admin/tickets; /admin/audit; /admin/broadcast; /reports/[id]</public_interfaces>
-      <depends_on>M-API-GATEWAY M-AUTH-IDENTITY</depends_on>
-      <write_scope>no direct durable writes; backend admin writes are triggered by server or client fetches</write_scope>
-    </module>
-    <module id="M-BOT-CHANNEL">
-      <owned_paths>bot/app/main.py; bot/app/api.py; bot/app/stt.py</owned_paths>
-      <responsibility>Run Telegram bot polling, bootstrap users/referrals from bot entry, expose internal notify HTTP server, and transcribe voice audio.</responsibility>
-      <public_interfaces>bot /start and message handlers; POST /notify; transcribe_audio</public_interfaces>
-      <depends_on>M-DATA-PERSISTENCE M-ACCESS-COMMERCE Telegram Bot API</depends_on>
-      <write_scope>users, referrals, agent_tasks, local BOT_MEDIA_DIR files</write_scope>
+    <module id="M-OPS-AUTOMATION">
+      <owned_paths>astro_workloop.py; automation/*; scripts/pipeline.py</owned_paths>
+      <responsibility>Workloop health, diagnostics, CI, evidence export.</responsibility>
+      <public_interfaces>astro_workloop; automation/cli_health.py; scripts/pipeline.py</public_interfaces>
+      <depends_on>Docker; Codex CLI; cron</depends_on>
+      <write_scope>logs, task_artifacts</write_scope>
     </module>
   </modules>
   <data_flows>
-    <flow id="FLOW-AUTH-ONBOARD" name="Auth and onboarding">
-      <path>M-FRONTEND-WEBAPP or M-BOT-CHANNEL -&gt; M-AUTH-IDENTITY -&gt; M-DATA-PERSISTENCE -&gt; profile readback.</path>
-      <scope>Initial Telegram auth, profile completion, and safe profile echo.</scope>
+    <flow id="FLOW-DAILY-FEED" name="Daily feed legacy">
+      <path>M-FRONTEND-WEBAPP -&gt; M-API-GATEWAY -&gt; M-DAY-BRIEF-SERVICE -&gt; LLM polish -&gt; response.</path>
+      <scope>Serve Today with DayBrief; keep legacy fields for compat.</scope>
     </flow>
-    <flow id="FLOW-REPORT-GENERATION" name="Report generation">
-      <path>M-FRONTEND-WEBAPP or M-FRONTEND-ADMIN -&gt; M-API-GATEWAY -&gt; M-ACCESS-COMMERCE -&gt; M-REPORT-WORKFLOW -&gt; M-LLM-ORCHESTRATION -&gt; M-DATA-PERSISTENCE -&gt; M-OPS-AUTOMATION -&gt; M-BOT-CHANNEL.</path>
-      <scope>Create report runs, generate sections, finalize, and deliver notifications.</scope>
+    <flow id="FLOW-DAY-BRIEF" name="DayBrief DTO build">
+      <path>M-FACTS-CALC -&gt; M-DAY-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-TODAY.</path>
+      <scope>Aggregate day scores/windows/actions/explainability and expose via /api/feed/today.</scope>
+    </flow>
+    <flow id="FLOW-WEEK-BRIEF" name="Week map DTO">
+      <path>M-REPORT-WORKFLOW -&gt; M-WEEK-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-WEEK.</path>
+      <scope>Attach WeekBrief to /api/reports/{id} for week_forecast, keep envelope for polling.</scope>
     </flow>
     <flow id="FLOW-BILLING-RETURN" name="Billing and one-off return">
-      <path>M-FRONTEND-WEBAPP -&gt; M-API-GATEWAY -&gt; YooKassa -&gt; M-ACCESS-COMMERCE -&gt; M-DATA-PERSISTENCE -&gt; checkout session/readback via M-FRONTEND-WEBAPP; partner reward and notification path stay best-effort.</path>
-      <scope>Checkout session lifecycle, payment callbacks, unlock snapshots, and partner rewards.</scope>
-    </flow>
-    <flow id="FLOW-DAILY-FEED" name="Daily feed">
-      <path>M-FRONTEND-WEBAPP -&gt; M-API-GATEWAY -&gt; engine calculations -&gt; M-OPS-AUTOMATION -&gt; LLM fallback or live provider -&gt; response.</path>
-      <scope>Personalized feed context build, deterministic facts, LLM fallback, and response render.</scope>
-    </flow>
-    <flow id="FLOW-ADMIN-OPS" name="Admin operations">
-      <path>M-FRONTEND-ADMIN -&gt; M-API-GATEWAY -&gt; M-DATA-PERSISTENCE and M-REPORT-WORKFLOW -&gt; regenerated report state and diagnostics traces.</path>
-      <scope>Admin queue views, section regeneration, diagnostics, and entitlement actions.</scope>
+      <path>M-FRONTEND-WEBAPP -&gt; M-API-GATEWAY -&gt; YooMoney -&gt; M-ACCESS-COMMERCE -&gt; M-DATA-PERSISTENCE -&gt; frontend resume.</path>
+      <scope>Checkout session lifecycle, resume banner state.</scope>
     </flow>
   </data_flows>
   <sequencing_rules>
-    <rule>Change auth or referral token formats only in one coordinated wave across M-AUTH-IDENTITY, M-ACCESS-COMMERCE, M-FRONTEND-WEBAPP, and M-BOT-CHANNEL.</rule>
-    <rule>Change pricing, trial, quota, credit, or one-off unlock policy only after updating config constants, backend enforcement, checkout-session/resume handling, /api/users/me report_unlocks/report_access exposure, and user-facing catalog/create/billing-complete screens together.</rule>
-    <rule>Change report section schema only with synchronized updates to M-REPORT-WORKFLOW, M-LLM-ORCHESTRATION, and all report render/read surfaces.</rule>
-    <rule>Preserve ordered chunk initialization before parallel generation; do not introduce writes that can reorder or duplicate section state.</rule>
-    <rule>Apply persistence changes additively first: schema path in M-DATA-PERSISTENCE, then ORM, then calling code, then UI exposure.</rule>
-    <rule>Do not make bot delivery a blocking dependency for report completion, billing success, or referral persistence.</rule>
-    <rule>Any admin UI change that relies on server-side fetch must be checked against the header-based auth contract before release.</rule>
+    <rule>Introduce new DTO fields only after updating schemas in tmp/, pydantic models, backend validators, telemetry, and adapters together.</rule>
+    <rule>Frontend may switch to DayBrief/WeekBrief only once backend returns validated payloads plus legacy adapters.</rule>
+    <rule>LLM prompt changes must ship with deterministic fallback templates and logging updates.</rule>
+    <rule>Slow background factors (progressions/solar/profection) must be computed before WeekBrief reads them; do not stub them on frontend.</rule>
   </sequencing_rules>
   <deferred_work>
-    <item>Replace runtime migrations with a dedicated versioned migration workflow.</item>
-    <item>Harden admin server-side auth and remove hardcoded or missing Telegram auth headers.</item>
-    <item>Reconcile referral policy and link-format drift across docs, backend, frontend, and bot.</item>
-    <item>Repair diagnostics runner and daily feed live-LLM path so verification can rely on them directly.</item>
-    <item>Extend the one-off frontend bridge beyond the current natal_master/month_forecast/year_forecast/solar_return slice to synastry without dropping flag gating or checkout-session idempotency.</item>
-    <item>Adopt the shipped per-report access snapshot across more frontend/admin surfaces so can_access_premium becomes compatibility-only rather than the primary premium gate.</item>
-    <item>Add per-module contracts and maps for the highest-change backend and frontend slices.</item>
+    <item>GA-quality feedback loop for DayBrief/WeekBrief confidence calibration.</item>
+    <item>Dedicated endpoint GET /api/week/latest returning WeekBriefEnvelope directly.</item>
+    <item>Per-domain reaction logging on frontend to tune action/risk weights.</item>
+    <item>Extraction of DTO schemas into shared package for CI validation.</item>
   </deferred_work>
 </development_plan>

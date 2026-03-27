@@ -1,6 +1,6 @@
 # Verification Matrix
 
-Snapshot boundary: commit ab97c6122fe143bcdda1cb3cfc5c090921270654 tagged grace-2026-03-21 (worktree_state=clean), captured_at=2026-03-21. All verification commands reference this tag; reruns MUST use this snapshot or reissue a new GRACE snapshot.
+Snapshot boundary: commit 0cba3cf07ea563306bdd6e887d7b9256c3edc190 tagged prod-release-20260327 (worktree_state=dirty). Controller packet DAY_WEEK_TASK_PACKET.md governs current waves; reruns MUST finish on this snapshot or register a new snapshot tag.
 
 ## Baseline Profiles
 

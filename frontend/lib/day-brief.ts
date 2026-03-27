@@ -1,0 +1,291 @@
+export type DayBriefLight = "green" | "yellow" | "red";
+export type DayBriefImpact = "high" | "medium" | "low";
+export type DayBriefWindowMode = "best" | "soft" | "caution";
+export type DayBriefScoreKey = "energy" | "money" | "love" | "focus";
+export type DayBriefCtaType = "open_week" | "open_today" | "ask_question" | "open_premium" | "open_history" | "open_report" | "custom";
+
+export type DayBriefDto = {
+  version: "day_brief_v1";
+  date: string;
+  personalization_level: string;
+  fallback_mode: boolean;
+  summary: {
+    headline: string;
+    subhead: string;
+    day_type: "push" | "balance" | "caution" | "deep_focus" | "recovery";
+    tone?: string | null;
+  };
+  context: {
+    moon_sign?: string | null;
+    moon_phase?: string | null;
+    moon_emoji?: string | null;
+    aspects_count?: number | null;
+    label?: string | null;
+  };
+  scores: Array<{
+    key: DayBriefScoreKey;
+    title: string;
+    value: number;
+    status: DayBriefLight;
+    advice: string;
+  }>;
+  windows: Array<{
+    id: string;
+    start: string;
+    end: string;
+    label: string;
+    mode: DayBriefWindowMode;
+    advice: string;
+  }>;
+  best_uses: Array<{
+    id: string;
+    text: string;
+    factor_id?: string | null;
+    impact?: DayBriefImpact | null;
+    timeframe?: string | null;
+  }>;
+  risks: Array<{
+    id: string;
+    text: string;
+    factor_id?: string | null;
+    impact?: DayBriefImpact | null;
+    timeframe?: string | null;
+  }>;
+  personalized_factors: Array<{
+    id: string;
+    label: string;
+    impact: DayBriefImpact;
+    category?: string | null;
+    explanation_human: string;
+    explanation_astro?: string | null;
+    source_models?: string[];
+    weight?: number | null;
+  }>;
+  explainability: {
+    confidence: number;
+    birth_time_used: boolean;
+    factor_count: number;
+    timing_precision?: "exact" | "approximate" | null;
+    top_signal_source?: string | null;
+    explanation_depth?: "minimal" | "standard" | "full" | null;
+  };
+  premium?: {
+    subscription_active: boolean;
+    subscription_active_until?: string | null;
+    days_left?: number | null;
+    show_upgrade_cta?: boolean;
+    show_resume_banner?: boolean;
+  } | null;
+  cta?: {
+    primary?: { type: DayBriefCtaType; label: string; href: string } | null;
+    secondary?: { type: DayBriefCtaType; label: string; href: string } | null;
+  } | null;
+  legacy?: Record<string, unknown> | null;
+};
+
+export type TodayViewModel = {
+  brief: DayBriefDto;
+  premiumActiveUntil: string | null;
+  state: "ready" | "fallback";
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
+const isLight = (value: unknown): value is DayBriefLight => value === "green" || value === "yellow" || value === "red";
+const isWindowMode = (value: unknown): value is DayBriefWindowMode => value === "best" || value === "soft" || value === "caution";
+const isImpact = (value: unknown): value is DayBriefImpact => value === "high" || value === "medium" || value === "low";
+const text = (value: unknown, fallback = ""): string => typeof value === "string" ? value : fallback;
+const bool = (value: unknown, fallback = false): boolean => typeof value === "boolean" ? value : fallback;
+const num = (value: unknown, fallback = 0): number => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+
+function normalizeScores(value: unknown): DayBriefDto["scores"] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .map((item) => ({
+      key: (["energy", "money", "love", "focus"].includes(text(item.key)) ? text(item.key) : "energy") as DayBriefScoreKey,
+      title: text(item.title, "Фокус"),
+      value: Math.max(0, Math.min(100, num(item.value, 0))),
+      status: isLight(item.status) ? item.status : "yellow",
+      advice: text(item.advice, "Действуйте спокойно и без резких перегрузок."),
+    }));
+}
+
+function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => ({
+    id: text(item.id, `item-${index}`),
+    text: text(item.text, "Сфокусируйтесь на одном важном шаге."),
+    factor_id: typeof item.factor_id === "string" ? item.factor_id : null,
+    impact: isImpact(item.impact) ? item.impact : null,
+    timeframe: typeof item.timeframe === "string" ? item.timeframe : null,
+  }));
+}
+
+function normalizeWindows(value: unknown): DayBriefDto["windows"] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => ({
+    id: text(item.id, `window-${index}`),
+    start: text(item.start, "09:00"),
+    end: text(item.end, "11:00"),
+    label: text(item.label, "Рабочее окно"),
+    mode: isWindowMode(item.mode) ? item.mode : "soft",
+    advice: text(item.advice, "Держите спокойный темп и проверяйте детали."),
+  }));
+}
+
+function normalizeFactors(value: unknown): DayBriefDto["personalized_factors"] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item, index) => ({
+    id: text(item.id, `factor-${index}`),
+    label: text(item.label, `Фактор ${index + 1}`),
+    impact: isImpact(item.impact) ? item.impact : "medium",
+    category: typeof item.category === "string" ? item.category : null,
+    explanation_human: text(item.explanation_human, "Фон дня поддерживает короткие точные действия."),
+    explanation_astro: typeof item.explanation_astro === "string" ? item.explanation_astro : null,
+    source_models: Array.isArray(item.source_models) ? item.source_models.filter((entry): entry is string => typeof entry === "string") : [],
+    weight: typeof item.weight === "number" ? item.weight : null,
+  }));
+}
+
+export function buildLegacyDayBrief(source: unknown, premiumActiveUntil?: string | null): DayBriefDto {
+  const data = isRecord(source) ? source : {};
+  const legacyTraffic = isRecord(data.traffic_lights) ? data.traffic_lights : {};
+  const legacyMoon = isRecord(data.moon) ? data.moon : {};
+  const generalVibe = text(data.general_vibe, "День лучше прожить в спокойном темпе.");
+  const personalizationLevel = text(data.personalization_level, "fallback");
+  const fastHits = Array.isArray(data.fast_hits) ? data.fast_hits.filter(isRecord) : [];
+  const scores: DayBriefDto["scores"] = [
+    { key: "energy", title: "Энергия", value: legacyTraffic.health === "green" ? 78 : legacyTraffic.health === "red" ? 28 : 55, status: isLight(legacyTraffic.health) ? legacyTraffic.health : "yellow", advice: "Соберите ритм тела и не перегружайте себя." },
+    { key: "money", title: "Деньги", value: legacyTraffic.money === "green" ? 76 : legacyTraffic.money === "red" ? 32 : 57, status: isLight(legacyTraffic.money) ? legacyTraffic.money : "yellow", advice: "Перепроверьте цифры и договорённости." },
+    { key: "love", title: "Отношения", value: legacyTraffic.love === "green" ? 74 : legacyTraffic.love === "red" ? 30 : 56, status: isLight(legacyTraffic.love) ? legacyTraffic.love : "yellow", advice: "Говорите мягче и уточняйте ожидания." },
+    { key: "focus", title: "Фокус", value: personalizationLevel.includes("personal") ? 72 : 58, status: "yellow", advice: generalVibe },
+  ];
+  const windows = fastHits.slice(0, 3).map((item, index) => ({
+    id: text(item.summary, `window-${index}`),
+    start: index === 0 ? "09:00" : index === 1 ? "13:00" : "18:00",
+    end: index === 0 ? "11:00" : index === 1 ? "15:00" : "20:00",
+    label: text(item.summary, "Окно дня"),
+    mode: text(item.type).toLowerCase().includes("трин") ? "best" : text(item.type).toLowerCase().includes("квад") ? "caution" : "soft",
+    advice: text(item.summary, "Действуйте в коротком понятном ритме."),
+  }));
+  const bestUses = scores.filter((item) => item.status === "green").map((item) => ({ id: `${item.key}-best`, text: item.advice, impact: "medium" as const, timeframe: "all_day" }));
+  const risks = scores.filter((item) => item.status !== "green").slice(0, 3).map((item) => ({ id: `${item.key}-risk`, text: item.advice, impact: item.status === "red" ? "high" as const : "medium" as const, timeframe: "all_day" }));
+
+  return {
+    version: "day_brief_v1",
+    date: text(data.date, new Date().toISOString().slice(0, 10)),
+    personalization_level: personalizationLevel,
+    fallback_mode: true,
+    summary: {
+      headline: text(data.general_vibe, "День требует аккуратного темпа и собранности."),
+      subhead: "Legacy feed адаптирован во временный DayBrief до полного отключения старого формата.",
+      day_type: legacyTraffic.health === "red" ? "recovery" : legacyTraffic.love === "red" || legacyTraffic.money === "red" ? "caution" : legacyTraffic.health === "green" && legacyTraffic.money === "green" ? "push" : "balance",
+      tone: null,
+    },
+    context: {
+      moon_sign: text(data.moon_sign, text(legacyMoon.sign) || null),
+      moon_phase: text(data.moon_phase, text(legacyMoon.phase) || null),
+      moon_emoji: text(data.moon_emoji, text(legacyMoon.emoji, "🌙")),
+      aspects_count: fastHits.length,
+      label: text(data.moon_phase) || text(legacyMoon.phase) ? `${text(data.moon_sign, text(legacyMoon.sign, "Луна"))} · ${text(data.moon_phase, text(legacyMoon.phase, "фон дня"))}` : null,
+    },
+    scores,
+    windows,
+    best_uses: bestUses.length ? bestUses : [{ id: "legacy-best", text: generalVibe, impact: "medium", timeframe: "all_day" }],
+    risks: risks.length ? risks : [{ id: "legacy-risk", text: "Не разгоняйте день быстрее контекста.", impact: "medium", timeframe: "all_day" }],
+    personalized_factors: fastHits.slice(0, 3).map((item, index) => ({ id: `legacy-factor-${index}`, label: text(item.transit, `Фактор ${index + 1}`), impact: "medium", category: "legacy_fast_hit", explanation_human: text(item.summary, generalVibe), explanation_astro: [text(item.transit), text(item.type), text(item.natal)].filter(Boolean).join(" · ") || null, source_models: ["mixed"], weight: null })),
+    explainability: {
+      confidence: personalizationLevel.includes("personal") ? 0.72 : 0.48,
+      birth_time_used: false,
+      factor_count: fastHits.length,
+      timing_precision: fastHits.length ? "approximate" : null,
+      top_signal_source: fastHits.length ? "mixed" : null,
+      explanation_depth: fastHits.length ? "standard" : "minimal",
+    },
+    premium: {
+      subscription_active: Boolean(premiumActiveUntil),
+      subscription_active_until: premiumActiveUntil ?? null,
+      days_left: null,
+      show_upgrade_cta: !premiumActiveUntil,
+      show_resume_banner: false,
+    },
+    cta: {
+      primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
+      secondary: { type: premiumActiveUntil ? "open_history" : "open_premium", label: premiumActiveUntil ? "История разборов" : "Открыть premium", href: premiumActiveUntil ? "/reports/history" : "/reports" },
+    },
+    legacy: data,
+  };
+}
+
+export function normalizeDayBriefPayload(payload: unknown, profile?: { subscription_active_until?: string | null } | null): TodayViewModel | null {
+  if (!isRecord(payload)) return null;
+  const premiumActiveUntil = profile?.subscription_active_until ?? null;
+  const candidate = isRecord(payload.day_brief) ? payload.day_brief : payload;
+  if (!isRecord(candidate) || text(candidate.version) !== "day_brief_v1") {
+    return {
+      brief: buildLegacyDayBrief(payload, premiumActiveUntil),
+      premiumActiveUntil,
+      state: "fallback",
+    };
+  }
+
+  const brief: DayBriefDto = {
+    version: "day_brief_v1",
+    date: text(candidate.date, new Date().toISOString().slice(0, 10)),
+    personalization_level: text(candidate.personalization_level, "fallback"),
+    fallback_mode: bool(candidate.fallback_mode, false),
+    summary: {
+      headline: text(isRecord(candidate.summary) ? candidate.summary.headline : undefined, "День просит собранного ритма и точности."),
+      subhead: text(isRecord(candidate.summary) ? candidate.summary.subhead : undefined, "Сначала соберите контекст, затем двигайте главное."),
+      day_type: (["push", "balance", "caution", "deep_focus", "recovery"].includes(text(isRecord(candidate.summary) ? candidate.summary.day_type : undefined)) ? text(isRecord(candidate.summary) ? candidate.summary.day_type : undefined) : "balance") as DayBriefDto["summary"]["day_type"],
+      tone: isRecord(candidate.summary) && typeof candidate.summary.tone === "string" ? candidate.summary.tone : null,
+    },
+    context: {
+      moon_sign: isRecord(candidate.context) ? text(candidate.context.moon_sign) || null : null,
+      moon_phase: isRecord(candidate.context) ? text(candidate.context.moon_phase) || null : null,
+      moon_emoji: isRecord(candidate.context) ? text(candidate.context.moon_emoji, "🌙") : "🌙",
+      aspects_count: isRecord(candidate.context) ? (typeof candidate.context.aspects_count === "number" ? candidate.context.aspects_count : null) : null,
+      label: isRecord(candidate.context) ? text(candidate.context.label) || null : null,
+    },
+    scores: normalizeScores(candidate.scores),
+    windows: normalizeWindows(candidate.windows),
+    best_uses: normalizeItems(candidate.best_uses),
+    risks: normalizeItems(candidate.risks),
+    personalized_factors: normalizeFactors(candidate.personalized_factors),
+    explainability: {
+      confidence: isRecord(candidate.explainability) ? num(candidate.explainability.confidence, 0) : 0,
+      birth_time_used: isRecord(candidate.explainability) ? bool(candidate.explainability.birth_time_used, false) : false,
+      factor_count: isRecord(candidate.explainability) ? num(candidate.explainability.factor_count, 0) : 0,
+      timing_precision: isRecord(candidate.explainability) && (candidate.explainability.timing_precision === "exact" || candidate.explainability.timing_precision === "approximate") ? candidate.explainability.timing_precision : null,
+      top_signal_source: isRecord(candidate.explainability) ? text(candidate.explainability.top_signal_source) || null : null,
+      explanation_depth: isRecord(candidate.explainability) && (["minimal", "standard", "full"].includes(text(candidate.explainability.explanation_depth))) ? candidate.explainability.explanation_depth as "minimal" | "standard" | "full" : null,
+    },
+    premium: isRecord(candidate.premium) ? {
+      subscription_active: bool(candidate.premium.subscription_active, false),
+      subscription_active_until: typeof candidate.premium.subscription_active_until === "string" ? candidate.premium.subscription_active_until : premiumActiveUntil,
+      days_left: typeof candidate.premium.days_left === "number" ? candidate.premium.days_left : null,
+      show_upgrade_cta: bool(candidate.premium.show_upgrade_cta, false),
+      show_resume_banner: bool(candidate.premium.show_resume_banner, false),
+    } : {
+      subscription_active: Boolean(premiumActiveUntil),
+      subscription_active_until: premiumActiveUntil,
+      days_left: null,
+      show_upgrade_cta: !premiumActiveUntil,
+      show_resume_banner: false,
+    },
+    cta: isRecord(candidate.cta) ? {
+      primary: isRecord(candidate.cta.primary) ? { type: (text(candidate.cta.primary.type, "custom") as DayBriefCtaType), label: text(candidate.cta.primary.label, "Открыть неделю"), href: text(candidate.cta.primary.href, "/week") } : null,
+      secondary: isRecord(candidate.cta.secondary) ? { type: (text(candidate.cta.secondary.type, "custom") as DayBriefCtaType), label: text(candidate.cta.secondary.label, "Открыть premium"), href: text(candidate.cta.secondary.href, "/reports") } : null,
+    } : {
+      primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
+      secondary: { type: "open_premium", label: "Открыть premium", href: "/reports" },
+    },
+    legacy: isRecord(candidate.legacy) ? candidate.legacy : null,
+  };
+
+  return {
+    brief,
+    premiumActiveUntil: brief.premium?.subscription_active_until ?? premiumActiveUntil,
+    state: brief.fallback_mode ? "fallback" : "ready",
+  };
+}

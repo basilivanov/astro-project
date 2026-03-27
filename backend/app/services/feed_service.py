@@ -689,7 +689,8 @@ async def get_daily_vibe_llm(
     personalization_context: Optional[dict[str, Any]] = None,
     cache_scope: Optional[str] = None,
     correlation_id: Optional[str] = None,
-) -> str:
+    return_metadata: bool = False,
+) -> str | tuple[str, dict[str, Any]]:
     # START_CONTRACT: FN-GET-DAILY-VIBE-LLM
     # purpose: Produce 2-sentence vibe text using cheap LLM with deterministic fallback + caching.
     # inputs:
@@ -720,7 +721,15 @@ async def get_daily_vibe_llm(
                 sign=moon_sign,
                 cache_scope=cache_scope or "shared",
             )
-            return _FEED_CACHE[cache_key]
+            cached_vibe = _FEED_CACHE[cache_key]
+            if return_metadata:
+                return cached_vibe, {
+                    "generation_mode": "cache",
+                    "cache_hit": True,
+                    "llm_mode": resolve_feed_llm_mode(),
+                    "cache_scope": cache_scope or "shared",
+                }
+            return cached_vibe
     # END_BLOCK: LLM_CACHE_LOOKUP
 
     # START_BLOCK: LLM_PROMPT_BUILD
@@ -800,6 +809,13 @@ async def get_daily_vibe_llm(
                 cache_scope=cache_scope or "shared",
                 generation_path="fallback",
             )
+            if return_metadata:
+                return vibe, {
+                    "generation_mode": "fallback",
+                    "cache_hit": False,
+                    "llm_mode": mode,
+                    "cache_scope": cache_scope or "shared",
+                }
             return vibe
 
         try:
@@ -831,6 +847,13 @@ async def get_daily_vibe_llm(
                 cache_scope=cache_scope or "shared",
                 generation_path="llm",
             )
+            if return_metadata:
+                return vibe, {
+                    "generation_mode": "llm",
+                    "cache_hit": False,
+                    "llm_mode": mode,
+                    "cache_scope": cache_scope or "shared",
+                }
             return vibe
         except Exception as exc:
             _log_feed_event(
@@ -852,6 +875,13 @@ async def get_daily_vibe_llm(
                 personalization_context=personalization_context,
             )
             _FEED_CACHE[cache_key] = vibe
+            if return_metadata:
+                return vibe, {
+                    "generation_mode": "fallback",
+                    "cache_hit": False,
+                    "llm_mode": mode,
+                    "cache_scope": cache_scope or "shared",
+                }
             return vibe
     # END_BLOCK: LLM_INVOCATION
 # #END_BLOCK_FEED_GENERATION

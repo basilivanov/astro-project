@@ -117,3 +117,9 @@
 - Бэкенд: alias env, stricter validation, failure-return URL.
 - Фронт: `billing/complete` UX, CTA back/swipe, новая Playwright-спека.
 - Acceptance: backend pytest, pipeline, targeted e2e; известный flake в mock paid flow задокументирован.
+
+### Git / production snapshot (2026-03-27)
+- Проверен `origin`: рабочий GitHub remote указывает на `git@github.com:basilivanov/astro-project.git`; репозиторий `git@github.com:basil/astro-project.git` не существует (`Repository not found`), поэтому remote не менялся.
+- Подтверждён пользовательский git config: `user.name=Snapshot Bot`, `user.email=snapshot@example.com`.
+- Production-ветка `prod-release-20260327` уже существует локально и на origin; снимок готовится без `--force`, поверх текущего состояния дерева (Waves 1–2 + docs + сопровождающие backend/frontend/tests изменения).
+- Acceptance для git-этапа: `git remote -v` показывает GitHub origin, обычный `git push origin prod-release-20260327` проходит успешно, лог команд фиксируется без секретов.

@@ -96,9 +96,12 @@ from .services.feed_service import (
     get_daily_vibe_llm,
 )
 from .services.day_brief import (
+    build_day_brief_telemetry,
     build_day_brief_payload,
     build_day_brief_fallback,
 )
+from .services.day_brief_types import DayBrief as DayBriefDTO
+from .services.week_brief_service import build_week_brief_envelope, build_week_brief_payload
 from .services.personalized_daily import (
     build_personalized_daily_facts,
     summarize_personalization_for_prompt,
@@ -3571,6 +3574,8 @@ class ReportDetailOut(BaseModel):
     report: UserReportOut
     chart_svg: Optional[str] = None
     chunks: List[ChunkOut] = []
+    week_brief: Optional[dict[str, Any]] = None
+    week_brief_envelope: Optional[dict[str, Any]] = None
 
 @app.get("/api/reports/my", response_model=List[UserReportOut])
 def get_my_reports(
@@ -3649,12 +3654,51 @@ def get_report_detail(
                 })
 
         chart_svg = None
+        week_brief = None
+        week_brief_envelope = None
+        payload = None
+        chart_data = None
         try:
             payload = load_report_payload(report)
-            chart_data = build_chart_data(payload)
-            chart_svg = build_natal_chart_svg(chart_data)
         except Exception as e:
-            logger.warning("svg.gen_failed", report_id=str(report.id), error=str(e))
+            logger.warning("report.payload_load_failed", report_id=str(report.id), error=str(e))
+
+        if payload is not None:
+            try:
+                chart_data = build_chart_data(payload)
+            except Exception as e:
+                logger.warning("report.chart_data_failed", report_id=str(report.id), error=str(e))
+
+        if chart_data is not None:
+            try:
+                chart_svg = build_natal_chart_svg(chart_data)
+            except Exception as e:
+                logger.warning("svg.gen_failed", report_id=str(report.id), error=str(e))
+
+        if report.report_type == "week_forecast":
+            context = {}
+            if payload is not None and chart_data is not None:
+                try:
+                    context = build_report_context(payload, chart_data)
+                except Exception as e:
+                    logger.warning("week_brief.context_failed", report_id=str(report.id), error=str(e))
+            try:
+                week_brief = build_week_brief_payload(
+                    report=report,
+                    payload=payload,
+                    context=context,
+                    chunks=sorted_chunks,
+                    user=user,
+                    llm_model=getattr(payload, "llm_mode", None) if payload is not None else None,
+                )
+            except Exception as e:
+                logger.warning("week_brief.build_failed", report_id=str(report.id), error=str(e))
+                week_brief = None
+            try:
+                week_brief_envelope = build_week_brief_envelope(report=report, week_brief=week_brief)
+            except Exception as e:
+                logger.warning("week_brief.envelope_failed", report_id=str(report.id), error=str(e))
+                week_brief_envelope = None
 
         response = {
             "report": {
@@ -3666,7 +3710,9 @@ def get_report_detail(
                 "access_source": report.access_source,
             },
             "chart_svg": chart_svg,
-            "chunks": chunks_out
+            "chunks": chunks_out,
+            "week_brief": week_brief,
+            "week_brief_envelope": week_brief_envelope,
         }
         log_report_detail_success(user, report=report, chunk_count=len(chunks_out))
         return response
@@ -3765,6 +3811,12 @@ class FeedOut(BaseModel):
     fast_hits: list[dict] = Field(default_factory=list)
     personalization_level: Optional[str] = None
     meta: Optional[dict] = None
+    day_brief: Optional[DayBriefDTO] = None
+    trace_id: Optional[str] = None
+    generation_mode: Optional[str] = None
+    birth_time_used: Optional[bool] = None
+    confidence_bucket: Optional[str] = None
+    factor_count: Optional[int] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -3867,6 +3919,12 @@ def _build_feed_payload(
     fast_hits: Optional[list] = None,
     personalization_level: Optional[str] = None,
     meta: Optional[dict] = None,
+    day_brief: Optional[dict] = None,
+    trace_id: Optional[str] = None,
+    generation_mode: Optional[str] = None,
+    birth_time_used: Optional[bool] = None,
+    confidence_bucket: Optional[str] = None,
+    factor_count: Optional[int] = None,
 ) -> dict:
     return {
         "date": now.strftime("%d.%m.%Y"),
@@ -3884,6 +3942,12 @@ def _build_feed_payload(
         "fast_hits": fast_hits or [],
         "personalization_level": personalization_level,
         "meta": meta,
+        "day_brief": day_brief,
+        "trace_id": trace_id,
+        "generation_mode": generation_mode,
+        "birth_time_used": birth_time_used,
+        "confidence_bucket": confidence_bucket,
+        "factor_count": factor_count,
     }
 
 @app.get("/api/feed/today", response_model=FeedOut)
@@ -3942,12 +4006,23 @@ async def get_daily_feed(
             cache_scope=prompt_context.get("cache_scope"),
             prompt_path=prompt_context.get("prompt_contract"),
         )
-        vibe = await get_daily_vibe_llm(
+        vibe, vibe_meta = await get_daily_vibe_llm(
             facts["moon_sign"],
             facts["moon_phase"],
             facts["aspect_summary"],
             personalization_context=prompt_context,
             cache_scope=prompt_context.get("cache_scope"),
+            return_metadata=True,
+        )
+        day_brief = build_day_brief_payload(
+            facts,
+            user=user,
+            general_vibe=vibe,
+            generation_mode=vibe_meta.get("generation_mode"),
+        )
+        day_brief_telemetry = build_day_brief_telemetry(
+            day_brief,
+            generation_mode=vibe_meta.get("generation_mode"),
         )
 
         logger.info(
@@ -3959,6 +4034,16 @@ async def get_daily_feed(
             debug=debug_enabled,
             path=str(request.url.path),
             fallback_mode=bool((facts.get("meta") or {}).get("fallback_mode")),
+        )
+        logger.info(
+            "day_brief.response_returned",
+            path=str(request.url.path),
+            fallback_mode=bool(day_brief.get("fallback_mode")),
+            generation_mode=day_brief_telemetry.get("generation_mode"),
+            trace_id=day_brief_telemetry.get("trace_id"),
+            birth_time_used=day_brief_telemetry.get("birth_time_used"),
+            confidence_bucket=day_brief_telemetry.get("confidence_bucket"),
+            factor_count=day_brief_telemetry.get("factor_count"),
         )
         return _build_feed_payload(
             now,
@@ -3977,6 +4062,12 @@ async def get_daily_feed(
             fast_hits=facts.get("fast_hits") or [],
             personalization_level=facts.get("personalization_level"),
             meta=(facts.get("meta") if debug_enabled and bool(x_telegram_auth) else None),
+            day_brief=day_brief,
+            trace_id=day_brief_telemetry.get("trace_id"),
+            generation_mode=day_brief_telemetry.get("generation_mode"),
+            birth_time_used=day_brief_telemetry.get("birth_time_used"),
+            confidence_bucket=day_brief_telemetry.get("confidence_bucket"),
+            factor_count=day_brief_telemetry.get("factor_count"),
         )
     except Exception as exc:
         logger.error(
@@ -3987,6 +4078,26 @@ async def get_daily_feed(
             debug=debug_enabled,
             path=str(request.url.path),
             fallback_reason="endpoint_error",
+        )
+        fallback_day_brief = build_day_brief_fallback(
+            now,
+            general_vibe=fallback_vibe,
+            generation_mode="fallback",
+            reason="endpoint_error",
+        )
+        fallback_telemetry = build_day_brief_telemetry(
+            fallback_day_brief,
+            generation_mode="fallback",
+        )
+        logger.info(
+            "day_brief.response_returned",
+            path=str(request.url.path),
+            fallback_mode=True,
+            generation_mode=fallback_telemetry.get("generation_mode"),
+            trace_id=fallback_telemetry.get("trace_id"),
+            birth_time_used=fallback_telemetry.get("birth_time_used"),
+            confidence_bucket=fallback_telemetry.get("confidence_bucket"),
+            factor_count=fallback_telemetry.get("factor_count"),
         )
         return _build_feed_payload(
             now,
@@ -4004,6 +4115,12 @@ async def get_daily_feed(
             fast_hits=[],
             personalization_level="anonymous",
             meta=({"fallback": True, "reason": "endpoint_error"} if debug_enabled and bool(x_telegram_auth) else None),
+            day_brief=fallback_day_brief,
+            trace_id=fallback_telemetry.get("trace_id"),
+            generation_mode=fallback_telemetry.get("generation_mode"),
+            birth_time_used=fallback_telemetry.get("birth_time_used"),
+            confidence_bucket=fallback_telemetry.get("confidence_bucket"),
+            factor_count=fallback_telemetry.get("factor_count"),
         )
 # #END_BLOCK_FEED_ENDPOINT
 
@@ -4022,7 +4139,7 @@ async def get_week_map_endpoint(
     return build_week_map(now, user)
 
 
-@app.get("/api/day/brief", response_model=DayBriefOut)
+@app.get("/api/day/brief", response_model=DayBriefDTO)
 async def get_day_brief(
     request: Request,
     debug: bool = Query(False),
@@ -4061,7 +4178,7 @@ async def get_day_brief(
 
     try:
         facts = build_personalized_daily_facts(now, user=user)
-        payload = build_day_brief_payload(facts, user=user)
+        payload = build_day_brief_payload(facts, user=user, generation_mode="deterministic")
         logger.info(
             "day_brief.debug",
             stage="request_success",
@@ -4069,6 +4186,17 @@ async def get_day_brief(
             personalization_level=facts.get("personalization_level"),
             cache_scope=facts.get("cache_scope"),
             path=str(request.url.path),
+        )
+        telemetry = build_day_brief_telemetry(payload, generation_mode="deterministic")
+        logger.info(
+            "day_brief.response_returned",
+            path=str(request.url.path),
+            fallback_mode=bool(payload.get("fallback_mode")),
+            generation_mode=telemetry.get("generation_mode"),
+            trace_id=telemetry.get("trace_id"),
+            birth_time_used=telemetry.get("birth_time_used"),
+            confidence_bucket=telemetry.get("confidence_bucket"),
+            factor_count=telemetry.get("factor_count"),
         )
         return payload
     except Exception as exc:

@@ -12,6 +12,7 @@ class _GeneratedSection:
 
 from backend.app.models import Report
 from backend.app.services.report_workflow import (
+    build_report_context,
     build_section_specs,
     generate_report_sections,
     load_section_specs_for_report,
@@ -148,3 +149,81 @@ def test_generate_report_sections_error_path_marks_failed(workflow_payload, repo
     assert report_entity.status == "failed"
     assert "only 2" in (report_entity.error_message or "")
     assert "min 5" in (report_entity.error_message or "")
+
+
+def test_build_report_context_week_forecast_exports_week_brief_seed():
+    payload = SimpleNamespace(
+        report_type="week_forecast",
+        report_id="rep-1",
+        client_name="Week User",
+        client_note=None,
+        birth_date="1990-01-01T12:00:00",
+        birth_location="Moscow",
+        birth_lat=55.75,
+        birth_lon=37.61,
+        birth_timezone="Europe/Moscow",
+        birth_place_id=None,
+        partner_name=None,
+        partner_birth_date=None,
+        partner_birth_location=None,
+        partner_birth_lat=None,
+        partner_birth_lon=None,
+        partner_birth_timezone=None,
+        partner_birth_place_id=None,
+        solar_current_location="Moscow",
+        solar_current_lat=55.75,
+        solar_current_lon=37.61,
+        solar_current_timezone="Europe/Moscow",
+        solar_current_place_id=None,
+        solar_next_location=None,
+        solar_next_lat=None,
+        solar_next_lon=None,
+        solar_next_timezone=None,
+        solar_next_place_id=None,
+        birth_time_known=True,
+        house_system="placidus",
+        question=None,
+    )
+    chart_data = {"facts": "ok"}
+
+    engine = MagicMock()
+    natal_chart = SimpleNamespace()
+    engine.create_natal_chart.return_value = natal_chart
+    engine.calculate_forecast_week_data.return_value = {
+        "summary": {"traffic_light": "YELLOW", "avg_tension": 0.5},
+        "days": [
+            {
+                "date": "2026-03-30",
+                "weekday": "Monday",
+                "moon": {"sign": "Овен", "phase": "Растущая", "void_of_course": False},
+                "traffic_light": "YELLOW",
+                "traffic_desc": "🟡 Внимание",
+                "tension_score": 0.5,
+            }
+        ],
+    }
+    engine.calculate_forecast_month_data.return_value = {
+        "major_transits": ["31.03 Сатурн Квадрат Солнце"],
+        "retrogrades": ["01.04 Меркурий -> R (Ретро)"],
+        "lunations": ["05.04 Полнолуние в Весах"],
+    }
+    engine.calculate_forecast_year_data.return_value = {
+        "profection": {"house": 10, "lord": "Венера", "age": 36},
+        "solar_return": {"datetime": "2026-03-20T10:00:00+03:00", "asc_sign": "Овен", "sun_house": 10},
+        "solar_arcs": [{"direction": "Сатурн", "natal": "MC", "orb": 0.4}],
+    }
+
+    with (
+        patch("backend.app.services.report_workflow.StelliumEngine", return_value=engine),
+        patch("backend.app.services.report_workflow.get_chart_facts_json", return_value={"v": "facts_v1", "pos": [], "houses": []}),
+        patch("backend.app.services.report_workflow.engine_utils.resolve_house_system", return_value="placidus"),
+    ):
+        context = build_report_context(payload, chart_data)
+
+    assert "week_forecast_data" in context
+    assert "month_forecast_data" in context
+    assert "year_forecast_data" in context
+    assert "week_brief_seed" in context
+    assert context["week_brief_seed"]["slow_background"]["profection"]["house"] == 10
+    assert context["week_brief_seed"]["slow_background"]["solar_arcs"][0]["direction"] == "Сатурн"
+    assert context["week_brief_seed"]["slow_background"]["long_transits"] == ["31.03 Сатурн Квадрат Солнце"]

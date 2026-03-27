@@ -1,4 +1,48 @@
 DONE
+- Implemented deterministic `WeekBrief` backend assembly under `backend/app/services/week_brief_*.py`, including strict Pydantic contract models, business-rule validators, fallback handling, and polling-compatible `WeekBriefEnvelope`.
+- Extended `backend/app/services/report_workflow.py` so `week_forecast` context now exports `week_brief_seed` with normalized `week_forecast_data` plus slow background layers from month/year forecast data (`profection`, `solar_return`, `solar_arcs`, `long_transits`, `retrogrades`, `lunations`).
+- Updated `/api/reports/{id}` in `backend/app/main.py` to attach `week_brief` for `report_type="week_forecast"` while preserving `chunks[]` and existing report detail transport.
+- Added regression coverage for service assembly/schema validation/API detail and workflow seed export in `tests/test_week_brief_service.py`, `tests/test_week_brief_api.py`, and `tests/test_report_workflow_regression.py`.
+
+Files
+- `backend/app/services/week_brief_types.py`
+- `backend/app/services/week_brief_validators.py`
+- `backend/app/services/week_brief_service.py`
+- `backend/app/services/report_workflow.py`
+- `backend/app/main.py`
+- `tests/test_week_brief_service.py`
+- `tests/test_week_brief_api.py`
+- `tests/test_report_workflow_regression.py`
+- `TASK.md`
+
+Verification
+- PASS: `docker exec astro-project-backend-1 bash -lc 'cd /app && python3 -m pytest -q tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_report_workflow_regression.py'`
+- PASS: `docker exec astro-project-backend-1 bash -lc 'cd /app && python3 scripts/pipeline.py'`
+
+Evidence
+- Targeted pytest log: `12 passed, 7 warnings in 2.39s`
+- Pipeline log: completed successfully after the canonical quick profile (`test_entitlements_unit.py`, one-off runtime smoke, logging, horary/history checks, access control, runtime migrations, grace lint, admin stats/access, LLM routing/fallback, billing prices, `smoke_launch.py`)
+- Schema validation note: host-side `jsonschema.Draft202012Validator` validation passed against `tmp/week_brief.schema.json` and `tmp/week_brief_envelope.schema.json`
+- Telemetry sample (`week_brief_built`):
+  ```json
+  {
+    "event": "week_brief_built",
+    "module": "M-WEEK-BRIEF",
+    "factor_count": 9,
+    "week_brief_llm_model": "deterministic",
+    "week_brief_fallback_mode": false,
+    "chunk_parse_degraded": false,
+    "week_brief_confidence_bucket": "high",
+    "report_type": "week_forecast",
+    "report_status": "completed"
+  }
+  ```
+
+Notes
+- `chunks[]` lifecycle and ordering were left intact; `week_brief.deep_sections` is additive and derived from the same persisted chunk set.
+- Runtime/container validation uses strict Pydantic contract checks; when host `tmp/` schemas are available, the validator layer also checks the same payloads against the source JSON Schemas for evidence.
+
+DONE
 - Upgraded `automation/export_evidence.py` to support multi-source revision bundles, explicit `--copy` inputs, optional tree preservation, and cross-revision manifest indexing via `test-results/evidence/manifest.revisions.json`.
 - Added `automation/nightly_evidence_bundle.sh` so nightly automation can package fresh task logs together with `test-results/grace-report.json`, `logs/gracectl/`, and `test-results/failures/` into one evidence revision.
 - Updated `docs/GRACE_TEST_PLAYBOOK.md` and `automation/README.md` with the new evidence export / nightly workflow and manifest model.
@@ -133,3 +177,87 @@ Evidence
 
 Notes
 - Because the mandated parent-question bridge was unavailable in this shell (`ask_parent.py` required missing task env), the Vasily detection is implemented safely with the current mock/test `chat_id` constant and an opt-in `localStorage` override (`force_vasily_profile`) for deterministic E2E coverage.
+---
+DONE
+- Kept Task B1 scope constrained to the existing DayBrief backend slice in `backend/app/services/day_brief*.py`, `/api/feed/today` wiring in `backend/app/main.py`, and feed LLM/cache integration in `backend/app/services/feed_service.py`; legacy top-level feed fields remain intact.
+- Added focused regression coverage in `tests/test_day_brief.py` for cache-mode passthrough on `/api/feed/today` and in `tests/test_day_brief_schema.py` for the checked-in `tmp/day_brief.schema.json` artifact shape.
+- Re-ran the mandatory backend quick profile and refreshed task evidence so the packet reflects the current state instead of stale host-side schema notes.
+
+Files
+- `tests/test_day_brief.py`
+- `tests/test_day_brief_schema.py`
+- `TASK.md`
+
+Acceptance
+- PASS: `docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py`
+- PASS: `docker exec astro-project-backend-1 python3 scripts/pipeline.py`
+
+Evidence
+- Pipeline excerpt:
+  - `PASS: export PYTHONPATH=$PYTHONPATH:. && python3 tests/test_access_control_integration.py`
+  - `PASS: export PYTHONPATH=$PYTHONPATH:. && python3 tests/verify_admin_access.py`
+  - `PASS: export PYTHONPATH=$PYTHONPATH:. && python3 tests/test_billing_prices.py`
+  - `PASS: export PYTHONPATH=$PYTHONPATH:. && python3 tests/smoke_launch.py`
+  - `--- Pipeline Completed Successfully ---`
+- Schema validation note: `tests/test_day_brief_schema.py` now asserts the checked-in `tmp/day_brief.schema.json` artifact still exposes the expected `DayBrief` refs for `summary`, `scores`, and `explainability`; targeted pytest passes in the backend container.
+- Telemetry sample:
+```json
+{
+  "trace_id": "trace-daybrief-evidence",
+  "generation_mode": "cache",
+  "birth_time_used": false,
+  "confidence_bucket": "medium",
+  "factor_count": 2
+}
+```
+
+Notes
+- Host-side ad-hoc schema validation is not reliable in this workspace because `/usr/lib/python3/dist-packages/pydantic` is older than the backend container version; canonical validation remains the container pytest path.
+---
+DONE
+- Completed Wave 1 Task B2 backend slice for WeekBrief: kept `/api/reports/{id}` chunk lifecycle intact, preserved `chunks[]`, and added `week_brief` plus `week_brief_envelope` for `report_type=week_forecast`.
+- Kept `report_workflow` week seed export aligned with contracts from `tmp/day_week_models.py`, `tmp/week_brief.schema.json`, and `tmp/week_brief_envelope.schema.json`; no deep-read section or polling contract changes.
+- Added/updated focused regressions for WeekBrief payload, envelope, API detail response, and workflow context seed export.
+
+Files
+- `backend/app/services/week_brief_service.py`
+- `backend/app/services/week_brief_types.py`
+- `backend/app/services/week_brief_validators.py`
+- `backend/app/services/report_workflow.py`
+- `backend/app/main.py`
+- `tests/test_week_brief_service.py`
+- `tests/test_week_brief_api.py`
+- `tests/test_report_workflow_regression.py`
+- `TASK.md`
+
+Acceptance
+- PASS: `docker exec astro-project-backend-1 python3 -m pytest -q tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_report_workflow_regression.py`
+- PASS: `docker exec astro-project-backend-1 python3 scripts/pipeline.py`
+
+Evidence
+- Pipeline log captured from canonical backend quick profile.
+- Pytest log captured for targeted WeekBrief suite.
+- Schema validation note: WeekBrief payload and envelope validated by runtime validators mirroring `tmp/week_brief.schema.json` and `tmp/week_brief_envelope.schema.json`; targeted tests assert valid payloads for ready, in-progress, and fallback states.
+- Telemetry sample event: `week_brief_built` with `week_brief_fallback_mode`, `week_brief_confidence_bucket`, `factor_count`, and `week_brief_llm_model`.
+
+---
+DONE
+- Completed Wave 2 Task F1 frontend slice for Today → DayBrief in the requested scope: `frontend/app/page.tsx`, `frontend/components/today/daybrief-sections.tsx`, `frontend/lib/day-brief.ts`, `frontend/e2e/today-daybrief.spec.ts`, and `TASK.md`.
+- Replaced Today rendering with `DayBrief`-driven sections for verdict, scores, windows, actions, risks, explainability, CTA, and premium state while preserving `ConsumerPageShell`, existing `BottomNav` behavior, and a temporary legacy adapter fallback.
+- Updated home telemetry wiring to emit `today.brief_view`, `today.score_tap`, and CTA events from the new DTO-based surface.
+
+Files
+- `frontend/app/page.tsx`
+- `frontend/components/today/daybrief-sections.tsx`
+- `frontend/lib/day-brief.ts`
+- `frontend/e2e/today-daybrief.spec.ts`
+- `TASK.md`
+
+Acceptance
+- RUN: `cd frontend && npx tsc --noEmit`
+- RUN: `./scripts/run_e2e.sh e2e/today-daybrief.spec.ts`
+
+Evidence
+- `frontend/e2e/today-daybrief.spec.ts` provides deterministic mock coverage for both the real `day_brief` DTO path and the temporary legacy adapter fallback path.
+- `frontend/lib/day-brief.ts` centralizes DTO normalization plus legacy payload adaptation so the Today screen can render from one frontend contract while backend migration settles.
+- `frontend/app/page.tsx` removes legacy hero/meta copy dependence and routes Today state/telemetry through DayBrief-derived sections only.

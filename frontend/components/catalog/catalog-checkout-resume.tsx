@@ -271,8 +271,39 @@ export function CatalogCheckoutResumeBanner({
 
     let cancelled = false;
 
+    const trackSuccess = (reportType?: string | null) => {
+      void trackCatalogEvent("catalog.checkout_resume_success", withCatalogTrace({
+        surface,
+        entry_point: entryPoint ?? `${surface}-resume-banner`,
+        report_type: reportType ?? undefined,
+      }, {
+        module: CATALOG_GRACE_MODULES.checkoutResume,
+        contract: "FN-CHECKOUT-RESUME-REFRESH",
+        block: CATALOG_GRACE_BLOCKS.checkoutResume.resumeState,
+        semantic_block: "CHECKOUT_RESUME_STATUS_SUCCEEDED",
+        correlation_id: correlationId,
+      }));
+    };
+
     const sync = async () => {
       if (!checkoutToken) {
+        return;
+      }
+      if (mockEnabled || mode === "mock") {
+        const payload: CheckoutSession = {
+          status: "succeeded",
+          report_type: session?.report_type ?? "week_forecast",
+        };
+        setSession(payload);
+        setStatus("succeeded");
+        trackStatus("succeeded", {
+          surface,
+          entry_point: entryPoint ?? `${surface}-resume-banner`,
+          report_type: payload.report_type ?? undefined,
+          status: payload.status,
+          correlation_id: correlationId,
+        });
+        trackSuccess(payload.report_type);
         return;
       }
       try {
@@ -304,19 +335,7 @@ export function CatalogCheckoutResumeBanner({
           }, 1500);
         }
         if (normalized === "succeeded") {
-          // START_BLOCK: RESUME_STATE
-    void trackCatalogEvent("catalog.checkout_resume_success", withCatalogTrace({
-      surface,
-      entry_point: entryPoint ?? `${surface}-resume-banner`,
-      report_type: payload.report_type ?? undefined,
-    }, {
-      module: CATALOG_GRACE_MODULES.checkoutResume,
-      contract: "FN-CHECKOUT-RESUME-REFRESH",
-      block: CATALOG_GRACE_BLOCKS.checkoutResume.resumeState,
-      semantic_block: "CHECKOUT_RESUME_STATUS_SUCCEEDED",
-      correlation_id: correlationId,
-    }));
-          // END_BLOCK: RESUME_STATE
+          trackSuccess(payload.report_type ?? undefined);
         }
       } catch (error) {
         if (!cancelled) {
@@ -333,7 +352,7 @@ export function CatalogCheckoutResumeBanner({
         window.clearTimeout(pollRef.current);
       }
     };
-  }, [checkoutToken, correlationId, entryPoint, initData, isReady, shouldRender, surface]);
+  }, [checkoutToken, correlationId, entryPoint, initData, isReady, mockEnabled, mode, session?.report_type, shouldRender, surface]);
 
   // START_FUNCTION_CONTRACT: FN-HANDLE-RESUME-CLICK
   // purpose: Track CTA tap before redirecting user to resume path.
