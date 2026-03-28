@@ -969,6 +969,43 @@ def _chunk_title(section: str, blocks: list[dict[str, Any]]) -> str:
     return section.replace("_", " ").strip().title()[:80] or "Секция"
 
 
+def _section_seed_title(seed: WeekSectionSeed) -> str:
+    title = str(seed.title or "").strip()
+    return title[:80] or seed.slug.replace("_", " ").strip().title()[:80] or "Секция"
+
+
+def _section_seed_markdown(seed: WeekSectionSeed, factor_records: list[_FactorSeed]) -> str:
+    lines: list[str] = [f"# {_section_seed_title(seed)}", str(seed.summary or "").strip()]
+    indexed_records = {record.id: record for record in factor_records}
+    ordered_records = [indexed_records[factor_id] for factor_id in seed.factor_ids if factor_id in indexed_records]
+    for record in ordered_records[:4]:
+        detail = str(record.explanation_human or record.explanation_astro or "").strip()
+        if not detail:
+            continue
+        lines.append(f"- {record.label}: {detail}")
+    return "\n\n".join(part for part in lines if part).strip()
+
+
+def _build_seed_deep_sections(
+    section_seeds: list[WeekSectionSeed],
+    factor_records: list[_FactorSeed],
+) -> list[dict[str, Any]]:
+    deep_sections: list[dict[str, Any]] = []
+    for order, section_seed in enumerate(section_seeds):
+        deep_sections.append(
+            {
+                "id": section_seed.id,
+                "slug": section_seed.slug[:64],
+                "title": _section_seed_title(section_seed),
+                "summary": str(section_seed.summary or "").strip()[:240],
+                "body_markdown": _section_seed_markdown(section_seed, factor_records),
+                "is_primary": order == 0,
+                "order": order,
+            }
+        )
+    return deep_sections[:16]
+
+
 def _build_deep_sections(chunks: Iterable[Any]) -> tuple[list[dict[str, Any]], bool]:
     deep_sections: list[dict[str, Any]] = []
     degraded = False
@@ -992,6 +1029,36 @@ def _build_deep_sections(chunks: Iterable[Any]) -> tuple[list[dict[str, Any]], b
             }
         )
     return deep_sections[:16], degraded
+
+
+def _merge_seed_with_chunk_sections(
+    seed_sections: list[dict[str, Any]],
+    chunk_sections: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not seed_sections:
+        return chunk_sections[:16]
+
+    chunk_by_slug = {
+        str(section.get("slug") or "").strip(): section
+        for section in chunk_sections
+        if str(section.get("slug") or "").strip()
+    }
+    merged: list[dict[str, Any]] = []
+    for seed_section in seed_sections:
+        merged_section = copy.deepcopy(seed_section)
+        chunk_section = chunk_by_slug.get(str(seed_section.get("slug") or "").strip())
+        if chunk_section:
+            chunk_body = str(chunk_section.get("body_markdown") or "").strip()
+            if chunk_body:
+                merged_section["body_markdown"] = chunk_body
+            chunk_title = str(chunk_section.get("title") or "").strip()
+            if chunk_title:
+                merged_section["title"] = chunk_title[:80]
+            chunk_summary = str(chunk_section.get("summary") or "").strip()
+            if chunk_summary:
+                merged_section["summary"] = chunk_summary[:240]
+        merged.append(merged_section)
+    return merged[:16]
 
 
 def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1231,10 +1298,12 @@ def build_week_brief_payload(
         factor_records = _build_factor_seeds(seed)
         section_seeds = _build_week_section_seeds(seed, factor_records)
         major_factors, weighted = _weighted_factor_payloads(factor_records)
-        deep_sections, chunk_parse_degraded = _build_deep_sections(chunks)
+        seed_deep_sections = _build_seed_deep_sections(section_seeds, factor_records)
+        chunk_deep_sections, chunk_parse_degraded = _build_deep_sections(chunks)
+        deep_sections = _merge_seed_with_chunk_sections(seed_deep_sections, chunk_deep_sections)
         best_day = max(day_cards, key=lambda item: int(item.get("score", 0)), default=None)
         worst_day = min(day_cards, key=lambda item: int(item.get("score", 0)), default=None)
-        fallback_mode = bool(chunk_parse_degraded or not seed.get("days"))
+        fallback_mode = bool(chunk_parse_degraded or not seed.get("days") or not deep_sections)
         explainability = _build_explainability(
             seed,
             weighted,

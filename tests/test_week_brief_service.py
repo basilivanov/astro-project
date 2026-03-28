@@ -140,7 +140,8 @@ def test_build_week_brief_payload_validates_schema_and_logs_telemetry():
     assert len(validated["day_cards"]) == 7
     assert len(validated["domains"]) == 4
     assert len(validated["major_factors"]) >= 1
-    assert len(validated["deep_sections"]) == 2
+    assert len(validated["deep_sections"]) >= 2
+    assert [section["slug"] for section in validated["deep_sections"][:2]] == ["overview", "timing"]
     assert validated["report_ref"]["report_id"] == str(report.id)
     built_events = [call for call in telemetry if call[0][1] == "week_brief_built"]
     assert built_events
@@ -168,8 +169,33 @@ def test_build_week_brief_payload_falls_back_but_stays_schema_valid():
     assert validated["fallback_mode"] is True
     assert len(validated["day_cards"]) == 7
     assert len(validated["major_factors"]) == 1
+    assert [section["slug"] for section in validated["deep_sections"]] == ["overview"]
+    assert "# Каркас недели" in validated["deep_sections"][0]["body_markdown"]
     assert any(call[0][1] == "week_brief_fallback_triggered" for call in telemetry)
     assert any(call[0][1] == "week_brief_built" and call[1]["week_brief_fallback_mode"] is True for call in telemetry)
+
+
+def test_build_week_brief_payload_keeps_seed_sections_when_chunk_json_is_invalid():
+    report = _sample_report()
+    bad_chunks = [
+        SimpleNamespace(section="week_strategy", content="{not-json", status="failed", order_index=0),
+        SimpleNamespace(section="money", content="plain prose that is not json", status="completed", order_index=1),
+    ]
+
+    payload = build_week_brief_payload(
+        report=report,
+        payload=_sample_payload(),
+        context=_sample_context(),
+        chunks=bad_chunks,
+        user=None,
+        llm_model="deterministic",
+    )
+
+    validated = validate_week_brief_payload(payload)
+    assert validated["fallback_mode"] is True
+    assert [section["slug"] for section in validated["deep_sections"][:3]] == ["overview", "timing", "background"]
+    assert all(section["summary"] for section in validated["deep_sections"])
+    assert "Неделя" in validated["deep_sections"][0]["body_markdown"] or "Каркас недели" in validated["deep_sections"][0]["body_markdown"]
 
 
 def test_build_week_brief_envelope_supports_ready_and_in_progress_states():
