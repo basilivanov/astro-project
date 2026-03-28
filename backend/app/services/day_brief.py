@@ -14,6 +14,7 @@ from .aggregation_weights import DAY_BRIEF_WEIGHT_TABLE, apply_weighted_factors
 from .day_brief_types import ImpactLevel, SignalSource
 from .day_brief_validators import serialize_day_brief, validate_day_brief_payload
 from .forecast_semantics import build_daily_forecast_semantic_layer
+from .personal_susceptibility import attach_susceptibility, build_susceptibility_profile, calibration_entrypoints
 from .forecast_factor_pipeline import build_normalized_factors, build_semantic_layer_from_factors, preprocess_factors_for_ranking, select_explainability_factors
 
 
@@ -652,7 +653,8 @@ def _prepare_personalized_factors(
         }
         return [], empty_weighted, []
 
-    weighted = apply_weighted_factors("day_brief", normalized, top_n=8)
+    susceptibility = build_susceptibility_profile(None)
+    weighted = apply_weighted_factors("day_brief", attach_susceptibility(normalized, profile=susceptibility), top_n=8)
     source_lookup = {item["id"]: item for item in normalized}
     factors: list[dict[str, Any]] = []
     refs: list[dict[str, Any]] = []
@@ -1040,8 +1042,26 @@ def _assemble_day_brief_payload(
         fallback_mode=fallback_mode,
         raw_factor_count=len(raw_records),
     )
+    susceptibility = build_susceptibility_profile(user)
+    explainability["reliability_support"] = weighted_meta.get("reliability_support", [])
+    explainability["calibration"] = {
+        "weight_profile_version": weighted_meta.get("weight_profile_version", "v2"),
+        "susceptibility_source": susceptibility.source,
+        "susceptibility_version": susceptibility.version,
+        "entrypoints": calibration_entrypoints(),
+    }
     if normalized_factors:
+        calibrated_factors = attach_susceptibility([factor.model_dump() for factor in normalized_factors], profile=susceptibility)
         explainability["selected_factors"] = select_explainability_factors(normalized_factors, limit=5 if not fallback_mode else 3)
+        explainability["selected_factors_support"] = [
+            {
+                "id": factor.get("id"),
+                "susceptibility_multiplier": factor.get("susceptibility_multiplier", 1.0),
+                "timing_precision": (factor.get("metadata") or {}).get("timing_precision", "day"),
+                "rarity": (factor.get("metadata") or {}).get("rarity", "uncommon"),
+            }
+            for factor in calibrated_factors[: 5 if not fallback_mode else 3]
+        ]
 
     now_local = _parse_local_dt(facts)
     clean_windows = []

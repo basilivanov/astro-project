@@ -153,6 +153,8 @@ def test_build_day_brief_payload_returns_contract_shape() -> None:
     assert payload["explainability"]["selected_factors"]
     assert payload["explainability"]["birth_time_used"] is True
     assert payload["explainability"]["timing_precision"] == "exact"
+    assert payload["explainability"]["reliability_support"]
+    assert payload["explainability"]["calibration"]["weight_profile_version"] == "v2"
     assert payload["premium"]["subscription_active"] is True
     assert payload["cta"]["primary"]["type"] == "open_week"
     assert payload["legacy"]["general_vibe"].startswith("Главный акцент дня")

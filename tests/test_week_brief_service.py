@@ -261,3 +261,5 @@ def test_week_brief_prefers_theme_anchor_and_preserves_explainability_order():
     assert factor_ids[0] == "week:theme_anchor"
     assert "week:profection:10" in factor_ids
     assert payload["explainability"]["factor_count"] >= len(payload["major_factors"])
+    assert payload["explainability"]["reliability_support"]
+    assert payload["explainability"]["calibration"]["weight_profile_version"] == "v2"

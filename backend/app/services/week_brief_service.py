@@ -12,6 +12,7 @@ from typing import Any, Iterable
 from ..logging_utils import get_correlation_ids, log_grace_event
 from .aggregation_weights import apply_weighted_factors
 from .forecast_factor_pipeline import NormalizedFactor, clamp_signal, make_factor, normalize_domain
+from .personal_susceptibility import attach_susceptibility, build_susceptibility_profile, calibration_entrypoints
 try:
     from .report_workflow import (
         _build_week_brief_seed_bundle,
@@ -758,9 +759,10 @@ def _assemble_week_top_layer(
     *,
     limit: int = 5,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    susceptibility = build_susceptibility_profile(None)
     weighted = apply_weighted_factors(
         "week_map",
-        [
+        attach_susceptibility([
             {
                 "id": record.id,
                 "category": record.profile_category,
@@ -776,7 +778,7 @@ def _assemble_week_top_layer(
                 "family": record.factor.family,
             }
             for record in factor_records
-        ],
+        ], profile=susceptibility),
         top_n=limit,
     )
     by_id = {record.id: record for record in factor_records}
@@ -908,6 +910,13 @@ def _build_explainability(
         "timing_precision": "exact" if seed.get("days") else "approximate",
         "top_signal_source": top_signal_source,
         "explanation_depth": "full" if factor_count >= 5 else "standard",
+        "reliability_support": weighted.get("reliability_support", []),
+        "calibration": {
+            "weight_profile_version": weighted.get("weight_profile_version", "v2"),
+            "susceptibility_source": "deterministic_default",
+            "susceptibility_version": "v1",
+            "entrypoints": calibration_entrypoints(),
+        },
     }
 
 

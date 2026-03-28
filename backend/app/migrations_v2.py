@@ -174,3 +174,17 @@ def apply_v6_migrations(connection):
             print(f"Migration V6 warning: {e}")
             
 # #END_BLOCK_DB_MIGRATIONS_V2
+
+
+def apply_v7_migrations(connection):
+    """
+    # PURPOSE: Add per-user susceptibility calibration storage.
+    """
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS susceptibility_profile JSON",
+    ]
+    for stmt in statements:
+        try:
+            connection.execute(text(stmt))
+        except Exception as e:
+            print(f"Migration V7 warning: {e}")
