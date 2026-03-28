@@ -74,10 +74,11 @@ def attach_susceptibility(factors: list[dict[str, Any]], *, profile: Susceptibil
     return enriched
 
 
-def calibration_entrypoints() -> dict[str, Any]:
-    return {
-        "feedback_sources": ["report_feedback", "admin_trace_review", "future_online_learning"],
-        "storage": "users.susceptibility_profile",
-        "defaults": "deterministic_v1",
-        "next_step": "replace default multipliers with user feedback driven calibration jobs",
-    }
+def calibration_entrypoints() -> list[str]:
+    return [
+        "feedback:report_feedback",
+        "feedback:admin_trace_review",
+        "learning:future_online",
+        "storage:users.susceptibility_profile",
+        "defaults:deterministic_v1",
+    ]

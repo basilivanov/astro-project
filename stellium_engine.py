@@ -7,6 +7,7 @@
 #                 UTILITIES]
 # ############################################################################
 
+import structlog
 from stellium import ChartBuilder, ReturnBuilder, ChartLocation, FIXED_STARS_REGISTRY, get_fixed_star_info
 from stellium.engines.houses import WholeSignHouses, PlacidusHouses, EqualHouses
 from stellium.core.config import CalculationConfig
@@ -15,6 +16,9 @@ import math
 import itertools
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+
+
+logger = structlog.get_logger("stellium_engine")
 
 # #START_BLOCK_ENGINE_MODELS
 class StarConjunction(BaseModel):
@@ -75,36 +79,61 @@ class StelliumEngine:
             else:
                 dt_str = f"{dt_str} 12:00:00"
 
-        builder = ChartBuilder.from_details(dt_str, location_str, name=name)
-        
-        # Configure asteroids
-        config = CalculationConfig()
-        config.include_asteroids = ["Ceres", "Pallas", "Juno", "Vesta", "Chiron"]
-        builder.with_config(config)
-        
-        if not house_system:
-            # Prefer explicit latitude from payload to avoid builder API drift.
+        # Prepare builder inputs upfront so we can recreate on fallback if needed
+        normalized_dt = dt_str
+        location_input = location_str
+
+        def _build_chart(selected_house_system):
+            inner_builder = ChartBuilder.from_details(normalized_dt, location_input, name=name)
+
+            config = CalculationConfig()
+            config.include_asteroids = ["Ceres", "Pallas", "Juno", "Vesta", "Chiron"]
+            inner_builder.with_config(config)
+            if selected_house_system:
+                inner_builder.with_house_systems([selected_house_system])
+            return inner_builder.calculate()
+
+        def _resolve_house_system():
+            selected = house_system
             lat = None
-            if isinstance(location_str, dict):
-                lat = location_str.get("latitude")
-            if lat is None:
-                resolved = getattr(builder, "location", None)
-                lat = getattr(resolved, "latitude", None)
-            
-            if not birth_time_known:
-                # For unknown time, houses are meaningless. 
-                # We use WholeSign as a placeholder that doesn't depend on exact time (only sign).
-                # Interpreters should ignore it based on birth_time_known flag.
-                house_system = WholeSignHouses()
-            elif lat is None:
-                house_system = PlacidusHouses()
-            else:
-                house_system = self._resolve_default_house_system(lat)
-            
-        builder.with_house_systems([house_system])
-            
-        chart = builder.calculate()
-        return chart
+            if isinstance(location_input, dict):
+                try:
+                    lat = float(location_input.get("latitude")) if location_input.get("latitude") is not None else None
+                except (TypeError, ValueError):
+                    lat = None
+
+            if not selected:
+                if not birth_time_known:
+                    return WholeSignHouses()
+                if lat is None:
+                    return PlacidusHouses()
+                return self._resolve_default_house_system(lat)
+
+            if lat is not None and abs(lat) >= 66.0 and isinstance(selected, PlacidusHouses):
+                logger.warning(
+                    "engine.house_system.clamped",
+                    latitude=lat,
+                    requested="placidus",
+                    fallback="whole_sign",
+                )
+                return WholeSignHouses()
+
+            return selected
+
+        resolved_house_system = _resolve_house_system()
+
+        try:
+            return _build_chart(resolved_house_system)
+        except Exception as exc:
+            message = str(exc)
+            if "houses_ex" in message and not isinstance(resolved_house_system, WholeSignHouses):
+                logger.warning(
+                    "engine.house_system.retry_whole_sign",
+                    error=message,
+                    fallback="whole_sign",
+                )
+                return _build_chart(WholeSignHouses())
+            raise
     # #END_BLOCK_NATAL_CALC
 
     # #START_BLOCK_HORARY_CALC
@@ -666,7 +695,10 @@ class StelliumEngine:
         if not house_system:
             lat = None
             if isinstance(location_str, dict):
-                lat = location_str.get("latitude")
+                try:
+                    lat = float(location_str.get("latitude")) if location_str.get("latitude") is not None else None
+                except (TypeError, ValueError):
+                    lat = None
             if lat is None:
                 resolved = getattr(builder, "location", None)
                 lat = getattr(resolved, "latitude", None)
@@ -675,8 +707,27 @@ class StelliumEngine:
             else:
                 house_system = self._resolve_default_house_system(lat)
 
+        def _calculate(selected_house_system):
+            inner = ChartBuilder.from_details(dt_str, location_str, name="Transit")
+            config = CalculationConfig()
+            config.include_asteroids = ["Ceres", "Pallas", "Juno", "Vesta", "Chiron"]
+            inner.with_config(config)
+            inner.with_house_systems([selected_house_system])
+            return inner.calculate()
+
         builder.with_house_systems([house_system])
-        return builder.calculate()
+        try:
+            return builder.calculate()
+        except Exception as exc:
+            message = str(exc)
+            if "houses_ex" in message and not isinstance(house_system, WholeSignHouses):
+                logger.warning(
+                    "engine.transit_house_system.retry_whole_sign",
+                    error=message,
+                    fallback="whole_sign",
+                )
+                return _calculate(WholeSignHouses())
+            raise
 
     def find_all_patterns(self, chart, orb=6.0):
         """

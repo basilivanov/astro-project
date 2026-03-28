@@ -18,6 +18,7 @@ from .migrations_v2 import (
     apply_v4_migrations,
     apply_v5_migrations,
     apply_v6_migrations,
+    apply_v7_migrations,
 )
 
 # #START_BLOCK_DB_SETTINGS
@@ -204,4 +205,5 @@ def apply_runtime_migrations():
         apply_v4_migrations(connection)
         apply_v5_migrations(connection)
         apply_v6_migrations(connection)
+        apply_v7_migrations(connection)
 # #END_BLOCK_DB_MIGRATIONS

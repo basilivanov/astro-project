@@ -105,6 +105,7 @@ class FactorRecord:
     explanation: str
     domain: str
     signal: float
+    category: str | None = None
 
 
 def _stable_seed(*parts: Any) -> int:

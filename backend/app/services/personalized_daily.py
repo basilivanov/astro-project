@@ -258,10 +258,25 @@ def _is_full_profile(user: Optional[Any]) -> bool:
 
 def _build_birth_datetime(user: Any) -> str:
     birth_date = getattr(user, "birth_date", None) or ""
-    birth_time = getattr(user, "birth_time", None)
-    if birth_time:
-        return f"{birth_date}T{birth_time}:00"
-    return birth_date
+    birth_time = (getattr(user, "birth_time", None) or "").strip()
+    if not birth_time:
+        return birth_date
+
+    normalized_time = birth_time
+    if ":" in birth_time:
+        parts = [part.zfill(2) for part in birth_time.split(":") if part != ""]
+        if len(parts) == 1:
+            normalized_time = f"{parts[0]}:00:00"
+        elif len(parts) == 2:
+            normalized_time = f"{parts[0]}:{parts[1]}:00"
+        else:
+            normalized_time = ":".join(parts[:3])
+    else:
+        normalized_time = f"{birth_time.zfill(2)}:00:00"
+
+    if birth_date:
+        return f"{birth_date}T{normalized_time}"
+    return normalized_time
 
 
 def _create_natal_chart(engine: StelliumEngine, user: Any) -> Any:

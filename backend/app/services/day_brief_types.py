@@ -139,6 +139,42 @@ class PersonalizedFactor(StrictModel):
     weight: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
+class ReliabilitySupportEntry(StrictModel):
+    factor_id: str | None = Field(default=None, max_length=64)
+    category: str | None = Field(default=None, max_length=48)
+    impact: float | None = None
+    family: str | None = Field(default=None, max_length=48)
+    rarity: str | None = Field(default=None, max_length=48)
+    timing_precision: str | None = Field(default=None, max_length=32)
+    supporting_factors: list[str] = Field(default_factory=list, max_length=8)
+    source_models: list[str] = Field(default_factory=list, max_length=8)
+    source: str | None = Field(default=None, max_length=32)
+
+
+class ExplainabilityCalibration(StrictModel):
+    weight_profile_version: str = Field(..., min_length=1, max_length=16)
+    susceptibility_source: str | None = Field(default=None, max_length=32)
+    susceptibility_version: str | None = Field(default=None, max_length=16)
+    entrypoints: list[str] = Field(default_factory=list, max_length=10)
+
+
+class ExplainabilitySelectedFactor(StrictModel):
+    id: str = Field(..., min_length=1, max_length=64)
+    label: str = Field(..., min_length=4, max_length=120)
+    domain: str = Field(..., min_length=2, max_length=32)
+    family: str | None = Field(default=None, max_length=32)
+    signal: float
+    explanation_human: str = Field(..., min_length=10, max_length=260)
+    explanation_astro: str | None = Field(default=None, max_length=260)
+
+
+class ExplainabilitySelectedFactorSupport(StrictModel):
+    id: str | None = Field(default=None, max_length=64)
+    susceptibility_multiplier: float | None = None
+    timing_precision: str | None = Field(default=None, max_length=32)
+    rarity: str | None = Field(default=None, max_length=32)
+
+
 class Explainability(StrictModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     birth_time_used: bool
@@ -146,6 +182,10 @@ class Explainability(StrictModel):
     timing_precision: TimingPrecision | None = None
     top_signal_source: SignalSource | None = None
     explanation_depth: Literal["minimal", "standard", "full"] | None = None
+    reliability_support: list[ReliabilitySupportEntry] = Field(default_factory=list, max_length=10)
+    calibration: ExplainabilityCalibration | None = None
+    selected_factors: list[ExplainabilitySelectedFactor] = Field(default_factory=list, max_length=5)
+    selected_factors_support: list[ExplainabilitySelectedFactorSupport] = Field(default_factory=list, max_length=5)
 
 
 class PremiumState(StrictModel):
