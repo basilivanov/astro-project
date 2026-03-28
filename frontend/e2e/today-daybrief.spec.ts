@@ -124,10 +124,6 @@ test.describe("Today DayBrief surface", () => {
     await expect(page.getByTestId("today-cta-panel")).toBeVisible();
     await expect(page.getByTestId("today-cta-week")).toContainText("Открыть неделю");
     await expect(page.getByTestId("today-cta-premium")).toContainText("История разборов");
-    await expect(page.getByTestId("traffic-lights")).toBeVisible();
-    await expect(page.getByTestId("traffic-light-health-green")).toBeVisible();
-    await expect(page.getByTestId("traffic-light-money-yellow")).toBeVisible();
-    await expect(page.getByTestId("traffic-light-love-yellow")).toBeVisible();
 
     await page.getByTestId("today-score-energy").click();
     await page.waitForTimeout(200);
@@ -157,7 +153,6 @@ test.describe("Today DayBrief surface", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByTestId("feed-fallback-banner")).toBeVisible();
     await expect(page.getByTestId("today-verdict")).toBeVisible();
     await expect(page.getByTestId("today-windows")).toBeVisible();
     await expect(page.getByTestId("today-cta-panel")).toBeVisible();

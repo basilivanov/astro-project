@@ -20,6 +20,7 @@ import { WeekDomainPanel } from "../../components/week/week-domain-panel";
 import { WeekActionsPanel } from "../../components/week/week-actions-panel";
 import { WeekExplainabilityPanel } from "../../components/week/week-explainability-panel";
 import { WeekDeepSections } from "../../components/week/week-deep-sections";
+import ReportStatusPoller from "../../components/report-status-poller";
 import { confidenceBucket, mapWeekReportToWeekBrief, type WeekBrief, type LegacyWeekMapPayload } from "../../lib/week-brief";
 
 type WeekReportSummary = {
@@ -78,6 +79,8 @@ function WeekPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [latestReportId, setLatestReportId] = useState<string | null>(null);
+  const [latestReportStatus, setLatestReportStatus] = useState<string | null>(null);
+  const [latestReportMeta, setLatestReportMeta] = useState<WeekReportSummary | null>(null);
   const [payload, setPayload] = useState<WeekReportPayload | null>(null);
 
   const ensureCorrelationId = useCallback(() => {
@@ -118,9 +121,9 @@ function WeekPageContent() {
     if (!response.ok) throw new Error(`REPORT_LOOKUP_${response.status}`);
     const data = (await response.json()) as WeekReportSummary[];
     const latest = Array.isArray(data)
-      ? data.find((item) => item.report_type === "week_forecast" && item.status === "completed")
+      ? data.find((item) => item.report_type === "week_forecast" && (item.status === "completed" || item.status === "in_progress"))
       : null;
-    return latest?.id ?? null;
+    return latest ?? null;
   }, [initData, mode]);
 
   const fetchWeekPayload = useCallback(async (reportId: string | null) => {
@@ -142,7 +145,7 @@ function WeekPageContent() {
     }
 
     if (!reportId || !initData) return null;
-    const response = await correlatedFetch(`/api/reports/${reportId}`, { headers: { "X-Telegram-Auth": initData } });
+    const response = await correlatedFetch(`/api/reports/${reportId.id ?? reportId}`, { headers: { "X-Telegram-Auth": initData } });
     if (!response.ok) throw new Error(`FETCH_WEEK_${response.status}`);
     return (await response.json()) as WeekReportPayload;
   }, [initData, mockRuntime]);
@@ -160,9 +163,11 @@ function WeekPageContent() {
     setCatalogAnalyticsContext({ correlationId: ensureCorrelationId(), flowId: FLOW_FORECAST_CATALOG, surface: "week" });
 
     try {
-      const reportId = await fetchLatestReport();
-      setLatestReportId(reportId);
-      const weekPayload = await fetchWeekPayload(reportId);
+      const reportMeta = await fetchLatestReport();
+      setLatestReportMeta(reportMeta);
+      setLatestReportId(reportMeta?.id ?? null);
+      setLatestReportStatus(reportMeta?.status ?? null);
+      const weekPayload = await fetchWeekPayload(reportMeta);
       setPayload(weekPayload);
     } catch (cause) {
       logWeekError("week_page_init", cause, "WEEK_INIT");
@@ -181,8 +186,9 @@ function WeekPageContent() {
       legacyWeekMap: payload?.week_map ?? DEFAULT_WEEK_MAP,
       chunks: payload?.chunks ?? null,
       latestReportId,
+      sourceStatus: latestReportStatus,
     });
-  }, [payload, latestReportId]);
+  }, [payload, latestReportId, latestReportStatus]);
 
   useEffect(() => {
     if (loading || error || viewTrackedRef.current || !week) return;
@@ -227,10 +233,19 @@ function WeekPageContent() {
   const primaryLabel = week.cta.primary?.label || (week.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
 
   if (!isReady || loading) {
+    const isPending = latestReportStatus === "in_progress" || latestReportStatus === "pending";
     return (
       <ConsumerPageShell testId="week-page">
         <ConsumerPanel className="p-5">
-          <LoadingState compact message="Собираем карту недели..." />
+          <LoadingState compact message={isPending ? "Собираем карту недели…" : "Сводим данные недели"} />
+          {isPending && latestReportMeta?.id ? (
+            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/80 p-3 text-xs text-amber-900" data-testid="week-loading-status">
+              <span className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
+                Сводим вашу неделю, обновляем каждые 5 секунд
+              </span>
+            </div>
+          ) : null}
         </ConsumerPanel>
       </ConsumerPageShell>
     );
@@ -303,12 +318,9 @@ function WeekPageContent() {
         <WeekDeepSections week={week} />
 
         {week.fallbackMode ? (
-          <ConsumerStatusBadge
-            label="Fallback mode"
-            description="Карта недели собрана в безопасном режиме"
-            tone="amber"
-            className="self-start"
-          />
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs text-amber-900" data-testid="week-fallback-note">
+            Карта построена в безопасном режиме — лог активирован для команды, копия всё равно полезная.
+          </div>
         ) : null}
       </section>
     </ConsumerPageShell>

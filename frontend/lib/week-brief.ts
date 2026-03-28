@@ -1,6 +1,6 @@
 import { extractReportFallbackText } from "../components/blocks/report-renderer";
 
-export type WeekBriefStatus = "ready" | "in_progress" | "error";
+export type WeekBriefStatus = "ready" | "in_progress" | "pending" | "error";
 export type WeekType = "push" | "balance" | "caution" | "deep_work" | "recovery" | "transition";
 export type LightStatus = "green" | "yellow" | "red";
 
@@ -152,6 +152,7 @@ export type WeekSurfaceModel = {
   explainability: NonNullable<WeekBrief["explainability"]>;
   cta: NonNullable<WeekBrief["cta"]>;
   sectionsCount: number;
+  waitMessage: string | null;
 };
 
 const LEGACY_DOMAIN_TITLES: Record<string, string> = {
@@ -189,6 +190,7 @@ export function mapWeekReportToWeekBrief(input: {
   legacyWeekMap?: LegacyWeekMapPayload | null;
   chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
   latestReportId?: string | null;
+  sourceStatus?: string | null;
 }): WeekSurfaceModel {
   const brief = input.weekBrief;
   const legacy = input.legacyWeekMap;
@@ -250,7 +252,7 @@ export function mapWeekReportToWeekBrief(input: {
     subhead: brief?.summary?.subhead?.trim() || legacy?.theme?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
     theme: brief?.summary?.theme?.trim() || legacy?.theme?.trim() || "Карта недели",
     weekType: brief?.summary?.week_type ?? "balance",
-    status: brief?.status ?? "ready",
+    status: brief?.status ?? (input.sourceStatus === "in_progress" ? "in_progress" : input.sourceStatus === "pending" ? "pending" : "ready"),
     weekStart: brief?.week_start ?? legacy?.week_start ?? null,
     weekEnd: brief?.week_end ?? null,
     timezone: legacy?.timezone ?? null,
@@ -277,6 +279,10 @@ export function mapWeekReportToWeekBrief(input: {
       secondary: brief?.cta?.secondary ?? null,
     },
     sectionsCount: deepSections.length,
+    waitMessage:
+      brief?.status === "in_progress" || brief?.status === "pending" || input.sourceStatus === "in_progress" || input.sourceStatus === "pending"
+        ? legacy?.thesis?.trim() || "Неделя собирается, лог уже в работе"
+        : null,
   };
 }
 

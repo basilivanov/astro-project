@@ -11,7 +11,6 @@ import {
   ConsumerMetaPill,
   ConsumerPageShell,
   ConsumerPanel,
-  ConsumerStatusBadge,
 } from "../components/consumer-page-shell";
 import { HOME_FLOW_ID, ensureHomeCorrelation, homeFetch, makeHomeTrace, trackHomeEvent } from "../lib/home-analytics";
 import { normalizeDayBriefPayload, type TodayViewModel } from "../lib/day-brief";
@@ -19,7 +18,6 @@ import {
   TodayActions,
   TodayCtaPanel,
   TodayExplainability,
-  TodayLegacyTrafficLights,
   TodayRisks,
   TodayScores,
   TodayVerdict,
@@ -152,9 +150,7 @@ function formatSubscriptionLabel(dateValue?: string | null) {
 }
 
 function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutProps) {
-  const premium = today?.brief.premium;
   const heroLabel = today?.brief.summary.headline ?? "Сегодня";
-  const heroDescription = today?.brief.summary.subhead ?? "Персональная сводка дня";
   return (
     <ConsumerPageShell
       testId="home-feed-page"
@@ -169,27 +165,12 @@ function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutPr
     >
       <ConsumerHero
         title={heroLabel}
-        description={heroDescription}
         data-testid="consumer-hero"
       >
         <div className="flex flex-wrap items-center gap-2" data-testid="consumer-hero-meta">
           <ConsumerMetaPill>{dateLabel ?? "Сегодня"}</ConsumerMetaPill>
-          <ConsumerMetaPill>{formatSubscriptionLabel(premium?.subscription_active_until ?? profile?.subscription_active_until ?? null)}</ConsumerMetaPill>
-          {today?.brief.fallback_mode ? <ConsumerMetaPill>Fallback DTO</ConsumerMetaPill> : null}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <ConsumerStatusBadge
-            label={state === "fallback" ? "Fallback" : state === "ready" ? "Готово" : state === "loading" ? "Загрузка" : state === "error" ? "Ошибка" : "Пусто"}
-            description={today?.brief.context.label ?? "DayBrief surface"}
-            tone={state === "fallback" ? "amber" : state === "ready" ? "emerald" : state === "error" ? "rose" : "slate"}
-          />
         </div>
       </ConsumerHero>
-      {state === "fallback" ? (
-        <div data-testid="feed-fallback-banner" data-block="FEED_LOAD_FALLBACK" className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Временно показываем адаптированный DayBrief из legacy-данных, пока новый DTO недоступен полностью.
-        </div>
-      ) : null}
       {children}
     </ConsumerPageShell>
   );
@@ -361,11 +342,16 @@ export default function FeedPage() {
     );
   }, [correlationId]);
 
+  const premiumActiveUntil = today?.premiumActiveUntil ?? profile?.subscription_active_until ?? null;
+  const referralCode = profile?.referral_code ?? null;
+  const showPremiumBlock = Boolean(premiumActiveUntil);
+
   if (!isReady || loading) {
     return (
       <FeedLayout state="loading" profile={profile} today={today}>
         <ConsumerPanel className="p-5">
-          <LoadingState compact message="Собираем домашний экран..." />
+          <LoadingState compact message="Собираем сводку дня" />
+          
         </ConsumerPanel>
       </FeedLayout>
     );
@@ -391,10 +377,10 @@ export default function FeedPage() {
         <ConsumerPanel className="p-5">
           <EmptyState
             compact
-            title="Сводка дня еще не готова"
-            message="Когда DayBrief будет доступен, здесь появятся вердикт, оценки, окна и рекомендации."
-            actionLabel="Открыть каталог"
-            actionHref="/create"
+            title="Сводка дня ещё не готова"
+            message="Скоро покажем главный вердикт, сферы и ключевые окна для действий."
+            actionLabel="Открыть неделю"
+            actionHref="/week"
           />
         </ConsumerPanel>
       </FeedLayout>
@@ -406,14 +392,18 @@ export default function FeedPage() {
       <div className="space-y-4">
         <TodayVerdict brief={today.brief} />
         <TodayScores brief={today.brief} onScoreTap={handleScoreTap} />
-        <TodayLegacyTrafficLights brief={today.brief} />
         <TodayWindows brief={today.brief} />
         <TodayActions brief={today.brief} />
         <TodayRisks brief={today.brief} />
         <TodayExplainability brief={today.brief} />
         <TodayCtaPanel brief={today.brief} onCta={handleHomeCta} />
-        {profile ? <TrialStatusWidget activeUntil={today.premiumActiveUntil ?? profile.subscription_active_until ?? null} referralCode={profile.referral_code ?? null} /> : null}
       </div>
+      {showPremiumBlock ? (
+        <section className="mt-6 space-y-3" data-testid="today-premium-block">
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{formatSubscriptionLabel(premiumActiveUntil)}</p>
+          <TrialStatusWidget activeUntil={premiumActiveUntil} referralCode={referralCode} />
+        </section>
+      ) : null}
     </FeedLayout>
   );
 }

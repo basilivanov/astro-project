@@ -43,9 +43,9 @@ export default function ReportStatusPoller({
   }
 
   return (
-    <div className="status-indicator text-xs subtle">
-      <span className="status-pulse" aria-hidden="true" />
-      <span>Auto-refresh every {intervalSeconds}s while status is {status}.</span>
+    <div className="flex items-center gap-2 text-xs font-semibold">
+      <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
+      <span>Собираем неделю… обновляем каждые {intervalSeconds} с.</span>
     </div>
   );
 }
