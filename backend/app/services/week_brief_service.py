@@ -5,18 +5,51 @@ from __future__ import annotations
 import copy
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from ..logging_utils import get_correlation_ids, log_grace_event
 from .aggregation_weights import apply_weighted_factors
-from .report_workflow import (
-    _build_week_brief_seed_bundle,
-    _normalize_week_day_payload,
-    _normalize_week_summary,
-    _parse_json_block_list,
-)
+from .forecast_factor_pipeline import NormalizedFactor, clamp_signal, make_factor, normalize_domain
+try:
+    from .report_workflow import (
+        _build_week_brief_seed_bundle,
+        _normalize_week_day_payload,
+        _normalize_week_summary,
+        _parse_json_block_list,
+    )
+except ModuleNotFoundError:  # pragma: no cover - test env without heavy astro deps
+    def _build_week_brief_seed_bundle(context: dict[str, Any]) -> dict[str, Any]:
+        week_data = context.get("week_forecast_data") or {}
+        return {
+            "forecast_window": context.get("forecast_window") or {},
+            "days": copy.deepcopy((week_data.get("days") or [])[:7]),
+            "summary": copy.deepcopy(week_data.get("summary") or {}),
+            "semantic_layer": copy.deepcopy(context.get("semantic_layer") or {}),
+            "year_forecast_data": copy.deepcopy(context.get("year_forecast_data") or {}),
+            "month_forecast_data": copy.deepcopy(context.get("month_forecast_data") or {}),
+        }
+
+    def _normalize_week_day_payload(day: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(day or {})
+        payload.setdefault("traffic_light", "YELLOW")
+        payload.setdefault("moon", {})
+        payload.setdefault("events", payload.get("ingresses") or [])
+        return payload
+
+    def _normalize_week_summary(summary: dict[str, Any], _days: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = dict(summary or {})
+        payload.setdefault("traffic_light", "YELLOW")
+        payload.setdefault("avg_tension", 0.6)
+        return payload
+
+    def _parse_json_block_list(raw_content: str) -> list[dict[str, Any]]:
+        try:
+            parsed = json.loads(raw_content or "[]")
+        except Exception:
+            return []
+        return parsed if isinstance(parsed, list) else []
 from .week_brief_types import SignalSource
 from .week_brief_validators import (
     validate_week_brief_envelope_payload,
@@ -100,18 +133,53 @@ GENERIC_RISKS = (
 
 
 @dataclass
-class _FactorSeed:
+class WeekSectionSeed:
     id: str
+    slug: str
+    title: str
+    summary: str
+    factor_ids: list[str] = field(default_factory=list)
+    domain: str = "focus"
+    source: str = "deterministic"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class _FactorSeed:
+    factor: NormalizedFactor
     profile_category: str
     dto_category: str
-    label: str
-    explanation_human: str
-    explanation_astro: str
-    domain: str
     source_models: list[str]
-    weight: float
     confidence: float
-    signal: float
+    section_slug: str = "overview"
+
+    @property
+    def id(self) -> str:
+        return self.factor.id
+
+    @property
+    def label(self) -> str:
+        return self.factor.label
+
+    @property
+    def explanation_human(self) -> str:
+        return self.factor.explanation_human
+
+    @property
+    def explanation_astro(self) -> str:
+        return self.factor.explanation_astro
+
+    @property
+    def domain(self) -> str:
+        return self.factor.domain
+
+    @property
+    def weight(self) -> float:
+        return self.factor.weight
+
+    @property
+    def signal(self) -> float:
+        return self.factor.signal
 
 
 def _log_week_brief(level: str, event: str, *, report: Any | None = None, **fields: Any) -> None:
@@ -345,6 +413,45 @@ def _factor_domain_from_text(text: str, *, fallback: str = "focus") -> str:
     return fallback
 
 
+def _make_week_factor_seed(
+    *,
+    factor_id: str,
+    family: str,
+    profile_category: str,
+    dto_category: str,
+    label: str,
+    explanation_human: str,
+    explanation_astro: str = "",
+    domain: str = "focus",
+    signal: float = 0.0,
+    weight: float = 1.0,
+    confidence: float = 0.8,
+    source_models: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    section_slug: str = "overview",
+) -> _FactorSeed:
+    return _FactorSeed(
+        factor=make_factor(
+            factor_id=factor_id,
+            family=family,
+            category=dto_category,
+            domain=normalize_domain(domain),
+            label=label,
+            explanation_human=explanation_human,
+            explanation_astro=explanation_astro,
+            signal=clamp_signal(signal),
+            weight=weight,
+            source="deterministic",
+            metadata=metadata or {},
+        ),
+        profile_category=profile_category,
+        dto_category=dto_category,
+        source_models=list(source_models or [SignalSource.mixed.value]),
+        confidence=confidence,
+        section_slug=section_slug,
+    )
+
+
 def _build_factor_seeds(seed: dict[str, Any]) -> list[_FactorSeed]:
     summary = seed.get("summary") or {}
     days = seed.get("days") or []
@@ -354,18 +461,21 @@ def _build_factor_seeds(seed: dict[str, Any]) -> list[_FactorSeed]:
     focus_key = str(semantic_layer.get("focus_key") or "money_admin")
     focus_domain = FOCUS_DOMAIN_MAP.get(focus_key, "focus")
     seeds: list[_FactorSeed] = [
-        _FactorSeed(
-            id="theme_anchor",
+        _make_week_factor_seed(
+            factor_id="week:theme_anchor",
+            family="slow_background",
             profile_category="period_theme",
             dto_category="background",
             label=str(semantic_layer.get("headline") or FOCUS_THEME_MAP.get(focus_key, "Тема недели")),
             explanation_human=str(semantic_layer.get("practical_move") or "Неделя лучше всего собирается вокруг одной опорной линии."),
             explanation_astro=str(semantic_layer.get("pacing") or "Общий недельный ритм задает темп решений."),
             domain=focus_domain,
-            source_models=[SignalSource.mixed.value],
+            signal=0.9,
             weight=1.0,
             confidence=0.95,
-            signal=0.9,
+            source_models=[SignalSource.mixed.value],
+            metadata={"focus_key": focus_key},
+            section_slug="overview",
         )
     ]
 
@@ -376,36 +486,42 @@ def _build_factor_seeds(seed: dict[str, Any]) -> list[_FactorSeed]:
         best_label = str(best_day.get("date") or best_day.get("date_label") or "лучший день")
         best_events = ", ".join((best_day.get("events") or [])[:2]).strip()
         seeds.append(
-            _FactorSeed(
-                id="best_day",
+            _make_week_factor_seed(
+                factor_id=f"week:best_day:{best_label}",
+                family="fast_transits",
                 profile_category="weekly_triggers",
                 dto_category="transit_natal",
                 label=f"Сильное окно недели: {best_label}",
                 explanation_human=f"Лучше всего двигать видимые шаги, договоренности и фиксации ближе к {best_label}.",
                 explanation_astro=best_events or str(best_day.get("traffic_desc") or "День собирается мягче обычного."),
                 domain=focus_domain,
-                source_models=[SignalSource.transit_natal.value],
+                signal=0.7,
                 weight=0.8,
                 confidence=0.85,
-                signal=0.7,
+                source_models=[SignalSource.transit_natal.value],
+                metadata={"day": best_label, "kind": "best_day"},
+                section_slug="timing",
             )
         )
     if red_days:
         worst_day = max(red_days, key=lambda item: float(item.get("tension_score") or 0.0))
         worst_label = str(worst_day.get("date") or worst_day.get("date_label") or "напряженный день")
         seeds.append(
-            _FactorSeed(
-                id="worst_day",
+            _make_week_factor_seed(
+                factor_id=f"week:worst_day:{worst_label}",
+                family="fast_transits",
                 profile_category="day_decomposition",
                 dto_category="transit_natal",
                 label=f"Точка трения: {worst_label}",
                 explanation_human=f"На {worst_label} важно сократить фронт, оставить буфер и не идти в жесткий нажим.",
                 explanation_astro=", ".join((worst_day.get("events") or [])[:2]) or str(worst_day.get("traffic_desc") or ""),
                 domain="energy",
-                source_models=[SignalSource.transit_natal.value],
+                signal=-0.8,
                 weight=0.85,
                 confidence=0.85,
-                signal=-0.8,
+                source_models=[SignalSource.transit_natal.value],
+                metadata={"day": worst_label, "kind": "worst_day"},
+                section_slug="timing",
             )
         )
 
@@ -414,120 +530,234 @@ def _build_factor_seeds(seed: dict[str, Any]) -> list[_FactorSeed]:
     if profection_house:
         prof_domain = HOUSE_DOMAIN_MAP.get(int(profection_house), focus_domain)
         seeds.append(
-            _FactorSeed(
-                id="profection",
+            _make_week_factor_seed(
+                factor_id=f"week:profection:{profection_house}",
+                family="slow_background",
                 profile_category="slow_background",
                 dto_category="profections",
                 label=f"Активен дом {profection_house}",
                 explanation_human=f"Годовой фон усиливает темы дома {profection_house}, поэтому неделя чувствительна к выбору приоритетов в этой зоне.",
                 explanation_astro=f"Профекция {profection_house} дома, управитель года: {profection.get('lord') or 'не уточнен'}.",
                 domain=prof_domain,
-                source_models=[SignalSource.profections.value],
+                signal=0.6,
                 weight=0.82,
                 confidence=0.9,
-                signal=0.6,
+                source_models=[SignalSource.profections.value],
+                metadata={"house": profection_house},
+                section_slug="background",
             )
         )
 
     solar_return = year_data.get("solar_return") or {}
     if solar_return:
-        sun_house = int(solar_return.get("sun_house") or 0) if str(solar_return.get("sun_house") or "").isdigit() else 0
-        solar_domain = HOUSE_DOMAIN_MAP.get(sun_house, focus_domain)
+        sr_domain = HOUSE_DOMAIN_MAP.get(int(solar_return.get("sun_house") or 10), focus_domain)
         seeds.append(
-            _FactorSeed(
-                id="solar_return",
+            _make_week_factor_seed(
+                factor_id="week:solar_return",
+                family="slow_background",
                 profile_category="slow_background",
                 dto_category="solar",
-                label=f"Соляр задает акцент на дом {sun_house or '?'}",
-                explanation_human="Фон соляра подчеркивает ту тему, где неделя быстрее всего требует зрелой сборки.",
-                explanation_astro=f"ASC соляра в {solar_return.get('asc_sign') or 'не уточнен'}, Солнце в доме {solar_return.get('sun_house') or '?'}.",
-                domain=solar_domain,
+                label=f"Соляр акцентирует дом {solar_return.get('sun_house') or 10}",
+                explanation_human="Сюжет недели опирается на солярный вектор: заметнее всего работают решения в видимой и структурной зоне.",
+                explanation_astro=f"Соляр ASC в {solar_return.get('asc_sign') or 'неизвестном'}; Солнце в доме {solar_return.get('sun_house') or 10}.",
+                domain=sr_domain,
+                signal=0.55,
+                weight=0.78,
+                confidence=0.84,
                 source_models=[SignalSource.solar.value],
-                weight=0.7,
-                confidence=0.78,
-                signal=0.45,
+                metadata={"sun_house": solar_return.get("sun_house")},
+                section_slug="background",
             )
         )
 
-    for index, arc in enumerate((year_data.get("solar_arcs") or [])[:2]):
-        text = f"{arc.get('direction') or 'Дирекция'} -> {arc.get('natal') or 'точка'}"
+    for index, entry in enumerate((year_data.get("solar_arcs") or [])[:2]):
+        direction = str(entry.get("direction") or "Дуга").strip()
+        natal = str(entry.get("natal") or "").strip()
+        label = " ".join(part for part in [direction, natal] if part).strip() or f"Солярная дуга {index + 1}"
+        domain = _factor_domain_from_text(label, fallback=focus_domain)
         seeds.append(
-            _FactorSeed(
-                id=f"direction_{index + 1}",
-                profile_category="slow_background",
+            _make_week_factor_seed(
+                factor_id=f"week:solar_arc:{index}",
+                family="slow_background",
+                profile_category="rare_boosters",
                 dto_category="directions",
-                label=text,
-                explanation_human="Долгий фон не любит суету: лучше держать управляемый ритм и не открывать лишний фронт.",
-                explanation_astro=f"Солярная дуга: {text}, орб {arc.get('orb')}.",
-                domain=_factor_domain_from_text(text, fallback=focus_domain),
+                label=label[:80],
+                explanation_human=f"Редкий фоновый усилитель подчеркивает тему '{label.lower()}' в течение недели.",
+                explanation_astro=f"Солярная дуга: {direction} к {natal}, орб {entry.get('orb') or 'н/д'}.",
+                domain=domain,
+                signal=0.42,
+                weight=0.66,
+                confidence=0.74,
                 source_models=[SignalSource.directions.value],
-                weight=0.6,
-                confidence=0.72,
-                signal=-0.35 if _is_hard_aspect(text) else 0.35,
+                metadata={"orb": entry.get("orb")},
+                section_slug="background",
             )
         )
 
-    for index, transit in enumerate((month_data.get("major_transits") or [])[:2]):
+    for index, transit in enumerate((month_data.get("major_transits") or [])[:3]):
         transit_text = str(transit or "").strip()
         if not transit_text:
             continue
+        signal = -0.58 if _is_hard_aspect(transit_text) else 0.48
         seeds.append(
-            _FactorSeed(
-                id=f"long_transit_{index + 1}",
-                profile_category="slow_background",
-                dto_category="transit_natal",
+            _make_week_factor_seed(
+                factor_id=f"week:major_transit:{index}",
+                family="fast_transits",
+                profile_category="weekly_triggers",
+                dto_category="transit_transit",
                 label=transit_text[:80],
-                explanation_human="Долгий внешний триггер меняет темп недели, поэтому важны буфер, сроки и управляемая ставка.",
-                explanation_astro=transit_text,
+                explanation_human=(
+                    "Этот транзит делает неделю чувствительнее к трению и требует более аккуратных решений."
+                    if signal < 0
+                    else "Этот транзит помогает продвинуть то, что уже готово и собрано."
+                ),
+                explanation_astro=transit_text[:260],
                 domain=_factor_domain_from_text(transit_text, fallback=focus_domain),
-                source_models=[SignalSource.transit_natal.value],
+                signal=signal,
                 weight=0.68,
-                confidence=0.8,
-                signal=-0.45 if _is_hard_aspect(transit_text) else 0.4,
+                confidence=0.78,
+                source_models=[SignalSource.transit_transit.value],
+                metadata={"kind": "major_transit"},
+                section_slug="timing",
             )
         )
 
-    for index, event in enumerate((month_data.get("ingresses") or [])[:1]):
-        event_text = str(event or "").strip()
-        if not event_text:
+    for index, ingress in enumerate((month_data.get("ingresses") or [])[:2]):
+        ingress_text = str(ingress or "").strip()
+        if not ingress_text:
             continue
         seeds.append(
-            _FactorSeed(
-                id=f"booster_{index + 1}",
-                profile_category="rare_boosters",
-                dto_category="background",
-                label=event_text[:80],
-                explanation_human="Это редкий переключатель режима: он помогает вынести вперед нужный шаг, если база уже собрана.",
-                explanation_astro=event_text,
-                domain=focus_domain,
-                source_models=[SignalSource.mixed.value],
-                weight=0.52,
+            _make_week_factor_seed(
+                factor_id=f"week:ingress:{index}",
+                family="fast_transits",
+                profile_category="weekly_triggers",
+                dto_category="transit_transit",
+                label=ingress_text[:80],
+                explanation_human="Смена знака или контекста сдвигает темп недели и помогает обновить подход.",
+                explanation_astro=ingress_text[:260],
+                domain=_factor_domain_from_text(ingress_text, fallback=focus_domain),
+                signal=0.36,
+                weight=0.54,
                 confidence=0.72,
+                source_models=[SignalSource.transit_transit.value],
+                metadata={"kind": "ingress"},
+                section_slug="timing",
+            )
+        )
+
+    for index, retro in enumerate((month_data.get("retrogrades") or [])[:2]):
+        retro_text = str(retro or "").strip()
+        if not retro_text:
+            continue
+        seeds.append(
+            _make_week_factor_seed(
+                factor_id=f"week:retrograde:{index}",
+                family="slow_background",
+                profile_category="day_decomposition",
+                dto_category="transit_transit",
+                label=retro_text[:80],
+                explanation_human="Ретроградный фон просит пересматривать вводные и не спешить с окончательными выводами.",
+                explanation_astro=retro_text[:260],
+                domain="focus",
+                signal=-0.44,
+                weight=0.52,
+                confidence=0.7,
+                source_models=[SignalSource.transit_transit.value],
+                metadata={"kind": "retrograde"},
+                section_slug="timing",
+            )
+        )
+
+    for index, lunation in enumerate((month_data.get("lunations") or [])[:2]):
+        lunation_text = str(lunation or "").strip()
+        if not lunation_text:
+            continue
+        seeds.append(
+            _make_week_factor_seed(
+                factor_id=f"week:lunation:{index}",
+                family="lunar_windows",
+                profile_category="weekly_triggers",
+                dto_category="lunar_timing",
+                label=lunation_text[:80],
+                explanation_human="Лунация отмечает кульминацию и помогает увидеть, что уже созрело для фиксации.",
+                explanation_astro=lunation_text[:260],
+                domain=focus_domain,
                 signal=0.4,
+                weight=0.58,
+                confidence=0.75,
+                source_models=[SignalSource.lunar.value],
+                metadata={"kind": "lunation"},
+                section_slug="timing",
             )
         )
 
     avg_tension = float(summary.get("avg_tension") or 0.0)
-    if avg_tension >= 1.2:
+    if avg_tension >= 1.0:
         seeds.append(
-            _FactorSeed(
-                id="tension_anchor",
+            _make_week_factor_seed(
+                factor_id="week:tension_anchor",
+                family="slow_background",
                 profile_category="day_decomposition",
                 dto_category="background",
-                label="Неделя держит высокий уровень трения",
-                explanation_human="Лучший результат даст сокращение лишнего и спокойный ритм вместо геройства.",
-                explanation_astro=str(semantic_layer.get("tension") or ""),
+                label="Неделя просит больше буфера",
+                explanation_human="Средний уровень напряжения выше обычного, поэтому устойчивость сейчас важнее скорости.",
+                explanation_astro=f"Среднее напряжение недели: {avg_tension:.2f}.",
                 domain="energy",
-                source_models=[SignalSource.mixed.value],
+                signal=-0.7,
                 weight=min(1.0, avg_tension / 2.0),
                 confidence=0.9,
-                signal=-0.7,
+                source_models=[SignalSource.mixed.value],
+                metadata={"avg_tension": avg_tension},
+                section_slug="overview",
             )
         )
     return seeds
 
 
-def _weighted_factor_payloads(records: list[_FactorSeed]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _build_week_section_seeds(seed: dict[str, Any], factor_records: list[_FactorSeed]) -> list[WeekSectionSeed]:
+    semantic_layer = seed.get("semantic_layer") or {}
+    grouped: dict[str, list[_FactorSeed]] = {}
+    for record in factor_records:
+        grouped.setdefault(record.section_slug or "overview", []).append(record)
+
+    titles = {
+        "overview": "Каркас недели",
+        "timing": "Окна и триггеры",
+        "background": "Фоновый слой",
+    }
+    summaries = {
+        "overview": str(semantic_layer.get("headline") or "Главная линия недели собрана из устойчивых факторов."),
+        "timing": str(semantic_layer.get("practical_move") or "Неделю лучше вести через короткие окна и подтверждаемые шаги."),
+        "background": str(semantic_layer.get("pacing") or "Фоновый слой задает темп и приоритеты недели."),
+    }
+
+    section_seeds: list[WeekSectionSeed] = []
+    for order, slug in enumerate(("overview", "timing", "background")):
+        records = grouped.get(slug) or []
+        if not records:
+            continue
+        dominant = max(records, key=lambda item: abs(item.signal) * max(item.weight, 0.1))
+        factor_ids = [record.id for record in sorted(records, key=lambda item: abs(item.signal) * max(item.weight, 0.1), reverse=True)[:4]]
+        section_seeds.append(
+            WeekSectionSeed(
+                id=f"section:{slug}",
+                slug=slug,
+                title=titles[slug],
+                summary=summaries[slug][:240],
+                factor_ids=factor_ids,
+                domain=dominant.domain,
+                source=dominant.factor.source,
+                metadata={"order": order, "factor_count": len(records)},
+            )
+        )
+    return section_seeds
+
+
+def _assemble_week_top_layer(
+    factor_records: list[_FactorSeed],
+    *,
+    limit: int = 5,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     weighted = apply_weighted_factors(
         "week_map",
         [
@@ -543,12 +773,13 @@ def _weighted_factor_payloads(records: list[_FactorSeed]) -> tuple[list[dict[str
                 "explanation_astro": record.explanation_astro,
                 "source_models": record.source_models,
                 "signal": record.signal,
+                "family": record.factor.family,
             }
-            for record in records
+            for record in factor_records
         ],
-        top_n=5,
+        top_n=limit,
     )
-    by_id = {record.id: record for record in records}
+    by_id = {record.id: record for record in factor_records}
     payloads: list[dict[str, Any]] = []
     for factor in weighted.get("top_factors", []):
         source = by_id.get(str(factor.get("id") or ""))
@@ -566,9 +797,12 @@ def _weighted_factor_payloads(records: list[_FactorSeed]) -> tuple[list[dict[str
                 "weight": round(min(1.0, factor.get("impact_pct", 0.0) / 100.0 + 0.2), 3),
             }
         )
-    return payloads[:5], weighted
+    payloads.sort(key=lambda item: (0 if item.get("id") == "week:theme_anchor" else 1, -float(item.get("weight") or 0.0), str(item.get("id") or "")))
+    return payloads[:limit], weighted
 
 
+def _weighted_factor_payloads(records: list[_FactorSeed]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    return _assemble_week_top_layer(records, limit=5)
 def _build_domain_scores(
     seed: dict[str, Any],
     factor_records: list[_FactorSeed],
@@ -995,6 +1229,7 @@ def build_week_brief_payload(
         seed["summary"] = summary
         day_cards = _build_day_cards(seed)
         factor_records = _build_factor_seeds(seed)
+        section_seeds = _build_week_section_seeds(seed, factor_records)
         major_factors, weighted = _weighted_factor_payloads(factor_records)
         deep_sections, chunk_parse_degraded = _build_deep_sections(chunks)
         best_day = max(day_cards, key=lambda item: int(item.get("score", 0)), default=None)

@@ -195,3 +195,43 @@ def test_build_week_brief_envelope_supports_ready_and_in_progress_states():
     assert validated_pending["status"] == "in_progress"
     assert validated_pending["data"] is None
     assert validated_pending["retry_after_seconds"] == 3
+
+
+def test_week_top_layer_is_deterministic_for_same_seed():
+    report = _sample_report()
+    context = _sample_context()
+    payload_a = build_week_brief_payload(
+        report=report,
+        payload=_sample_payload(),
+        context=context,
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+    payload_b = build_week_brief_payload(
+        report=report,
+        payload=_sample_payload(),
+        context=context,
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    assert payload_a["major_factors"] == payload_b["major_factors"]
+    assert [item["id"] for item in payload_a["major_factors"]] == [item["id"] for item in payload_b["major_factors"]]
+
+
+def test_week_brief_prefers_theme_anchor_and_preserves_explainability_order():
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=_sample_context(),
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    factor_ids = [item["id"] for item in payload["major_factors"]]
+    assert factor_ids[0] == "week:theme_anchor"
+    assert "week:profection:10" in factor_ids
+    assert payload["explainability"]["factor_count"] >= len(payload["major_factors"])
