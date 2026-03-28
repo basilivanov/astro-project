@@ -65,10 +65,6 @@ export function WeekHeroMap({
             <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs font-semibold text-amber-900" data-testid="week-generation-status">
               <ReportStatusPoller reportId={week.reportId ?? ""} status={week.status} />
             </div>
-          ) : week.fallbackMode ? (
-            <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs text-amber-900" data-testid="week-fallback-indicator">
-              Карта построена в безопасном режиме — проверяем детали, контент уже можно читать.
-            </div>
           ) : null}
         </div>
       }

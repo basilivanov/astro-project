@@ -233,19 +233,10 @@ function WeekPageContent() {
   const primaryLabel = week.cta.primary?.label || (week.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
 
   if (!isReady || loading) {
-    const isPending = latestReportStatus === "in_progress" || latestReportStatus === "pending";
     return (
       <ConsumerPageShell testId="week-page">
         <ConsumerPanel className="p-5">
-          <LoadingState compact message={isPending ? "Собираем карту недели…" : "Сводим данные недели"} />
-          {isPending && latestReportMeta?.id ? (
-            <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/80 p-3 text-xs text-amber-900" data-testid="week-loading-status">
-              <span className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
-                Сводим вашу неделю, обновляем каждые 5 секунд
-              </span>
-            </div>
-          ) : null}
+          <LoadingState compact message="Сводим данные недели" />
         </ConsumerPanel>
       </ConsumerPageShell>
     );
@@ -318,9 +309,9 @@ function WeekPageContent() {
         <WeekDeepSections week={week} />
 
         {week.fallbackMode ? (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs text-amber-900" data-testid="week-fallback-note">
-            Карта построена в безопасном режиме — лог активирован для команды, копия всё равно полезная.
-          </div>
+          <p className="text-xs text-slate-500" data-testid="week-fallback-note">
+            Карта собрана в безопасном режиме — данные проверяются.
+          </p>
         ) : null}
       </section>
     </ConsumerPageShell>
