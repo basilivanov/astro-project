@@ -150,6 +150,7 @@ def test_build_day_brief_payload_returns_contract_shape() -> None:
     assert payload["best_uses"]
     assert payload["risks"]
     assert payload["personalized_factors"]
+    assert payload["explainability"]["selected_factors"]
     assert payload["explainability"]["birth_time_used"] is True
     assert payload["explainability"]["timing_precision"] == "exact"
     assert payload["premium"]["subscription_active"] is True

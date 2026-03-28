@@ -60,6 +60,7 @@ from stellium_engine import StelliumEngine
 from .. import engine_utils
 from ..logging_utils import get_correlation_ids, log_grace_event
 from .forecast_semantics import build_daily_forecast_semantic_layer
+from .forecast_factor_pipeline import build_normalized_factors, build_semantic_layer_from_factors
 
 logger = structlog.get_logger()
 MODULE_ID = "M-FEED-PERSONALIZED-DAILY"
@@ -885,7 +886,12 @@ def summarize_personalization_for_prompt(facts: dict[str, Any]) -> dict[str, Any
     # END_CONTRACT: FN-SUMMARIZE-PERSONALIZATION-FOR-PROMPT
 
     # START_BLOCK: PROMPT_SUMMARY_EXTRACTION
-    fact_lines = [
+    factor_lines = [
+        str(item.get("label") or item.get("explanation_human") or "").strip()
+        for item in facts.get("normalized_factors", [])
+        if isinstance(item, dict)
+    ]
+    fact_lines = [line for line in factor_lines if line][:6] or [
         line.strip()
         for line in facts.get("fact_lines", [])
         if isinstance(line, str) and line.strip()

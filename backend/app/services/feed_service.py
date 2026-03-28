@@ -504,7 +504,12 @@ def _build_personalized_prompt(personalization_context: Optional[dict[str, Any]]
     if not personalization_context:
         return "", ""
 
-    fact_lines = [
+    factor_lines = [
+        str(item.get("label") or item.get("explanation_human") or "").strip()
+        for item in personalization_context.get("normalized_factors", [])
+        if isinstance(item, dict)
+    ]
+    fact_lines = [line for line in factor_lines if line][:6] or [
         line.strip()
         for line in personalization_context.get("fact_lines", [])
         if isinstance(line, str) and line.strip()
@@ -765,7 +770,7 @@ async def get_daily_vibe_llm(
             "Если в данных есть шторм, RED-статус, квадрат или оппозиция, тон должен быть собранным и трезвым, а не восторженным.\n"
             "Запрещены фразы: 'отличный день', 'все получится', 'любые препятствия', 'внутренний огонь', 'ты можешь чувствовать'.\n"
             "Не пиши общие советы вроде 'избегай конфликтов' без сцены и без факта.\n"
-            "Обязательно опирайся минимум на один конкретный факт или один semantic anchor из персонального блока ниже.\n"
+            "Обязательно опирайся только на seed-данные из персонального блока ниже; не извлекай новые сырые астроданные.\n"
             f"Редакторская сборка дня: образ '{editorial_image}'; практический ход '{editorial_move}'.\n"
             f"Текущие показатели: Луна в знаке {moon_sign}, фаза: {moon_phase}.\n"
             f"Аспекты дня: {aspects_summary}.\n"

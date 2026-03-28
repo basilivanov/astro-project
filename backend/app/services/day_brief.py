@@ -14,6 +14,7 @@ from .aggregation_weights import DAY_BRIEF_WEIGHT_TABLE, apply_weighted_factors
 from .day_brief_types import ImpactLevel, SignalSource
 from .day_brief_validators import serialize_day_brief, validate_day_brief_payload
 from .forecast_semantics import build_daily_forecast_semantic_layer
+from .forecast_factor_pipeline import build_normalized_factors, build_semantic_layer_from_factors, preprocess_factors_for_ranking, select_explainability_factors
 
 
 MODULE_NAME = "M-DAY-BRIEF-SERVICE"
@@ -112,6 +113,7 @@ def _stable_seed(*parts: Any) -> int:
 
 def build_day_brief_prompt_bundle(facts: dict[str, Any], *, general_vibe: str | None = None) -> dict[str, Any]:
     semantic = _get_semantic_layer(facts)
+    normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
     local_dt = _parse_local_dt(facts)
     seed = _stable_seed(local_dt.date().isoformat(), semantic.get("focus_key"), general_vibe)
     prompt_lines = [
@@ -135,6 +137,7 @@ def build_day_brief_prompt_bundle(facts: dict[str, Any], *, general_vibe: str | 
 
 def build_day_brief_fallback_texts(facts: dict[str, Any], *, general_vibe: str | None = None) -> dict[str, str]:
     semantic = _get_semantic_layer(facts)
+    normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
     focus = str(semantic.get("focus_key") or "money_admin")
     headline = str(semantic.get("headline") or DAY_FALLBACK_SUMMARY_HEADLINE).strip()
     subhead = str(semantic.get("pacing") or DAY_FALLBACK_SUMMARY_GUIDE).strip()
@@ -218,13 +221,36 @@ def _get_semantic_layer(facts: dict[str, Any]) -> dict[str, Any]:
     week_days = ((facts.get("week_data") or {}).get("days") or [])
     if week_days and isinstance(week_days[0], dict):
         today_context = dict(week_days[0])
-    return build_daily_forecast_semantic_layer(
+    seed = build_daily_forecast_semantic_layer(
         fast_hits=facts.get("fast_hits") or [],
         traffic_lights=facts.get("traffic_lights") or {},
         day_context=today_context,
         month_data=facts.get("month_data") or {},
     )
+    factors = _get_normalized_factors(facts, semantic_seed=seed)
+    return build_semantic_layer_from_factors(factors, fallback=seed)
 
+
+def _get_normalized_factors(facts: dict[str, Any], *, semantic_seed: dict[str, Any] | None = None):
+    existing = facts.get("normalized_factors") or []
+    if existing:
+        factors = []
+        for item in existing:
+            if not isinstance(item, dict):
+                continue
+            try:
+                from .forecast_factor_pipeline import NormalizedFactor
+                factors.append(NormalizedFactor.model_validate(item))
+            except Exception:
+                continue
+        if factors:
+            return factors
+    semantic_seed = semantic_seed or facts.get("semantic_layer") or {}
+    return build_normalized_factors(
+        fast_hits=facts.get("fast_hits") or [],
+        traffic_lights=facts.get("traffic_lights") or {},
+        semantic_layer=semantic_seed,
+    )
 
 def _birth_time_used(user: Any | None) -> bool:
     return bool(user and getattr(user, "birth_time", None) and getattr(user, "birth_time_known", True))
@@ -473,6 +499,7 @@ def _score_natal_sensitivity(facts: dict[str, Any]) -> tuple[dict[str, float], l
     contributions = _empty_scores()
     factors: list[FactorRecord] = []
     semantic = _get_semantic_layer(facts)
+    normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
     focus_key = semantic.get("focus_key")
     domain = FOCUS_KEY_DOMAIN.get(str(focus_key or ""), "focus")
     contributions[domain] += 0.8
@@ -794,6 +821,7 @@ def _build_summary(
     fallback_mode: bool,
 ) -> dict[str, Any]:
     semantic = _get_semantic_layer(facts)
+    normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
     headline = _clip_text(
         str(semantic.get("headline") or ""),
         fallback="День просит собранности и одного понятного шага без лишнего разгона.",
@@ -965,6 +993,7 @@ def _assemble_day_brief_payload(
     general_vibe: str | None = None,
 ) -> dict[str, Any]:
     semantic = _get_semantic_layer(facts)
+    normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
     facts = dict(facts)
     facts["semantic_layer"] = semantic
 
@@ -989,6 +1018,11 @@ def _assemble_day_brief_payload(
     int_scores = {domain: int(max(0, min(100, round(value)))) for domain, value in scores.items()}
 
     raw_records = fast_factors + lunar_factors + slow_factors + natal_factors + rare_factors
+    if normalized_factors:
+        ranked_factors, factor_domain_meta = preprocess_factors_for_ranking(normalized_factors)
+        raw_records = [FactorRecord(id=item["factor"].id, label=item["factor"].label, explanation=item["factor"].explanation_human, domain=item["factor"].domain, signal=item["score"]) for item in ranked_factors]
+        for domain, meta in factor_domain_meta.items():
+            int_scores[domain] = int(max(0, min(100, round(BASELINE_SCORE + (meta["signal"] * 35)))))
     birth_time_used = _birth_time_used(user)
     fallback_mode = bool((facts.get("meta") or {}).get("fallback_mode")) or not birth_time_used or len(raw_records) < 3
     personalized_factors, weighted_meta, factor_refs = _prepare_personalized_factors(
@@ -1006,6 +1040,8 @@ def _assemble_day_brief_payload(
         fallback_mode=fallback_mode,
         raw_factor_count=len(raw_records),
     )
+    if normalized_factors:
+        explainability["selected_factors"] = select_explainability_factors(normalized_factors, limit=5 if not fallback_mode else 3)
 
     now_local = _parse_local_dt(facts)
     clean_windows = []
