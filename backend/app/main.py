@@ -3299,6 +3299,7 @@ def get_my_profile(
         "subscription_active_until": user.subscription_active_until.isoformat() if user.subscription_active_until else None,
         "days_left": days_left,
         "birth_time_known": user.birth_time_known,
+        "birth_time": user.birth_time,
         "birth_date": user.birth_date,
         "birth_place": user.birth_place,
         "birth_timezone": user.birth_timezone,
@@ -3489,6 +3490,8 @@ def update_my_profile(
     import sys
     print(f"DEBUG: Entered update_my_profile with {payload}", file=sys.stderr)
     try:
+        if payload.birth_time_known is False:
+            raise HTTPException(status_code=400, detail="birth_time_required")
         was_complete = bool(user.full_name and user.birth_date and user.birth_place)
         # Update fields if provided
         if payload.full_name is not None: user.full_name = payload.full_name

@@ -741,6 +741,16 @@ def _build_score_items(scores: dict[str, int], semantic: dict[str, Any]) -> list
     advice_map = _score_advice_map(semantic)
     items = []
     for key in DOMAIN_KEYS:
+        why_title = _clip_text(
+            str(semantic.get("score_details", {}).get(key, {}).get("title") or semantic.get("headline") or SCORE_TITLES[key]),
+            fallback=SCORE_TITLES[key],
+            max_len=140,
+        )
+        why_text = _clip_text(
+            str(semantic.get("score_details", {}).get(key, {}).get("text") or advice_map[key]),
+            fallback=advice_map[key],
+            max_len=280,
+        )
         items.append(
             {
                 "key": key,
@@ -748,6 +758,11 @@ def _build_score_items(scores: dict[str, int], semantic: dict[str, Any]) -> list
                 "value": scores[key],
                 "status": _score_status(scores[key]),
                 "advice": advice_map[key],
+                "details": {
+                    "why_title": why_title,
+                    "why_text": why_text,
+                    "supporting_factors": [],
+                },
             }
         )
     return items
@@ -760,10 +775,45 @@ def _resolve_factor_ref(factor_refs: list[dict[str, Any]], domain: str, polarity
     return str(factor_refs[0].get("id")) if factor_refs else None
 
 
+def _collect_factor_ids(factor_refs: list[dict[str, Any]], domain: str | None, polarity: str, *, limit: int = 3) -> list[str]:
+    results: list[str] = []
+    if domain is None:
+        return results
+    for item in factor_refs:
+        if item.get("domain") == domain and item.get("polarity") == polarity:
+            factor_id = str(item.get("id"))
+            if factor_id not in results:
+                results.append(factor_id)
+            if len(results) >= limit:
+                break
+    return results
+
+
+def _build_supporting_factor_entries(factor_ids: list[str], factor_lookup: dict[str, dict[str, Any]], *, limit: int = 3) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for factor_id in factor_ids:
+        factor = factor_lookup.get(factor_id)
+        if not factor:
+            continue
+        entries.append(
+            {
+                "label": factor.get("label"),
+                "explanation_human": factor.get("explanation_human"),
+                "explanation_astro": factor.get("explanation_astro"),
+                "value": factor.get("impact"),
+            }
+        )
+        if len(entries) >= limit:
+            break
+    return entries
+
+
 def _build_best_and_risks(
     scores: dict[str, int],
     windows: list[dict[str, Any]],
     factor_refs: list[dict[str, Any]],
+    *,
+    factor_lookup: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     deltas = {key: scores[key] - BASELINE_SCORE for key in DOMAIN_KEYS}
     positives = sorted(
@@ -788,13 +838,19 @@ def _build_best_and_risks(
         text = BEST_USE_TEMPLATES.get(domain, "Сделать главное и не распыляться.")
         if window:
             text = f"{text} Лучше держать этот ход в окне «{window['label']}»."
+        factor_ids = _collect_factor_ids(factor_refs, domain, "positive", limit=3)
+        supporting_factors = _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=3)
         best_uses.append(
             {
                 "id": f"bu{idx}",
                 "text": _clip_text(text, fallback="Сделать одно главное действие и не распыляться.", max_len=220),
-                "factor_id": _resolve_factor_ref(factor_refs, domain, "positive"),
+                "factor_id": factor_ids[0] if factor_ids else None,
                 "impact": _impact_level_from_signal(value / 10.0).value,
                 "timeframe": WINDOW_TIMEFRAMES.get(window_slot, "all_day"),
+                "details": {
+                    "why_text": _clip_text(BEST_USE_TEMPLATES.get(domain, text), fallback=text, max_len=280),
+                    "supporting_factors": supporting_factors,
+                },
             }
         )
 
@@ -805,13 +861,17 @@ def _build_best_and_risks(
         text = RISK_TEMPLATES.get(domain, "Главный риск — поспешить и потерять ясность.")
         if window:
             text = f"{text} Особенно в окне «{window['label']}»."
+        factor_ids = _collect_factor_ids(factor_refs, domain, "negative", limit=3)
+        supporting_factors = _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=3)
         risk_lines.append(
             {
                 "id": f"r{idx}",
                 "text": _clip_text(text, fallback="Не разгонять день там, где нужна пауза.", max_len=220),
-                "factor_id": _resolve_factor_ref(factor_refs, domain, "negative"),
+                "factor_id": factor_ids[0] if factor_ids else None,
                 "impact": _impact_level_from_signal(value / 10.0).value,
                 "timeframe": WINDOW_TIMEFRAMES.get(window_slot, "all_day"),
+                "why_text": _clip_text(RISK_TEMPLATES.get(domain, text), fallback=text, max_len=280),
+                "supporting_factors": supporting_factors,
             }
         )
     return best_uses, risk_lines
@@ -1033,7 +1093,8 @@ def _assemble_day_brief_payload(
         limit=3 if fallback_mode else 5,
     )
 
-    best_uses, risks = _build_best_and_risks(int_scores, windows, factor_refs)
+    factor_lookup = {factor["id"]: factor for factor in personalized_factors}
+    best_uses, risks = _build_best_and_risks(int_scores, windows, factor_refs, factor_lookup=factor_lookup)
     summary = _build_summary(facts, int_scores, fallback_mode=fallback_mode)
     explainability = _build_explainability(
         facts,
