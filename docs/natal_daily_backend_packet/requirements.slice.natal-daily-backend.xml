@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirementsSlice id="REQ-SLICE-NATAL-DAILY-BACKEND" version="1.0.0">
+  <metadata>
+    <title>Natal + Daily Backend Slice Requirements</title>
+    <scope>Execution-ready GRACE packet for natal generation reliability and daily report/day-brief generation quality/reliability.</scope>
+    <sourceRefs>
+      <ref path="GRACE.md" />
+      <ref path="requirements.xml" />
+      <ref path="development-plan.xml" />
+      <ref path="verification-matrix.md" />
+      <ref path="GRACE_SLICE_NATAL_DAILY.md" />
+      <ref path="docs/personalized_daily_feed_v2.md" />
+    </sourceRefs>
+  </metadata>
+
+  <coordinates>
+    <slice id="SL-NATAL-DAILY-BACKEND" />
+    <module id="M-NATAL-CONTEXT-ENGINE" />
+    <module id="M-NATAL-PROMPT-CONTRACT" />
+    <module id="M-NATAL-SUMMARY-LAYER" />
+    <module id="M-DAY-BRIEF-SERVICE" />
+    <module id="M-DAY-BRIEF-VALIDATORS" />
+    <module id="M-DAILY-FEED-PERSONALIZATION" />
+  </coordinates>
+
+  <goals>
+    <goal id="G-NATAL-RELIABILITY">Keep natal generation on deterministic truth paths with validator-safe fallback and no hidden repair leakage.</goal>
+    <goal id="G-DAILY-QUALITY">Keep day-brief and daily-feed generation factual, schema-safe, and backward compatible under degraded execution.</goal>
+    <goal id="G-EXECUTION-SAFETY">Constrain coder workers to explicit write scope, frozen scope, contracts, and verification gates.</goal>
+  </goals>
+
+  <truthPaths>
+    <truthPath id="TP-NATAL-CONTEXT">
+      <entry>Section/report context is assembled in `backend/app/services/report_workflow.py`.</entry>
+      <rules>
+        <rule id="TP-NATAL-CONTEXT-R1">`build_section_context` and `build_report_context` are canonical truth sources for natal section facts and report-level context.</rule>
+        <rule id="TP-NATAL-CONTEXT-R2">`section_context.insight_pack` is the deterministic source for premium natal sections and summary fallback paths.</rule>
+        <rule id="TP-NATAL-CONTEXT-R3">`birth_time_known=false` must continue to suppress house-based natal sections rather than letting downstream prompts infer them.</rule>
+        <rule id="TP-NATAL-CONTEXT-R4">`final_synthesis` stays ordered after the rest of the sections and consumes chart-specific context, not generic summary boilerplate.</rule>
+      </rules>
+    </truthPath>
+
+    <truthPath id="TP-NATAL-GENERATION">
+      <entry>Natal section generation is orchestrated by `backend/app/llm/orchestrator.py` and `backend/app/services/report_workflow.py`.</entry>
+      <rules>
+        <rule id="TP-NATAL-GENERATION-R1">Prompt/runtime contracts may verbalize deterministic facts, but may not replace them with freeform generic framing.</rule>
+        <rule id="TP-NATAL-GENERATION-R2">Summary-layer sections `executive_summary` and `final_synthesis` must preserve chart specificity even when validation fallback is used.</rule>
+        <rule id="TP-NATAL-GENERATION-R3">Validator/repair behavior is allowed only as a bounded safety layer; user-facing output must not expose repair leakage or hidden system-marker artifacts.</rule>
+      </rules>
+    </truthPath>
+
+    <truthPath id="TP-DAY-BRIEF-CONTRACT">
+      <entry>Day-brief assembly and schema enforcement live in `backend/app/services/day_brief.py`, `backend/app/services/day_brief_validators.py`, and `backend/app/services/day_brief_types.py`.</entry>
+      <rules>
+        <rule id="TP-DAY-BRIEF-CONTRACT-R1">The response contract must stay schema-first and validator-enforced before any output is accepted as successful.</rule>
+        <rule id="TP-DAY-BRIEF-CONTRACT-R2">Fallback/repair may downgrade richness but must preserve response readability and contract compatibility.</rule>
+        <rule id="TP-DAY-BRIEF-CONTRACT-R3">Backward-compatible payload shape is mandatory for existing consumers.</rule>
+      </rules>
+    </truthPath>
+
+    <truthPath id="TP-DAILY-FEED-CONTRACT">
+      <entry>Daily feed personalization truth path lives in `backend/app/services/personalized_daily.py` and the `/api/feed/today` integration documented in `docs/personalized_daily_feed_v2.md`.</entry>
+      <rules>
+        <rule id="TP-DAILY-FEED-CONTRACT-R1">Endpoint contract remains `GET /api/feed/today` with stable shape: `date`, `moon_sign`, `moon_phase`, `moon_emoji`, `aspects_count`, `general_vibe`, `traffic_lights`.</rule>
+        <rule id="TP-DAILY-FEED-CONTRACT-R2">Personalization is facts-first and deterministic for the same cache scope; random fallback behavior is not allowed.</rule>
+        <rule id="TP-DAILY-FEED-CONTRACT-R3">Prompt contract is pinned to `personalized_daily_v2`; feed copy must not invent unsupported aspects or events.</rule>
+        <rule id="TP-DAILY-FEED-CONTRACT-R4">Logs must remain auth-safe: raw `X-Telegram-Auth` and `initData` never enter logs.</rule>
+      </rules>
+    </truthPath>
+  </truthPaths>
+
+  <contracts>
+    <contract id="CT-NATAL-SUMMARY-COVERAGE">
+      <summary>`executive_summary` must explicitly cover life scene, resource, risk, relationships, money/realization, growth focus, and mature mode.</summary>
+      <acceptance>
+        <item>At least one list item addresses relationships/intimacy.</item>
+        <item>At least one list item addresses money/realization.</item>
+        <item>At least three list items are descriptive observations, not pure imperatives.</item>
+      </acceptance>
+    </contract>
+
+    <contract id="CT-NATAL-FALLBACK-COMPACTNESS">
+      <summary>`final_synthesis` and summary-layer fallback remain compact, chart-specific, and free of generic motto text.</summary>
+    </contract>
+
+    <contract id="CT-DAY-BRIEF-SCHEMA">
+      <summary>Day-brief payloads must satisfy the typed/schema validator path in `day_brief_validators` and `day_brief_types`.</summary>
+    </contract>
+
+    <contract id="CT-DAILY-FEED-BACKCOMPAT">
+      <summary>`/api/feed/today` stays backward compatible while optionally adding safe personalization metadata and facts-first semantic context.</summary>
+    </contract>
+  </contracts>
+
+  <fallbackPolicy>
+    <policy id="FB-NATAL-SECTION">
+      <rule>Use deterministic fallback content from `build_section_fallback_content` / `build_section_validation_fallback_content` / insight-pack fallback helpers when LLM output fails validation or bounded runtime errors qualify for fallback.</rule>
+      <rule>Fallback must preserve visible, useful content and must not degrade into empty success or broken blocks.</rule>
+    </policy>
+    <policy id="FB-DAY-BRIEF">
+      <rule>Repair/fallback may normalize malformed generation into schema-safe output, but must never silently emit contract-breaking payloads.</rule>
+    </policy>
+    <policy id="FB-DAILY-FEED">
+      <rule>Fallback payload remains safe and deterministic; homepage states `ready`, `fallback`, `empty`, and `error` must remain representable without crashing clients.</rule>
+    </policy>
+  </fallbackPolicy>
+
+  <writeScope>
+    <allowed path="backend/app/services/report_workflow.py" reason="natal context, ordering, fallback wiring, deterministic truth path" />
+    <allowed path="backend/app/llm/orchestrator.py" reason="runtime prompt contract and bounded repair/fallback integration" />
+    <allowed path="backend/app/reporting/section_templates.py" reason="natal prompt contract text only if required by the slice" />
+    <allowed path="backend/app/services/day_brief.py" reason="day-brief orchestration/fallback path" />
+    <allowed path="backend/app/services/day_brief_validators.py" reason="schema/validator acceptance and repair boundaries" />
+    <allowed path="backend/app/services/day_brief_types.py" reason="typed contract changes only if required by validator-safe compatibility" />
+    <allowed path="backend/app/services/personalized_daily.py" reason="facts-first personalization and auth-safe meta/log behavior" />
+    <allowed path="tests/verify_natal_generation.py" reason="targeted regression for natal reliability" />
+    <allowed path="tests/test_day_brief.py" reason="targeted day-brief regression coverage" />
+    <allowed path="tests/test_day_brief_schema.py" reason="targeted schema/repair regression coverage" />
+    <allowed path="tests/test_personalized_daily_service.py" reason="targeted personalized daily regression coverage" />
+    <allowed path="tests/test_daily_feed_robustness.py" reason="targeted feed fallback/contract coverage" />
+  </writeScope>
+
+  <frozenScope>
+    <frozen path="frontend/**" reason="Frontend is out of scope for this backend packet." />
+    <frozen path="billing/**" reason="Billing is not part of this slice." />
+    <frozen path="bot/**" reason="Bot delivery is out of scope." />
+    <frozen path="backend/app/services/*horary*" reason="Horary domain excluded." />
+    <frozen path="backend/app/services/*synastry*" reason="Synastry domain excluded." />
+    <frozen path="backend/app/services/*solar*" reason="Solar domain excluded except existing dependencies must remain untouched." />
+    <frozen path="admin/**" reason="Admin surfaces excluded." />
+  </frozenScope>
+
+  <verificationProfile>
+    <required id="VP-BACKEND-QUICK">`docker exec astro-project-backend-1 python3 scripts/pipeline.py`</required>
+    <required id="VP-NATAL-TARGETED">`docker exec astro-project-backend-1 python3 -m pytest -q tests/verify_natal_generation.py tests/test_validation_relaxed.py tests/test_validation_template_fallback.py tests/test_report_contract.py`</required>
+    <required id="VP-DAY-BRIEF-TARGETED">`docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py`</required>
+    <required id="VP-DAILY-FEED-TARGETED">`docker exec astro-project-backend-1 python3 -m pytest -q tests/test_daily_feed_robustness.py tests/test_personalized_daily_service.py tests/verify_daily_feed.py`</required>
+    <optional id="VP-HTTP-CONTRACT">`python3 scripts/verify_api_responses.py`</optional>
+  </verificationProfile>
+</requirementsSlice>

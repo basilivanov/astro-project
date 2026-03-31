@@ -76,12 +76,13 @@ test.describe("Week Page Fallback Parsing", () => {
 
     await page.goto('/week');
 
-    await expect(page.locator('h1').filter({ hasText: 'Навигатор недели' })).toBeVisible();
-    await expect(page.getByTestId('week-overview-panel')).toBeVisible();
-    await expect(page.getByTestId('report-fallback-card')).toBeVisible();
-    await expect(
-      page.getByTestId('report-fallback-card').getByText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.')
-    ).toBeVisible();
+    await expect(page.getByTestId('week-map-surface')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Неделя просит точного темпа: двигайте главное и сразу фиксируйте результат.');
+    await expect(page.getByTestId('week-primary-cta')).toBeVisible();
+    await expect(page.getByTestId('week-day-grid')).toBeVisible();
+    await expect(page.getByTestId('week-deep-sections')).toBeVisible();
+    await expect(page.getByTestId('week-deep-sections')).toContainText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.');
+    await expect(page.getByTestId('week-fallback-note')).not.toBeVisible();
 
     expect(logs, `Found console or page errors on /week fallback path: ${logs.join(', ')}`).toHaveLength(0);
     await context.close();

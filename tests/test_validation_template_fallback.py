@@ -225,6 +225,27 @@ class TestValidationTemplateFallback(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(repaired, raw_content)
                 self.assertNotIn("Дополнено автоматически", repaired)
 
+
+    def test_summary_repair_raises_on_invalid_json_contract(self):
+        cases = [
+            SectionSpec(section_id="executive_summary", title="Главное", prompt="test"),
+            SectionSpec(section_id="final_synthesis", title="Финальная сборка", prompt="test"),
+        ]
+
+        malformed_content = '{"type": "paragraph", "text": "not an array"}'
+
+        for spec in cases:
+            with self.subTest(section=spec.section_id):
+                with self.assertRaises(LLMBlockContractError):
+                    validate_section_content(spec, malformed_content)
+
+                with self.assertRaises(LLMBlockContractError):
+                    _repair_section_content(
+                        spec,
+                        malformed_content,
+                        "content is not a valid JSON array of blocks",
+                    )
+
     async def test_final_synthesis_uses_deterministic_insight_pack_without_llm_call(self):
         spec = SectionSpec(section_id="final_synthesis", title="Финальная сборка", prompt="test")
         context = {

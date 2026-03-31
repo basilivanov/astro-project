@@ -60,7 +60,7 @@ test.describe("Today DayBrief surface", () => {
             moon_phase: "Растущая Луна",
             moon_emoji: "🌙",
             aspects_count: 3,
-            label: "Луна в Овне · 3 ключевых аспекта",
+            label: "Импульсный лунный фон для коротких и точных решений.",
           },
           scores: [
             { key: "energy", title: "Энергия", value: 74, status: "green", advice: "Используйте ресурс на один приоритетный блок." },
@@ -157,4 +157,121 @@ test.describe("Today DayBrief surface", () => {
     await expect(page.getByTestId("today-windows")).toBeVisible();
     await expect(page.getByTestId("today-cta-panel")).toBeVisible();
   });
+});
+
+
+test("removes duplicated hero and raw technical tags from today surface", async ({ page }) => {
+  await bootstrapMockTelegram(page, {
+    feedState: "ready",
+    profileOverride: {
+      full_name: "Debug User",
+      birth_date: "2000-01-01",
+      subscription_active_until: "2026-04-15T00:00:00.000Z",
+    },
+    feedOverride: {
+      day_brief: {
+        version: "day_brief_v1",
+        date: "2026-03-27",
+        personalization_level: "personalized_v2",
+        fallback_mode: false,
+        summary: {
+          headline: "Держите главный вектор узким и точным.",
+          subhead: "День лучше проходит через спокойный темп и короткие решения.",
+          day_type: "deep_focus",
+          tone: "active_structured",
+        },
+        context: {
+          moon_sign: "Овен",
+          moon_phase: "Растущая Луна",
+          moon_emoji: "🌙",
+          aspects_count: 3,
+          label: "Лунный фон помогает держать темп без лишней суеты.",
+        },
+        scores: [
+          { key: "energy", title: "Энергия", value: 74, status: "green", advice: "Используйте ресурс на один приоритетный блок." },
+        ],
+        windows: [
+          { id: "morning", start: "09:00", end: "11:30", label: "Собрать ядро дня", mode: "best", advice: "Закройте главную задачу до обеда." },
+        ],
+        best_uses: [
+          { id: "best-1", text: "Закрыть один глубокий рабочий блок", impact: "high", timeframe: "morning" },
+        ],
+        risks: [
+          { id: "risk-1", text: "Не разгоняйте разговоры в конфликтный тон", impact: "high", timeframe: "all_day" },
+        ],
+        personalized_factors: [
+          { id: "factor-1", label: "Лунный драйв", impact: "medium", category: "lunar", explanation_human: "Утром проще быстро войти в темп и взять инициативу." },
+        ],
+        explainability: {
+          confidence: 0.82,
+          birth_time_used: false,
+          factor_count: 6,
+          timing_precision: "approximate",
+          top_signal_source: "transit_natal",
+          explanation_depth: "standard",
+        },
+        premium: {
+          subscription_active: true,
+          subscription_active_until: "2026-04-15T00:00:00.000Z",
+          days_left: 15,
+          show_upgrade_cta: false,
+          show_resume_banner: false,
+        },
+        cta: {
+          primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
+          secondary: { type: "open_history", label: "История разборов", href: "/reports/history" },
+        },
+      },
+    },
+  });
+
+  await page.goto('/');
+  await expectNoCrash(page);
+
+  await expect(page.getByTestId('today-verdict')).not.toContainText('Лучше работает один важный блок без переключений.');
+  await expect(page.getByTestId('today-verdict')).not.toContainText('Овен');
+  await expect(page.getByTestId('today-verdict')).toContainText('Лунный фон помогает держать темп без лишней суеты.');
+  await expect(page.getByTestId('today-actions')).not.toContainText('high');
+  await expect(page.getByTestId('today-actions')).toContainText('Утро');
+  await expect(page.getByTestId('today-risks')).not.toContainText('all_day');
+  await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
+  await expect(page.getByTestId('today-explainability')).not.toContainText('approximate');
+  await expect(page.getByTestId('today-explainability')).not.toContainText('transit_natal');
+});
+
+
+test("today explainability disclosures open for scores, windows, and risks", async ({ page }) => {
+  await bootstrapMockTelegram(page, {
+    feedState: "ready",
+    profileOverride: {
+      full_name: "Debug User",
+      birth_date: "2000-01-01",
+      subscription_active_until: "2026-04-15T00:00:00.000Z",
+    },
+    feedOverride: {
+      day_brief: {
+        version: "day_brief_v1",
+        date: "2026-03-31",
+        personalization_level: "personal",
+        fallback_mode: false,
+        summary: { headline: "День любит точность", subhead: "Лучше идти через ясный ритм и дозировку.", day_type: "balance" },
+        context: { moon_emoji: "🌙", label: "Луна в Деве" },
+        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, но лучше дозировать их точно.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс есть, но он лучше раскрывается через точную подачу, а не через рывок.", supporting_factors: [{ label: "Луна в Деве", explanation_human: "День поддерживает аккуратный ритм и сборку деталей.", explanation_astro: "Лунный акцент усиливает внимание к качеству.", value: "Сильный сигнал" }] } }],
+        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Ставьте сюда всё, что требует собранности.", details: { why_text: "Утро держит ровную концентрацию и лучше переносит задачи на качество.", supporting_factors: [{ label: "Собранный фон", explanation_human: "В это время меньше шума и проще удержать линию.", value: "Умеренный сигнал" }] } }],
+        best_uses: [],
+        risks: [{ id: "r1", text: "Спешка портит точность сильнее, чем экономит время.", impact: "medium", timeframe: "morning", why_text: "Риск проявляется, когда день пытаются пройти силой вместо точной сборки.", supporting_factors: [{ label: "Перегруз темпа", explanation_human: "Если ускориться без нужды, внимание начинает дробиться.", value: "Мягкий сигнал" }] }],
+        personalized_factors: [],
+        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
+      },
+    },
+  });
+  await page.goto('/');
+  await expect(page.getByTestId('today-score-energy')).toBeVisible();
+  await page.getByTestId('today-score-details-energy').locator('summary').click();
+  await expect(page.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
+  await page.getByTestId('today-window-details-w1').locator('summary').click();
+  await expect(page.getByTestId('today-window-details-w1')).toContainText('Утро держит ровную концентрацию');
+  await page.getByTestId('today-risks-details-r1').locator('summary').click();
+  await expect(page.getByTestId('today-risks-details-r1')).toContainText('Риск проявляется, когда день пытаются пройти силой');
+  await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
 });

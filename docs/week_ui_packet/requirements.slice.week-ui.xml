@@ -1,0 +1,65 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-03-31" slice_id="SLICE-WEEK-UI-EXECUTION">
+  <system_goal>Make the Week screen execution-ready as a strict WeekBrief-driven surface with explicit DTO/UI mapping, explainable structure, bounded write scope, and deterministic verification.</system_goal>
+  <scope>
+    <in_scope>
+      <item ref="UC-WEEK-SURFACE-STRUCTURE">Week top-layer structure for `frontend/app/week/page.tsx` driven by `WeekBrief` / `WeekBriefEnvelope` via `frontend/lib/week-brief.ts`.</item>
+      <item ref="UC-WEEK-EXPLAINABILITY">Explainability exposure for summary/theme, day cards, domains, major factors, premium/report CTA, and fallback transparency.</item>
+      <item ref="UC-WEEK-DTO-UI-MAPPING">Stable semantic mapping from backend `week_brief` and legacy `week_map` fallback into user-visible Week/UI blocks.</item>
+      <item ref="UC-WEEK-EXECUTION-BOUNDARY">Execution packet guidance for write scope, frozen scope, acceptance criteria, verification, and wave ordering.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>New product features or new business logic for week scoring.</item>
+      <item>Rewriting backend deterministic calculations in `backend/app/services/week_brief_service.py` or `backend/app/services/week_map.py`.</item>
+      <item>Deep markdown/read-report redesign for `/read/[id]`.</item>
+      <item>Billing/catalog architecture changes beyond existing CTA/resume wiring.</item>
+      <item>Today/Profile/Admin/History screen redesign.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-WEEK-SURFACE-STRUCTURE" actor="telegram_user">
+      <summary>User opens `/week` and sees a stable top-layer week surface: one theme/hero, a day-map layer, domain guidance, factor-based explanation, and a clear CTA path.</summary>
+      <scenario id="SCN-WEEK-HERO-SINGLE-SEMANTIC-CENTER">Top block presents one semantic center based on `summary`, `status`, and theme-oriented copy; deep-report markdown is not duplicated into top layer.</scenario>
+      <scenario id="SCN-WEEK-DAY-CARDS-MAP">Week map renders as ordered day cards with stable day semantics: date, weekday, score/mode/headline, best-for, avoid.</scenario>
+      <scenario id="SCN-WEEK-DOMAINS-AND-GUIDANCE">Domain cards and practical guidance show bounded, polished copy derived from DTO fields rather than frontend recomputation.</scenario>
+      <scenario id="SCN-WEEK-CTA-CLEAR">Primary CTA resolves cleanly to full report when `reportId` exists, otherwise to premium/create flow.</scenario>
+    </use_case>
+    <use_case id="UC-WEEK-EXPLAINABILITY" actor="curious_user">
+      <summary>User can understand why the week is framed this way through visible factor-backed sections, confidence hints, and fallback disclosure.</summary>
+      <scenario id="SCN-WEEK-MAJOR-FACTORS-VISIBLE">Major factors render as bounded explainability artifacts with label/category/impact explanation rather than raw service payload.</scenario>
+      <scenario id="SCN-WEEK-CONFIDENCE-AND-BIRTHTIME">Explainability layer preserves confidence and birth-time usage as support context for telemetry and user trust, without leaking ambiguous technical copy.</scenario>
+      <scenario id="SCN-WEEK-FALLBACK-TRANSPARENCY">Fallback mode is visible through a compact note and preserves usable Week UI instead of degrading into empty/raw JSON states.</scenario>
+    </use_case>
+    <use_case id="UC-WEEK-DTO-UI-MAPPING" actor="coder_worker">
+      <summary>Worker can implement or refine Week UI against frozen semantic coordinates and adapter responsibilities without guessing DTO ownership.</summary>
+      <scenario id="SCN-WEEK-ENVELOPE-READY">If backend returns `week_brief_envelope.data`, adapter uses it as source of truth and keeps envelope/report status semantics stable.</scenario>
+      <scenario id="SCN-WEEK-LEGACY-FALLBACK">If `week_brief` is absent, adapter may derive bounded Week UI from `week_map` fallback without inventing new business logic.</scenario>
+      <scenario id="SCN-WEEK-STATUS-STATES">Loading, error, in-progress, ready, premium/report CTA, and fallback note states are explicitly mapped to visible UI coordinates.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>`WeekBrief` / `WeekBriefEnvelope` remains the canonical top-layer DTO for `/week`.</invariant>
+    <invariant>Backend remains source of truth for week boundaries, scores, domains, and factor logic; frontend only adapts and presents.</invariant>
+    <invariant>Top-layer Week UI MUST not regress into markdown-first or legacy hand-assembled content.</invariant>
+    <invariant>Fallback mode MUST stay premium-enough and informative without exposing raw service keys, debug booleans, or unlocalized labels.</invariant>
+    <invariant>Execution packet MUST freeze semantic coordinates so multiple coder workers can implement without DTO/UI drift.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If report lookup returns no `week_forecast`, UI may still render fallback-safe week content from mock/default or `week_map` adapter path without crashing.</item>
+    <item>If `week_brief_envelope.status` is not `ready`, top layer still preserves loading/in-progress/error semantics instead of mislabeling the screen as complete.</item>
+    <item>If explainability subfields are partially absent, UI omits unavailable detail blocks and preserves the concise first layer.</item>
+    <item>If full report linkage is absent, CTA gracefully routes to create/premium flow and telemetry surface names stay stable.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-WEEK-DTO-UI-DRIFT-RISK">Week strict DTO is present, but packet-level execution guidance for future refinements is not yet frozen like Today packet.</defect>
+    <defect id="DEFECT-WEEK-FALLBACK-AMBIGUITY">Week has both `week_brief` and `week_map` paths; without explicit packet guidance, workers may blur adapter vs business-logic ownership.</defect>
+    <defect id="DEFECT-WEEK-STATE-BOUNDARY-IMPLICIT">Loading/error/in-progress/fallback/CTA semantics exist in code, but are not yet assembled into one execution-ready docs packet.</defect>
+    <defect id="DEFECT-WEEK-EXPLAINABILITY-COORDS-MISSING">Major factors/confidence/fallback transparency are implemented, but semantic UI coordinates are not documented for coder handoff.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-WEEK-1">Packet defines stable Week/UI semantic coordinates and DTO ownership for top-layer `/week` work.</criterion>
+    <criterion id="SC-WEEK-2">Packet explains exact UI mapping for `summary`, `status`, `day_cards`, `domains`, `best_uses`, `risks`, `major_factors`, `premium`, `explainability`, and `cta`.</criterion>
+    <criterion id="SC-WEEK-3">Packet gives explicit write scope and frozen scope so coder workers stay documentation-aligned and do not expand into unrelated product work.</criterion>
+    <criterion id="SC-WEEK-4">Packet defines deterministic verification using backend quick pipeline plus targeted week E2E/regression specs.</criterion>
+    <criterion id="SC-WEEK-5">Packet sequences execution waves in a way that supports safe Week/UI refinement without backend truth-path drift.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -28,6 +28,16 @@ export type DayBriefDto = {
     value: number;
     status: DayBriefLight;
     advice: string;
+    details?: {
+      why_title?: string | null;
+      why_text: string;
+      supporting_factors: Array<{
+        label: string;
+        explanation_human: string;
+        explanation_astro?: string | null;
+        value?: string | null;
+      }>;
+    } | null;
   }>;
   windows: Array<{
     id: string;
@@ -36,6 +46,15 @@ export type DayBriefDto = {
     label: string;
     mode: DayBriefWindowMode;
     advice: string;
+    details?: {
+      why_text: string;
+      supporting_factors: Array<{
+        label: string;
+        explanation_human: string;
+        explanation_astro?: string | null;
+        value?: string | null;
+      }>;
+    } | null;
   }>;
   best_uses: Array<{
     id: string;
@@ -50,6 +69,13 @@ export type DayBriefDto = {
     factor_id?: string | null;
     impact?: DayBriefImpact | null;
     timeframe?: string | null;
+    why_text?: string | null;
+    supporting_factors?: Array<{
+      label: string;
+      explanation_human: string;
+      explanation_astro?: string | null;
+      value?: string | null;
+    }>;
   }>;
   personalized_factors: Array<{
     id: string;
@@ -97,6 +123,25 @@ const text = (value: unknown, fallback = ""): string => typeof value === "string
 const bool = (value: unknown, fallback = false): boolean => typeof value === "boolean" ? value : fallback;
 const num = (value: unknown, fallback = 0): number => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
+function normalizeSupportingFactors(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((item) => ({
+    label: text(item.label, "Фактор дня"),
+    explanation_human: text(item.explanation_human, "Фактор поддерживает вывод дня."),
+    explanation_astro: typeof item.explanation_astro === "string" ? item.explanation_astro : null,
+    value: typeof item.value === "string" ? item.value : null,
+  }));
+}
+
+function normalizeDetails(value: unknown) {
+  if (!isRecord(value)) return null;
+  return {
+    why_title: typeof value.why_title === "string" ? value.why_title : null,
+    why_text: text(value.why_text, "Сегодня здесь лучше идти через спокойную точность, а не через голый напор."),
+    supporting_factors: normalizeSupportingFactors(value.supporting_factors),
+  };
+}
+
 function normalizeScores(value: unknown): DayBriefDto["scores"] {
   if (!Array.isArray(value)) return [];
   return value
@@ -107,6 +152,7 @@ function normalizeScores(value: unknown): DayBriefDto["scores"] {
       value: Math.max(0, Math.min(100, num(item.value, 0))),
       status: isLight(item.status) ? item.status : "yellow",
       advice: text(item.advice, "Действуйте спокойно и без резких перегрузок."),
+      details: normalizeDetails(item.details),
     }));
 }
 
@@ -118,6 +164,8 @@ function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
     factor_id: typeof item.factor_id === "string" ? item.factor_id : null,
     impact: isImpact(item.impact) ? item.impact : null,
     timeframe: typeof item.timeframe === "string" ? item.timeframe : null,
+    why_text: typeof item.why_text === "string" ? item.why_text : null,
+    supporting_factors: normalizeSupportingFactors(item.supporting_factors),
   }));
 }
 
@@ -130,6 +178,7 @@ function normalizeWindows(value: unknown): DayBriefDto["windows"] {
     label: text(item.label, "Рабочее окно"),
     mode: isWindowMode(item.mode) ? item.mode : "soft",
     advice: text(item.advice, "Держите спокойный темп и проверяйте детали."),
+    details: normalizeDetails(item.details),
   }));
 }
 

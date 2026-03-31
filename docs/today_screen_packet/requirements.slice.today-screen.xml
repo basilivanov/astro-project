@@ -1,0 +1,54 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-03-31" slice_id="SLICE-TODAY-SCREEN-REVIEW">
+  <system_goal>Bring the Today screen to a premium, short-first, explainable state without UI duplication or misleading technical copy.</system_goal>
+  <scope>
+    <in_scope>
+      <item ref="UC-FEED-DAILY">Today screen composition, DayBrief DTO affordances, and explainability-driven disclosure for scores, windows, and risks.</item>
+      <item ref="UC-TODAY-UX-PREMIUM">Top-layer verdict compression, moon-context deduplication, removal of raw technical tags, and suppression of misleading birth-time message.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Week screen redesign.</item>
+      <item>Full report read surfaces.</item>
+      <item>Backend truth-path repair for birth time provenance itself.</item>
+      <item>Full-regression release sign-off.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-TODAY-UX-PREMIUM" actor="telegram_user">
+      <summary>User opens Today and sees one strong verdict, concise primary blocks, no duplicated moon/top-copy meaning, and no misleading technical notices.</summary>
+      <scenario id="SCN-TODAY-HERO-CLEAN">Hero shows only verdict label plus `summary.headline` and `summary.subhead`; duplicate description/day-type prose is absent.</scenario>
+      <scenario id="SCN-TODAY-MOON-DEDUPE">Moon context appears at most once as compact supporting context, not as a second headline.</scenario>
+      <scenario id="SCN-TODAY-NO-RAW-TAGS">Windows/risks do not expose raw tags like `high`, `morning`, or untranslated service values when they are not user-helpful.</scenario>
+      <scenario id="SCN-TODAY-NO-FALSE-BIRTHTIME">UI does not show a user-facing warning about missing exact birth time while backend truth-path remains unresolved.</scenario>
+    </use_case>
+    <use_case id="UC-TODAY-EXPLAINABILITY-LAYER" actor="curious_user">
+      <summary>User can expand scores, windows, and risks to understand why the system made each judgment and what factors support it.</summary>
+      <scenario id="SCN-TODAY-SCORES-DETAIL">Each score card can reveal why_text plus 2-4 supporting factors and practical guidance.</scenario>
+      <scenario id="SCN-TODAY-WINDOWS-DETAIL">Each time window can reveal why the window is strong/soft/caution and what actions fit it.</scenario>
+      <scenario id="SCN-TODAY-RISKS-DETAIL">Each risk can reveal mechanism, typical manifestation, supporting factors, and short mitigation guidance.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>First layer MUST stay shorter than the current duplicated presentation.</invariant>
+    <invariant>Explainability MUST support the visible blocks instead of living only as a detached technical footer.</invariant>
+    <invariant>User-facing copy MUST avoid false or technically ambiguous claims about birth time availability.</invariant>
+    <invariant>Short advice MUST remain human, premium, and mechanism-aware rather than generic imperative boilerplate.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If richer details are absent, UI MUST degrade gracefully without exposing raw JSON, booleans, or service tags.</item>
+    <item>If backend detail fields are not yet shipped, frontend MUST preserve concise first-layer rendering and omit unavailable second-layer sections.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-TODAY-DUPLICATE-HERO">Top hero repeats the same meaning across day-type/description/headline/subhead.</defect>
+    <defect id="DEFECT-TODAY-MOON-DUPLICATION">Moon context currently competes with the main verdict as a second semantic center.</defect>
+    <defect id="DEFECT-TODAY-RAW-TAGS">Windows/risk-related UI may surface raw service labels instead of polished localized copy.</defect>
+    <defect id="DEFECT-TODAY-BIRTHTIME-MESSAGE">UI may claim lack of exact birth time even when the stored profile is accurate.</defect>
+    <defect id="DEFECT-TODAY-SHALLOW-CARDS">Score/window/risk cards do not yet expose supporting factors and reasoning depth.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-TODAY-1">Today top screen reads as one confident verdict with no duplicate semantic layer.</criterion>
+    <criterion id="SC-TODAY-2">Moon appears only as compact context.</criterion>
+    <criterion id="SC-TODAY-3">No raw technical tags or misleading birth-time notice remain visible in Today UI.</criterion>
+    <criterion id="SC-TODAY-4">Execution packet defines DTO extensions and UI expansion behavior for scores/windows/risks.</criterion>
+    <criterion id="SC-TODAY-5">Worker can execute against an explicit bounded write scope and verification plan.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -746,6 +746,14 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         day_context={},
         month_data={},
     )
+    facts["normalized_factors"] = [
+        factor.model_dump()
+        for factor in build_normalized_factors(
+            fast_hits=[],
+            traffic_lights=facts.get("traffic_lights"),
+            semantic_layer=facts.get("semantic_layer"),
+        )
+    ]
     # END_BLOCK: FACTS_BASELINE_FACTS
 
     # START_BLOCK: FACTS_PROFILE_BRANCHING
@@ -807,6 +815,21 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
             today_context = copy.deepcopy(today_context)
             today_context["personalized_traffic_lights"] = personalized_traffic_lights
 
+        semantic_layer = build_daily_forecast_semantic_layer(
+            fast_hits=fast_hits,
+            traffic_lights=personalized_traffic_lights,
+            day_context=today_context,
+            month_data=month_data,
+        )
+        normalized_factors = [
+            factor.model_dump()
+            for factor in build_normalized_factors(
+                fast_hits=fast_hits,
+                traffic_lights=personalized_traffic_lights,
+                semantic_layer=semantic_layer,
+            )
+        ]
+
         facts.update(
             {
                 "aspect_summary": aspect_summary,
@@ -830,12 +853,8 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
                     year_data=year_data,
                     sun_sign=getattr(user, "sun_sign", None),
                 ),
-                "semantic_layer": build_daily_forecast_semantic_layer(
-                    fast_hits=fast_hits,
-                    traffic_lights=personalized_traffic_lights,
-                    day_context=today_context,
-                    month_data=month_data,
-                ),
+                "semantic_layer": semantic_layer,
+                "normalized_factors": normalized_factors,
             }
         )
     elif user:
@@ -915,13 +934,19 @@ def summarize_personalization_for_prompt(facts: dict[str, Any]) -> dict[str, Any
     if not fallback_detail:
         fallback_detail = fact_lines[1] if len(fact_lines) > 1 else ""
 
+    raw_traffic_lights = facts.get("traffic_lights")
+    traffic_lights = copy.deepcopy(raw_traffic_lights) if isinstance(raw_traffic_lights, dict) else None
+
+    raw_semantic_layer = facts.get("semantic_layer")
+    semantic_layer = copy.deepcopy(raw_semantic_layer) if isinstance(raw_semantic_layer, dict) else None
+
     summary = {
         "level": facts.get("personalization_level", "anonymous"),
         "fact_lines": fact_lines[:6],
         "fallback_detail": fallback_detail,
         "cache_scope": facts.get("cache_scope"),
-        "traffic_lights": copy.deepcopy(facts.get("traffic_lights", {})),
-        "semantic_layer": copy.deepcopy(facts.get("semantic_layer", {})),
+        "traffic_lights": traffic_lights,
+        "semantic_layer": semantic_layer,
         "prompt_contract": "personalized_daily_v2",
     }
     # END_BLOCK: PROMPT_SUMMARY_EXTRACTION

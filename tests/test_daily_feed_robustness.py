@@ -176,7 +176,10 @@ class TestDailyFeedRobustness(unittest.TestCase):
             "meta": {"cache_scope": "daily-test-scope", "personalization_level": "personalized_v2"},
             "fast_hits": [{"transit": "Venus", "natal": "Sun", "type": "Соединение", "summary": "Венера соединение Солнце"}],
         }
-        mock_vibe.return_value = "Венера соединение Солнце помогает мягко проявить инициативу."
+        mock_vibe.return_value = (
+            "Венера соединение Солнце помогает мягко проявить инициативу.",
+            {"generation_mode": "llm"},
+        )
 
         response = client.get("/api/feed/today")
 
@@ -218,7 +221,10 @@ class TestDailyFeedDebug(unittest.TestCase):
             "meta": {"cache_scope": "daily-test-scope", "fallback_mode": False},
             "fast_hits": [],
         }
-        mock_vibe.return_value = "Точный фон дня помогает держать приоритет собранно."
+        mock_vibe.return_value = (
+            "Точный фон дня помогает держать приоритет собранно.",
+            {"generation_mode": "llm"},
+        )
 
         response = client.get("/api/feed/today?debug=true", headers={"X-Telegram-Auth": "123"})
         self.assertEqual(response.status_code, 200)
@@ -228,3 +234,23 @@ class TestDailyFeedDebug(unittest.TestCase):
         anon = client.get("/api/feed/today?debug=true")
         self.assertEqual(anon.status_code, 200)
         self.assertIsNone(anon.json().get("meta"))
+
+    @patch("backend.app.main.logger")
+    @patch("backend.app.main.authenticate_telegram_user")
+    def test_feed_endpoint_auth_fallback_logs_without_raw_auth_detail(self, mock_authenticate, mock_logger):
+        from fastapi import HTTPException
+
+        mock_authenticate.side_effect = HTTPException(
+            status_code=401,
+            detail="token=super-secret-init-data",
+        )
+
+        response = client.get("/api/feed/today", headers={"X-Telegram-Auth": "super-secret-init-data"})
+
+        self.assertEqual(response.status_code, 200)
+        debug_calls = [call for call in mock_logger.info.call_args_list if call.args and call.args[0] == "feed.debug"]
+        auth_fallback = next(call for call in debug_calls if call.kwargs.get("stage") == "auth_fallback")
+        self.assertEqual(auth_fallback.kwargs["reason"], "telegram_auth_invalid")
+        self.assertNotIn("detail", auth_fallback.kwargs)
+        serialized = str(mock_logger.info.call_args_list)
+        self.assertNotIn("super-secret-init-data", serialized)

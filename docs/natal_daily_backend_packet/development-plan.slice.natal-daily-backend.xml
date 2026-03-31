@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<developmentPlanSlice id="PLAN-SLICE-NATAL-DAILY-BACKEND" version="1.0.0">
+  <metadata>
+    <title>Natal + Daily Backend Slice Development Plan</title>
+    <scope>High-risk backend/core execution waves for natal generation reliability and daily/day-brief quality.</scope>
+  </metadata>
+
+  <executionRules>
+    <rule id="EX-R1">Do not ship product features; only reliability, contract, validator, fallback, and repair hardening inside the defined slice.</rule>
+    <rule id="EX-R2">Each wave must keep the slice green on its minimal targeted verification profile before advancing.</rule>
+    <rule id="EX-R3">When a bug is reproduced, add or update a targeted regression first, then fix, then rerun the targeted bundle to PASS.</rule>
+    <rule id="EX-R4">Prefer deterministic truth-path fixes over prompt-only mitigation.</rule>
+  </executionRules>
+
+  <waves>
+    <wave id="W1-NATAL-TRUTH-PATH">
+      <goal>Stabilize natal section context and summary-layer truth paths.</goal>
+      <tasks>
+        <task id="W1-T1">Audit `build_section_context`, `build_report_context`, section ordering, and `birth_time_known` gating.</task>
+        <task id="W1-T2">Pin summary-layer acceptance rules against the existing runtime contract for `executive_summary` and `final_synthesis`.</task>
+        <task id="W1-T3">Confirm fallback entry points prefer deterministic insight-pack content over generic template leakage.</task>
+      </tasks>
+      <deliverables>
+        <item>Stable semantic coordinates for natal truth paths.</item>
+        <item>Targeted regression updates only where a reproducible gap exists.</item>
+      </deliverables>
+      <verificationRefs>
+        <ref>`docker exec astro-project-backend-1 python3 scripts/pipeline.py`</ref>
+        <ref>`docker exec astro-project-backend-1 python3 -m pytest -q tests/verify_natal_generation.py tests/test_validation_relaxed.py tests/test_validation_template_fallback.py tests/test_report_contract.py`</ref>
+      </verificationRefs>
+    </wave>
+
+    <wave id="W2-NATAL-FALLBACK-REPAIR">
+      <goal>Bound validator/repair behavior for natal generation failures.</goal>
+      <tasks>
+        <task id="W2-T1">Trace `generate_section_content`, validator calls, and fallback selection rules for bounded LLM/runtime failures.</task>
+        <task id="W2-T2">Eliminate user-visible repair leakage and generic fallback blocks in summary-layer output.</task>
+        <task id="W2-T3">Keep fallback blocks readable and contract-compatible when malformed content remains visible.</task>
+      </tasks>
+      <verificationRefs>
+        <ref>`docker exec astro-project-backend-1 python3 -m pytest -q tests/verify_natal_generation.py tests/test_validation_template_fallback.py tests/test_validation_relaxed.py`</ref>
+      </verificationRefs>
+    </wave>
+
+    <wave id="W3-DAY-BRIEF-CONTRACT">
+      <goal>Harden day-brief schema, validators, and repair path.</goal>
+      <tasks>
+        <task id="W3-T1">Map the exact accepted payload contract in `day_brief_types` and `day_brief_validators`.</task>
+        <task id="W3-T2">Constrain repair/fallback behavior so malformed model output becomes schema-safe or explicit failure, never silent drift.</task>
+        <task id="W3-T3">Preserve compatibility for current day-brief/report consumers.</task>
+      </tasks>
+      <verificationRefs>
+        <ref>`docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py`</ref>
+      </verificationRefs>
+    </wave>
+
+    <wave id="W4-DAILY-FEED-RELIABILITY">
+      <goal>Keep `/api/feed/today` factual, deterministic, and auth-safe under fallback.</goal>
+      <tasks>
+        <task id="W4-T1">Verify `build_personalized_daily_facts()` remains the first truth path before prompt execution.</task>
+        <task id="W4-T2">Protect stable response shape and `traffic_lights` semantics across ready/fallback/empty/error paths.</task>
+        <task id="W4-T3">Verify auth-safe logging and safe personalization summaries.</task>
+      </tasks>
+      <verificationRefs>
+        <ref>`docker exec astro-project-backend-1 python3 -m pytest -q tests/test_daily_feed_robustness.py tests/test_personalized_daily_service.py tests/verify_daily_feed.py`</ref>
+        <ref>`python3 scripts/verify_api_responses.py`</ref>
+      </verificationRefs>
+    </wave>
+
+    <wave id="W5-HANDOFF-GATE">
+      <goal>Produce coder-ready handoff with frozen scope, write scope, and required PASS evidence.</goal>
+      <tasks>
+        <task id="W5-T1">Document exact allowed files and forbidden files.</task>
+        <task id="W5-T2">Document PASS gates and unresolved known gaps that remain outside this slice.</task>
+        <task id="W5-T3">Require exact commands and artifact references in worker handoff.</task>
+      </tasks>
+    </wave>
+  </waves>
+</developmentPlanSlice>

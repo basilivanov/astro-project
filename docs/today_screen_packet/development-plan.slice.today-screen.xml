@@ -1,0 +1,73 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-03-31" slice_id="SLICE-TODAY-SCREEN-REVIEW">
+  <phase id="PHASE-TODAY-REFINE">
+    <goal>Stabilize the Today screen as a short-first, explainable, premium surface.</goal>
+
+    <wave id="WAVE-TODAY-MUSTFIX-NOW">
+      <goal>Remove duplicate meaning and technical leakage from the first layer.</goal>
+      <module_ref id="M-DAY-BRIEF-SERVICE" />
+      <module_ref id="M-FRONTEND-TODAY" />
+      <allowed_write_scope>
+        <file>frontend/app/page.tsx</file>
+        <file>frontend/components/today/*</file>
+        <file>frontend/lib/day-brief*</file>
+        <file>backend/app/services/day_brief.py</file>
+        <file>backend/app/services/day_brief_types.py</file>
+        <file>backend/app/services/day_brief_validators.py</file>
+        <file>tests/*day*brief*</file>
+        <file>tests/*today*</file>
+        <file>e2e/*today*</file>
+        <file>e2e/*quality*</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>frontend/app/week/*</file>
+        <file>backend/app/services/week_brief_service.py</file>
+        <file>billing/*</file>
+        <file>infra/*</file>
+      </frozen_scope>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+        <command>./scripts/run_e2e.sh --last-failed</command>
+        <command>./scripts/run_e2e.sh e2e/quality.spec.ts -g "today|Сегодня|day brief"</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Hero duplication removed.</criterion>
+        <criterion>Moon duplication removed.</criterion>
+        <criterion>Raw tags/localization leaks removed.</criterion>
+        <criterion>Birth-time warning hidden from user-facing Today UI.</criterion>
+      </acceptance_criteria>
+    </wave>
+
+    <wave id="WAVE-TODAY-EXPLAINABILITY-NEXT">
+      <goal>Add bounded second-layer explainability to scores, windows, and risks.</goal>
+      <module_ref id="M-DAY-BRIEF-SERVICE" />
+      <module_ref id="M-FRONTEND-TODAY" />
+      <allowed_write_scope>
+        <file>frontend/components/today/*</file>
+        <file>frontend/lib/day-brief*</file>
+        <file>backend/app/services/day_brief.py</file>
+        <file>backend/app/services/day_brief_types.py</file>
+        <file>backend/app/services/day_brief_validators.py</file>
+        <file>tests/*day*brief*</file>
+        <file>e2e/*today*</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>frontend/app/week/*</file>
+        <file>backend/app/services/week_brief_service.py</file>
+      </frozen_scope>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+        <command>./scripts/run_e2e.sh e2e/quality.spec.ts -g "today|accordion|details"</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Score cards expose explanation details when available.</criterion>
+        <criterion>Windows expose explanation details when available.</criterion>
+        <criterion>Risks expose explanation details when available.</criterion>
+        <criterion>Collapsed state remains concise and premium.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Backend truth-path repair for birth-time provenance remains separate from UI suppression.</item>
+        <item>Editorial calibration of all short-copy lines may continue after structural wave lands green.</item>
+      </deferred_work>
+    </wave>
+  </phase>
+</development_plan_slice>

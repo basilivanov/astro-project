@@ -768,13 +768,6 @@ def _build_score_items(scores: dict[str, int], semantic: dict[str, Any]) -> list
     return items
 
 
-def _resolve_factor_ref(factor_refs: list[dict[str, Any]], domain: str, polarity: str) -> str | None:
-    for item in factor_refs:
-        if item.get("domain") == domain and item.get("polarity") == polarity:
-            return str(item.get("id"))
-    return str(factor_refs[0].get("id")) if factor_refs else None
-
-
 def _collect_factor_ids(factor_refs: list[dict[str, Any]], domain: str | None, polarity: str, *, limit: int = 3) -> list[str]:
     results: list[str] = []
     if domain is None:
@@ -791,20 +784,26 @@ def _collect_factor_ids(factor_refs: list[dict[str, Any]], domain: str | None, p
 
 def _build_supporting_factor_entries(factor_ids: list[str], factor_lookup: dict[str, dict[str, Any]], *, limit: int = 3) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
-    for factor_id in factor_ids:
+    for factor_id in factor_ids[:limit]:
         factor = factor_lookup.get(factor_id)
         if not factor:
             continue
+        impact = str(factor.get("impact") or "").strip().lower()
+        value = {
+            "high": "Сильный сигнал",
+            "medium": "Умеренный сигнал",
+            "low": "Мягкий сигнал",
+        }.get(impact)
         entries.append(
             {
+                "id": factor.get("id"),
                 "label": factor.get("label"),
                 "explanation_human": factor.get("explanation_human"),
                 "explanation_astro": factor.get("explanation_astro"),
-                "value": factor.get("impact"),
+                "impact": factor.get("impact"),
+                "value": value,
             }
         )
-        if len(entries) >= limit:
-            break
     return entries
 
 
@@ -1125,10 +1124,31 @@ def _assemble_day_brief_payload(
             for factor in calibrated_factors[: 5 if not fallback_mode else 3]
         ]
 
+    score_items = _build_score_items(int_scores, semantic)
+    domain_factor_map: dict[str, list[dict[str, Any]]] = {key: [] for key in DOMAIN_KEYS}
+    for domain in DOMAIN_KEYS:
+        factor_ids = _collect_factor_ids(factor_refs, domain, None, limit=4)
+        domain_factor_map[domain] = _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4)
+    for item in score_items:
+        item["details"] = {
+            "why_title": item.get("details", {}).get("why_title") or f"Почему {str(item['title']).lower()} именно такие",
+            "why_text": item.get("details", {}).get("why_text") or item.get("advice") or "Здесь важна точная дозировка, а не простой напор.",
+            "supporting_factors": domain_factor_map.get(str(item["key"]), []),
+        }
+
     now_local = _parse_local_dt(facts)
     clean_windows = []
     for window in windows:
         clean_window = {key: value for key, value in window.items() if not key.startswith("_")}
+        factor_ids = list(dict.fromkeys((window.get("_factor_ids") or [])[:4]))
+        clean_window["details"] = {
+            "why_text": _clip_text(
+                str(clean_window.get("explanation") or "") or f"{clean_window.get('label', 'Это окно')} лучше использовать там, где важны точная дозировка, ясный темп и одна понятная задача.",
+                fallback="Это окно работает лучше, когда вы не распыляетесь и держите спокойный темп.",
+                max_len=280,
+            ),
+            "supporting_factors": _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4),
+        }
         clean_windows.append(clean_window)
 
     return {
@@ -1138,7 +1158,7 @@ def _assemble_day_brief_payload(
         "fallback_mode": fallback_mode,
         "summary": summary,
         "context": _build_context(facts),
-        "scores": _build_score_items(int_scores, semantic),
+        "scores": score_items,
         "windows": clean_windows,
         "best_uses": best_uses,
         "risks": risks,

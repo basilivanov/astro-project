@@ -31,6 +31,7 @@ class TestReportContract(unittest.TestCase):
         mock_report.client.full_name = "Test Client"
         mock_report.report_type = "natal_master"
         mock_report.status = "completed"
+        mock_report.access_source = None
         mock_report.created_at = MagicMock()
         mock_report.created_at.isoformat.return_value = "2026-02-10T06:00:00"
         

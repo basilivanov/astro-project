@@ -8346,15 +8346,6 @@ async def generate_section_content(
             res.duration_ms = int((time.perf_counter() - start_t) * 1000)
             return res
 
-    if spec.section_id == "executive_summary":
-        insight_pack = (context.get("section_context") or {}).get("insight_pack")
-        birth_time_known = context.get("client", {}).get("birth_time_known", True)
-        if insight_pack and birth_time_known:
-            content = build_section_validation_fallback_content(spec, context)
-            res = SectionResult(section_id=spec.section_id, title=spec.title, content=content)
-            res.duration_ms = int((time.perf_counter() - start_t) * 1000)
-            return res
-
     # 2. Template Mode
     if use_template:
         if spec.section_id == "week_strategy":

@@ -17,14 +17,16 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-slate-900">{domain.title}</p>
-                  <p className="text-xs text-slate-500">{domain.headline}</p>
+                  {domain.headline ? <p className="text-xs text-slate-500">{domain.headline}</p> : null}
                 </div>
                 <p className="text-sm font-black text-slate-900">{domain.value ?? 0}/100</p>
               </div>
               <div className="h-2 rounded-full bg-slate-100">
                 <div className="h-2 rounded-full bg-slate-900" style={{ width: `${Math.max(0, Math.min(100, domain.value ?? 0))}%` }} />
               </div>
-              {domain.advice ? <p className="text-xs leading-relaxed text-slate-600">{domain.advice}</p> : null}
+              <p className="text-xs leading-relaxed text-slate-600" data-testid={`week-domain-guidance-${domain.key ?? index}`}>
+                {domain.advice?.trim() || "Держите решения в этой зоне простыми и проверяемыми."}
+              </p>
             </div>
           ))}
         </div>

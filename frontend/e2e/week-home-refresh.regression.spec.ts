@@ -250,6 +250,12 @@ test.describe("Week home refresh regression", () => {
     await expect(page.getByTestId("week-actions-list")).toContainText("Делайте один приоритетный ход за раз");
     await expect(page.getByTestId("week-risks-list")).toContainText("Не пытайтесь закрыть то, что ещё не дозрело");
     await expect(page.getByTestId("week-explainability-chips")).toContainText("Уверенность: 81%");
+    await expect(page.getByTestId("week-explainability-summary")).toContainText("Высокая опора на текущие данные");
+    await expect(page.getByTestId("week-explainability-summary")).toContainText("Учтено точное время рождения");
+    await expect(page.getByTestId("week-explainability-chips")).toContainText("Опора: высокая");
+    await expect(page.getByTestId("week-explainability-chips")).toContainText("Основа: личная натальная опора и текущие транзиты");
+    await expect(page.getByTestId("week-factor-impact-1")).toContainText("Основной");
+    await expect(page.getByTestId("week-domain-guidance-work_money")).toContainText("Фиксируйте договорённости письменно");
     await expect(page.getByTestId("week-deep-sections")).toContainText("Стратегия недели");
     await expect(page.getByTestId("week-deep-sections")).toContainText("Держите ритм спокойным");
 

@@ -80,24 +80,21 @@ test.describe("VM-WEEK-FALLBACK", () => {
     await page.goto("/week");
     await expectNoCrash(page);
     await expect(page.getByTestId("week-page")).toBeVisible();
-    await expect(page.getByTestId("week-overview-panel")).toBeVisible();
-    await expect(page.getByTestId("report-fallback-card")).toBeVisible();
-    await expect(page.getByTestId("report-fallback-card")).toContainText(
+    await expect(page.getByTestId("week-map-surface")).toBeVisible();
+    await expect(page.getByTestId("week-day-grid")).toBeVisible();
+    await expect(page.getByTestId("week-primary-cta")).toBeVisible();
+    await expect(page.getByTestId("week-deep-sections")).toBeVisible();
+    await expect(page.getByTestId("week-deep-sections")).toContainText(
       "Неделя требует спокойного темпа и аккуратной расстановки приоритетов.",
     );
+    await expect(page.getByTestId("week-fallback-note")).not.toBeVisible();
 
-    const fetchStart = await waitForTelemetry(telemetry, "week.fetch_start");
-    const fetchSuccess = await waitForTelemetry(telemetry, "week.fetch_success");
+    const briefView = await waitForTelemetry(telemetry, "week.brief_view");
 
-    expect(fetchStart?.payload.surface).toBe("week");
-    expect(fetchStart?.payload.block).toBe("FETCH_WEEK_DATA");
-    expect(fetchStart?.payload.report_type).toBe("week_forecast");
-
-    expect(fetchSuccess?.payload.surface).toBe("week");
-    expect(fetchSuccess?.payload.block).toBe("FETCH_WEEK_DATA");
-    expect(fetchSuccess?.payload.report_type).toBe("week_forecast");
-    expect(fetchSuccess?.payload.status).toBe("completed");
-    expect(fetchSuccess?.payload.section_count).toBe(1);
-    expect(fetchSuccess?.payload.correlation_id).toBeTruthy();
+    expect(briefView?.payload.surface).toBe("week");
+    expect(briefView?.payload.block).toBe("WEEK_BRIEF_VIEW");
+    expect(briefView?.payload.status).toBe("ready");
+    expect(briefView?.payload.sections_count).toBe(1);
+    expect(briefView?.payload.correlation_id).toBeTruthy();
   });
 });

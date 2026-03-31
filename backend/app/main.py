@@ -3988,7 +3988,6 @@ async def get_daily_feed(
                 path=str(request.url.path),
                 auth_mode=auth_mode,
                 reason="telegram_auth_invalid",
-                detail=exc.detail,
             )
 
     debug_enabled = debug or str(x_feed_debug or "").lower() in {"1", "true", "yes", "on"}

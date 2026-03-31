@@ -175,3 +175,36 @@ def test_frontend_mapping_ignores_legacy_deep_sections_strings_for_read_surface_
     assert result["deepSections"][0]["slug"] == "focus"
     assert result["deepSections"][0]["summary"] == "Readable chunk body"
     assert "compatibility-only" not in (result["deepSections"][0]["body_markdown"] or "")
+
+
+def test_frontend_mapping_humanizes_explainability_context_without_losing_telemetry_fields():
+    result = _run_node_mapping(
+        {
+            "weekBrief": {
+                "status": "ready",
+                "summary": {
+                    "headline": "Week headline",
+                    "subhead": "Week subhead",
+                    "theme": "Week theme",
+                    "week_type": "balance",
+                },
+                "major_factors": [
+                    {"id": "factor-1", "label": "Фон недели", "impact": "high", "explanation_human": "Собирайте всё в коротких циклах."}
+                ],
+                "explainability": {
+                    "confidence": 0.81,
+                    "birth_time_used": True,
+                    "factor_count": 3,
+                    "top_signal_source": "transit_natal",
+                },
+            },
+            "latestReportId": "report-77",
+        }
+    )
+
+    assert result["explainability"]["confidence"] == 0.81
+    assert result["explainability"]["birth_time_used"] is True
+    assert result["confidenceLabel"] == "Высокая опора на текущие данные"
+    assert result["confidenceShortLabel"] == "высокая"
+    assert result["birthTimeLabel"] == "учтено точное время рождения"
+    assert result["topSignalLabel"] == "личная натальная опора и текущие транзиты"

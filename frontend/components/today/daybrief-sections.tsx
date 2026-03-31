@@ -1,15 +1,15 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Clock3, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronDown, Clock3, Sparkles } from "lucide-react";
 import { ConsumerPanel, ConsumerStatusBadge } from "../consumer-page-shell";
 import { TrafficLights } from "../TrafficLights";
 import type { DayBriefDto } from "../../lib/day-brief";
 
-const DAY_MODE_COPY: Record<DayBriefDto["summary"]["day_type"], { label: string; description: string; badgeClass: string }> = {
-  push: { label: "День для рывка", description: "Можно двигать подготовленные задачи и фиксировать результат.", badgeClass: "border border-emerald-200 bg-emerald-50 text-emerald-900" },
-  balance: { label: "День в балансе", description: "Держите спокойный ритм и не форсируйте развороты.", badgeClass: "border border-amber-200 bg-amber-50 text-amber-900" },
-  caution: { label: "Осторожный день", description: "Снижайте скорость там, где растёт цена ошибки.", badgeClass: "border border-rose-200 bg-rose-50 text-rose-900" },
-  deep_focus: { label: "Глубокий фокус", description: "Лучше работает один важный блок без переключений.", badgeClass: "border border-indigo-200 bg-indigo-50 text-indigo-900" },
-  recovery: { label: "День на восстановление", description: "Сначала возвращаем ресурс, потом усиливаем действие.", badgeClass: "border border-slate-200 bg-slate-50 text-slate-800" },
+const DAY_MODE_COPY: Record<DayBriefDto["summary"]["day_type"], { label: string; badgeClass: string }> = {
+  push: { label: "День для рывка", badgeClass: "border border-emerald-200 bg-emerald-50 text-emerald-900" },
+  balance: { label: "День в балансе", badgeClass: "border border-amber-200 bg-amber-50 text-amber-900" },
+  caution: { label: "Осторожный день", badgeClass: "border border-rose-200 bg-rose-50 text-rose-900" },
+  deep_focus: { label: "Глубокий фокус", badgeClass: "border border-indigo-200 bg-indigo-50 text-indigo-900" },
+  recovery: { label: "День на восстановление", badgeClass: "border border-slate-200 bg-slate-50 text-slate-800" },
 };
 
 const WINDOW_MODE_COPY = {
@@ -18,8 +18,85 @@ const WINDOW_MODE_COPY = {
   caution: { label: "С осторожностью", className: "border-rose-100 bg-rose-50" },
 } as const;
 
+function formatItemTimeframe(value: string | null | undefined): string | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const map: Record<string, string | null> = {
+    morning: "Утро",
+    afternoon: "День",
+    day: "День",
+    evening: "Вечер",
+    all_day: null,
+    allday: null,
+    all: null,
+    high: null,
+    medium: null,
+    low: null,
+  };
+  if (normalized in map) return map[normalized] ?? null;
+  return /^[a-z0-9_-]+$/.test(normalized) ? null : String(value).trim();
+}
+
+function formatImpact(value: string | null | undefined): string | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return null;
+  const map: Record<string, string | null> = {
+    high: null,
+    medium: null,
+    low: null,
+  };
+  if (normalized in map) return map[normalized] ?? null;
+  return /^[a-z0-9_-]+$/.test(normalized) ? null : String(value).trim();
+}
+
+
+function DetailDisclosure({
+  title,
+  body,
+  factors,
+  testId,
+}: {
+  title?: string | null;
+  body?: string | null;
+  factors?: Array<{ label: string; explanation_human: string; explanation_astro?: string | null; value?: string | null }>;
+  testId: string;
+}) {
+  const normalizedBody = String(body || "").trim();
+  const normalizedFactors = Array.isArray(factors) ? factors.filter((item) => item?.label || item?.explanation_human) : [];
+  if (!normalizedBody && !normalizedFactors.length) return null;
+  return (
+    <details data-testid={testId} className="group mt-4 rounded-[20px] border border-slate-200/80 bg-slate-50/80 p-4 open:border-indigo-200 open:bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-700 marker:content-none">
+        <span>{title || "Почему так"}</span>
+        <ChevronDown size={16} className="text-slate-400 transition group-open:rotate-180" />
+      </summary>
+      {normalizedBody ? <p className="mt-3 text-sm leading-relaxed text-slate-700">{normalizedBody}</p> : null}
+      {normalizedFactors.length ? (
+        <div className="mt-4 grid gap-3">
+          {normalizedFactors.map((factor, index) => (
+            <div key={`${factor.label}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">{factor.label}</p>
+                {factor.value ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{factor.value}</span> : null}
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{factor.explanation_human}</p>
+              {factor.explanation_astro ? <p className="mt-2 text-xs leading-relaxed text-slate-500">{factor.explanation_astro}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+function formatWindowMeta(window: DayBriefDto["windows"][number]): string | null {
+  const parts = [window.start && window.end ? `${window.start}–${window.end}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 export function TodayVerdict({ brief }: { brief: DayBriefDto }) {
   const copy = DAY_MODE_COPY[brief.summary.day_type];
+  const moonContext = brief.context.label || brief.context.moon_phase || null;
   return (
     <section data-testid="today-verdict" className="relative overflow-hidden rounded-[32px] border border-indigo-100 bg-[linear-gradient(145deg,#0f172a_0%,#1e1b4b_55%,#312e81_100%)] p-6 text-white shadow-[0_30px_70px_-45px_rgba(15,23,42,0.85)]">
       <div className="pointer-events-none absolute -left-16 top-6 h-48 w-48 rounded-full bg-amber-300/20 blur-3xl" />
@@ -30,14 +107,12 @@ export function TodayVerdict({ brief }: { brief: DayBriefDto }) {
           <div data-testid="today-day-mode" className={`mt-3 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold ${copy.badgeClass}`}>
             {copy.label}
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-indigo-100/80">{copy.description}</p>
           <h1 className="mt-5 text-2xl font-semibold leading-tight text-white">{brief.summary.headline}</h1>
           <p className="mt-3 text-base leading-relaxed text-white/85">{brief.summary.subhead}</p>
         </div>
-        <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 text-center shadow-lg shadow-slate-950/20">
+        <div data-testid="today-moon-context" className="rounded-[24px] border border-white/20 bg-white/10 p-4 text-center shadow-lg shadow-slate-950/20 sm:max-w-[220px]">
           <div className="text-4xl" aria-hidden>{brief.context.moon_emoji || "🌙"}</div>
-          <p className="mt-3 text-sm font-black text-white">{brief.context.moon_sign || "Лунный фон"}</p>
-          <p className="text-xs text-white/70">{brief.context.label || brief.context.moon_phase || "Персональный контекст дня"}</p>
+          {moonContext ? <p className="mt-3 text-sm leading-relaxed text-white/85">{moonContext}</p> : <p className="mt-3 text-sm leading-relaxed text-white/85">Персональный контекст дня</p>}
         </div>
       </div>
     </section>
@@ -66,6 +141,12 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
             />
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
+          <DetailDisclosure
+            testId={`today-score-details-${score.key}`}
+            title={score.details?.why_title || "Почему такой ритм"}
+            body={score.details?.why_text}
+            factors={score.details?.supporting_factors}
+          />
         </button>
       ))}
     </section>
@@ -89,20 +170,30 @@ export function TodayWindows({ brief }: { brief: DayBriefDto }) {
         Временные окна
       </div>
       <div className="mt-4 grid gap-3">
-        {brief.windows.length ? brief.windows.map((window) => {
-          const copy = WINDOW_MODE_COPY[window.mode];
+        {brief.windows.map((window) => {
+          const modeCopy = WINDOW_MODE_COPY[window.mode];
+          const meta = formatWindowMeta(window);
           return (
-            <article key={window.id} className={`rounded-[22px] border p-4 ${copy.className}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-900">{window.label}</p>
-                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{window.start}–{window.end}</span>
+            <article key={window.id} className={`rounded-[24px] border p-4 shadow-sm ${modeCopy.className}`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{window.label}</p>
+                  {meta ? <p className="mt-1 text-xs text-slate-500">{meta}</p> : null}
+                </div>
+                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700">{modeCopy.label}</span>
               </div>
-              <p className="mt-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">{copy.label}</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{window.advice}</p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-700">{window.advice}</p>
+              <DetailDisclosure
+                testId={`today-window-details-${window.id}`}
+                title="Почему окно такое"
+                body={window.details?.why_text}
+                factors={window.details?.supporting_factors}
+              />
             </article>
           );
-        }) : (
-          <p className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">Явных окон нет — держите общий ритм дня без резких разворотов.</p>
+        })}
+        {!brief.windows.length && (
+          <p className="text-sm text-slate-500">Сегодня лучше держать ровный ритм без резких разворотов.</p>
         )}
       </div>
     </ConsumerPanel>
@@ -117,15 +208,26 @@ function ItemList({ title, testId, items, icon }: { title: string; testId: strin
         {title}
       </div>
       <div className="mt-4 grid gap-3">
-        {items.map((item) => (
-          <article key={item.id} className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm leading-relaxed text-slate-700">{item.text}</p>
-              {item.impact ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">{item.impact}</span> : null}
-            </div>
-            {item.timeframe ? <p className="mt-2 text-xs text-slate-400">{item.timeframe}</p> : null}
-          </article>
-        ))}
+        {items.map((item) => {
+          const impact = formatImpact(item.impact);
+          const timeframe = formatItemTimeframe(item.timeframe);
+          const detailTestId = icon === "risk" ? `today-risks-details-${item.id}` : `today-actions-details-${item.id}`;
+          return (
+            <article key={item.id} className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm leading-relaxed text-slate-700">{item.text}</p>
+                {impact ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">{impact}</span> : null}
+              </div>
+              {timeframe ? <p className="mt-2 text-xs text-slate-400">{timeframe}</p> : null}
+              <DetailDisclosure
+                testId={detailTestId}
+                title={icon === "risk" ? "Почему это важно" : "Почему это в приоритете"}
+                body={item.why_text}
+                factors={item.supporting_factors}
+              />
+            </article>
+          );
+        })}
       </div>
     </ConsumerPanel>
   );
@@ -146,7 +248,7 @@ export function TodayExplainability({ brief }: { brief: DayBriefDto }) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Почему такой день</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">{brief.explainability.birth_time_used ? "Точное время рождения учтено" : "Без точного времени рождения — с мягкой поправкой на неопределённость"}</p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">Ключевые сигналы дня собраны в короткий персональный вывод.</p>
         </div>
         <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-right">
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Уверенность</p>
@@ -155,8 +257,6 @@ export function TodayExplainability({ brief }: { brief: DayBriefDto }) {
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">Факторов: {brief.explainability.factor_count}</span>
-        {brief.explainability.timing_precision ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">Точность: {brief.explainability.timing_precision}</span> : null}
-        {brief.explainability.top_signal_source ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">Источник: {brief.explainability.top_signal_source}</span> : null}
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {brief.personalized_factors.slice(0, 3).map((factor) => (
@@ -172,7 +272,7 @@ export function TodayExplainability({ brief }: { brief: DayBriefDto }) {
 
 export function TodayCtaPanel({ brief, onCta }: { brief: DayBriefDto; onCta: (ctaId: string, href: string, entryPoint: string, block: string) => void }) {
   const primary = brief.cta?.primary ?? { type: "open_week", label: "Открыть неделю", href: "/week" };
-  const secondary = brief.cta?.secondary ?? { type: "open_premium", label: "Открыть premium", href: "/reports" };
+  const secondary = brief.cta?.secondary ?? { type: brief.premium?.subscription_active ? "open_history" : "open_premium", label: brief.premium?.subscription_active ? "История разборов" : "Открыть premium", href: brief.premium?.subscription_active ? "/reports/history" : "/reports" };
 
   return (
     <ConsumerPanel data-testid="today-cta-panel" className="p-5 sm:p-6">

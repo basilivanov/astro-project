@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from backend.app.services.day_brief import build_day_brief_fallback, build_day_brief_payload
 from backend.app.services.day_brief_types import DayBrief
+from backend.app.services.day_brief_validators import validate_day_brief_payload
 
 
 def _sample_facts() -> dict:
@@ -107,3 +108,45 @@ def test_day_brief_json_schema_matches_contract_artifact() -> None:
     assert contract["properties"]["scores"]["items"]["$ref"] == "#/$defs/DayScore"
     assert contract["properties"]["explainability"]["$ref"] == "#/$defs/Explainability"
 
+
+def test_day_brief_validator_rejects_partial_required_contract() -> None:
+    payload = build_day_brief_fallback(
+        datetime(2026, 3, 27, 6, 0, tzinfo=timezone.utc),
+        general_vibe="Сегодня лучше держать короткий фокус и один главный шаг.",
+        generation_mode="fallback",
+        reason="partial-contract",
+    )
+
+    del payload["summary"]["headline"]
+
+    try:
+        validate_day_brief_payload(payload)
+    except Exception as exc:
+        assert "headline" in str(exc)
+    else:
+        raise AssertionError("validator must fail when required summary fields are missing")
+
+
+def test_day_brief_validator_repairs_unknown_nested_keys_without_contract_drift() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        general_vibe="День просит коротких циклов и ясной фиксации главного.",
+        generation_mode="llm",
+    )
+    payload["unexpected"] = {"debug": True}
+    payload["summary"]["extra_copy"] = "noise"
+    payload["context"]["shadow"] = "noise"
+    payload["explainability"]["llm_notes"] = ["noise"]
+    payload["legacy"]["extra"] = "noise"
+
+    model = validate_day_brief_payload(payload)
+
+    dumped = model.model_dump(mode="json", exclude_none=True)
+    assert "unexpected" not in dumped
+    assert "extra_copy" not in dumped["summary"]
+    assert "shadow" not in dumped["context"]
+    assert "llm_notes" not in dumped["explainability"]
+    assert "extra" not in dumped["legacy"]
+    assert dumped["summary"]["headline"]
+    assert dumped["version"] == "day_brief_v1"

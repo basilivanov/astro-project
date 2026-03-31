@@ -1,0 +1,84 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-03-31" slice_id="SLICE-WEEK-UI-EXECUTION">
+  <phase id="PHASE-WEEK-UI-STABILIZE">
+    <goal>Keep `/week` as a strict WeekBrief-driven top layer with explicit state boundaries, explainability coordinates, and safe execution scope.</goal>
+
+    <wave id="WAVE-WEEK-STATE-AND-STRUCTURE-FIRST">
+      <goal>Stabilize top-layer Week surface structure and state boundaries before any copy/detail refinements.</goal>
+      <module_ref id="M-WEEK-BRIEF-SERVICE" />
+      <module_ref id="M-WEEK-MAP" />
+      <module_ref id="M-FRONTEND-WEEK" />
+      <allowed_write_scope>
+        <file>frontend/app/week/page.tsx</file>
+        <file>frontend/components/week/*</file>
+        <file>frontend/lib/week-brief.ts</file>
+        <file>frontend/e2e/week-live.spec.ts</file>
+        <file>frontend/e2e/week-page-fallback.spec.ts</file>
+        <file>frontend/e2e/week-fallback.regression.spec.ts</file>
+        <file>frontend/e2e/week-home-refresh.regression.spec.ts</file>
+        <file>backend/app/services/week_brief_service.py</file>
+        <file>backend/app/services/week_map.py</file>
+        <file>backend/app/main.py</file>
+        <file>tests/*week*</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>frontend/app/page.tsx</file>
+        <file>frontend/components/today/*</file>
+        <file>frontend/app/read/*</file>
+        <file>frontend/app/history/*</file>
+        <file>frontend/app/profile/*</file>
+        <file>backend/app/services/day_brief*</file>
+        <file>billing/*</file>
+        <file>infra/*</file>
+      </frozen_scope>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+        <command>./scripts/run_e2e.sh e2e/week-home-refresh.regression.spec.ts</command>
+        <command>./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Week screen remains driven by `WeekBrief` adapter semantics.</criterion>
+        <criterion>Loading, error, ready, in-progress, fallback, and CTA states are explicit and non-conflicting.</criterion>
+        <criterion>Fallback path never leaks raw payload or crashes the page.</criterion>
+        <criterion>Primary CTA resolves correctly for both report and premium/create cases.</criterion>
+      </acceptance_criteria>
+    </wave>
+
+    <wave id="WAVE-WEEK-EXPLAINABILITY-AND-POLISH-NEXT">
+      <goal>Refine explainability and visible block mapping without broadening into new product behavior.</goal>
+      <module_ref id="M-WEEK-BRIEF-SERVICE" />
+      <module_ref id="M-FRONTEND-WEEK" />
+      <allowed_write_scope>
+        <file>frontend/app/week/page.tsx</file>
+        <file>frontend/components/week/*</file>
+        <file>frontend/lib/week-brief.ts</file>
+        <file>frontend/e2e/week-live.spec.ts</file>
+        <file>frontend/e2e/week-home-refresh.regression.spec.ts</file>
+        <file>backend/app/services/week_brief_service.py</file>
+        <file>tests/*week*</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>frontend/app/page.tsx</file>
+        <file>frontend/app/read/*</file>
+        <file>frontend/app/history/*</file>
+        <file>backend/app/services/day_brief*</file>
+        <file>backend/app/services/access_control.py</file>
+      </frozen_scope>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+        <command>./scripts/run_e2e.sh e2e/week-live.spec.ts</command>
+        <command>./scripts/run_e2e.sh e2e/week-home-refresh.regression.spec.ts -g "week|fallback|report"</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Hero/theme, day cards, domains, major factors, and fallback note all map to stable DTO fields.</criterion>
+        <criterion>Explainability stays bounded and premium; no raw technical labels appear in user-visible blocks.</criterion>
+        <criterion>Telemetry-facing confidence/birth-time semantics remain intact after UI refinement.</criterion>
+        <criterion>Deep report markdown remains a separate secondary/read layer.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Any new business logic for week scoring, ranking, or personalization beyond current deterministic services.</item>
+        <item>Cross-surface CTA/banner redesign across history/read/catalog.</item>
+        <item>Full-regression release sign-off beyond Week slice verification profile.</item>
+      </deferred_work>
+    </wave>
+  </phase>
+</development_plan_slice>

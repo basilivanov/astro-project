@@ -150,6 +150,10 @@ export type WeekSurfaceModel = {
   factors: NonNullable<WeekBrief["major_factors"]>;
   deepSections: NonNullable<WeekBrief["deep_sections"]>;
   explainability: NonNullable<WeekBrief["explainability"]>;
+  confidenceLabel: string | null;
+  confidenceShortLabel: string | null;
+  birthTimeLabel: string;
+  topSignalLabel: string | null;
   cta: NonNullable<WeekBrief["cta"]>;
   sectionsCount: number;
   waitMessage: string | null;
@@ -274,6 +278,12 @@ export function mapWeekReportToWeekBrief(input: {
       top_signal_source: brief?.explainability?.top_signal_source ?? null,
       explanation_depth: brief?.explainability?.explanation_depth ?? null,
     },
+    confidenceLabel: humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
+    confidenceShortLabel: humanizeConfidenceShort(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
+    birthTimeLabel: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
+      ? "учтено точное время рождения"
+      : "без точного времени рождения",
+    topSignalLabel: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null),
     cta: {
       primary: brief?.cta?.primary ?? null,
       secondary: brief?.cta?.secondary ?? null,
@@ -339,6 +349,35 @@ export function confidenceBucket(confidence?: number | null): "low" | "medium" |
   if (confidence >= 0.75) return "high";
   if (confidence >= 0.45) return "medium";
   return "low";
+}
+
+function humanizeConfidence(confidence?: number | null): string | null {
+  const bucket = confidenceBucket(confidence);
+  if (bucket === "high") return "Высокая опора на текущие данные";
+  if (bucket === "medium") return "Хорошая опора на текущие данные";
+  if (bucket === "low") return "Ориентир предварительный";
+  return null;
+}
+
+function humanizeConfidenceShort(confidence?: number | null): string | null {
+  const bucket = confidenceBucket(confidence);
+  if (bucket === "high") return "высокая";
+  if (bucket === "medium") return "хорошая";
+  if (bucket === "low") return "предварительная";
+  return null;
+}
+
+function humanizeTopSignalSource(value?: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  const labels: Record<string, string> = {
+    transit_natal: "личная натальная опора и текущие транзиты",
+    natal_transit: "личная натальная опора и текущие транзиты",
+    transits: "текущие транзиты",
+    natal: "натальная карта",
+    timing: "тайминг недели",
+  };
+  return labels[normalized] ?? null;
 }
 
 function parseIsoDate(value?: string | null): Date | null {
