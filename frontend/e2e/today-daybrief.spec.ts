@@ -7,6 +7,17 @@ async function readAnalytics(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => (window as Window & typeof globalThis & { __analyticsEvents?: AnalyticsEvent[] }).__analyticsEvents ?? []);
 }
 
+async function bootstrapTelegramMobile(page: Parameters<typeof test>[0]["page"], options?: Parameters<typeof bootstrapMockTelegram>[1]) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await bootstrapMockTelegram(page, options);
+}
+
+async function mobileActivate(locator: ReturnType<Parameters<typeof test>[0]["page"]["locator"]>) {
+  await locator.dispatchEvent('touchstart');
+  await locator.dispatchEvent('touchend');
+  await locator.click();
+}
+
 test.describe("Today DayBrief surface", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -241,7 +252,7 @@ test("removes duplicated hero and raw technical tags from today surface", async 
 
 
 test("today explainability disclosures open for scores, windows, and risks", async ({ page }) => {
-  await bootstrapMockTelegram(page, {
+  await bootstrapTelegramMobile(page, {
     feedState: "ready",
     profileOverride: {
       full_name: "Debug User",
@@ -266,14 +277,128 @@ test("today explainability disclosures open for scores, windows, and risks", asy
     },
   });
   await page.goto('/');
+  await expectNoCrash(page);
   await expect(page.getByTestId('today-score-energy')).toBeVisible();
   await page.getByTestId('today-score-details-energy').locator('summary').click();
+  await expect(page.getByTestId('today-score-details-energy')).toHaveAttribute('open', '');
   await expect(page.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
   await page.getByTestId('today-window-details-w1').locator('summary').click();
+  await expect(page.getByTestId('today-window-details-w1')).toHaveAttribute('open', '');
   await expect(page.getByTestId('today-window-details-w1')).toContainText('Утро держит ровную концентрацию');
   await page.getByTestId('today-risks-details-r1').locator('summary').click();
+  await expect(page.getByTestId('today-risks-details-r1')).toHaveAttribute('open', '');
   await expect(page.getByTestId('today-risks-details-r1')).toContainText('Риск проявляется, когда день пытаются пройти силой');
   await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
+});
+
+test("ready home screen renders TodayVerdict first and no legacy white hero above it", async ({ page }) => {
+  await bootstrapTelegramMobile(page, {
+    feedState: "ready",
+    profileOverride: {
+      full_name: "Debug User",
+      birth_date: "2000-01-01",
+      subscription_active_until: "2026-04-15T00:00:00.000Z",
+    },
+    feedOverride: {
+      day_brief: {
+        version: "day_brief_v1",
+        date: "2026-03-31",
+        personalization_level: "personal",
+        fallback_mode: false,
+        summary: {
+          headline: "Вердикт дня: держите фокус узким.",
+          subhead: "Спокойный темп и короткие решения проходят лучше всего.",
+          day_type: "deep_focus",
+        },
+        context: { moon_emoji: "🌙", label: "Луна в Деве" },
+        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Соберите день вокруг одного приоритета." }],
+        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Закройте главное до обеда." }],
+        best_uses: [{ id: "a1", text: "Сделать один глубокий блок", impact: "high", timeframe: "morning" }],
+        risks: [{ id: "r1", text: "Не распыляйтесь на мелочи", impact: "medium", timeframe: "morning" }],
+        personalized_factors: [{ id: "f1", label: "Собранный фон", explanation_human: "День поддерживает точность и аккуратность." }],
+        explainability: { confidence: 0.84, birth_time_used: true, factor_count: 5 },
+      },
+    },
+  });
+
+  await page.goto('/');
+  await expectNoCrash(page);
+
+  const verdict = page.getByTestId('today-verdict');
+  await expect(verdict).toBeVisible();
+  await expect(verdict).toContainText('Вердикт дня');
+  const topSlice = page.locator('main > div').first();
+  await expect(topSlice.locator('section').first()).toHaveAttribute('data-testid', 'today-verdict');
+  await expect(topSlice.locator('h1')).toHaveCount(1);
+
+  const firstSectionTestId = await page.locator('main [data-testid]').evaluateAll((nodes) => {
+    const section = nodes.find((node) => {
+      const value = node.getAttribute('data-testid');
+      return value && !['home-feed-page', 'consumer-page-shell-content'].includes(value);
+    });
+    return section?.getAttribute('data-testid') ?? null;
+  });
+
+  expect(firstSectionTestId).toBe('today-verdict');
+});
+
+test("today disclosures open on mobile via realistic tap path", async ({ page }) => {
+  await bootstrapTelegramMobile(page, {
+    feedState: "ready",
+    profileOverride: {
+      full_name: "Debug User",
+      birth_date: "2000-01-01",
+      subscription_active_until: "2026-04-15T00:00:00.000Z",
+    },
+    feedOverride: {
+      day_brief: {
+        version: "day_brief_v1",
+        date: "2026-03-31",
+        personalization_level: "personal",
+        fallback_mode: false,
+        summary: { headline: "День любит точность", subhead: "Идите короткими спокойными шагами.", day_type: "balance" },
+        context: { moon_emoji: "🌙", label: "Луна в Деве" },
+        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, если не рвать темп.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс раскрывается через аккуратную подачу.", supporting_factors: [{ label: "Луна в Деве", explanation_human: "Точность и ритм работают лучше рывка.", value: "Сильный сигнал" }] } }],
+        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Ставьте сюда важное.", details: { why_text: "Утро держит ровную концентрацию.", supporting_factors: [{ label: "Ровный фон", explanation_human: "Шума меньше, внимание стабильнее.", value: "Умеренный сигнал" }] } }],
+        best_uses: [{ id: "a1", text: "Закрыть один глубокий блок", impact: "high", timeframe: "morning", why_text: "Утро лучше всего держит длинную линию внимания.", supporting_factors: [{ label: "Фокус", explanation_human: "Собранность повышается, когда задача одна.", value: "Сильный сигнал" }] }],
+        risks: [{ id: "r1", text: "Не форсируйте разговоры", impact: "medium", timeframe: "morning", why_text: "Риск проявляется, когда день проходят через давление.", supporting_factors: [{ label: "Перегруз темпа", explanation_human: "Спешка дробит внимание и тон.", value: "Мягкий сигнал" }] }],
+        personalized_factors: [{ id: "f1", label: "Собранный фон", explanation_human: "Лучше работает дозированный ритм." }],
+        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
+      },
+    },
+  });
+
+  await page.goto('/');
+  await expectNoCrash(page);
+
+  const scoreDisclosure = page.getByTestId('today-score-details-energy');
+  const actionDisclosure = page.getByTestId('today-actions-details-a1');
+  const riskDisclosure = page.getByTestId('today-risks-details-r1');
+  const windowDisclosure = page.getByTestId('today-window-details-w1');
+
+  await expect(scoreDisclosure).toBeInViewport();
+  await expect(scoreDisclosure).not.toHaveAttribute('open', '');
+  await mobileActivate(scoreDisclosure.locator('summary'));
+  await expect(scoreDisclosure).toHaveAttribute('open', '');
+  await expect(scoreDisclosure).toContainText('Ресурс раскрывается через аккуратную подачу');
+
+  await windowDisclosure.scrollIntoViewIfNeeded();
+  await expect(windowDisclosure).toBeInViewport();
+  await mobileActivate(windowDisclosure.locator('summary'));
+  await expect(windowDisclosure).toHaveAttribute('open', '');
+  await expect(windowDisclosure).toContainText('Утро держит ровную концентрацию');
+
+  await actionDisclosure.scrollIntoViewIfNeeded();
+  await expect(actionDisclosure).toBeInViewport();
+  await mobileActivate(actionDisclosure.locator('summary'));
+  await expect(actionDisclosure).toHaveAttribute('open', '');
+  await expect(actionDisclosure).toContainText('Утро лучше всего держит длинную линию внимания');
+
+  await riskDisclosure.scrollIntoViewIfNeeded();
+  await expect(riskDisclosure).toBeInViewport();
+  await mobileActivate(riskDisclosure.locator('summary'));
+  await expect(riskDisclosure).toHaveAttribute('open', '');
+  await expect(riskDisclosure).toContainText('Риск проявляется, когда день проходят через давление');
 });
 
 
@@ -315,6 +440,7 @@ test("today score disclosure stays outside the analytics button and duplicate wi
   await scoreCard.getByRole('button', { name: 'Энергия: 72' }).click();
 
   await scoreCard.getByTestId('today-score-details-energy').locator('summary').click();
+  await expect(scoreCard.getByTestId('today-score-details-energy')).toHaveAttribute('open', '');
   await expect(scoreCard.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
 
   const windows = page.getByTestId('today-windows');
