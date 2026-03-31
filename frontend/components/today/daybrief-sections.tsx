@@ -94,6 +94,23 @@ function formatWindowMeta(window: DayBriefDto["windows"][number]): string | null
   return parts.length ? parts.join(" · ") : null;
 }
 
+function normalizeSemanticLabel(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shouldShowWindowModeBadge(window: DayBriefDto["windows"][number]): boolean {
+  const modeLabel = normalizeSemanticLabel(WINDOW_MODE_COPY[window.mode].label);
+  const windowLabel = normalizeSemanticLabel(window.label);
+  if (!windowLabel) return true;
+  return !windowLabel.includes(modeLabel) && !modeLabel.includes(windowLabel);
+}
+
 export function TodayVerdict({ brief }: { brief: DayBriefDto }) {
   const copy = DAY_MODE_COPY[brief.summary.day_type];
   const moonContext = brief.context.label || brief.context.moon_phase || null;
@@ -123,43 +140,39 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
   return (
     <section className="grid gap-3 sm:grid-cols-2" aria-label="Day brief scores">
       {brief.scores.map((score) => (
-        <button
+        <article
           key={score.key}
-          type="button"
           data-testid={`today-score-${score.key}`}
           className="rounded-[24px] border border-slate-200 bg-white/90 p-4 text-left shadow-sm transition hover:border-indigo-200 hover:shadow-md"
-          onClick={() => onScoreTap(score.key, score.value)}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{score.title}</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-900">{score.value}</p>
+          <button
+            type="button"
+            className="block w-full text-left"
+            aria-label={`${score.title}: ${score.value}`}
+            onClick={() => onScoreTap(score.key, score.value)}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{score.title}</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">{score.value}</p>
+              </div>
+              <ConsumerStatusBadge
+                label={score.status === "green" ? "Сильная зона" : score.status === "red" ? "Зона риска" : "Нужна аккуратность"}
+                tone={score.status === "green" ? "emerald" : score.status === "red" ? "rose" : "amber"}
+              />
             </div>
-            <ConsumerStatusBadge
-              label={score.status === "green" ? "Сильная зона" : score.status === "red" ? "Зона риска" : "Нужна аккуратность"}
-              tone={score.status === "green" ? "emerald" : score.status === "red" ? "rose" : "amber"}
-            />
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
+          </button>
           <DetailDisclosure
             testId={`today-score-details-${score.key}`}
             title={score.details?.why_title || "Почему такой ритм"}
             body={score.details?.why_text}
             factors={score.details?.supporting_factors}
           />
-        </button>
+        </article>
       ))}
     </section>
   );
-}
-
-export function TodayLegacyTrafficLights({ brief }: { brief: DayBriefDto }) {
-  const lights = {
-    health: brief.scores.find((item) => item.key === "energy")?.status ?? "yellow",
-    money: brief.scores.find((item) => item.key === "money")?.status ?? "yellow",
-    love: brief.scores.find((item) => item.key === "love")?.status ?? "yellow",
-  };
-  return <TrafficLights lights={lights} personalizationLevel={brief.personalization_level} />;
 }
 
 export function TodayWindows({ brief }: { brief: DayBriefDto }) {
@@ -180,7 +193,7 @@ export function TodayWindows({ brief }: { brief: DayBriefDto }) {
                   <p className="text-sm font-semibold text-slate-900">{window.label}</p>
                   {meta ? <p className="mt-1 text-xs text-slate-500">{meta}</p> : null}
                 </div>
-                <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700">{modeCopy.label}</span>
+                {shouldShowWindowModeBadge(window) ? <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700">{modeCopy.label}</span> : null}
               </div>
               <p className="mt-3 text-sm leading-relaxed text-slate-700">{window.advice}</p>
               <DetailDisclosure

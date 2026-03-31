@@ -275,3 +275,52 @@ test("today explainability disclosures open for scores, windows, and risks", asy
   await expect(page.getByTestId('today-risks-details-r1')).toContainText('Риск проявляется, когда день пытаются пройти силой');
   await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
 });
+
+
+test("today score disclosure stays outside the analytics button and duplicate window meaning is hidden", async ({ page }) => {
+  await bootstrapMockTelegram(page, {
+    feedState: "ready",
+    profileOverride: {
+      full_name: "Debug User",
+      birth_date: "2000-01-01",
+      subscription_active_until: "2026-04-15T00:00:00.000Z",
+    },
+    feedOverride: {
+      day_brief: {
+        version: "day_brief_v1",
+        date: "2026-03-31",
+        personalization_level: "personal",
+        fallback_mode: false,
+        summary: { headline: "День любит точность", subhead: "Лучше идти через ясный ритм и дозировку.", day_type: "balance" },
+        context: { moon_emoji: "🌙", label: "Луна в Деве" },
+        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, но лучше дозировать их точно.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс есть, но он лучше раскрывается через точную подачу, а не через рывок." } }],
+        windows: [
+          { id: "best-window", start: "09:00", end: "11:00", label: "Лучшее окно", mode: "best", advice: "Ставьте сюда всё, что требует собранности." },
+          { id: "soft-window", start: "14:00", end: "16:00", label: "Фокусное окно", mode: "best", advice: "В это время всё ещё удобно держать темп." }
+        ],
+        best_uses: [],
+        risks: [],
+        personalized_factors: [],
+        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
+      },
+    },
+  });
+
+  await page.goto('/');
+  const scoreCard = page.getByTestId('today-score-energy');
+  await expect(scoreCard.locator('details')).toHaveCount(1);
+  await expect(scoreCard.locator('button')).toHaveCount(1);
+  await expect(scoreCard.locator('button details, button summary')).toHaveCount(0);
+
+  await scoreCard.getByRole('button', { name: 'Энергия: 72' }).click();
+
+  await scoreCard.getByTestId('today-score-details-energy').locator('summary').click();
+  await expect(scoreCard.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
+
+  const windows = page.getByTestId('today-windows');
+  await expect(windows).toContainText('Лучшее окно');
+  await expect(windows.locator('span', { hasText: 'Лучшее окно' })).toHaveCount(1);
+  await expect(windows.locator('span', { hasText: 'Лучшее окно' }).nth(0)).toBeVisible();
+  await expect(windows).toContainText('Фокусное окно');
+  await expect(windows.locator('span', { hasText: 'Лучшее окно' })).toHaveCount(1);
+});
