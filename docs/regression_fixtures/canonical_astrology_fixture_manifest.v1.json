@@ -1,0 +1,144 @@
+{
+  "manifest_id": "canonical-astrology-fixtures-v1",
+  "phase": "phase-1-design",
+  "status": "draft-ready",
+  "owners": ["architect/docs worker", "backend qa", "frontend qa"],
+  "purpose": "Define a small canonical synthetic fixture pack for deterministic astrology regression coverage before product-level fixture plumbing lands.",
+  "adoption": {
+    "backend": [
+      "Use as the source of truth for future deterministic report-generation, chart-serialization, and context-building fixtures.",
+      "Bind fixture ids to pytest parametrization and benchmark packs instead of copying inline payloads."
+    ],
+    "frontend": [
+      "Use fixture ids to seed Playwright/report-read demo data and stable screenshots.",
+      "Prefer scenario labels and invariant classes from this manifest for E2E naming and evidence packets."
+    ]
+  },
+  "global_rules": {
+    "synthetic_only": true,
+    "canonical_time_policy": "All local timestamps are explicit. Unknown-time fixture intentionally records local input date plus a canonical midday fallback expectation.",
+    "house_system_policy": "Manifest records the intended primary house-system coverage goal per fixture; runtime may compare Placidus vs Whole Sign where stated.",
+    "privacy_policy": "Names, coordinates, and notes are synthetic and repo-safe.",
+    "phase_1_constraint": "No product behavior is changed by this manifest; it is a fixture contract for later backend/frontend wiring."
+  },
+  "fixtures": [
+    {
+      "id": "CF-BE-001-baseline-exact-time",
+      "slug": "baseline-exact-time",
+      "persona_name": "Ava Meridian",
+      "type": "natal",
+      "purpose": "Stable exact-time control fixture for end-to-end natal report generation, serialization, and read-surface regressions.",
+      "canonical_inputs": {
+        "client_name": "Ava Meridian",
+        "birth_date_local": "1992-08-14T06:32:00",
+        "birth_time_known": true,
+        "birth_location": "London, UK",
+        "birth_lat": 51.5074,
+        "birth_lon": -0.1278,
+        "birth_timezone": "Europe/London",
+        "house_system_default": "placidus",
+        "report_types": ["natal_master"],
+        "include_fixed_stars_default": false,
+        "is_test": true
+      },
+      "guards": [
+        "chart serialization normalization remains stable for a normal exact-time natal path",
+        "report context preserves explicit birth_time_known=true semantics",
+        "read/report surfaces keep deterministic section availability and basic factual shape",
+        "benchmark reruns retain a clean representative exact-time natal control"
+      ],
+      "invariant_classes": [
+        "datetime-normalization",
+        "timezone-roundtrip",
+        "placidus-baseline-chart-shape",
+        "report-context-contract",
+        "serialization-contract",
+        "read-surface-regression"
+      ],
+      "future_test_targets": [
+        "tests/test_report_context.py",
+        "tests/test_chart_serialization_normalization.py",
+        "tests/verify_natal_generation.py",
+        "docs/benchmark_manifests/*"
+      ]
+    },
+    {
+      "id": "CF-WS-002-whole-sign-edge",
+      "slug": "whole-sign-edge",
+      "persona_name": "Mira North",
+      "type": "natal",
+      "purpose": "High-latitude edge fixture that canonically exercises Whole Sign fallback/selection and protects house-system-sensitive regressions.",
+      "canonical_inputs": {
+        "client_name": "Mira North",
+        "birth_date_local": "1980-10-30T19:50:00",
+        "birth_time_known": true,
+        "birth_location": "Monchegorsk, RU",
+        "birth_lat": 67.9387,
+        "birth_lon": 32.9241,
+        "birth_timezone": "Europe/Moscow",
+        "house_system_default": "placidus",
+        "house_system_expected_safe_mode": "whole_sign",
+        "report_types": ["natal_master"],
+        "include_fixed_stars_default": false,
+        "is_test": true
+      },
+      "guards": [
+        "high-latitude workflows expose the expected Whole Sign-safe behavior or warning contour",
+        "timezone and location evidence remain visible in input/read surfaces for edge geographies",
+        "backend/frontend paths do not silently regress into broken or misleading house calculations",
+        "existing high-latitude verification remains anchored to a canonical synthetic case"
+      ],
+      "invariant_classes": [
+        "high-latitude-safety",
+        "whole-sign-fallback-or-selection",
+        "house-system-disclosure",
+        "timezone-display",
+        "input-frame-regression"
+      ],
+      "future_test_targets": [
+        "tests/verify_high_lat.py",
+        "tests/test_report_context.py",
+        "frontend E2E read/report fixture seeding"
+      ]
+    },
+    {
+      "id": "CF-BTU-003-birth-time-unknown",
+      "slug": "birth-time-unknown",
+      "persona_name": "Noon Vale",
+      "type": "natal",
+      "purpose": "Canonical unknown-birth-time fixture for cosmogram-style flows, protecting midday fallback and reduced-certainty UI/report contracts.",
+      "canonical_inputs": {
+        "client_name": "Noon Vale",
+        "birth_date_local": "1990-01-01T05:00:00",
+        "birth_time_known": false,
+        "birth_location": "Moscow, RU",
+        "birth_lat": 55.75,
+        "birth_lon": 37.61,
+        "birth_timezone": "Europe/Moscow",
+        "canonical_midday_local_fallback": "12:00:00",
+        "house_system_default": "placidus",
+        "report_types": ["natal_master"],
+        "include_fixed_stars_default": false,
+        "is_test": true
+      },
+      "guards": [
+        "unknown-time payloads preserve birth_time_known=false through chart and report context building",
+        "cosmogram/midday fallback remains deterministic and inspectable",
+        "frontend/backend surfaces can distinguish exact-time vs unknown-time confidence semantics",
+        "future fixtures do not accidentally encode guessed birth time as known data"
+      ],
+      "invariant_classes": [
+        "birth-time-known-flag-contract",
+        "midday-fallback-normalization",
+        "cosmogram-chart-shape",
+        "reduced-certainty-copy-contract",
+        "unknown-time-read-surface-regression"
+      ],
+      "future_test_targets": [
+        "tests/test_cosmogram.py",
+        "tests/test_report_context.py",
+        "future report/read fixture snapshots"
+      ]
+    }
+  ]
+}

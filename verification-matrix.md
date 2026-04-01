@@ -1,5 +1,7 @@
 # Verification Matrix
 
+> Legacy root verification matrix. Prefer `docs/REGRESSION_MAP.md` for the durable global regression map and use packet-local `verification-matrix*.md` files for active slice detail. This file remains for snapshot-specific continuity.
+
 Snapshot boundary: commit 0cba3cf07ea563306bdd6e887d7b9256c3edc190 tagged prod-release-20260327 (worktree_state=dirty). Controller packet DAY_WEEK_TASK_PACKET.md governs current waves; reruns MUST finish on this snapshot or register a new snapshot tag.
 
 ## Baseline Profiles

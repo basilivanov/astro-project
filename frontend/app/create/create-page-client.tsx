@@ -851,6 +851,14 @@ function CreatePageContent() {
         description: `Оплата: ${meta?.label || type}`,
         is_recurring: !isHorary && !isReportUnlockCheckout,
         product_type: isReportUnlockCheckout ? type : isHorary ? "horary" : "subscription",
+        consent_flow: "create_checkout",
+        consent_accepted: true,
+        legal_versions: {
+          terms: "offer_terms_ru_2026-04-01",
+          privacy: "privacy_policy_ru_2026-04-01",
+          data_processing: "data_processing_consent_ru_2026-04-01",
+          payments: "payments_refunds_ru_2026-04-01",
+        },
       };
 
       if (isReportUnlockCheckout) {
@@ -1361,7 +1369,7 @@ function CreatePageContent() {
                 {shouldShowOneOffReportUnlockPaywall
                   ? "Разовая разблокировка"
                   : isSubscriptionProduct
-                    ? "Доступ по подписке"
+                    ? "Разовый доступ"
                     : "Разовая покупка"}
               </p>
               <p className="mt-2 text-lg font-bold text-slate-800">{meta?.label || type}</p>
@@ -1374,7 +1382,7 @@ function CreatePageContent() {
               className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-sm"
             >
               <p className="text-sm font-semibold text-slate-800">
-                В этом slice разбор идет не через подписку, а через один разовый unlock.
+                В этом slice разбор открывается одной разовой оплатой без подписки и trial.
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
                 После оплаты доступ останется на аккаунте до момента, когда вы реально запустите генерацию отчёта.
@@ -1386,7 +1394,7 @@ function CreatePageContent() {
               className="rounded-3xl border border-purple-100 bg-white p-5 shadow-sm"
             >
               <p className="text-sm font-semibold text-slate-800">
-                Этот разбор сейчас открывается через подписку.
+                Этот разбор в текущем публичном контуре оформляется как разовая покупка.
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-500">
                 После оплаты откроются персональные разборы: Натал, Неделя, Месяц, Год, Соляр и Совместимость.
@@ -1414,7 +1422,7 @@ function CreatePageContent() {
             : shouldShowOneOffReportUnlockPaywall
               ? `Оплатить ${getReportUnlockPriceLabel(type)}`
               : isSubscriptionProduct
-                ? `Оформить подписку ${SUBSCRIPTION_PRICE_LABEL}`
+                ? `Оплатить разово ${runtimePriceLabel}`
                 : `Оплатить ${HORARY_PRICE_LABEL}`}
         </button>
       </section>

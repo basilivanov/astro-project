@@ -1,5 +1,7 @@
 # GRACE Artifacts Index
 
+> Legacy artifact inventory with some tooling dependencies. Prefer `docs/GRACE_HOME.md` for the project GRACE home and `docs/REGRESSION_MAP.md` for the master regression map. Keep this file for inventory/history until tooling migrates.
+
 ## Overview
 
 `docs/GRACE_ARTIFACTS.md` — это рабочий индекс ближайших GRACE-слайсов. Он фиксирует, какие артефакты уже существуют, где лежат prompts/templates и какой минимальный regression-профиль должен быть зелёным, прежде чем двигаться от baseline-документации к feature rollout.

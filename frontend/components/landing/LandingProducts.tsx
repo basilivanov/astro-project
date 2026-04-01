@@ -27,11 +27,9 @@ export function LandingProducts() {
                             )}
                             <h3 className="font-bold text-slate-800 text-lg">{p.title}</h3>
                             <p className="text-sm text-slate-500">{p.desc}</p>
-                            {isSubscriptionProductType(p.id) && (
-                              <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-purple-600">
+                            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-purple-600">
                                 {getRuntimeAccessBadge(p.id)}
                               </p>
-                            )}
                         </div>
                         <div className="text-right">
                             <p className="text-lg font-black text-purple-600">{getRuntimePriceLabel(p.id)}</p>

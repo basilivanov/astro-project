@@ -177,6 +177,71 @@ def test_frontend_mapping_ignores_legacy_deep_sections_strings_for_read_surface_
     assert "compatibility-only" not in (result["deepSections"][0]["body_markdown"] or "")
 
 
+def test_frontend_mapping_reconstructs_missing_degraded_sections_from_live_chunks_without_overriding_valid_brief_sections():
+    result = _run_node_mapping(
+        {
+            "weekBrief": {
+                "status": "ready",
+                "fallback_mode": False,
+                "summary": {
+                    "headline": "Week headline",
+                    "subhead": "Week subhead",
+                    "theme": "Week theme",
+                    "week_type": "balance",
+                },
+                "deep_sections": [
+                    {
+                        "id": "brief-1",
+                        "slug": "focus",
+                        "title": "Фокус недели",
+                        "summary": "Brief summary",
+                        "body_markdown": "# Focus\nBody",
+                        "is_primary": True,
+                        "order": 0,
+                    },
+                    {
+                        "id": "brief-2",
+                        "slug": "money",
+                        "title": "Работа и деньги",
+                        "summary": None,
+                        "body_markdown": "",
+                        "is_primary": False,
+                        "order": 1,
+                    },
+                ],
+            },
+            "legacyWeekMap": {
+                "thesis": "Legacy thesis",
+                "theme": "Legacy theme",
+                "deep_sections": ["compat-only legacy string"],
+            },
+            "chunks": [
+                {
+                    "id": "chunk-1",
+                    "section": "money",
+                    "title": "Работа и деньги",
+                    "content": '[{"type":"paragraph","text":"Recovered money chunk"}]',
+                },
+                {
+                    "id": "chunk-2",
+                    "section": "relationships",
+                    "title": "Отношения",
+                    "content": "Recovered relationship chunk",
+                },
+            ],
+            "latestReportId": "report-live-7",
+        }
+    )
+
+    assert [section["slug"] for section in result["deepSections"]] == ["focus", "money", "relationships"]
+    assert result["deepSections"][0]["body_markdown"] == "# Focus\nBody"
+    assert result["deepSections"][1]["summary"] == "Recovered money chunk"
+    assert result["deepSections"][1]["body_markdown"] == '[{"type":"paragraph","text":"Recovered money chunk"}]'
+    assert result["deepSections"][2]["summary"] == "Recovered relationship chunk"
+    assert result["deepSections"][2]["is_primary"] is False
+    assert result["sectionsCount"] == 3
+
+
 def test_frontend_mapping_humanizes_explainability_context_without_losing_telemetry_fields():
     result = _run_node_mapping(
         {

@@ -407,6 +407,79 @@ def _build_risks(semantic_layer: dict[str, Any], worst_day: dict[str, Any] | Non
     return _format_action_items(items, prefix="risk")[:4]
 
 
+def _build_supporting_factor_entries(factor_records: list[_FactorSeed], factor_ids: list[str], *, limit: int = 3) -> list[dict[str, Any]]:
+    indexed = {record.id: record for record in factor_records}
+    entries: list[dict[str, Any]] = []
+    for factor_id in factor_ids[:limit]:
+        record = indexed.get(factor_id)
+        if record is None:
+            continue
+        entries.append(
+            {
+                "label": record.label[:80],
+                "explanation_human": record.explanation_human[:220],
+                "explanation_astro": record.explanation_astro[:220] if record.explanation_astro else None,
+                "value": record.domain,
+            }
+        )
+    return entries
+
+
+def _top_factor_ids_for_domain(
+    factor_records: list[_FactorSeed],
+    domain: str,
+    *,
+    polarity: str | None = None,
+    limit: int = 3,
+) -> list[str]:
+    filtered = [record for record in factor_records if record.domain == domain]
+    if polarity == "positive":
+        filtered = [record for record in filtered if record.signal >= 0]
+    elif polarity == "negative":
+        filtered = [record for record in filtered if record.signal < 0]
+    ordered = sorted(filtered, key=lambda item: abs(item.signal) * max(item.weight, 0.1), reverse=True)
+    return [record.id for record in ordered[:limit]]
+
+
+def _enrich_action_items(items: list[dict[str, Any]], factor_records: list[_FactorSeed], *, kind: str) -> list[dict[str, Any]]:
+    positive_domains = ("work_money", "focus", "relationships", "energy")
+    negative_domains = ("energy", "focus", "work_money", "relationships")
+    enriched: list[dict[str, Any]] = []
+    for index, item in enumerate(items):
+        domain = positive_domains[index % len(positive_domains)] if kind == "best" else negative_domains[index % len(negative_domains)]
+        factor_ids = _top_factor_ids_for_domain(factor_records, domain, polarity="positive" if kind == "best" else "negative", limit=3)
+        supporting_factors = _build_supporting_factor_entries(factor_records, factor_ids, limit=3)
+        why_text = (
+            f"Эта рекомендация держится на домене «{DOMAIN_TITLES.get(domain, domain)}»: неделя здесь лучше отвечает на конкретные, дозированные шаги."
+            if kind == "best"
+            else f"Этот риск заметнее в домене «{DOMAIN_TITLES.get(domain, domain)}»: лишний нажим и шум быстрее сбивают недельный ритм."
+        )
+        enriched.append(
+            {
+                **item,
+                "factor_id": item.get("factor_id") or (factor_ids[0] if factor_ids else None),
+                "why_text": why_text[:280],
+                "supporting_factors": supporting_factors,
+            }
+        )
+    return enriched
+
+
+def _enrich_domains(domains: list[dict[str, Any]], factor_records: list[_FactorSeed]) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for domain in domains:
+        key = str(domain.get("key") or "focus")
+        factor_ids = _top_factor_ids_for_domain(factor_records, key, limit=3)
+        enriched.append(
+            {
+                **domain,
+                "why_text": f"Оценка домена собрана из повторяющихся недельных сигналов, а не из одного случайного пика: смотрите на устойчивые факторы ниже."[:280],
+                "supporting_factors": _build_supporting_factor_entries(factor_records, factor_ids, limit=3),
+            }
+        )
+    return enriched
+
+
 def _factor_domain_from_text(text: str, *, fallback: str = "focus") -> str:
     for point, domain in POINT_DOMAIN_MAP.items():
         if point.lower() in text.lower():
@@ -910,7 +983,11 @@ def _build_explainability(
         "timing_precision": "exact" if seed.get("days") else "approximate",
         "top_signal_source": top_signal_source,
         "explanation_depth": "full" if factor_count >= 5 else "standard",
-        "reliability_support": weighted.get("reliability_support", []),
+        "reliability_support": [
+            str(item.get("label") or item.get("factor_id") or "").strip()
+            for item in (weighted.get("reliability_support", []) or [])
+            if isinstance(item, dict) and str(item.get("label") or item.get("factor_id") or "").strip()
+        ],
         "calibration": {
             "weight_profile_version": weighted.get("weight_profile_version", "v2"),
             "susceptibility_source": "deterministic_default",
@@ -1312,7 +1389,7 @@ def build_week_brief_payload(
         deep_sections = _merge_seed_with_chunk_sections(seed_deep_sections, chunk_deep_sections)
         best_day = max(day_cards, key=lambda item: int(item.get("score", 0)), default=None)
         worst_day = min(day_cards, key=lambda item: int(item.get("score", 0)), default=None)
-        fallback_mode = bool(chunk_parse_degraded or not seed.get("days") or not deep_sections)
+        fallback_mode = bool(not seed.get("days") or not deep_sections)
         explainability = _build_explainability(
             seed,
             weighted,
@@ -1322,6 +1399,9 @@ def build_week_brief_payload(
             chunk_parse_degraded=chunk_parse_degraded,
         )
         week_start, week_end = _week_window(seed, report=report)
+        domains = _enrich_domains(_build_domain_scores(seed, factor_records, day_cards), factor_records)
+        best_uses = _enrich_action_items(_build_best_uses(seed.get("semantic_layer") or {}, best_day), factor_records, kind="best")
+        risks = _enrich_action_items(_build_risks(seed.get("semantic_layer") or {}, worst_day), factor_records, kind="risk")
         result = {
             "version": "week_brief_v1",
             "week_start": week_start.isoformat(),
@@ -1331,9 +1411,9 @@ def build_week_brief_payload(
             "status": _map_report_status(getattr(report, "status", None)),
             "summary": _build_summary(seed, day_cards),
             "day_cards": day_cards,
-            "domains": _build_domain_scores(seed, factor_records, day_cards),
-            "best_uses": _build_best_uses(seed.get("semantic_layer") or {}, best_day),
-            "risks": _build_risks(seed.get("semantic_layer") or {}, worst_day),
+            "domains": domains,
+            "best_uses": best_uses,
+            "risks": risks,
             "major_factors": major_factors,
             "deep_sections": deep_sections,
             "explainability": explainability,

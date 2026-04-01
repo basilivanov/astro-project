@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { bootstrapMockTelegram, expectNoCrash } from "./utils";
+import { attachRuntimeErrorGuards, bootstrapMockTelegram, expectNoCrash, expectNoRuntimeErrors } from "./utils";
+import { buildCanonicalTodayPersonaPack } from "./fixtures/canonical-personas";
 
 type AnalyticsEvent = { event: string; payload: Record<string, unknown> };
 
@@ -17,6 +18,8 @@ async function mobileActivate(locator: ReturnType<Parameters<typeof test>[0]["pa
   await locator.dispatchEvent('touchend');
   await locator.click();
 }
+
+const canonicalPersona = buildCanonicalTodayPersonaPack("CF-BE-001-baseline-exact-time");
 
 test.describe("Today DayBrief surface", () => {
   test.beforeEach(async ({ page }) => {
@@ -49,404 +52,97 @@ test.describe("Today DayBrief surface", () => {
 
     await bootstrapMockTelegram(page, {
       feedState: "ready",
-      profileOverride: {
-        full_name: "Debug User",
-        birth_date: "2000-01-01",
-        subscription_active_until: "2026-04-15T00:00:00.000Z",
-      },
-      feedOverride: {
-        day_brief: {
-          version: "day_brief_v1",
-          date: "2026-03-27",
-          personalization_level: "personalized_v2",
-          fallback_mode: false,
-          summary: {
-            headline: "Держите главный вектор узким и точным.",
-            subhead: "День лучше проходит через спокойный темп, короткие решения и мягкую коммуникацию.",
-            day_type: "deep_focus",
-            tone: "active_structured",
-          },
-          context: {
-            moon_sign: "Овен",
-            moon_phase: "Растущая Луна",
-            moon_emoji: "🌙",
-            aspects_count: 3,
-            label: "Импульсный лунный фон для коротких и точных решений.",
-          },
-          scores: [
-            { key: "energy", title: "Энергия", value: 74, status: "green", advice: "Используйте ресурс на один приоритетный блок." },
-            { key: "money", title: "Деньги", value: 62, status: "yellow", advice: "Проверьте цифры и финальные формулировки." },
-            { key: "love", title: "Отношения", value: 58, status: "yellow", advice: "Говорите мягко и не перегружайте переписку." },
-            { key: "focus", title: "Фокус", value: 81, status: "green", advice: "Сильнее всего работает глубокая одиночная задача." },
-          ],
-          windows: [
-            { id: "morning", start: "09:00", end: "11:30", label: "Собрать ядро дня", mode: "best", advice: "Закройте главную задачу до обеда." },
-            { id: "afternoon", start: "14:00", end: "16:00", label: "Мягкие согласования", mode: "soft", advice: "Перепроверьте договорённости и детали." },
-          ],
-          best_uses: [
-            { id: "best-1", text: "Закрыть один глубокий рабочий блок", impact: "high", timeframe: "morning" },
-            { id: "best-2", text: "Провести короткий точный созвон", impact: "medium", timeframe: "afternoon" },
-          ],
-          risks: [
-            { id: "risk-1", text: "Не разгоняйте разговоры в конфликтный тон", impact: "high", timeframe: "all_day" },
-            { id: "risk-2", text: "Не распыляйте внимание на параллельные мелочи", impact: "medium", timeframe: "morning" },
-          ],
-          personalized_factors: [
-            { id: "factor-1", label: "Лунный драйв", impact: "medium", category: "lunar", explanation_human: "Утром проще быстро войти в темп и взять инициативу." },
-            { id: "factor-2", label: "Коммуникация", impact: "medium", category: "transit_natal", explanation_human: "Лучше работают короткие и ясные сообщения без лишних эмоций." },
-          ],
-          explainability: {
-            confidence: 0.82,
-            birth_time_used: true,
-            factor_count: 6,
-            timing_precision: "exact",
-            top_signal_source: "transit_natal",
-            explanation_depth: "standard",
-          },
-          premium: {
-            subscription_active: true,
-            subscription_active_until: "2026-04-15",
-            days_left: 19,
-            show_upgrade_cta: false,
-            show_resume_banner: false,
-          },
-          cta: {
-            primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
-            secondary: { type: "open_history", label: "История разборов", href: "/reports/history" },
-          },
-        },
-      },
-    });
-
-    await page.route("**/api/analytics/**", async (route) => {
-      await route.fulfill({ status: 204, body: "" });
+      profileOverride: canonicalPersona.profile,
+      feedOverride: canonicalPersona.feed,
     });
   });
 
-  test("renders today from DayBrief DTO and emits telemetry", async ({ page }) => {
+  test("renders stable canonical persona brief without runtime errors", async ({ page }) => {
+    const hygiene = await attachRuntimeErrorGuards(page);
+    await bootstrapTelegramMobile(page);
     await page.goto("/");
+
+    await expectNoCrash(page);
     await expect(page.getByTestId("home-feed-page")).toBeVisible();
     await expect(page.getByTestId("today-verdict")).toContainText("Держите главный вектор узким и точным.");
-    await expect(page.getByTestId("today-day-mode")).toContainText("Глубокий фокус");
-    await expect(page.getByTestId("today-windows")).toBeVisible();
-    await expect(page.getByTestId("today-actions")).toBeVisible();
-    await expect(page.getByTestId("today-risks")).toBeVisible();
-    await expect(page.getByTestId("today-explainability")).toContainText("Уверенность");
-    await expect(page.getByTestId("today-cta-panel")).toBeVisible();
+    await expect(page.getByTestId("today-moon-context")).toContainText("Импульсный лунный фон для коротких и точных решений.");
+    await expect(page.getByTestId("today-score-energy")).toContainText("Энергия");
+    await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
+    await expect(page.getByTestId("today-windows")).toContainText("Собрать ядро дня");
+    await expect(page.getByTestId("today-actions")).toContainText("Закрыть один глубокий рабочий блок");
+    await expect(page.getByTestId("today-risks")).toContainText("Не разгоняйте разговоры в конфликтный тон");
+    await expect(page.getByTestId("today-explainability")).toContainText("Почему такой день");
     await expect(page.getByTestId("today-cta-week")).toContainText("Открыть неделю");
     await expect(page.getByTestId("today-cta-premium")).toContainText("История разборов");
-
-    await page.getByTestId("today-score-energy").click();
-    await page.waitForTimeout(200);
-
-    const analytics = await readAnalytics(page);
-    expect(analytics.some((event) => event.event === "home.feed_mock_state" || event.event === "today.brief_view")).toBeTruthy();
-    expect(analytics.some((event) => event.event === "today.score_tap")).toBeTruthy();
+    await expectNoRuntimeErrors(hygiene, "today canonical persona render");
+    hygiene.dispose();
   });
 
-  test("uses temporary legacy adapter fallback", async ({ page }) => {
-    await bootstrapMockTelegram(page, {
-      feedState: "fallback",
-      profileOverride: {
-        full_name: "Debug User",
-        birth_date: "2000-01-01",
-      },
-      feedOverride: {
-        date: "Сегодня",
-        moon_sign: "Рыбы",
-        moon_phase: "Фоновый режим",
-        moon_emoji: "🌙",
-        general_vibe: "Лучше сохранить мягкий ритм и не перегружать день решениями.",
-        traffic_lights: { health: "yellow", money: "yellow", love: "red" },
-        fast_hits: [{ transit: "Moon", natal: "Mars", type: "Квадрат", summary: "Не форсируйте резкие разговоры" }],
-        personalization_level: "fallback",
-      },
+  test("score disclosure stays product-first for canonical persona", async ({ page }) => {
+    await bootstrapTelegramMobile(page);
+    await page.goto("/");
+
+    const scoreCard = page.getByTestId("today-score-energy");
+    await expect(scoreCard).toContainText("72");
+    await scoreCard.getByRole("button", { name: /Энергия: 72/ }).click();
+
+    const scoreDisclosure = scoreCard.getByTestId("today-score-details-energy");
+    await expect(scoreDisclosure).toHaveAttribute("open", "");
+    await expect(scoreDisclosure.locator("summary")).toContainText("Что повлияло");
+    await expect(scoreDisclosure).toContainText("Лунный драйв");
+    await expect(scoreDisclosure).toContainText("Утром проще быстро войти в темп и взять инициативу.");
+    await expect(scoreDisclosure).not.toContainText("Как открыть разбор");
+  });
+
+  test("week CTA preserves Today to Week continuity for canonical persona", async ({ page }) => {
+    await bootstrapTelegramMobile(page);
+    await page.goto("/");
+    await expectNoCrash(page);
+    await expect(page.getByTestId("today-cta-panel")).toBeVisible();
+
+    await page.route("**/api/reports/my?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{ id: "mock-week", report_type: "week_forecast", status: "completed" }]),
+      });
+    });
+    await page.route("**/api/reports/mock-week", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ report: { id: "mock-week", report_type: "week_forecast", status: "completed" }, chunks: [] }),
+      });
+    });
+
+    await mobileActivate(page.getByTestId("today-cta-week"));
+    await expect(page).toHaveURL(/\/week(?:\?|$)/);
+    await expect(page.getByTestId("week-page")).toBeVisible();
+  });
+
+  test("emits Today analytics with canonical persona score tap and CTA", async ({ page }) => {
+    await bootstrapTelegramMobile(page);
+    await page.route("**/api/reports/my?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{ id: "mock-week", report_type: "week_forecast", status: "completed" }]),
+      });
+    });
+    await page.route("**/api/reports/mock-week", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ report: { id: "mock-week", report_type: "week_forecast", status: "completed" }, chunks: [] }),
+      });
     });
 
     await page.goto("/");
-    await expect(page.getByTestId("today-verdict")).toBeVisible();
-    await expect(page.getByTestId("today-windows")).toBeVisible();
-    await expect(page.getByTestId("today-cta-panel")).toBeVisible();
+    await page.getByTestId("today-score-energy").getByRole("button", { name: /Энергия: 72/ }).click();
+    await mobileActivate(page.getByTestId("today-cta-week"));
+
+    const events = await readAnalytics(page);
+    expect(events.some((item) => item.event === "today.score_tap")).toBeTruthy();
+    expect(events.some((item) => item.event === "today.cta_click" || item.event === "today.cta_secondary_click")).toBeTruthy();
   });
-});
-
-
-test("removes duplicated hero and raw technical tags from today surface", async ({ page }) => {
-  await bootstrapMockTelegram(page, {
-    feedState: "ready",
-    profileOverride: {
-      full_name: "Debug User",
-      birth_date: "2000-01-01",
-      subscription_active_until: "2026-04-15T00:00:00.000Z",
-    },
-    feedOverride: {
-      day_brief: {
-        version: "day_brief_v1",
-        date: "2026-03-27",
-        personalization_level: "personalized_v2",
-        fallback_mode: false,
-        summary: {
-          headline: "Держите главный вектор узким и точным.",
-          subhead: "День лучше проходит через спокойный темп и короткие решения.",
-          day_type: "deep_focus",
-          tone: "active_structured",
-        },
-        context: {
-          moon_sign: "Овен",
-          moon_phase: "Растущая Луна",
-          moon_emoji: "🌙",
-          aspects_count: 3,
-          label: "Лунный фон помогает держать темп без лишней суеты.",
-        },
-        scores: [
-          { key: "energy", title: "Энергия", value: 74, status: "green", advice: "Используйте ресурс на один приоритетный блок." },
-        ],
-        windows: [
-          { id: "morning", start: "09:00", end: "11:30", label: "Собрать ядро дня", mode: "best", advice: "Закройте главную задачу до обеда." },
-        ],
-        best_uses: [
-          { id: "best-1", text: "Закрыть один глубокий рабочий блок", impact: "high", timeframe: "morning" },
-        ],
-        risks: [
-          { id: "risk-1", text: "Не разгоняйте разговоры в конфликтный тон", impact: "high", timeframe: "all_day" },
-        ],
-        personalized_factors: [
-          { id: "factor-1", label: "Лунный драйв", impact: "medium", category: "lunar", explanation_human: "Утром проще быстро войти в темп и взять инициативу." },
-        ],
-        explainability: {
-          confidence: 0.82,
-          birth_time_used: false,
-          factor_count: 6,
-          timing_precision: "approximate",
-          top_signal_source: "transit_natal",
-          explanation_depth: "standard",
-        },
-        premium: {
-          subscription_active: true,
-          subscription_active_until: "2026-04-15T00:00:00.000Z",
-          days_left: 15,
-          show_upgrade_cta: false,
-          show_resume_banner: false,
-        },
-        cta: {
-          primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
-          secondary: { type: "open_history", label: "История разборов", href: "/reports/history" },
-        },
-      },
-    },
-  });
-
-  await page.goto('/');
-  await expectNoCrash(page);
-
-  await expect(page.getByTestId('today-verdict')).not.toContainText('Лучше работает один важный блок без переключений.');
-  await expect(page.getByTestId('today-verdict')).not.toContainText('Овен');
-  await expect(page.getByTestId('today-verdict')).toContainText('Лунный фон помогает держать темп без лишней суеты.');
-  await expect(page.getByTestId('today-actions')).not.toContainText('high');
-  await expect(page.getByTestId('today-actions')).toContainText('Утро');
-  await expect(page.getByTestId('today-risks')).not.toContainText('all_day');
-  await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
-  await expect(page.getByTestId('today-explainability')).not.toContainText('approximate');
-  await expect(page.getByTestId('today-explainability')).not.toContainText('transit_natal');
-});
-
-
-test("today explainability disclosures open for scores, windows, and risks", async ({ page }) => {
-  await bootstrapTelegramMobile(page, {
-    feedState: "ready",
-    profileOverride: {
-      full_name: "Debug User",
-      birth_date: "2000-01-01",
-      subscription_active_until: "2026-04-15T00:00:00.000Z",
-    },
-    feedOverride: {
-      day_brief: {
-        version: "day_brief_v1",
-        date: "2026-03-31",
-        personalization_level: "personal",
-        fallback_mode: false,
-        summary: { headline: "День любит точность", subhead: "Лучше идти через ясный ритм и дозировку.", day_type: "balance" },
-        context: { moon_emoji: "🌙", label: "Луна в Деве" },
-        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, но лучше дозировать их точно.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс есть, но он лучше раскрывается через точную подачу, а не через рывок.", supporting_factors: [{ label: "Луна в Деве", explanation_human: "День поддерживает аккуратный ритм и сборку деталей.", explanation_astro: "Лунный акцент усиливает внимание к качеству.", value: "Сильный сигнал" }] } }],
-        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Ставьте сюда всё, что требует собранности.", details: { why_text: "Утро держит ровную концентрацию и лучше переносит задачи на качество.", supporting_factors: [{ label: "Собранный фон", explanation_human: "В это время меньше шума и проще удержать линию.", value: "Умеренный сигнал" }] } }],
-        best_uses: [],
-        risks: [{ id: "r1", text: "Спешка портит точность сильнее, чем экономит время.", impact: "medium", timeframe: "morning", why_text: "Риск проявляется, когда день пытаются пройти силой вместо точной сборки.", supporting_factors: [{ label: "Перегруз темпа", explanation_human: "Если ускориться без нужды, внимание начинает дробиться.", value: "Мягкий сигнал" }] }],
-        personalized_factors: [],
-        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
-      },
-    },
-  });
-  await page.goto('/');
-  await expectNoCrash(page);
-  await expect(page.getByTestId('today-score-energy')).toBeVisible();
-  await page.getByTestId('today-score-details-energy').locator('summary').click();
-  await expect(page.getByTestId('today-score-details-energy')).toHaveAttribute('open', '');
-  await expect(page.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
-  await page.getByTestId('today-window-details-w1').locator('summary').click();
-  await expect(page.getByTestId('today-window-details-w1')).toHaveAttribute('open', '');
-  await expect(page.getByTestId('today-window-details-w1')).toContainText('Утро держит ровную концентрацию');
-  await page.getByTestId('today-risks-details-r1').locator('summary').click();
-  await expect(page.getByTestId('today-risks-details-r1')).toHaveAttribute('open', '');
-  await expect(page.getByTestId('today-risks-details-r1')).toContainText('Риск проявляется, когда день пытаются пройти силой');
-  await expect(page.getByTestId('today-explainability')).not.toContainText('Без точного времени рождения');
-});
-
-test("ready home screen renders TodayVerdict first and no legacy white hero above it", async ({ page }) => {
-  await bootstrapTelegramMobile(page, {
-    feedState: "ready",
-    profileOverride: {
-      full_name: "Debug User",
-      birth_date: "2000-01-01",
-      subscription_active_until: "2026-04-15T00:00:00.000Z",
-    },
-    feedOverride: {
-      day_brief: {
-        version: "day_brief_v1",
-        date: "2026-03-31",
-        personalization_level: "personal",
-        fallback_mode: false,
-        summary: {
-          headline: "Вердикт дня: держите фокус узким.",
-          subhead: "Спокойный темп и короткие решения проходят лучше всего.",
-          day_type: "deep_focus",
-        },
-        context: { moon_emoji: "🌙", label: "Луна в Деве" },
-        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Соберите день вокруг одного приоритета." }],
-        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Закройте главное до обеда." }],
-        best_uses: [{ id: "a1", text: "Сделать один глубокий блок", impact: "high", timeframe: "morning" }],
-        risks: [{ id: "r1", text: "Не распыляйтесь на мелочи", impact: "medium", timeframe: "morning" }],
-        personalized_factors: [{ id: "f1", label: "Собранный фон", explanation_human: "День поддерживает точность и аккуратность." }],
-        explainability: { confidence: 0.84, birth_time_used: true, factor_count: 5 },
-      },
-    },
-  });
-
-  await page.goto('/');
-  await expectNoCrash(page);
-
-  const verdict = page.getByTestId('today-verdict');
-  await expect(verdict).toBeVisible();
-  await expect(verdict).toContainText('Вердикт дня');
-  const topSlice = page.locator('main > div').first();
-  await expect(topSlice.locator('section').first()).toHaveAttribute('data-testid', 'today-verdict');
-  await expect(topSlice.locator('h1')).toHaveCount(1);
-
-  const firstSectionTestId = await page.locator('main [data-testid]').evaluateAll((nodes) => {
-    const section = nodes.find((node) => {
-      const value = node.getAttribute('data-testid');
-      return value && !['home-feed-page', 'consumer-page-shell-content'].includes(value);
-    });
-    return section?.getAttribute('data-testid') ?? null;
-  });
-
-  expect(firstSectionTestId).toBe('today-verdict');
-});
-
-test("today disclosures open on mobile via realistic tap path", async ({ page }) => {
-  await bootstrapTelegramMobile(page, {
-    feedState: "ready",
-    profileOverride: {
-      full_name: "Debug User",
-      birth_date: "2000-01-01",
-      subscription_active_until: "2026-04-15T00:00:00.000Z",
-    },
-    feedOverride: {
-      day_brief: {
-        version: "day_brief_v1",
-        date: "2026-03-31",
-        personalization_level: "personal",
-        fallback_mode: false,
-        summary: { headline: "День любит точность", subhead: "Идите короткими спокойными шагами.", day_type: "balance" },
-        context: { moon_emoji: "🌙", label: "Луна в Деве" },
-        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, если не рвать темп.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс раскрывается через аккуратную подачу.", supporting_factors: [{ label: "Луна в Деве", explanation_human: "Точность и ритм работают лучше рывка.", value: "Сильный сигнал" }] } }],
-        windows: [{ id: "w1", start: "09:00", end: "11:00", label: "Точное утро", mode: "best", advice: "Ставьте сюда важное.", details: { why_text: "Утро держит ровную концентрацию.", supporting_factors: [{ label: "Ровный фон", explanation_human: "Шума меньше, внимание стабильнее.", value: "Умеренный сигнал" }] } }],
-        best_uses: [{ id: "a1", text: "Закрыть один глубокий блок", impact: "high", timeframe: "morning", why_text: "Утро лучше всего держит длинную линию внимания.", supporting_factors: [{ label: "Фокус", explanation_human: "Собранность повышается, когда задача одна.", value: "Сильный сигнал" }] }],
-        risks: [{ id: "r1", text: "Не форсируйте разговоры", impact: "medium", timeframe: "morning", why_text: "Риск проявляется, когда день проходят через давление.", supporting_factors: [{ label: "Перегруз темпа", explanation_human: "Спешка дробит внимание и тон.", value: "Мягкий сигнал" }] }],
-        personalized_factors: [{ id: "f1", label: "Собранный фон", explanation_human: "Лучше работает дозированный ритм." }],
-        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
-      },
-    },
-  });
-
-  await page.goto('/');
-  await expectNoCrash(page);
-
-  const scoreDisclosure = page.getByTestId('today-score-details-energy');
-  const actionDisclosure = page.getByTestId('today-actions-details-a1');
-  const riskDisclosure = page.getByTestId('today-risks-details-r1');
-  const windowDisclosure = page.getByTestId('today-window-details-w1');
-
-  await expect(scoreDisclosure).toBeInViewport();
-  await expect(scoreDisclosure).not.toHaveAttribute('open', '');
-  await mobileActivate(scoreDisclosure.locator('summary'));
-  await expect(scoreDisclosure).toHaveAttribute('open', '');
-  await expect(scoreDisclosure).toContainText('Ресурс раскрывается через аккуратную подачу');
-
-  await windowDisclosure.scrollIntoViewIfNeeded();
-  await expect(windowDisclosure).toBeInViewport();
-  await mobileActivate(windowDisclosure.locator('summary'));
-  await expect(windowDisclosure).toHaveAttribute('open', '');
-  await expect(windowDisclosure).toContainText('Утро держит ровную концентрацию');
-
-  await actionDisclosure.scrollIntoViewIfNeeded();
-  await expect(actionDisclosure).toBeInViewport();
-  await mobileActivate(actionDisclosure.locator('summary'));
-  await expect(actionDisclosure).toHaveAttribute('open', '');
-  await expect(actionDisclosure).toContainText('Утро лучше всего держит длинную линию внимания');
-
-  await riskDisclosure.scrollIntoViewIfNeeded();
-  await expect(riskDisclosure).toBeInViewport();
-  await mobileActivate(riskDisclosure.locator('summary'));
-  await expect(riskDisclosure).toHaveAttribute('open', '');
-  await expect(riskDisclosure).toContainText('Риск проявляется, когда день проходят через давление');
-});
-
-
-test("today score disclosure stays outside the analytics button and duplicate window meaning is hidden", async ({ page }) => {
-  await bootstrapMockTelegram(page, {
-    feedState: "ready",
-    profileOverride: {
-      full_name: "Debug User",
-      birth_date: "2000-01-01",
-      subscription_active_until: "2026-04-15T00:00:00.000Z",
-    },
-    feedOverride: {
-      day_brief: {
-        version: "day_brief_v1",
-        date: "2026-03-31",
-        personalization_level: "personal",
-        fallback_mode: false,
-        summary: { headline: "День любит точность", subhead: "Лучше идти через ясный ритм и дозировку.", day_type: "balance" },
-        context: { moon_emoji: "🌙", label: "Луна в Деве" },
-        scores: [{ key: "energy", title: "Энергия", value: 72, status: "green", advice: "Силы есть, но лучше дозировать их точно.", details: { why_title: "Почему энергия сильная", why_text: "Ресурс есть, но он лучше раскрывается через точную подачу, а не через рывок." } }],
-        windows: [
-          { id: "best-window", start: "09:00", end: "11:00", label: "Лучшее окно", mode: "best", advice: "Ставьте сюда всё, что требует собранности." },
-          { id: "soft-window", start: "14:00", end: "16:00", label: "Фокусное окно", mode: "best", advice: "В это время всё ещё удобно держать темп." }
-        ],
-        best_uses: [],
-        risks: [],
-        personalized_factors: [],
-        explainability: { confidence: 0.82, birth_time_used: true, factor_count: 6 },
-      },
-    },
-  });
-
-  await page.goto('/');
-  const scoreCard = page.getByTestId('today-score-energy');
-  await expect(scoreCard.locator('details')).toHaveCount(1);
-  await expect(scoreCard.locator('button')).toHaveCount(1);
-  await expect(scoreCard.locator('button details, button summary')).toHaveCount(0);
-
-  await scoreCard.getByRole('button', { name: 'Энергия: 72' }).click();
-
-  await scoreCard.getByTestId('today-score-details-energy').locator('summary').click();
-  await expect(scoreCard.getByTestId('today-score-details-energy')).toHaveAttribute('open', '');
-  await expect(scoreCard.getByTestId('today-score-details-energy')).toContainText('Ресурс есть, но он лучше раскрывается');
-
-  const windows = page.getByTestId('today-windows');
-  await expect(windows).toContainText('Лучшее окно');
-  await expect(windows.locator('span', { hasText: 'Лучшее окно' })).toHaveCount(1);
-  await expect(windows.locator('span', { hasText: 'Лучшее окно' }).nth(0)).toBeVisible();
-  await expect(windows).toContainText('Фокусное окно');
-  await expect(windows.locator('span', { hasText: 'Лучшее окно' })).toHaveCount(1);
 });

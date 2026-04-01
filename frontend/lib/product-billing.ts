@@ -1,5 +1,5 @@
 export const SUBSCRIPTION_PRICE_RUB = 299;
-export const SUBSCRIPTION_PRICE_LABEL = "299₽/мес";
+export const SUBSCRIPTION_PRICE_LABEL = "299₽";
 export const HORARY_PRICE_RUB = 199;
 export const HORARY_PRICE_LABEL = "от 99₽";
 
@@ -62,7 +62,7 @@ export function getRuntimePriceValue(type?: string | null): number {
 
 export function getRuntimeAccessBadge(type?: string | null): string {
   if (isSubscriptionProductType(type)) {
-    return "По подписке";
+    return "Разовый доступ";
   }
   if (isHoraryProductType(type)) {
     return "Разовый вопрос";

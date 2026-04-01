@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-03-27">
+<knowledge_graph project="astro-project" mode="strict-grace" updated_at="2026-04-01">
   <nodes>
     <use_case id="UC-AUTH-PROFILE" />
     <use_case id="UC-B2C-REPORT" />
@@ -55,6 +55,23 @@
     <flow id="FLOW-ADMIN-OPS" name="Admin operations" />
     <flow id="FLOW-FORECAST-CATALOG" name="Forecast ladder catalog" />
     <flow id="FLOW-HOME-FEED" name="Start gateway and home feed routing" />
+    <flow id="FLOW-TODAY-PREMIUM" name="Today premium top layer" />
+    <flow id="FLOW-WEEK-BRIEF" name="Week brief and map" />
+    <flow id="FLOW-READ-SURFACE" name="Read surface and fallback" />
+
+    <persona id="P-CANONICAL-AVA" name="Ava Meridian" />
+    <persona id="P-CANONICAL-MIRA" name="Mira North" />
+    <persona id="P-CANONICAL-NOON" name="Noon Vale" />
+
+    <artifact id="A-GRACE-HOME" path="docs/GRACE_HOME.md" />
+    <artifact id="A-GRACE-ARTIFACTS" path="docs/GRACE_ARTIFACTS.md" />
+    <artifact id="A-REGRESSION-MAP" path="docs/REGRESSION_MAP.md" />
+    <artifact id="A-FIXTURE-MANIFEST" path="docs/regression_fixtures/canonical_astrology_fixture_manifest.v1.json" />
+    <artifact id="A-TODAY-PACKET" path="docs/today_screen_packet/requirements.slice.today-screen.xml" />
+    <artifact id="A-WEEK-PACKET" path="docs/week_ui_packet/requirements.slice.week-ui.xml" />
+    <artifact id="A-NATAL-DAILY-PACKET" path="docs/natal_daily_backend_packet/requirements.slice.natal-daily-backend.xml" />
+    <artifact id="A-FRONTEND-RELIABILITY-PACKET" path="docs/frontend_functional_reliability_packet/verification-matrix.slice.frontend-functional-reliability.md" />
+    <artifact id="A-FRONTEND-HARDENING-PACKET" path="docs/frontend_test_hardening_packet/verification-matrix.slice.frontend-test-hardening.md" />
 
     <module id="M-API-GATEWAY" path="backend/app/main.py;backend/app/routers/billing.py">
       <export>create_report_async</export>
@@ -170,15 +187,22 @@
       <export>build_fast_hits</export>
       <export>get_cached_facts</export>
     </module>
-    <module id="M-DAY-BRIEF-SERVICE" path="backend/app/services/day_brief*.py">
+    <module id="M-DAY-BRIEF-SERVICE" path="backend/app/services/day_brief*.py;backend/app/services/personalized_daily.py">
       <export>build_day_brief_payload</export>
       <export>build_day_brief_fallback</export>
       <export>serialize_day_brief</export>
+      <export>build_day_brief_explainability</export>
     </module>
-    <module id="M-WEEK-BRIEF-SERVICE" path="backend/app/services/week_brief*.py">
+    <module id="M-WEEK-BRIEF-SERVICE" path="backend/app/services/week_brief*.py;backend/app/services/report_workflow.py">
       <export>build_week_brief_payload</export>
       <export>build_week_brief_envelope</export>
       <export>serialize_week_brief</export>
+      <export>build_week_major_factors</export>
+    </module>
+    <module id="M-READ-MODEL-LAYER" path="backend/app/main.py;backend/app/services/report_workflow.py;backend/app/reporting/*">
+      <export>get_report_detail</export>
+      <export>assemble_report_read_model</export>
+      <export>build_report_context</export>
     </module>
     <module id="M-FRONTEND-TODAY" path="frontend/app/page.tsx;frontend/components/today/*;frontend/lib/day-brief*.ts">
       <export>TodayVerdictCard</export>
@@ -186,12 +210,22 @@
       <export>TodayWindowsPanel</export>
       <export>TodayActionPlanPanel</export>
       <export>TodayExplainabilityPanel</export>
+      <export>DayBriefDto</export>
+      <export>TodayViewModel</export>
     </module>
     <module id="M-FRONTEND-WEEK" path="frontend/app/week/page.tsx;frontend/components/week/*;frontend/lib/week-brief.ts">
       <export>WeekHeroMap</export>
       <export>WeekDayGrid</export>
       <export>WeekDomainPanel</export>
       <export>WeekExplainabilityPanel</export>
+      <export>WeekBrief</export>
+      <export>WeekBriefEnvelope</export>
+    </module>
+    <module id="M-FRONTEND-READ" path="frontend/app/read/[id]/page.tsx;frontend/components/blocks/report-renderer.tsx;frontend/lib/product-billing.ts">
+      <export>/read/[id]</export>
+      <export>ReportRenderer</export>
+      <export>extractReportFallbackText</export>
+      <export>surface=read telemetry</export>
     </module>
     <module id="M-DAILY-FEED-SURFACE" path="frontend/app/page.tsx;backend/app/main.py;backend/app/services/feed_service.py">
       <export>/</export>
@@ -267,6 +301,10 @@
     <verification id="VM-FEED-ROBUSTNESS" />
     <verification id="VM-ADMIN-OPS" />
     <verification id="VM-BOT-DELIVERY" />
+    <verification id="VM-TODAY-SURFACE" />
+    <verification id="VM-WEEK-SURFACE" />
+    <verification id="VM-READ-SURFACE" />
+    <verification id="VM-FRONTEND-CANONICAL" />
 
     <defect id="DEFECT-REFERRAL-POLICY-DRIFT" />
     <defect id="DEFECT-FEED-LLM-TUPLE" />
@@ -308,6 +346,15 @@
 
     <edge from="FLOW-DAILY-FEED" to="UC-FEED-DAILY" type="covers" />
     <edge from="FLOW-DAILY-FEED" to="SCN-FEED-TODAY" type="covers" />
+    <edge from="FLOW-TODAY-PREMIUM" to="UC-FEED-DAILY" type="covers" />
+    <edge from="FLOW-TODAY-PREMIUM" to="PHASE-DAY-BRIEF" type="depends_on" />
+    <edge from="FLOW-TODAY-PREMIUM" to="PHASE-FRONTEND-TODAY" type="depends_on" />
+    <edge from="FLOW-WEEK-BRIEF" to="UC-REPORT-ASYNC" type="covers" />
+    <edge from="FLOW-WEEK-BRIEF" to="PHASE-WEEK-BRIEF" type="depends_on" />
+    <edge from="FLOW-WEEK-BRIEF" to="PHASE-FRONTEND-WEEK" type="depends_on" />
+    <edge from="FLOW-READ-SURFACE" to="UC-REPORT-ASYNC" type="covers" />
+    <edge from="FLOW-READ-SURFACE" to="UC-BILLING-ACCESS" type="covers" />
+    <edge from="FLOW-READ-SURFACE" to="PHASE-READOUT" type="depends_on" />
 
     <edge from="FLOW-ADMIN-OPS" to="UC-ADMIN-OPERATIONS" type="covers" />
     <edge from="FLOW-ADMIN-OPS" to="SCN-ADMIN-REPORT-VIEW" type="covers" />
@@ -385,6 +432,15 @@
     <edge from="UC-CREATE-CHECKOUT" to="M-ACCESS-COMMERCE" type="gated_by" />
     <edge from="UC-CREATE-CHECKOUT" to="M-READ-RESILIENCE-SURFACE" type="routes_to" />
     <edge from="M-DAILY-FEED-SURFACE" to="M-OPS-AUTOMATION" type="loads_from" />
+    <edge from="FLOW-TODAY-PREMIUM" to="M-FACTS-CALC" type="uses" />
+    <edge from="FLOW-TODAY-PREMIUM" to="M-DAY-BRIEF-SERVICE" type="uses" />
+    <edge from="FLOW-TODAY-PREMIUM" to="M-FRONTEND-TODAY" type="rendered_by" />
+    <edge from="FLOW-WEEK-BRIEF" to="M-REPORT-WORKFLOW" type="uses" />
+    <edge from="FLOW-WEEK-BRIEF" to="M-WEEK-BRIEF-SERVICE" type="uses" />
+    <edge from="FLOW-WEEK-BRIEF" to="M-FRONTEND-WEEK" type="rendered_by" />
+    <edge from="FLOW-READ-SURFACE" to="M-ACCESS-COMMERCE" type="gated_by" />
+    <edge from="FLOW-READ-SURFACE" to="M-READ-MODEL-LAYER" type="uses" />
+    <edge from="FLOW-READ-SURFACE" to="M-FRONTEND-READ" type="rendered_by" />
     <edge from="M-OPS-AUTOMATION" to="EXT-OPENROUTER" type="optional_provider" />
     <edge from="M-OPS-AUTOMATION" to="EXT-GEMINI-CLI" type="optional_provider" />
     <edge from="M-OPS-AUTOMATION" to="EXT-CODEX-CLI" type="optional_provider" />
@@ -415,6 +471,34 @@
     <edge from="UC-CREATE-CHECKOUT" to="VM-REPORTS-UX-CONSISTENCY" type="verified_by" />
     <edge from="UC-ADMIN-OPERATIONS" to="VM-ADMIN-OPS" type="verified_by" />
     <edge from="UC-BOT-DELIVERY" to="VM-BOT-DELIVERY" type="verified_by" />
+    <edge from="FLOW-TODAY-PREMIUM" to="VM-TODAY-SURFACE" type="verified_by" />
+    <edge from="FLOW-WEEK-BRIEF" to="VM-WEEK-SURFACE" type="verified_by" />
+    <edge from="FLOW-READ-SURFACE" to="VM-READ-SURFACE" type="verified_by" />
+    <edge from="M-FRONTEND-TODAY" to="VM-FRONTEND-CANONICAL" type="verified_by" />
+    <edge from="M-FRONTEND-WEEK" to="VM-FRONTEND-CANONICAL" type="verified_by" />
+    <edge from="M-FRONTEND-READ" to="VM-FRONTEND-CANONICAL" type="verified_by" />
+
+    <edge from="P-CANONICAL-AVA" to="A-FIXTURE-MANIFEST" type="declared_in" />
+    <edge from="P-CANONICAL-MIRA" to="A-FIXTURE-MANIFEST" type="declared_in" />
+    <edge from="P-CANONICAL-NOON" to="A-FIXTURE-MANIFEST" type="declared_in" />
+    <edge from="P-CANONICAL-AVA" to="M-NATAL-CONTEXT-ENGINE" type="stabilizes" />
+    <edge from="P-CANONICAL-MIRA" to="M-FORECAST-DATA-ENGINE" type="stabilizes" />
+    <edge from="P-CANONICAL-NOON" to="M-NATAL-CONTEXT-ENGINE" type="stabilizes" />
+    <edge from="P-CANONICAL-AVA" to="M-FRONTEND-READ" type="stabilizes" />
+    <edge from="P-CANONICAL-MIRA" to="M-FRONTEND-WEEK" type="stabilizes" />
+    <edge from="P-CANONICAL-NOON" to="M-FRONTEND-TODAY" type="stabilizes" />
+
+    <edge from="A-GRACE-HOME" to="A-GRACE-ARTIFACTS" type="indexes" />
+    <edge from="A-GRACE-ARTIFACTS" to="knowledge-graph.xml" type="describes" />
+    <edge from="A-REGRESSION-MAP" to="VM-TODAY-SURFACE" type="documents" />
+    <edge from="A-REGRESSION-MAP" to="VM-WEEK-SURFACE" type="documents" />
+    <edge from="A-REGRESSION-MAP" to="VM-READ-SURFACE" type="documents" />
+    <edge from="A-TODAY-PACKET" to="FLOW-TODAY-PREMIUM" type="specifies" />
+    <edge from="A-WEEK-PACKET" to="FLOW-WEEK-BRIEF" type="specifies" />
+    <edge from="A-NATAL-DAILY-PACKET" to="M-NATAL-CONTEXT-ENGINE" type="specifies" />
+    <edge from="A-NATAL-DAILY-PACKET" to="M-NATAL-PROMPT-CONTRACT" type="specifies" />
+    <edge from="A-FRONTEND-RELIABILITY-PACKET" to="VM-FRONTEND-CANONICAL" type="documents" />
+    <edge from="A-FRONTEND-HARDENING-PACKET" to="VM-FRONTEND-CANONICAL" type="documents" />
 
     <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="UC-REFERRAL-REWARD" type="violates" />
     <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="M-ACCESS-COMMERCE" type="impacts" />

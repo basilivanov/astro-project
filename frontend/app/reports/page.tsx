@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -139,7 +139,7 @@ const SUBSCRIPTION_PRODUCTS_COUNT = PRODUCTS.filter((product) =>
 // END_BLOCK: CATALOG_DATA
 
 // START_BLOCK: CATALOG_UI
-export default function CatalogPage() {
+function CatalogPageContent() {
   const searchParams = useSearchParams();
   const checkoutToken = searchParams.get("checkout");
   const entryPoint = searchParams.get("entry_point");
@@ -245,7 +245,7 @@ export default function CatalogPage() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-700">
                 {isSubscriptionProductType(product.id)
-                  ? "Открыть оформление по подписке"
+                  ? "Открыть разовую оплату"
                   : "Перейти к быстрому заказу"}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-500">
@@ -289,14 +289,14 @@ export default function CatalogPage() {
         status={
           <ConsumerStatusBadge
             label="Премиум-доступ"
-            description={`Подписка ${SUBSCRIPTION_PRICE_LABEL} открывает все персональные разборы`}
+            description={`Разовая оплата по текущей цене без обещаний подписки или trial`}
             tone="indigo"
           />
         }
         meta={
           <>
             <ConsumerMetaPill label="Форматов" value={String(PRODUCTS.length)} />
-            <ConsumerMetaPill label="По подписке" value={`${SUBSCRIPTION_PRODUCTS_COUNT} разборов`} />
+            <ConsumerMetaPill label="Разовый доступ" value={`${SUBSCRIPTION_PRODUCTS_COUNT} разборов`} />
             <ConsumerMetaPill label="Разовый вопрос" value={HORARY_PRICE_LABEL} />
           </>
         }
@@ -337,7 +337,7 @@ export default function CatalogPage() {
               Как устроен доступ
             </p>
             <h2 className="mt-3 text-xl font-black tracking-tight text-slate-950">
-              Подписка для регулярной навигации, разовые товары для точечной аналитики
+              Разовые продукты с понятной оплатой по каждому сценарию
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
               Подписка покрывает регулярные прогнозы, а отдельные товары — натал, соляр, совместимость и хорар — дают законченный разбор под конкретный запрос без продления.
@@ -347,7 +347,7 @@ export default function CatalogPage() {
           <div className="grid gap-3">
             <div className="rounded-[24px] border border-indigo-100 bg-indigo-50/80 p-4" data-testid="catalog-subscription-summary">
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-indigo-700">
-                Подписка {SUBSCRIPTION_PRICE_LABEL}
+                Разовая оплата {SUBSCRIPTION_PRICE_LABEL}
               </p>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-indigo-950">
                 Годовой и месячный прогнозы для регулярного планирования, решений, денег и отношений.
@@ -371,7 +371,7 @@ export default function CatalogPage() {
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Подписка</p>
             <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">Регулярные прогнозы</h2>
           </div>
-          <ConsumerStatusBadge label="Доступ" description={SUBSCRIPTION_PRICE_LABEL} tone="indigo" />
+          <ConsumerStatusBadge label="Доступ" description="Разовая оплата по карточке разбора" tone="indigo" />
         </div>
         {subscriptionProducts.map(renderCatalogSection)}
       </section>
@@ -387,6 +387,14 @@ export default function CatalogPage() {
         {oneOffProducts.map((product, idx) => renderCatalogSection(product, idx + subscriptionProducts.length))}
       </section>
     </ConsumerPageShell>
+  );
+}
+
+export default function CatalogPage() {
+  return (
+    <Suspense fallback={<ConsumerPageShell testId="catalog-page"><ConsumerPanel className="p-5 text-sm text-slate-500">Загрузка каталога...</ConsumerPanel></ConsumerPageShell>}>
+      <CatalogPageContent />
+    </Suspense>
   );
 }
 // #END_BLOCK_CATALOG_UI

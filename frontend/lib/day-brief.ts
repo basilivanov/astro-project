@@ -94,6 +94,15 @@ export type DayBriefDto = {
     timing_precision?: "exact" | "approximate" | null;
     top_signal_source?: string | null;
     explanation_depth?: "minimal" | "standard" | "full" | null;
+    selected_factors?: Array<{
+      id: string;
+      label: string;
+      explanation_human: string;
+      explanation_astro?: string | null;
+      domain?: string | null;
+      family?: string | null;
+      signal?: number | null;
+    }>;
   };
   premium?: {
     subscription_active: boolean;
@@ -209,7 +218,7 @@ export function buildLegacyDayBrief(source: unknown, premiumActiveUntil?: string
     { key: "love", title: "Отношения", value: legacyTraffic.love === "green" ? 74 : legacyTraffic.love === "red" ? 30 : 56, status: isLight(legacyTraffic.love) ? legacyTraffic.love : "yellow", advice: "Говорите мягче и уточняйте ожидания." },
     { key: "focus", title: "Фокус", value: personalizationLevel.includes("personal") ? 72 : 58, status: "yellow", advice: generalVibe },
   ];
-  const windows = fastHits.slice(0, 3).map((item, index) => ({
+  const windows: DayBriefDto["windows"] = fastHits.slice(0, 3).map((item, index) => ({
     id: text(item.summary, `window-${index}`),
     start: index === 0 ? "09:00" : index === 1 ? "13:00" : "18:00",
     end: index === 0 ? "11:00" : index === 1 ? "15:00" : "20:00",
@@ -308,6 +317,19 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
       timing_precision: isRecord(candidate.explainability) && (candidate.explainability.timing_precision === "exact" || candidate.explainability.timing_precision === "approximate") ? candidate.explainability.timing_precision : null,
       top_signal_source: isRecord(candidate.explainability) ? text(candidate.explainability.top_signal_source) || null : null,
       explanation_depth: isRecord(candidate.explainability) && (["minimal", "standard", "full"].includes(text(candidate.explainability.explanation_depth))) ? candidate.explainability.explanation_depth as "minimal" | "standard" | "full" : null,
+      selected_factors: isRecord(candidate.explainability) && Array.isArray(candidate.explainability.selected_factors)
+        ? candidate.explainability.selected_factors
+          .filter(isRecord)
+          .map((factor, index) => ({
+            id: text(factor.id, `selected-factor-${index}`),
+            label: text(factor.label, `Фактор ${index + 1}`),
+            explanation_human: text(factor.explanation_human, "Фактор поддерживает вывод дня."),
+            explanation_astro: typeof factor.explanation_astro === "string" ? factor.explanation_astro : null,
+            domain: typeof factor.domain === "string" ? factor.domain : null,
+            family: typeof factor.family === "string" ? factor.family : null,
+            signal: typeof factor.signal === "number" ? factor.signal : null,
+          }))
+        : [],
     },
     premium: isRecord(candidate.premium) ? {
       subscription_active: bool(candidate.premium.subscription_active, false),

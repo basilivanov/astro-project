@@ -1,5 +1,7 @@
 # GRACE Test Matrix
 
+> Legacy global matrix. Prefer `docs/REGRESSION_MAP.md` as the single durable regression map. Keep this file only for older detailed notes that have not yet been folded into packet-local matrices.
+
 `docs/TEST_MATRIX.md` фиксирует минимально-достаточные тесты по активным GRACE-срезам и разделяет их на backend/front. Источник правды для списка — текущие DoD/checklist материалы: `verification-matrix.md`, `docs/GRACE_SLICE_AUTOMATION_MAP.md`, `docs/GRACE_ARTIFACTS.md` и rollout note для admin gate.
 
 ## Базовые профили DoD

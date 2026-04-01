@@ -10,6 +10,13 @@ export type ActionRiskItem = {
   factor_id?: string | null;
   impact?: string | null;
   timeframe?: string | null;
+  why_text?: string | null;
+  supporting_factors?: {
+    label?: string | null;
+    explanation_human?: string | null;
+    explanation_astro?: string | null;
+    value?: string | null;
+  }[] | null;
 };
 
 export type WeekBriefCtaLink = {
@@ -48,6 +55,13 @@ export type WeekBrief = {
     value?: number | null;
     headline?: string | null;
     advice?: string | null;
+    why_text?: string | null;
+    supporting_factors?: {
+      label?: string | null;
+      explanation_human?: string | null;
+      explanation_astro?: string | null;
+      value?: string | null;
+    }[] | null;
   }[] | null;
   best_uses?: ActionRiskItem[] | null;
   risks?: ActionRiskItem[] | null;
@@ -184,6 +198,15 @@ const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallba
       factor_id: item.factor_id ?? null,
       impact: item.impact ?? null,
       timeframe: item.timeframe ?? null,
+      why_text: item.why_text?.trim() ?? null,
+      supporting_factors: Array.isArray(item.supporting_factors)
+        ? item.supporting_factors.filter(Boolean).map((factor) => ({
+            label: factor?.label?.trim() ?? null,
+            explanation_human: factor?.explanation_human?.trim() ?? null,
+            explanation_astro: factor?.explanation_astro?.trim() ?? null,
+            value: factor?.value?.trim() ?? null,
+          }))
+        : [],
     }));
   }
   return normalizeList(fallback).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
@@ -200,19 +223,21 @@ export function mapWeekReportToWeekBrief(input: {
   const legacy = input.legacyWeekMap;
   const chunks = Array.isArray(input.chunks) ? input.chunks : [];
 
-  const deepSections = (brief?.deep_sections?.length
-    ? brief.deep_sections
-    : chunks
-        .filter((chunk) => typeof chunk?.content !== "undefined")
-        .map((chunk, index) => ({
-          id: chunk.id ?? `chunk-${index + 1}`,
-          slug: chunk.section ?? chunk.id ?? `section-${index + 1}`,
-          title: chunk.title ?? chunk.section ?? `Секция ${index + 1}`,
-          summary: extractReportFallbackText(chunk.content) ?? null,
-          body_markdown: typeof chunk.content === "string" ? chunk.content : JSON.stringify(chunk.content),
-          is_primary: index === 0,
-          order: index,
-        }))) ?? [];
+  const chunkSections = chunks
+    .filter((chunk) => typeof chunk?.content !== "undefined")
+    .map((chunk, index) => ({
+      id: chunk.id ?? `chunk-${index + 1}`,
+      slug: chunk.section ?? chunk.id ?? `section-${index + 1}`,
+      title: chunk.title ?? chunk.section ?? `Секция ${index + 1}`,
+      summary: extractReportFallbackText(chunk.content) ?? null,
+      body_markdown: typeof chunk.content === "string" ? chunk.content : JSON.stringify(chunk.content),
+      is_primary: index === 0,
+      order: index,
+    }));
+
+  const deepSections = brief?.deep_sections?.length
+    ? repairWeekBriefDeepSections(brief.deep_sections, chunkSections)
+    : chunkSections;
 
   const dayCards = brief?.day_cards?.length
     ? brief.day_cards
@@ -236,6 +261,8 @@ export function mapWeekReportToWeekBrief(input: {
         value: Number(value ?? 0),
         headline: `${LEGACY_DOMAIN_TITLES[key] ?? key}: ${Number(value ?? 0)}/100`,
         advice: null,
+        why_text: null,
+        supporting_factors: [],
       }));
 
   const actions = normalizeActionItems(brief?.best_uses, legacy?.actions, "action");
@@ -294,6 +321,45 @@ export function mapWeekReportToWeekBrief(input: {
         ? legacy?.thesis?.trim() || "Неделя собирается, лог уже в работе"
         : null,
   };
+}
+
+function repairWeekBriefDeepSections(
+  sections: NonNullable<WeekBrief["deep_sections"]>,
+  chunkSections: NonNullable<WeekBrief["deep_sections"]>,
+): NonNullable<WeekBrief["deep_sections"]> {
+  const hasDegradedSection = sections.some((section) => !section.body_markdown?.trim() || !section.summary?.trim());
+  const chunkBySlug = new Map(chunkSections.map((section) => [section.slug ?? section.id ?? "", section]));
+  const repaired = sections.map((section) => {
+    const slug = section.slug ?? section.id ?? "";
+    const chunkMatch = chunkBySlug.get(slug);
+    const hasBody = Boolean(section.body_markdown?.trim());
+    const hasSummary = Boolean(section.summary?.trim());
+
+    if (!chunkMatch || (hasBody && hasSummary)) {
+      return section;
+    }
+
+    return {
+      ...section,
+      summary: hasSummary ? section.summary : chunkMatch.summary,
+      body_markdown: hasBody ? section.body_markdown : chunkMatch.body_markdown,
+    };
+  });
+
+  if (!hasDegradedSection) {
+    return repaired;
+  }
+
+  const existingSlugs = new Set(repaired.map((section) => section.slug ?? section.id ?? ""));
+  const appended = chunkSections
+    .filter((section) => !existingSlugs.has(section.slug ?? section.id ?? ""))
+    .map((section, index) => ({
+      ...section,
+      is_primary: false,
+      order: repaired.length + index,
+    }));
+
+  return [...repaired, ...appended];
 }
 
 function normalizeStatus(value: string | null | undefined): LightStatus {

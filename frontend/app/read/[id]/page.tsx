@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Clock3, ListChecks, RefreshCw } from "lucide-react";
@@ -40,17 +40,23 @@ import {
   extractSectionPreview,
   formatReadingTime,
   formatReportType,
-  formatSectionTitle,
 } from "../../../lib/forecast-ui";
 import { CorrelationManager, correlatedFetch } from "../../../lib/correlation";
 import { CATALOG_GRACE_BLOCKS, CATALOG_GRACE_MODULES, withCatalogTrace } from "../../../components/catalog/create-shared";
-
-type ReportChunk = {
-  id?: string;
-  section?: string;
-  title?: string | null;
-  content?: unknown;
-};
+import {
+  READ_STATUS_META,
+  buildExpandedSections,
+  buildReadContinuityEvidence,
+  buildReadContinuitySummary,
+  buildReadDescription,
+  buildReadFailureContext,
+  buildSectionToggleState,
+  extractReadContinuityFacts,
+  formatAccessSource,
+  prepareRenderableSections,
+  type ReportChunk,
+  toErrorMessage,
+} from "./page-helpers";
 
 type ReportPayload = {
   report?: {
@@ -64,19 +70,6 @@ type ReportPayload = {
   chart_svg?: string | null;
 };
 
-type RenderableSection = {
-  id: string;
-  anchorId: string;
-  section: string;
-  title: string;
-  blocks: ReportBlock[];
-  fallbackText: string | null;
-  preview: string | null;
-  readingMinutes: number;
-};
-
-const SECTION_FALLBACK_MESSAGE =
-  "Исходный формат секции не удалось разобрать полностью. Показываем безопасную текстовую версию, чтобы содержание не потерялось.";
 const READ_SURFACE = "read" as const;
 const READ_ENTRY_POINT = "read_resume_banner";
 const READ_DIRECT_ENTRY_POINT = "read_direct";
@@ -137,7 +130,7 @@ const READ_BLOCKS = {
 //   - frontend/components/catalog/catalog-analytics.ts
 // END_MODULE_MAP: M-READ-REPORT-PAGE
 
-export default function ReadReportPage() {
+function ReadReportPageContent() {
   const params = useParams<{ id?: string | string[] }>();
   const searchParams = useSearchParams();
   const reportId =
@@ -332,6 +325,9 @@ export default function ReadReportPage() {
   const clientName = report?.report?.client_name || "Клиент";
   const chartSvg = typeof report?.chart_svg === "string" ? report.chart_svg : null;
   const accessSource = report?.report?.access_source || null;
+  const continuityFacts = useMemo(() => extractReadContinuityFacts(report), [report]);
+  const continuitySummary = useMemo(() => buildReadContinuitySummary(continuityFacts), [continuityFacts]);
+  const continuityEvidence = useMemo(() => buildReadContinuityEvidence(continuityFacts), [continuityFacts]);
   const showPendingState = sections.length === 0 && reportStatus !== "completed";
   const showEmptyState = sections.length === 0 && reportStatus === "completed";
   const openedCount = sections.filter((section) => expandedSections[section.id]).length;
@@ -345,12 +341,7 @@ export default function ReadReportPage() {
 
   const toggleAllSections = () => {
     const nextExpandedValue = !allSectionsExpanded;
-    setExpandedSections(
-      sections.reduce<Record<string, boolean>>((acc, section) => {
-        acc[section.id] = nextExpandedValue;
-        return acc;
-      }, {}),
-    );
+    setExpandedSections(buildSectionToggleState(sections, nextExpandedValue));
   };
 
   // START_CONTRACT: handleShare
@@ -432,16 +423,16 @@ export default function ReadReportPage() {
   // END_CONTRACT: FN-FETCH-FAILURE-CONTEXT
   const fetchFailureContext = () => {
     // START_BLOCK: FAILURE_CONTEXT
-    return {
-      report_id: reportId,
-      report_type: report?.report?.report_type || "unknown",
-      status: report?.report?.status || "failed",
-      entry_point: checkoutToken ? READ_ENTRY_POINT : READ_DIRECT_ENTRY_POINT,
-      retry_cta_id: "read-regenerate-button",
-      support_cta_id: "read-failure-history-link",
-      surface: FAILURE_SURFACE,
-      flow_id: FAILURE_FLOW_ID,
-    };
+    return buildReadFailureContext({
+      reportId,
+      reportType: report?.report?.report_type,
+      status: report?.report?.status,
+      hasCheckoutToken: Boolean(checkoutToken),
+      readEntryPoint: READ_ENTRY_POINT,
+      directEntryPoint: READ_DIRECT_ENTRY_POINT,
+      failureSurface: FAILURE_SURFACE,
+      failureFlowId: FAILURE_FLOW_ID,
+    });
     // END_BLOCK: FAILURE_CONTEXT
   };
 
@@ -758,6 +749,9 @@ export default function ReadReportPage() {
                   label="Чтение"
                   value={reportStatus === "completed" ? `~${formatReadingTime(totalReadingMinutes)}` : "После генерации"}
                 />
+                {continuitySummary && (
+                  <ConsumerMetaPill label={continuitySummary.label} value={continuitySummary.value} />
+                )}
               </>
             }
             actions={
@@ -771,6 +765,23 @@ export default function ReadReportPage() {
               ) : null
             }
           />
+
+          {continuitySummary && continuityEvidence.length > 0 && (
+            <ConsumerPanel data-testid="read-known-time-panel" className="p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Known-time continuity</p>
+                  <h2 className="mt-2 text-lg font-black tracking-tight text-slate-900">Сценарий чтения держится на точном времени рождения</h2>
+                  <p data-testid="read-known-time-summary" className="mt-2 text-sm leading-relaxed text-slate-500">
+                    Экран сохраняет majority-path continuity для точного времени, чтобы Today, Week и Read опирались на один и тот же временной контур.
+                  </p>
+                </div>
+                <div data-testid="read-known-time-evidence" className="rounded-[24px] border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-sm font-semibold text-indigo-900">
+                  {continuityEvidence.join(" • ")}
+                </div>
+              </div>
+            </ConsumerPanel>
+          )}
 
           {sections.length > 0 && (
             <ConsumerPanel data-testid="read-overview-panel" className="p-4 sm:p-5">
@@ -947,126 +958,10 @@ export default function ReadReportPage() {
   );
 }
 
-const buildExpandedSections = (sections: RenderableSection[]) =>
-  sections.slice(0, 2).reduce<Record<string, boolean>>((acc, section) => {
-    acc[section.id] = true;
-    return acc;
-  }, {});
-
-const prepareRenderableSections = (chunks: unknown): RenderableSection[] => {
-  if (!Array.isArray(chunks)) {
-    return [];
-  }
-
-  return chunks.flatMap((chunk, index) => {
-    const section =
-      typeof chunk?.section === "string" && chunk.section.trim().length > 0
-        ? chunk.section
-        : `section_${index + 1}`;
-    const blocks = parseReportBlocks(chunk?.content);
-    const fallbackText =
-      blocks.length === 0
-        ? extractReportFallbackText(chunk?.content) ??
-          (hasReportContent(chunk?.content) ? SECTION_FALLBACK_MESSAGE : null)
-        : null;
-
-    if (blocks.length === 0 && !fallbackText) {
-      return [];
-    }
-
-    return [
-      {
-        id:
-          typeof chunk?.id === "string" && chunk.id.trim().length > 0
-            ? chunk.id
-            : section,
-        anchorId: buildSectionAnchorId(
-          typeof chunk?.id === "string" && chunk.id.trim().length > 0 ? chunk.id : section,
-          "read",
-        ),
-        section,
-        title:
-          typeof chunk?.title === "string" && chunk.title.trim().length > 0
-            ? chunk.title.trim()
-            : formatSectionTitle(section),
-        blocks,
-        fallbackText,
-        preview: extractSectionPreview({ blocks, fallbackText }),
-        readingMinutes: estimateReadingMinutes({ blocks, fallbackText }),
-      },
-    ];
-  });
-};
-
-const buildReadDescription = (status: string, clientName: string, sectionCount: number) => {
-  if (status === "completed") {
-    return `Разбор уже собран для ${clientName} и разбит на ${sectionCount} секций. Сначала просмотрите превью, затем раскрывайте только те части, где нужен более детальный ориентир.`;
-  }
-
-  if (status === "in_progress" || status === "pending") {
-    return `Отчет для ${clientName} еще в работе. Как только секции будут готовы, экран останется в том же сценарии и покажет структуру чтения.`;
-  }
-
-  if (sectionCount === 0) {
-    return `Разбор для ${clientName} пока не содержит доступных блоков. Можно вернуться позже или запустить повторную сборку.`;
-  }
-
-  return `Разбор для ${clientName} доступен в секциях: сначала главная канва, затем детальные блоки по темам.`;
-};
-
-const formatAccessSource = (accessSource: string) => {
-  if (accessSource === "report_entitlement") {
-    return "Разовый unlock";
-  }
-  if (accessSource === "subscription") {
-    return "Подписка";
-  }
-  if (accessSource === "credits") {
-    return "Пакет вопросов";
-  }
-  if (accessSource === "trial") {
-    return "Пробный доступ";
-  }
-  if (accessSource === "bypass") {
-    return "Внутренний доступ";
-  }
-  return accessSource;
-};
-
-const READ_STATUS_META: Record<
-  string,
-  { label: string; description: string; tone: "emerald" | "indigo" | "amber" | "rose" | "slate"; metaValue: string }
-> = {
-  completed: {
-    label: "Готов к чтению",
-    description: "Структура уже собрана по секциям",
-    tone: "emerald",
-    metaValue: "Готово",
-  },
-  in_progress: {
-    label: "В обработке",
-    description: "Секции еще собираются",
-    tone: "indigo",
-    metaValue: "В работе",
-  },
-  pending: {
-    label: "Ожидает сборку",
-    description: "Сценарий еще не завершен",
-    tone: "amber",
-    metaValue: "Ожидание",
-  },
-  failed: {
-    label: "Ошибка сборки",
-    description: "Нужен повторный запуск",
-    tone: "rose",
-    metaValue: "Сбой",
-  },
-};
-
-const toErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return fallback;
-};
+export default function ReadReportPage() {
+  return (
+    <Suspense fallback={<ConsumerPageShell testId="read-page"><ConsumerPanel className="p-5"><LoadingState compact message="Загружаем разбор..." /></ConsumerPanel></ConsumerPageShell>}>
+      <ReadReportPageContent />
+    </Suspense>
+  );
+}

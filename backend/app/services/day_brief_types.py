@@ -98,6 +98,7 @@ class DayScore(StrictModel):
     value: int = Field(..., ge=0, le=100)
     status: LightStatus
     advice: str = Field(..., min_length=6, max_length=220)
+    details: dict | None = None
 
 
 class DayWindow(StrictModel):
@@ -107,6 +108,7 @@ class DayWindow(StrictModel):
     label: str = Field(..., min_length=2, max_length=48)
     mode: WindowMode
     advice: str = Field(..., min_length=6, max_length=200)
+    details: dict | None = None
 
     @staticmethod
     def _to_minutes(value: str) -> int:

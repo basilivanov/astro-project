@@ -11,6 +11,51 @@ set -e
 export E2E_BASE_URL=${E2E_BASE_URL:-http://astro-project-frontend_dev-1:3000}
 FRONTEND_HEALTH_CONTAINER=${FRONTEND_HEALTH_CONTAINER:-astro-project-frontend_dev-1}
 
+normalize_playwright_args() {
+  local normalized=()
+
+  for arg in "$@"; do
+    if [[ "$arg" == frontend/e2e/* ]] && [[ -e "$arg" ]]; then
+      normalized+=("${arg#frontend/}")
+    elif [[ "$arg" == e2e/* ]] && [[ -e "frontend/$arg" ]]; then
+      normalized+=("$arg")
+    else
+      normalized+=("$arg")
+    fi
+  done
+
+  printf '%s\n' "${normalized[@]}"
+}
+
+has_explicit_test_target() {
+  local expect_value=0
+
+  for arg in "$@"; do
+    if [ "$expect_value" -eq 1 ]; then
+      expect_value=0
+      continue
+    fi
+
+    case "$arg" in
+      --grep|--grep-invert|--project|--reporter|--config|--workers|--retries|--repeat-each|--timeout|--max-failures|--trace|--headed|--browser)
+        expect_value=1
+        continue
+        ;;
+      --grep=*|--grep-invert=*|--project=*|--reporter=*|--config=*|--workers=*|--retries=*|--repeat-each=*|--timeout=*|--max-failures=*|--trace=*|--browser=*)
+        continue
+        ;;
+      --*)
+        continue
+        ;;
+      *)
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
 http_get_in_container() {
   local container_name="$1"
   local url="$2"
@@ -95,13 +140,15 @@ echo "✅ All health checks passed (Backend, DB, Frontend, Proxy)."
 # Ensure we are in the project root
 cd "$(dirname "$0")/.."
 
+mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
+
 PLAYWRIGHT_LOG=$(mktemp)
 set +e
-docker compose -f docker-compose.e2e.yml run --rm frontend_e2e sh -c 'if [ ! -x node_modules/.bin/playwright ]; then npm ci; fi && npm run test:e2e -- "$@"' _ "$@" | tee "$PLAYWRIGHT_LOG"
+docker compose -f docker-compose.e2e.yml run --rm frontend_e2e sh -c 'if [ ! -x node_modules/.bin/playwright ]; then npm ci; fi && npm run test:e2e -- "$@"' _ "${PLAYWRIGHT_ARGS[@]}" | tee "$PLAYWRIGHT_LOG"
 exit_code=${PIPESTATUS[0]}
 set -e
 
-if [ $exit_code -ne 0 ] && grep -q "Error: No tests found" "$PLAYWRIGHT_LOG"; then
+if [ $exit_code -ne 0 ] && ! has_explicit_test_target "${PLAYWRIGHT_ARGS[@]}" && grep -q "Error: No tests found" "$PLAYWRIGHT_LOG"; then
   echo "ℹ️  Playwright reported 'No tests found'. Treating as success because there were no cached failures."
   exit_code=0
 fi

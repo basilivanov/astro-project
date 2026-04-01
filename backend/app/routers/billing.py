@@ -71,6 +71,9 @@ class CreatePaymentRequest(BaseModel):
     pack_id: Optional[str] = None
     return_path: Optional[str] = None
     draft_payload: Optional[dict[str, Any]] = None
+    consent_flow: Optional[str] = None
+    consent_accepted: Optional[bool] = None
+    legal_versions: Optional[dict[str, str]] = None
 
     @validator("product_type", pre=True)
     @classmethod
@@ -89,7 +92,10 @@ def initiate_payment(
     try:
         final_amount = payload.amount
         final_desc = payload.description
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = {
+            "consent_flow": payload.consent_flow or "create_checkout",
+            "consent_accepted": bool(payload.consent_accepted),
+        }
         billing_kind = BillingKind.SUBSCRIPTION.value
         product_code = payload.product_type or payload.pack_id or "custom"
         report_type: Optional[str] = None
@@ -174,6 +180,8 @@ def initiate_payment(
                 return_path=payload.return_path,
                 draft_payload=payload.draft_payload,
             )
+            if payload.legal_versions:
+                metadata["legal_versions"] = payload.legal_versions
             metadata["checkout_session_id"] = str(checkout_session.id)
 
         checkout_token_hash = (

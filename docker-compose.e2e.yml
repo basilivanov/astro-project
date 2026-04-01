@@ -5,6 +5,7 @@ services:
     environment:
       E2E_BASE_URL: ${E2E_BASE_URL:-http://astro-project-frontend_dev-1:3000}
       E2E_ENABLE_ONE_OFF_RUNTIME: ${E2E_ENABLE_ONE_OFF_RUNTIME:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     volumes:
       - ./frontend:/app
       - frontend_e2e_node_modules:/app/node_modules

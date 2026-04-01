@@ -1086,7 +1086,7 @@ def _assemble_day_brief_payload(
         for domain, meta in factor_domain_meta.items():
             int_scores[domain] = int(max(0, min(100, round(BASELINE_SCORE + (meta["signal"] * 35)))))
     birth_time_used = _birth_time_used(user)
-    fallback_mode = bool((facts.get("meta") or {}).get("fallback_mode")) or not birth_time_used or len(raw_records) < 3
+    fallback_mode = bool((facts.get("meta") or {}).get("fallback_mode"))
     personalized_factors, weighted_meta, factor_refs = _prepare_personalized_factors(
         raw_records,
         limit=3 if fallback_mode else 5,

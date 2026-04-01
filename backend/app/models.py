@@ -55,6 +55,7 @@ class User(Base):
     referral_code: Mapped[Optional[str]] = mapped_column(String(10), unique=True, index=True, nullable=True)
     last_horary_reset_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     susceptibility_profile: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    consent_log: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -130,6 +131,7 @@ class SupportTicket(Base):
     topic: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="open")
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    consent_snapshot: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

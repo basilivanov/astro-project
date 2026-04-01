@@ -1,5 +1,7 @@
 # GRACE Test Playbook
 
+> Legacy playbook. Prefer `docs/TESTING.md` for agent-first testing rules and `docs/REGRESSION_MAP.md` for the canonical global regression map. This file remains as historical/supporting detail.
+
 Working copy: commit snapshot `grace-2026-03-21` (see `verification-matrix.md`). This playbook links each active slice to the verification matrix (`VM-*` IDs), concrete regression commands, and the evidence/log contours captured in existing docs. Run all commands from `/opt/astro-project` unless noted otherwise.
 
 ## Shared Conventions
@@ -7,6 +9,11 @@ Working copy: commit snapshot `grace-2026-03-21` (see `verification-matrix.md`).
 - `VM-*` details live in `verification-matrix.md`; reference that file when a VM’s scope or command list changes.
 - Treat controller-packet artifacts (benchmark JSON, log replays, Playwright traces) as part of the Gate; file them next to the source doc named below.
 - Export fresh background-task logs with `python3 automation/export_evidence.py`; it copies recent `.task-logs` files into `test-results/evidence/rev-YYYY-MM-DD/` and writes `manifest.json` for the packet.
+
+### Post-test observability gate
+- After the task-specific quick profile turns green, agents must review post-test `digest/replay/trace` evidence before declaring the slice verified. Green tests without this review do not satisfy the Gate.
+- Required review output: replay or digest summary, latest correlated `trace_id` / `report_id` / `request_id`, explicit fallback/degradation check, and a recorded verdict (`clean`, `degraded-but-expected`, `unexpected-degradation`, or `no-evidence-blocker`).
+- This gate is mandatory for all slices and especially strict for `Today`, `Week`, `Admin`, `Catalog`, and `Billing` surfaces, where controller packets must include the observability verdict alongside test transcripts.
 
 ## Evidence Export
 - **Purpose**: collect fresh `.task-logs` artifacts into a single evidence folder without manual copying.

@@ -126,11 +126,11 @@ function WeekPageContent() {
     return latest ?? null;
   }, [initData, mode]);
 
-  const fetchWeekPayload = useCallback(async (reportId: string | null) => {
+  const fetchWeekPayload = useCallback(async (report: WeekReportSummary | null) => {
     if (mockRuntime && typeof window !== "undefined") {
       const mockWindow = window as MockWeekWindow;
       return {
-        report: { id: reportId ?? "mock-week-report", report_type: "week_forecast", status: "completed" },
+        report: { id: report?.id ?? "mock-week-report", report_type: "week_forecast", status: "completed" },
         week_map: mockWindow.MOCK_WEEK_MAP_OVERRIDE ?? DEFAULT_WEEK_MAP,
         week_brief: mockWindow.MOCK_WEEK_BRIEF_OVERRIDE ?? null,
         chunks: [
@@ -144,8 +144,9 @@ function WeekPageContent() {
       } satisfies WeekReportPayload;
     }
 
+    const reportId = report?.id ?? null;
     if (!reportId || !initData) return null;
-    const response = await correlatedFetch(`/api/reports/${reportId.id ?? reportId}`, { headers: { "X-Telegram-Auth": initData } });
+    const response = await correlatedFetch(`/api/reports/${reportId}`, { headers: { "X-Telegram-Auth": initData } });
     if (!response.ok) throw new Error(`FETCH_WEEK_${response.status}`);
     return (await response.json()) as WeekReportPayload;
   }, [initData, mockRuntime]);
@@ -160,7 +161,7 @@ function WeekPageContent() {
     setLoading(true);
     setError(null);
     ensureCorrelationId();
-    setCatalogAnalyticsContext({ correlationId: ensureCorrelationId(), flowId: FLOW_FORECAST_CATALOG, surface: "week" });
+    setCatalogAnalyticsContext({ correlation_id: ensureCorrelationId(), flow_id: FLOW_FORECAST_CATALOG, surface: "week" });
 
     try {
       const reportMeta = await fetchLatestReport();

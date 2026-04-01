@@ -1,5 +1,19 @@
 # Testing Guide
 
+> Legacy narrow guide. Start with `docs/TESTING.md` for the repo-wide testing home and `docs/REGRESSION_MAP.md` for canonical profiles. This file stays only for specific DayBrief-focused notes.
+
+## Required post-test observability review
+
+After any meaningful backend or frontend test pass, agents must review post-test `digest/replay/trace` evidence for the changed flow; green tests alone do not close verification.
+
+Minimum required checks:
+- relevant structured logs for the flow under test
+- latest replay or digest summary
+- latest `trace_id`, `report_id`, or `request_id` tied to the run
+- fallback/degradation/error signals and whether they match expectations
+
+For `Today`, `Week`, `Admin`, `Catalog`, and `Billing` work, this review is mandatory on every substantial run. The agent must record a final verdict as `clean`, `degraded-but-expected`, `unexpected-degradation`, or `no-evidence-blocker`.
+
 ## DayBrief tests: when you need mocks vs `psycopg2`
 
 ### Short answer

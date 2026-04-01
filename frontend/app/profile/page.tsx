@@ -12,6 +12,7 @@ import {
 } from "../../components/catalog/catalog-analytics";
 import { useTelegram } from "../../hooks/useTelegram";
 import { CorrelationManager, correlatedFetch } from "../../lib/correlation";
+import { LegalFooterBlock } from "../../components/legal-links";
 
 type ProfileData = {
   full_name: string;
@@ -336,7 +337,12 @@ export default function ProfilePage() {
         <MenuLink href="/support" icon={ShieldQuestion} label="Поддержка" analyticsCtaId="profile_support" correlationId={correlationId} />
         <MenuLink href="/profile/edit" icon={Settings} label="Настройки" analyticsCtaId="profile_settings" correlationId={correlationId} />
       </nav>
-    </main>
+    
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 text-sm leading-relaxed text-slate-600 shadow-sm" aria-label="Юридическая информация">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Legal</p>
+        <LegalFooterBlock className="mt-3" />
+      </section>
+</main>
   );
 }
 

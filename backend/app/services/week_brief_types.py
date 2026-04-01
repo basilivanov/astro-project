@@ -56,12 +56,21 @@ class CtaType(str, Enum):
     custom = "custom"
 
 
+class FactorEntry(StrictModel):
+    label: str = Field(..., min_length=2, max_length=80)
+    explanation_human: str = Field(..., min_length=4, max_length=220)
+    explanation_astro: str | None = Field(default=None, max_length=220)
+    value: str | None = Field(default=None, max_length=64)
+
+
 class ActionRiskItem(StrictModel):
     id: str = Field(..., min_length=1, max_length=64)
     text: str = Field(..., min_length=8, max_length=220)
     factor_id: str | None = Field(default=None, max_length=64)
     impact: ImpactLevel | None = None
     timeframe: str | None = Field(default=None, max_length=64)
+    why_text: str | None = Field(default=None, max_length=280)
+    supporting_factors: list[FactorEntry] = Field(default_factory=list, max_length=4)
 
 
 class PersonalizedFactor(StrictModel):
@@ -82,6 +91,8 @@ class Explainability(StrictModel):
     timing_precision: TimingPrecision | None = None
     top_signal_source: SignalSource | None = None
     explanation_depth: Literal["minimal", "standard", "full"] | None = None
+    reliability_support: list[str] = Field(default_factory=list, max_length=12)
+    calibration: dict[str, object] | None = None
 
 
 class PremiumState(StrictModel):
@@ -162,6 +173,8 @@ class WeekDomain(StrictModel):
     value: int = Field(..., ge=0, le=100)
     headline: str = Field(..., min_length=6, max_length=100)
     advice: str = Field(..., min_length=8, max_length=220)
+    why_text: str | None = Field(default=None, max_length=280)
+    supporting_factors: list[FactorEntry] = Field(default_factory=list, max_length=4)
 
 
 class DeepSection(StrictModel):

@@ -150,3 +150,20 @@ def test_day_brief_validator_repairs_unknown_nested_keys_without_contract_drift(
     assert "extra" not in dumped["legacy"]
     assert dumped["summary"]["headline"]
     assert dumped["version"] == "day_brief_v1"
+
+
+def test_day_brief_validator_preserves_score_and_window_details() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        general_vibe="День просит коротких циклов и ясной фиксации главного.",
+        generation_mode="llm",
+    )
+
+    model = validate_day_brief_payload(payload)
+    dumped = model.model_dump(mode="json", exclude_none=True)
+
+    assert dumped["scores"][0]["details"]["why_text"]
+    assert "supporting_factors" in dumped["scores"][0]["details"]
+    assert dumped["windows"][0]["details"]["why_text"]
+    assert "supporting_factors" in dumped["windows"][0]["details"]

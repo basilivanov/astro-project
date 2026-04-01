@@ -33,8 +33,8 @@ _LEGACY_KEYS = (
     "traffic_lights",
     "fast_hits",
 )
-_DAY_SCORE_KEYS = ("key", "title", "value", "status", "advice")
-_DAY_WINDOW_KEYS = ("id", "start", "end", "label", "mode", "advice")
+_DAY_SCORE_KEYS = ("key", "title", "value", "status", "advice", "details")
+_DAY_WINDOW_KEYS = ("id", "start", "end", "label", "mode", "advice", "details")
 _ACTION_RISK_KEYS = ("id", "text", "factor_id", "impact", "timeframe")
 _PERSONALIZED_FACTOR_KEYS = (
     "id",

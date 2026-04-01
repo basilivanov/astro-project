@@ -83,6 +83,7 @@ def apply_runtime_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS current_timezone VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sun_sign VARCHAR(32)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_horary_reset_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_log JSON",
         """
         CREATE TABLE IF NOT EXISTS report_runs (
             id UUID PRIMARY KEY,

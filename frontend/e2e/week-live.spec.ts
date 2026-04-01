@@ -34,4 +34,26 @@ test.describe("Week Tab Live States", () => {
     await expect(page.getByTestId("week-explainability-panel")).toBeVisible();
     await expect(page.getByTestId("week-deep-sections")).toBeVisible();
   });
+
+  test("opens and closes week explainability details from the visible toggle", async ({ page }) => {
+    await page.goto("/week");
+
+    const toggle = page.getByTestId("week-explainability-toggle");
+    const details = page.getByTestId("week-explainability-details");
+
+    await expect(toggle).toBeVisible({ timeout: 10000 });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(details).toBeHidden();
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(details).toBeVisible();
+    await expect(page.getByTestId("week-factor-1")).toBeVisible();
+
+    await toggle.click();
+
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(details).toBeHidden();
+  });
 });

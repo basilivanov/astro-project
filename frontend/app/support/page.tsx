@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTelegram } from "../../hooks/useTelegram";
 import { ChevronLeft, Send, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -15,6 +16,7 @@ function SupportPageContent() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   useEffect(() => {
     if (topicParam) setTopic(topicParam);
@@ -22,7 +24,7 @@ function SupportPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !initData || !message.trim()) return;
+    if (!user || !initData || !message.trim() || !consentAccepted) return;
 
     setLoading(true);
     try {
@@ -35,6 +37,8 @@ function SupportPageContent() {
         body: JSON.stringify({
           topic,
           message,
+          consent_accepted: consentAccepted,
+          consent_flow: "support_form",
         }),
       });
 
@@ -99,7 +103,7 @@ function SupportPageContent() {
                 <option value="partner">Стать партнером</option>
                 <option value="payout">Вывод средств</option>
                 <option value="error">Ошибка в расчете</option>
-                <option value="billing">Проблемы с оплатой</option>
+                <option value="billing">Вопрос по разовой оплате</option>
             </select>
         </div>
 
@@ -114,9 +118,24 @@ function SupportPageContent() {
             />
         </div>
 
+        <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-600">
+            <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(e) => setConsentAccepted(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+            />
+            <span>
+                Я согласен(на) на обработку данных обращения и ознакомлен(а) с{' '}
+                <Link href="/legal/privacy" className="font-semibold text-purple-700 hover:text-purple-800">политикой конфиденциальности</Link>{' '}
+                и{' '}
+                <Link href="/legal/consent" className="font-semibold text-purple-700 hover:text-purple-800">согласием на обработку данных</Link>.
+            </span>
+        </label>
+
         <button 
             type="submit"
-            disabled={loading || !message.trim()}
+            disabled={loading || !message.trim() || !consentAccepted}
             className="w-full bg-purple-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-purple-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:active:scale-100"
         >
             {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}

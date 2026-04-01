@@ -182,6 +182,8 @@ def apply_v7_migrations(connection):
     """
     statements = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS susceptibility_profile JSON",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_log JSON",
+        "ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS consent_snapshot JSON",
     ]
     for stmt in statements:
         try:

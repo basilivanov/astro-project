@@ -115,6 +115,55 @@ from .reporting.static_content import SECTION_INTROS
 # #START_BLOCK_LOGGER
 logger = structlog.get_logger()
 
+CONSENT_VERSIONS = {
+    "terms": "offer_terms_ru_2026-04-01",
+    "privacy": "privacy_policy_ru_2026-04-01",
+    "data_processing": "data_processing_consent_ru_2026-04-01",
+    "payments": "payments_refunds_ru_2026-04-01",
+}
+
+
+def build_consent_snapshot(*, flow: str, accepted: bool, explicit: bool = True, extra: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {
+        "flow": flow,
+        "accepted": bool(accepted),
+        "explicit": bool(explicit),
+        "accepted_at": datetime.now(timezone.utc).isoformat(),
+        "versions": dict(CONSENT_VERSIONS),
+    }
+    if extra:
+        snapshot.update({key: value for key, value in extra.items() if value is not None})
+    return snapshot
+
+
+def merge_user_consent_log(user: User, *, flow: str, accepted: bool, extra: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    consent_log = dict(user.consent_log or {})
+    history = list(consent_log.get("history") or [])
+    snapshot = build_consent_snapshot(flow=flow, accepted=accepted, extra=extra)
+    history.append(snapshot)
+    consent_log.update({
+        "current": snapshot,
+        "history": history[-20:],
+    })
+    user.consent_log = consent_log
+    return snapshot
+
+
+def log_consent_event(db: Session, *, user: User, flow: str, accepted: bool, extra: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    snapshot = merge_user_consent_log(user, flow=flow, accepted=accepted, extra=extra)
+    try:
+        log_analytics_event(
+            db,
+            "legal_consent_accept",
+            user_id=user.id,
+            telegram_id=user.telegram_id,
+            source="webapp",
+            metadata=snapshot,
+        )
+    except Exception as exc:
+        logger.error("analytics.fail", error=str(exc), event="legal_consent_accept")
+    return snapshot
+
 
 def log_admin_report_event(event: str, *, admin: User | None = None, report: Report | None = None, **fields):
     payload = {key: value for key, value in fields.items() if value is not None}
@@ -654,6 +703,8 @@ class SupportTicketRequest(BaseModel):
     """
     topic: str = Field(..., min_length=1)
     message: str = Field(..., min_length=1)
+    consent_accepted: bool = Field(default=False)
+    consent_flow: Optional[str] = None
 
 
 @app.post("/api/support/tickets")
@@ -668,11 +719,23 @@ async def create_support_ticket(
     from .models import SupportTicket
     from .services.notification import send_bot_notification
 
+    if not payload.consent_accepted:
+        raise HTTPException(status_code=400, detail="consent_required")
+
+    consent_snapshot = log_consent_event(
+        db,
+        user=user,
+        flow=payload.consent_flow or "support_ticket",
+        accepted=True,
+        extra={"topic": payload.topic, "surface": "support"},
+    )
+
     ticket = SupportTicket(
         user_id=user.id,
         topic=payload.topic,
         message=payload.message,
-        status="open"
+        status="open",
+        consent_snapshot=consent_snapshot,
     )
     db.add(ticket)
     db.commit()
@@ -3205,6 +3268,7 @@ def run_diagnostics_endpoint():
 
 # #START_BLOCK_USER_ENDPOINTS
 class UserProfileOut(BaseModel):
+    consent_log: dict[str, Any] = Field(default_factory=dict)
     class ReportAccessEntry(BaseModel):
         allowed: bool = False
         granted_via: Optional[str] = None
@@ -3316,7 +3380,8 @@ def get_my_profile(
         "report_access": build_report_access_snapshot(user, db),
         "feature_flags": get_feature_flag_snapshot(),
         "can_access_premium": check_user_access(user, "natal_master", db),
-        "can_ask_horary": check_user_access(user, "horary", db)
+        "can_ask_horary": check_user_access(user, "horary", db),
+        "consent_log": user.consent_log or {},
     }
 
 @app.get("/api/billing/packs")
@@ -3341,6 +3406,8 @@ class UserProfileUpdate(BaseModel):
     current_lon: Optional[float] = None
     current_timezone: Optional[str] = None
     is_test: Optional[bool] = None
+    consent_accepted: Optional[bool] = None
+    consent_flow: Optional[str] = None
 
 class AnalyticsEventIn(BaseModel):
     event_name: str = Field(..., min_length=1)
@@ -3510,6 +3577,15 @@ def update_my_profile(
         if payload.current_timezone is not None: user.current_timezone = payload.current_timezone
         if payload.is_test is not None: user.is_test = payload.is_test
 
+        if payload.consent_accepted is True:
+            log_consent_event(
+                db,
+                user=user,
+                flow=payload.consent_flow or "profile_update",
+                accepted=True,
+                extra={"surface": "profile", "endpoint": "/api/users/me"},
+            )
+
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -3550,7 +3626,8 @@ def update_my_profile(
             "birth_date": user.birth_date,
             "birth_place": user.birth_place,
             "referral_code": user.referral_code,
-            "referrals_count": 0
+            "referrals_count": 0,
+            "consent_log": user.consent_log or {},
         }
     except Exception as e:
         import sys

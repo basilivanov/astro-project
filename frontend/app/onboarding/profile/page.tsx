@@ -1,27 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTelegram } from "../../../hooks/useTelegram";
 import GeoAutocomplete from "../../../components/GeoAutocomplete";
 import { ArrowRight, Check, Calendar, User } from "lucide-react";
+import { LEGAL_PUBLIC_DOMAIN, LegalIdentityBlock } from "../../../components/legal-links";
+import {
+    buildKnownTimeOnboardingContinuity,
+    createInitialOnboardingProfileForm,
+    isOnboardingProfileStepValid,
+} from "./onboarding-profile-helpers";
 
 export default function OnboardingPage() {
     const { user, initData } = useTelegram();
     const router = useRouter();
     const [step, setStep] = useState(0); // Start from Step 0 (Welcome)
     const [loading, setLoading] = useState(false);
+    const [dataConsentAccepted, setDataConsentAccepted] = useState(true);
     
-    const [form, setForm] = useState({
-        full_name: "",
-        birth_date: "",
-        birth_time: "12:00",
-        birth_time_known: true,
-        birth_place: "",
-        birth_lat: 0,
-        birth_lon: 0,
-        birth_timezone: ""
-    });
+    const [form, setForm] = useState(createInitialOnboardingProfileForm);
 
     useEffect(() => {
         if (user && !form.full_name) {
@@ -72,13 +71,8 @@ export default function OnboardingPage() {
         }
     };
 
-    const isStepValid = () => {
-        if (step === 0) return true;
-        if (step === 1) return form.full_name.length > 1 && form.birth_date.length > 0;
-        if (step === 2) return !form.birth_time_known || form.birth_time.length > 0;
-        if (step === 3) return form.birth_place.length > 0;
-        return false;
-    };
+    const knownTimeContinuity = buildKnownTimeOnboardingContinuity(form);
+    const isStepValid = () => isOnboardingProfileStepValid(step, form) && (step !== 3 || dataConsentAccepted);
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col pb-32 pt-6 px-6 relative overflow-hidden">
@@ -213,6 +207,46 @@ export default function OnboardingPage() {
                             defaultValue={form.birth_place}
                             onSelect={(city, lat, lon, tz) => setForm({...form, birth_place: city, birth_lat: lat, birth_lon: lon, birth_timezone: tz})}
                         />
+
+                        {knownTimeContinuity && (
+                            <div
+                                data-testid="onboarding-known-time-panel"
+                                className="rounded-3xl border border-indigo-100 bg-indigo-50/80 p-5 shadow-sm"
+                            >
+                                <p className="text-xs font-bold uppercase tracking-[0.24em] text-indigo-500">Контур данных</p>
+                                <p className="mt-2 text-base font-semibold text-slate-900">{knownTimeContinuity.label}</p>
+                                <p data-testid="onboarding-known-time-summary" className="mt-1 text-sm text-slate-600">
+                                    {knownTimeContinuity.value}
+                                </p>
+                                <div data-testid="onboarding-known-time-evidence" className="mt-3 space-y-1 text-sm font-medium text-indigo-900">
+                                    {knownTimeContinuity.evidence.map((item) => (
+                                        <p key={item}>{item}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-600 shadow-sm">
+                            <label className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={dataConsentAccepted}
+                                    onChange={e => setDataConsentAccepted(e.target.checked)}
+                                    className="mt-1 h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>
+                                    Продолжая, я принимаю условия сервиса и даю согласие на обработку данных для расчёта карты.
+                                    {' '}<Link href="/legal/terms" className="font-semibold text-purple-700 hover:text-purple-800">Оферта</Link>,{' '}
+                                    <Link href="/legal/privacy" className="font-semibold text-purple-700 hover:text-purple-800">Privacy / ПДн</Link>,{' '}
+                                    <Link href="/legal/consent" className="font-semibold text-purple-700 hover:text-purple-800">Consent</Link>,{' '}
+                                    <Link href="/legal/payments" className="font-semibold text-purple-700 hover:text-purple-800">Payments & refunds</Link>.
+                                </span>
+                            </label>
+                            <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                                <LegalIdentityBlock />
+                                <p className="mt-1">Актуальный публичный домен: {LEGAL_PUBLIC_DOMAIN}</p>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

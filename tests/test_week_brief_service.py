@@ -192,7 +192,7 @@ def test_build_week_brief_payload_keeps_seed_sections_when_chunk_json_is_invalid
     )
 
     validated = validate_week_brief_payload(payload)
-    assert validated["fallback_mode"] is True
+    assert validated["fallback_mode"] is False
     assert [section["slug"] for section in validated["deep_sections"][:3]] == ["overview", "timing", "background"]
     assert all(section["summary"] for section in validated["deep_sections"])
     assert "Неделя" in validated["deep_sections"][0]["body_markdown"] or "Каркас недели" in validated["deep_sections"][0]["body_markdown"]
@@ -263,3 +263,51 @@ def test_week_brief_prefers_theme_anchor_and_preserves_explainability_order():
     assert payload["explainability"]["factor_count"] >= len(payload["major_factors"])
     assert payload["explainability"]["reliability_support"]
     assert payload["explainability"]["calibration"]["weight_profile_version"] == "v2"
+
+def test_validate_week_brief_payload_preserves_week_explainability_extension_fields():
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=_sample_context(),
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    validated = validate_week_brief_payload(payload)
+
+    assert validated["fallback_mode"] is False
+    assert validated["explainability"]["reliability_support"]
+    assert validated["explainability"]["calibration"]["weight_profile_version"] == "v2"
+    assert "entrypoints" in validated["explainability"]["calibration"]
+
+def test_week_brief_keeps_non_fallback_when_seed_is_complete_but_some_chunks_are_degraded():
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=_sample_context(),
+        chunks=[
+            SimpleNamespace(
+                section="week_strategy",
+                content='[{"type":"header","level":2,"text":"Стратегия недели"},{"type":"paragraph","text":"Неделя лучше идет через одну линию и короткие проверки."}]',
+                status="completed",
+                order_index=0,
+            ),
+            SimpleNamespace(
+                section="money",
+                content="plain markdown text from degraded live chunk",
+                status="failed",
+                order_index=1,
+            ),
+        ],
+        user=None,
+        llm_model="deterministic",
+    )
+
+    validated = validate_week_brief_payload(payload)
+
+    assert validated["fallback_mode"] is False
+    assert validated["deep_sections"]
+    assert any(section["slug"] == "overview" for section in validated["deep_sections"])
+    assert validated["explainability"]["confidence"] < 0.9
+    assert validated["explainability"]["explanation_depth"] in {"full", "standard"}

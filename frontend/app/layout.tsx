@@ -33,6 +33,16 @@ export const metadata = {
 // #START_BLOCK_LAYOUT_ROOT
 import Script from 'next/script';
 import BottomNav from '../components/BottomNav';
+import { LegalFooterBlock } from '../components/legal-links';
+
+const runtimeEnvironment =
+  process.env.ENVIRONMENT ||
+  process.env.NEXT_PUBLIC_ENVIRONMENT ||
+  process.env.VERCEL_ENV ||
+  process.env.NODE_ENV;
+
+const environmentBadgeLabel =
+  runtimeEnvironment && runtimeEnvironment.toLowerCase() === 'production' ? 'PROD' : 'DEV';
 
 export default function RootLayout({
   children,
@@ -49,9 +59,15 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </head>
       <body className="antialiased pb-24 min-h-screen selection:bg-purple-200 selection:text-purple-900" suppressHydrationWarning>
+        <div className="fixed right-2 top-2 z-50 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/85 pointer-events-none select-none">
+          {environmentBadgeLabel}
+        </div>
         <main className="min-h-screen relative z-10">
             {children}
         </main>
+        <footer className="border-t border-slate-200 bg-white/95 px-6 py-4 text-center text-xs text-slate-500">
+          <LegalFooterBlock className="mx-auto max-w-4xl" compact />
+        </footer>
         <BottomNav />
       </body>
     </html>
