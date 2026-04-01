@@ -286,6 +286,7 @@ def _rendered_gate_summary_map(rendered_summaries: list[dict[str, Any]]) -> dict
     grouped: dict[str, list[dict[str, Any]]] = {
         "FLOW-TODAY-WEEK-TODAY": [],
         "FLOW-TODAY-WEEK-WEEK": [],
+        "FLOW-READ-SURFACE": [],
     }
     for item in rendered_summaries:
         flow_id = str(item.get("flow_id") or "")
@@ -294,6 +295,8 @@ def _rendered_gate_summary_map(rendered_summaries: list[dict[str, Any]]) -> dict
             grouped["FLOW-TODAY-WEEK-TODAY"].append(item)
         elif flow_id == "FLOW-WEEK-BRIEF" or surface == "week":
             grouped["FLOW-TODAY-WEEK-WEEK"].append(item)
+        elif flow_id == "FLOW-READ-SURFACE" or surface == "read":
+            grouped["FLOW-READ-SURFACE"].append(item)
     return grouped
 
 
@@ -390,29 +393,75 @@ def _augment_flow_with_rendered(flow: FlowDigest, rendered: list[dict[str, Any]]
 
 
 def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    overall = "clean"
-    for flow in (today, week):
-        if flow.status == "no-evidence-blocker":
-            overall = "no-evidence-blocker"
-            break
-        if flow.status == "unexpected-degradation":
-            overall = "unexpected-degradation"
-            break
-        if flow.status == "degraded-but-expected":
-            overall = "degraded-but-expected"
-    replay_summary = None
-    feed_records = _recent_records(feed_log, allowed_events=TODAY_EVENTS, limit=200, since_delta=parse_since(since))
-    if feed_records:
-        replay_summary = summarize_feed_flow(feed_records[-20:])
     rendered_index = _rendered_gate_summary_map(rendered_summaries or [])
+    flows: list[dict[str, Any]] = []
+    overall = "clean"
+
+    if profile == "read-only":
+        read_rendered = rendered_index["FLOW-READ-SURFACE"]
+        read_presence = _rendered_presence_summary(read_rendered)
+        read_status = "clean"
+        if read_presence.get("summary_count", 0) == 0:
+            read_status = "no-evidence-blocker"
+        elif not read_presence.get("site_web_present"):
+            read_status = "no-evidence-blocker"
+        elif "fallback_expected" in read_presence.get("assertion_classes", []) and "rendered_hygiene" not in read_presence.get("assertion_classes", []):
+            read_status = "degraded-but-expected"
+
+        read_flow = {
+            "flow_id": "FLOW-READ-SURFACE",
+            "status": read_status,
+            "records_checked": read_presence.get("summary_count", 0),
+            "last_timestamp": max((item.get("recorded_at") for item in read_rendered), default=None),
+            "fallback_count": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
+            "sample_trace_id": None,
+            "sample_correlation_id": None,
+            "sample_report_id": None,
+            "reason_codes": sorted(set(str((item.get("details") or {}).get("fallbackReason")) for item in read_rendered if (item.get("details") or {}).get("fallbackReason"))),
+            "alerts": [] if read_presence.get("summary_count", 0) else ["no rendered read evidence materialized"],
+            "counters": {
+                "rendered_site_web_total": sum(1 for item in read_rendered if ((item.get("pass_mode") or {}).get("key") == "site_web")),
+                "rendered_fallback_expected_total": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
+            },
+            "evidence": [
+                {
+                    "event": item.get("scenario_id"),
+                    "timestamp": item.get("recorded_at"),
+                    "trace_id": None,
+                    "correlation_id": None,
+                    "report_id": (item.get("details") or {}).get("route"),
+                    "reason": (item.get("details") or {}).get("fallbackReason"),
+                }
+                for item in read_rendered[-3:]
+            ],
+        }
+        flows = [_augment_flow_with_rendered(FlowDigest(**read_flow), read_rendered)]
+        overall = read_status
+        replay_summary = None
+    else:
+        for flow in (today, week):
+            if flow.status == "no-evidence-blocker":
+                overall = "no-evidence-blocker"
+                break
+            if flow.status == "unexpected-degradation":
+                overall = "unexpected-degradation"
+                break
+            if flow.status == "degraded-but-expected":
+                overall = "degraded-but-expected"
+        replay_summary = None
+        feed_records = _recent_records(feed_log, allowed_events=TODAY_EVENTS, limit=200, since_delta=parse_since(since))
+        if feed_records:
+            replay_summary = summarize_feed_flow(feed_records[-20:])
+        flows = [
+            _augment_flow_with_rendered(today, rendered_index["FLOW-TODAY-WEEK-TODAY"]),
+            _augment_flow_with_rendered(week, rendered_index["FLOW-TODAY-WEEK-WEEK"]),
+        ]
+
     return {
         "profile": profile,
         "analysis_window": since,
         "logs_reviewed": [str(feed_log), str(report_log)],
-        "flows": [
-            _augment_flow_with_rendered(today, rendered_index["FLOW-TODAY-WEEK-TODAY"]),
-            _augment_flow_with_rendered(week, rendered_index["FLOW-TODAY-WEEK-WEEK"]),
-        ],
+        "flows": flows,
         "rendered_summary_count": len(rendered_summaries or []),
         "replay_summary": replay_summary,
         "verdict": VERDICTS[overall],
@@ -478,8 +527,8 @@ def print_md(payload: dict[str, Any]) -> None:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Minimal post-test observability gate for Today/Week")
-    parser.add_argument("--profile", choices=["today-week"], default="today-week")
+    parser = argparse.ArgumentParser(description="Minimal post-test observability gate for Today/Week/Read")
+    parser.add_argument("--profile", choices=["today-week", "read-only"], default="today-week")
     parser.add_argument("--since", type=parse_since, default=timedelta(minutes=90))
     parser.add_argument("--feed-log", type=Path, default=PROJECT_ROOT / "logs" / "feed.jsonl")
     parser.add_argument("--report-log", type=Path, default=PROJECT_ROOT / "logs" / "report.jsonl")

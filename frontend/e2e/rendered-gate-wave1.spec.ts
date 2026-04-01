@@ -271,7 +271,7 @@ test.describe("Rendered Gate Wave 1", () => {
     });
 
     await page.goto("/week");
-    await expect(page.getByTestId("week-hero-actions")).toBeVisible();
+    await expect(page.getByTestId("week-actions-panel")).toBeVisible();
     await expect(page.getByTestId("week-day-grid")).toBeVisible();
     await expect(page.getByTestId("week-domain-panel")).toBeVisible();
     await expect(page.getByTestId("week-actions-panel")).toBeVisible();
@@ -306,7 +306,7 @@ test.describe("Rendered Gate Wave 1", () => {
         rawKeyGuards: ["signal only", "structured value", "completed"],
         duplicateFactorLabel: "контур",
       },
-      artifactRefs: ["dom://week-hero-actions", "dom://week-domain-explainability-work", `report://${reportId}`],
+      artifactRefs: ["dom://week-actions-panel", "dom://week-domain-explainability-work", `report://${reportId}`],
     });
 
     await writeRenderedGateSummary({
@@ -325,11 +325,11 @@ test.describe("Rendered Gate Wave 1", () => {
           counterpartPassMode: "site/web",
           parityStatus: "pilot_same_assertion_surface",
           notes: ["Week telegram pilot reuses same narrow rendered assertions as site/web"],
-          sharedArtifactRefs: ["dom://week-hero-actions", "dom://week-domain-explainability-work"],
+          sharedArtifactRefs: ["dom://week-actions-panel", "dom://week-domain-explainability-work"],
           invariantGroups: ["week.hero_actions", "week.domain_explainability"],
         }),
       },
-      artifactRefs: ["telegram://webapp", "dom://week-hero-actions", `report://${reportId}`],
+      artifactRefs: ["telegram://webapp", "dom://week-actions-panel", `report://${reportId}`],
     });
     await writeRenderedGateSummary({
       flowId: "FLOW-WEEK-BRIEF",
@@ -345,12 +345,189 @@ test.describe("Rendered Gate Wave 1", () => {
           counterpartPassMode: "site/web",
           parityStatus: "pilot_dom_model_invariants",
           notes: ["Week both/pass pilot materializes shared DOM/UI-model invariants"],
-          sharedArtifactRefs: ["dom://week-hero-actions", "dom://week-domain-explainability-work", `report://${reportId}`, "telegram://webapp"],
+          sharedArtifactRefs: ["dom://week-actions-panel", "dom://week-domain-explainability-work", `report://${reportId}`, "telegram://webapp"],
           invariantGroups: ["week.hero_actions", "week.domain_explainability", "week.no_nested_interactive"],
         }),
       },
-      artifactRefs: ["dom://week-hero-actions", "dom://week-domain-explainability-work", `report://${reportId}`, "telegram://webapp"],
+      artifactRefs: ["dom://week-actions-panel", "dom://week-domain-explainability-work", `report://${reportId}`, "telegram://webapp"],
     });
+    await context.close();
+  });
+
+  test("Read surface renders structured blocks on site_web success path without console errors", async ({ browser }) => {
+    const reportId = "read-rendered-wave1-site-web-success";
+    const logs: string[] = [];
+    const context = await browser.newContext();
+    await context.addInitScript(() => {
+      window.sessionStorage.setItem("mock_telegram_user", "1");
+      (window as any).Telegram = {
+        WebApp: {
+          initData: "123456789",
+          ready: () => {},
+          expand: () => {},
+          close: () => {},
+          initDataUnsafe: { user: { id: 123456789, first_name: "Read", last_name: "Rendered" } },
+        },
+      };
+    });
+
+    const page = await context.newPage();
+    page.on("console", (msg) => { if (msg.type() === "error") logs.push(msg.text()); });
+    page.on("pageerror", (err) => logs.push(err.message));
+
+    await page.route("**/api/reports/**", async (route) => {
+      if (!route.request().url().includes(reportId)) {
+        await route.continue();
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        json: {
+          report: {
+            id: reportId,
+            report_type: "year_forecast",
+            status: "completed",
+            client_name: "Read Rendered",
+            access_source: "site_web",
+          },
+          chunks: [
+            {
+              id: "chunk-hero",
+              section: "hero",
+              title: "Главная линия года",
+              content: JSON.stringify([
+                { type: "header", text: "Главная линия года", level: 2 },
+                { type: "paragraph", text: "Сначала закрепите центральную тему, затем добавляйте скорость." },
+              ]),
+            },
+            {
+              id: "chunk-focus",
+              section: "focus",
+              title: "Фокус и ритм",
+              content: JSON.stringify([
+                { type: "paragraph", text: "Структурированные блоки должны рендериться без fallback-карточки." },
+              ]),
+            },
+          ],
+        },
+      });
+    });
+
+    await page.goto(`/read/${reportId}?mock=1`);
+
+    await expect(page.getByTestId("read-sticky-panel")).toBeVisible();
+    await expect(page.getByTestId("read-overview-panel")).toBeVisible();
+    await expect(page.getByText("Главная линия года").first()).toBeVisible();
+    await expect(page.getByTestId("read-section-chunk-focus")).toBeVisible();
+    await expect(page.getByTestId("report-fallback-card")).toHaveCount(0);
+
+    const renderedBlocks = await page.locator('[data-testid^="read-section-"]').count();
+    expect(renderedBlocks).toBeGreaterThan(1);
+    expect(logs, `Found console or page errors on /read success rendered gate: ${logs.join(", ")}`).toHaveLength(0);
+
+    await writeRenderedGateSummary({
+      flowId: "FLOW-READ-SURFACE",
+      surface: "read",
+      scenarioId: "read_rendered_wave1_site_web_success",
+      passMode: "site/web",
+      status: "passed",
+      assertionClass: "rendered_hygiene",
+      details: {
+        route: `/read/${reportId}`,
+        heroVisible: true,
+        titleVisible: (await page.locator("h1").count()) > 0,
+        renderedBlocks,
+        fallbackVisible: false,
+        consoleErrors: logs.length,
+      },
+      artifactRefs: ["dom://read-sticky-panel", "dom://read-overview-panel", "dom://report-renderer"],
+    });
+
+    await context.close();
+  });
+
+  test("Read surface materializes raw chunk fallback on site_web degraded path without console errors", async ({ browser }) => {
+    const reportId = "read-rendered-wave1-site-web-fallback";
+    const logs: string[] = [];
+    const context = await browser.newContext();
+    await context.addInitScript(() => {
+      window.sessionStorage.setItem("mock_telegram_user", "1");
+      (window as any).Telegram = {
+        WebApp: {
+          initData: "123456789",
+          ready: () => {},
+          expand: () => {},
+          close: () => {},
+          initDataUnsafe: { user: { id: 123456789, first_name: "Read", last_name: "Fallback" } },
+        },
+      };
+    });
+
+    const page = await context.newPage();
+    page.on("console", (msg) => { if (msg.type() === "error") logs.push(msg.text()); });
+    page.on("pageerror", (err) => logs.push(err.message));
+
+    await page.route("**/api/reports/**", async (route) => {
+      if (!route.request().url().includes(reportId)) {
+        await route.continue();
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        json: {
+          report: {
+            id: reportId,
+            report_type: "year_forecast",
+            status: "completed",
+            client_name: "Read Fallback",
+            access_source: "site_web",
+          },
+          chunks: [
+            {
+              id: "chunk-raw",
+              section: "summary",
+              title: "Сводка в сыром виде",
+              content: "Секция пришла как сырой текст без JSON-структуры, поэтому visible fallback должен остаться честным.",
+            },
+          ],
+        },
+      });
+    });
+
+    await page.goto(`/read/${reportId}?mock=1`);
+
+    await expect(page.getByTestId("read-sticky-panel")).toBeVisible();
+    await expect(page.getByTestId("read-overview-panel")).toBeVisible();
+    await expect(page.getByTestId("report-fallback-card")).toBeVisible();
+    await expect(page.getByTestId("report-fallback-card")).toContainText("сырой текст без JSON-структуры");
+
+    const renderedBlocks = await page.locator('[data-testid="report-fallback-card"]').count();
+    expect(renderedBlocks).toBeGreaterThan(0);
+    expect(logs, `Found console or page errors on /read fallback rendered gate: ${logs.join(", ")}`).toHaveLength(0);
+
+    await writeRenderedGateSummary({
+      flowId: "FLOW-READ-SURFACE",
+      surface: "read",
+      scenarioId: "read_rendered_wave1_site_web_raw_chunk_fallback",
+      passMode: "site/web",
+      status: "passed",
+      assertionClass: "fallback_expected",
+      details: {
+        route: `/read/${reportId}`,
+        heroVisible: true,
+        titleVisible: (await page.locator("h1").count()) > 0,
+        renderedBlocks,
+        fallbackVisible: true,
+        fallbackReason: "raw_chunk_text",
+        consoleErrors: logs.length,
+      },
+      artifactRefs: ["dom://read-sticky-panel", "dom://read-overview-panel", "dom://report-fallback-card"],
+    });
+
     await context.close();
   });
 });
