@@ -10,6 +10,8 @@ set -e
 # Default E2E base URL (pointing to the dev container in the same network)
 export E2E_BASE_URL=${E2E_BASE_URL:-http://astro-project-frontend_dev-1:3000}
 FRONTEND_HEALTH_CONTAINER=${FRONTEND_HEALTH_CONTAINER:-astro-project-frontend_dev-1}
+HOST_RENDERED_GATE_DIR=${HOST_RENDERED_GATE_DIR:-test-results/rendered-gate}
+CONTAINER_RENDERED_GATE_DIR=${CONTAINER_RENDERED_GATE_DIR:-test-results/rendered-gate}
 
 normalize_playwright_args() {
   local normalized=()
@@ -140,13 +142,21 @@ echo "✅ All health checks passed (Backend, DB, Frontend, Proxy)."
 # Ensure we are in the project root
 cd "$(dirname "$0")/.."
 
+mkdir -p "$HOST_RENDERED_GATE_DIR"
+rm -f "$HOST_RENDERED_GATE_DIR"/*.json
+
 mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
 
 PLAYWRIGHT_LOG=$(mktemp)
 set +e
-docker compose -f docker-compose.e2e.yml run --rm frontend_e2e sh -c 'if [ ! -x node_modules/.bin/playwright ]; then npm ci; fi && npm run test:e2e -- "$@"' _ "${PLAYWRIGHT_ARGS[@]}" | tee "$PLAYWRIGHT_LOG"
+docker compose -f docker-compose.e2e.yml run --rm -e RENDERED_GATE_ARTIFACT_DIR="$CONTAINER_RENDERED_GATE_DIR" frontend_e2e sh -c 'if [ ! -x node_modules/.bin/playwright ]; then npm ci; fi && npm run test:e2e -- "$@"' _ "${PLAYWRIGHT_ARGS[@]}" | tee "$PLAYWRIGHT_LOG"
 exit_code=${PIPESTATUS[0]}
 set -e
+
+if [ -d "frontend/$CONTAINER_RENDERED_GATE_DIR" ]; then
+  mkdir -p "$HOST_RENDERED_GATE_DIR"
+  cp -f "frontend/$CONTAINER_RENDERED_GATE_DIR"/*.json "$HOST_RENDERED_GATE_DIR"/ 2>/dev/null || true
+fi
 
 if [ $exit_code -ne 0 ] && ! has_explicit_test_target "${PLAYWRIGHT_ARGS[@]}" && grep -q "Error: No tests found" "$PLAYWRIGHT_LOG"; then
   echo "ℹ️  Playwright reported 'No tests found'. Treating as success because there were no cached failures."

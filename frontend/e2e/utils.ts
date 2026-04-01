@@ -29,6 +29,183 @@ type SignedTelegramBootstrapOptions = {
   startParam?: string;
 };
 
+type TelegramWebAppHarnessOptions = {
+  initData?: string;
+  initDataUnsafe?: Record<string, unknown>;
+  platform?: string;
+  colorScheme?: "light" | "dark";
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  themeParams?: Record<string, string>;
+  sessionMockUser?: boolean;
+};
+
+type TelegramWebAppHarnessPayload = {
+  initData: string;
+  initDataUnsafe: Record<string, unknown>;
+  platform: string;
+  colorScheme: "light" | "dark";
+  viewportHeight: number;
+  viewportStableHeight: number;
+  themeParams: Record<string, string>;
+  sessionMockUser: boolean;
+};
+
+const DEFAULT_TELEGRAM_USER: TelegramSignedUser = {
+  id: 123456789,
+  first_name: "Debug",
+  last_name: "User",
+  username: "dev_user",
+  language_code: "ru",
+};
+
+const DEFAULT_THEME_PARAMS = {
+  bg_color: "#ffffff",
+  secondary_bg_color: "#f4f4f5",
+  text_color: "#111827",
+  hint_color: "#6b7280",
+  link_color: "#2563eb",
+  button_color: "#2563eb",
+  button_text_color: "#ffffff",
+  header_bg_color: "#ffffff",
+  accent_text_color: "#2563eb",
+  section_bg_color: "#ffffff",
+  section_header_text_color: "#111827",
+  subtitle_text_color: "#6b7280",
+  destructive_text_color: "#dc2626",
+};
+
+function buildTelegramWebAppHarnessPayload(options?: TelegramWebAppHarnessOptions): TelegramWebAppHarnessPayload {
+  const initData = options?.initData ?? "123456789";
+  const initDataUnsafe = {
+    query_id: "debug-query-id",
+    user: DEFAULT_TELEGRAM_USER,
+    auth_date: Math.floor(Date.now() / 1000),
+    ...(options?.initDataUnsafe ?? {}),
+  };
+
+  return {
+    initData,
+    initDataUnsafe,
+    platform: options?.platform ?? "android",
+    colorScheme: options?.colorScheme ?? "light",
+    viewportHeight: options?.viewportHeight ?? 844,
+    viewportStableHeight: options?.viewportStableHeight ?? options?.viewportHeight ?? 844,
+    themeParams: {
+      ...DEFAULT_THEME_PARAMS,
+      ...(options?.themeParams ?? {}),
+    },
+    sessionMockUser: options?.sessionMockUser ?? initData === "123456789",
+  };
+}
+
+export async function bootstrapTelegramWebApp(page: Page, options?: TelegramWebAppHarnessOptions) {
+  const payload = buildTelegramWebAppHarnessPayload(options);
+
+  await page.addInitScript((runtime) => {
+    const telegramWindow = window as Window & typeof globalThis & {
+      Telegram?: unknown;
+      __TEST_TELEGRAM_RUNTIME__?: unknown;
+      MOCK_INIT_DATA_OVERRIDE?: unknown;
+      MOCK_USER_OVERRIDE?: unknown;
+    };
+
+    delete telegramWindow.MOCK_INIT_DATA_OVERRIDE;
+    delete telegramWindow.MOCK_USER_OVERRIDE;
+
+    if (runtime.sessionMockUser) {
+      window.sessionStorage.setItem("mock_telegram_user", "1");
+    } else {
+      window.sessionStorage.removeItem("mock_telegram_user");
+    }
+
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => undefined,
+      },
+    });
+
+    const webApp = {
+      initData: runtime.initData,
+      initDataUnsafe: runtime.initDataUnsafe,
+      platform: runtime.platform,
+      colorScheme: runtime.colorScheme,
+      version: "7.7",
+      isExpanded: false,
+      viewportHeight: runtime.viewportHeight,
+      viewportStableHeight: runtime.viewportStableHeight,
+      headerColor: runtime.themeParams.header_bg_color,
+      backgroundColor: runtime.themeParams.bg_color,
+      themeParams: runtime.themeParams,
+      ready: () => {},
+      expand: () => {
+        webApp.isExpanded = true;
+      },
+      close: () => {},
+      sendData: () => {},
+      enableClosingConfirmation: () => {},
+      disableClosingConfirmation: () => {},
+      onEvent: () => {},
+      offEvent: () => {},
+      setHeaderColor: (color: string) => {
+        webApp.headerColor = color;
+      },
+      setBackgroundColor: (color: string) => {
+        webApp.backgroundColor = color;
+      },
+      HapticFeedback: {
+        impactOccurred: () => {},
+        notificationOccurred: () => {},
+        selectionChanged: () => {},
+      },
+      MainButton: {
+        text: "",
+        color: runtime.themeParams.button_color,
+        textColor: runtime.themeParams.button_text_color,
+        isVisible: false,
+        isEnabled: true,
+        show: () => {
+          webApp.MainButton.isVisible = true;
+        },
+        hide: () => {
+          webApp.MainButton.isVisible = false;
+        },
+        enable: () => {
+          webApp.MainButton.isEnabled = true;
+        },
+        disable: () => {
+          webApp.MainButton.isEnabled = false;
+        },
+        setText: (text: string) => {
+          webApp.MainButton.text = text;
+        },
+        onClick: () => {},
+        offClick: () => {},
+      },
+      BackButton: {
+        isVisible: false,
+        show: () => {
+          webApp.BackButton.isVisible = true;
+        },
+        hide: () => {
+          webApp.BackButton.isVisible = false;
+        },
+        onClick: () => {},
+        offClick: () => {},
+      },
+    };
+
+    telegramWindow.__TEST_TELEGRAM_RUNTIME__ = {
+      initData: runtime.initData,
+      user: runtime.initDataUnsafe.user,
+    };
+    telegramWindow.Telegram = { WebApp: webApp };
+  }, payload);
+
+  return payload;
+}
+
 async function sha256Hex(message: string) {
   const crypto = await import("node:crypto");
   return crypto.createHash("sha256").update(message).digest("hex");
@@ -90,25 +267,13 @@ export async function buildSignedTelegramInitData(options?: SignedTelegramBootst
 
 export async function bootstrapSignedTelegram(page: Page, options?: SignedTelegramBootstrapOptions) {
   const payload = await buildSignedTelegramInitData(options);
-  await page.addInitScript((runtime) => {
-    delete (window as Window & typeof globalThis & { MOCK_INIT_DATA_OVERRIDE?: unknown }).MOCK_INIT_DATA_OVERRIDE;
-    delete (window as Window & typeof globalThis & { MOCK_USER_OVERRIDE?: unknown }).MOCK_USER_OVERRIDE;
-    window.sessionStorage.removeItem("mock_telegram_user");
-    (window as Window & typeof globalThis & { __TEST_TELEGRAM_RUNTIME__?: unknown }).__TEST_TELEGRAM_RUNTIME__ = runtime;
-    (window as Window & typeof globalThis & { Telegram?: unknown }).Telegram = {
-      WebApp: {
-        initData: runtime.initData,
-        ready: () => {},
-        expand: () => {},
-        close: () => {},
-        headerColor: "#ffffff",
-        backgroundColor: "#ffffff",
-        initDataUnsafe: {
-          user: runtime.user,
-        },
-      },
-    };
-  }, payload);
+  await bootstrapTelegramWebApp(page, {
+    initData: payload.initData,
+    initDataUnsafe: {
+      user: payload.user,
+    },
+    sessionMockUser: false,
+  });
 
   return payload;
 }
@@ -226,4 +391,82 @@ export async function attachRuntimeErrorGuards(page: Page) {
 export async function expectNoRuntimeErrors(logs: string[] | RouteHygiene, label: string) {
   const entries = Array.isArray(logs) ? logs : logs.logs;
   expect(entries, `Found runtime errors on ${label}: ${entries.join(", ")}`).toHaveLength(0);
+}
+
+
+type RenderedGateSummaryOptions = {
+  flowId: string;
+  surface: string;
+  scenarioId: string;
+  passMode: string;
+  status: string;
+  assertionClass: string;
+  artifactRefs?: string[];
+  details?: Record<string, unknown>;
+};
+
+type RenderedParityDetailsOptions = {
+  counterpartPassMode: string;
+  parityStatus: string;
+  notes?: string[];
+  sharedArtifactRefs?: string[];
+  invariantGroups?: string[];
+};
+
+type StablePassMode = {
+  key: string;
+  channel: string;
+  path: string;
+};
+
+function stableRenderedPassMode(value: string): StablePassMode {
+  const normalized = value.trim().toLowerCase();
+  if (["both", "both_pass_modes", "site_and_telegram", "site_web+telegram_webapp"].includes(normalized)) {
+    return { key: "both", channel: "multi", path: "site_web+telegram_webapp" };
+  }
+  if (["site", "web", "site_web", "site/web"].includes(normalized)) {
+    return { key: "site_web", channel: "web", path: "/" };
+  }
+  if (["telegram", "telegram_web", "telegram_webapp", "telegram/webapp"].includes(normalized)) {
+    return { key: "telegram_webapp", channel: "telegram", path: "webapp" };
+  }
+  return { key: normalized || "site_web", channel: normalized || "web", path: normalized || "site_web" };
+}
+
+export function buildRenderedParityDetails(options: RenderedParityDetailsOptions) {
+  return {
+    counterpart_pass_mode: stableRenderedPassMode(options.counterpartPassMode),
+    parity_status: options.parityStatus,
+    notes: options.notes ?? [],
+    shared_artifact_refs: options.sharedArtifactRefs ?? [],
+    invariant_groups: options.invariantGroups ?? [],
+  };
+}
+
+export async function writeRenderedGateSummary(options: RenderedGateSummaryOptions) {
+  const artifactDir = process.env.RENDERED_GATE_ARTIFACT_DIR || "test-results/rendered-gate";
+  const safeName = [options.flowId, options.surface, options.scenarioId]
+    .map((part) => part.replace(/[\/\s]+/g, "-"))
+    .join("__");
+  const payload = {
+    flow_id: options.flowId,
+    surface: options.surface,
+    scenario_id: options.scenarioId,
+    pass_mode: stableRenderedPassMode(options.passMode),
+    status: options.status,
+    assertion_class: options.assertionClass,
+    artifact_refs: options.artifactRefs ?? [],
+    details: options.details ?? {},
+    recorded_at: new Date().toISOString(),
+  };
+
+  await expect
+    .poll(async () => {
+      const fs = await import("node:fs/promises");
+      await fs.mkdir(artifactDir, { recursive: true });
+      const target = `${artifactDir}/${safeName}.json`;
+      await fs.writeFile(target, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+      return target;
+    })
+    .toContain(`${safeName}.json`);
 }

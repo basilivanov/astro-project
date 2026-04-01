@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from tools.feed_logs.replay_last import _summarize as summarize_feed_flow
 from tools.log_watch.common import extract_timestamp, load_records
+from tools.rendered_artifacts import load_rendered_summaries
 
 VERDICTS = {
     "clean": "PASS_CLEAN",
@@ -281,7 +282,114 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
     )
 
 
-def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest) -> dict[str, Any]:
+def _rendered_gate_summary_map(rendered_summaries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {
+        "FLOW-TODAY-WEEK-TODAY": [],
+        "FLOW-TODAY-WEEK-WEEK": [],
+    }
+    for item in rendered_summaries:
+        flow_id = str(item.get("flow_id") or "")
+        surface = str(item.get("surface") or "").lower()
+        if flow_id == "FLOW-TODAY-PREMIUM" or surface == "today":
+            grouped["FLOW-TODAY-WEEK-TODAY"].append(item)
+        elif flow_id == "FLOW-WEEK-BRIEF" or surface == "week":
+            grouped["FLOW-TODAY-WEEK-WEEK"].append(item)
+    return grouped
+
+
+def _rendered_presence_summary(rendered: list[dict[str, Any]]) -> dict[str, Any]:
+    pass_modes: list[str] = []
+    assertion_classes: list[str] = []
+    statuses: list[str] = []
+    parity_statuses: list[str] = []
+    parity_notes: list[str] = []
+    invariant_groups: list[str] = []
+    site_web_present = False
+    telegram_webapp_present = False
+    both_present = False
+
+    for item in rendered:
+        pass_mode = item.get("pass_mode") or {}
+        if not isinstance(pass_mode, dict):
+            pass_mode = {}
+        key = str(pass_mode.get("key") or "unknown")
+        pass_modes.append(key)
+        if key == "site_web":
+            site_web_present = True
+        elif key == "telegram_webapp":
+            telegram_webapp_present = True
+        elif key == "both":
+            both_present = True
+            site_web_present = True
+            telegram_webapp_present = True
+
+        assertion_class = item.get("assertion_class")
+        if assertion_class:
+            assertion_classes.append(str(assertion_class))
+
+        status = item.get("status")
+        if status:
+            statuses.append(str(status))
+
+        details = item.get("details") or {}
+        if isinstance(details, dict):
+            parity = details.get("parity") or {}
+            if isinstance(parity, dict) and parity.get("parity_status"):
+                parity_statuses.append(str(parity.get("parity_status")))
+                for note in parity.get("notes") or []:
+                    parity_notes.append(str(note))
+                for group in parity.get("invariant_groups") or []:
+                    invariant_groups.append(str(group))
+
+    return {
+        "summary_count": len(rendered),
+        "pass_modes": sorted(set(pass_modes)),
+        "site_web_present": site_web_present,
+        "telegram_webapp_present": telegram_webapp_present,
+        "both_present": both_present,
+        "parity_present": bool(parity_statuses),
+        "parity_statuses": sorted(set(parity_statuses)),
+        "parity_notes": sorted(set(parity_notes)),
+        "invariant_groups": sorted(set(invariant_groups)),
+        "assertion_classes": sorted(set(assertion_classes)),
+        "statuses": sorted(set(statuses)),
+    }
+
+
+def _rendered_verdict_notes(*, flow_status: str, rendered_presence: dict[str, Any]) -> list[str]:
+    notes: list[str] = []
+    if rendered_presence.get("summary_count", 0) == 0:
+        return notes
+
+    notes.append("rendered evidence is additive and does not replace canonical logs/traces")
+    if flow_status == "no-evidence-blocker":
+        notes.append("rendered evidence present but canonical source-of-truth evidence missing")
+    elif flow_status == "clean":
+        notes.append("canonical evidence clean; rendered evidence attached as supporting slice")
+    elif flow_status == "degraded-but-expected":
+        notes.append("canonical evidence shows expected degradation; rendered evidence attached as supporting slice")
+    elif flow_status == "unexpected-degradation":
+        notes.append("canonical evidence shows unexpected degradation; rendered evidence attached for context only")
+
+    if rendered_presence.get("parity_present"):
+        notes.append("rendered parity metadata detected")
+    if rendered_presence.get("both_present"):
+        notes.append("rendered both/pass pilot semantics materialized without replacing wrapper verdict model")
+    return notes
+
+
+def _augment_flow_with_rendered(flow: FlowDigest, rendered: list[dict[str, Any]]) -> dict[str, Any]:
+    payload = dict(flow.__dict__)
+    payload["rendered_summaries"] = rendered
+    rendered_presence = _rendered_presence_summary(rendered)
+    payload["rendered_presence"] = rendered_presence
+    payload["rendered_verdict_notes"] = _rendered_verdict_notes(flow_status=flow.status, rendered_presence=rendered_presence)
+    if rendered and flow.status == "no-evidence-blocker":
+        payload["alerts"] = [*flow.alerts, "rendered summaries present without canonical logs"]
+    return payload
+
+
+def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     overall = "clean"
     for flow in (today, week):
         if flow.status == "no-evidence-blocker":
@@ -296,11 +404,16 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
     feed_records = _recent_records(feed_log, allowed_events=TODAY_EVENTS, limit=200, since_delta=parse_since(since))
     if feed_records:
         replay_summary = summarize_feed_flow(feed_records[-20:])
+    rendered_index = _rendered_gate_summary_map(rendered_summaries or [])
     return {
         "profile": profile,
         "analysis_window": since,
         "logs_reviewed": [str(feed_log), str(report_log)],
-        "flows": [today.__dict__, week.__dict__],
+        "flows": [
+            _augment_flow_with_rendered(today, rendered_index["FLOW-TODAY-WEEK-TODAY"]),
+            _augment_flow_with_rendered(week, rendered_index["FLOW-TODAY-WEEK-WEEK"]),
+        ],
+        "rendered_summary_count": len(rendered_summaries or []),
         "replay_summary": replay_summary,
         "verdict": VERDICTS[overall],
     }
@@ -323,6 +436,30 @@ def print_md(payload: dict[str, Any]) -> None:
         print(f"- sample_report_id: `{flow['sample_report_id']}`")
         print(f"- reason_codes: {', '.join(flow['reason_codes']) if flow['reason_codes'] else '-'}")
         print(f"- alerts: {', '.join(flow['alerts']) if flow['alerts'] else '-'}")
+        if flow.get("rendered_presence"):
+            rendered_presence = flow["rendered_presence"]
+            print(
+                "- rendered_presence: "
+                f"count={rendered_presence.get('summary_count', 0)} "
+                f"pass_modes={','.join(rendered_presence.get('pass_modes', [])) or '-'} "
+                f"site_web={rendered_presence.get('site_web_present')} "
+                f"telegram_webapp={rendered_presence.get('telegram_webapp_present')} "
+                f"parity_present={rendered_presence.get('parity_present')}"
+            )
+            print(
+                "- rendered_statuses: "
+                f"{', '.join(rendered_presence.get('statuses', [])) if rendered_presence.get('statuses') else '-'}"
+            )
+            print(
+                "- rendered_assertion_classes: "
+                f"{', '.join(rendered_presence.get('assertion_classes', [])) if rendered_presence.get('assertion_classes') else '-'}"
+            )
+            print(
+                "- rendered_parity_statuses: "
+                f"{', '.join(rendered_presence.get('parity_statuses', [])) if rendered_presence.get('parity_statuses') else '-'}"
+            )
+        if flow.get("rendered_verdict_notes"):
+            print(f"- rendered_verdict_notes: {', '.join(flow['rendered_verdict_notes'])}")
         if flow.get("evidence"):
             print("- evidence_samples:")
             for evidence in flow["evidence"]:
@@ -346,6 +483,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--since", type=parse_since, default=timedelta(minutes=90))
     parser.add_argument("--feed-log", type=Path, default=PROJECT_ROOT / "logs" / "feed.jsonl")
     parser.add_argument("--report-log", type=Path, default=PROJECT_ROOT / "logs" / "report.jsonl")
+    parser.add_argument("--rendered-dir", type=Path, default=PROJECT_ROOT / "test-results" / "rendered-gate")
     parser.add_argument("--limit", type=int, default=4000)
     parser.add_argument("--report-format", choices=["json", "md"], default="json")
     return parser.parse_args(argv)
@@ -355,6 +493,7 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     today = analyze_today(args.feed_log, since_delta=args.since, limit=args.limit)
     week = analyze_week(args.report_log, since_delta=args.since, limit=args.limit)
+    rendered_summaries = load_rendered_summaries(args.rendered_dir)
     since_label = f"{int(args.since.total_seconds() // 60)}m"
     payload = build_output(
         profile=args.profile,
@@ -363,6 +502,7 @@ def main(argv: list[str]) -> int:
         report_log=args.report_log,
         today=today,
         week=week,
+        rendered_summaries=rendered_summaries,
     )
     if args.report_format == "md":
         print_md(payload)
