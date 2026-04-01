@@ -9,6 +9,7 @@ Use this document first. It keeps the durable rules short, points to the canonic
 1. Read `AGENTS.md` for the required test protocol.
 2. Use `docs/REGRESSION_MAP.md` for the canonical regression profiles, verification commands, and durable coverage map.
 3. Use packet-local docs for slice-specific checks, for example `docs/*packet/verification-matrix*.md`.
+4. If the work falls into an active bounded slice, prefer that slice packet or plan before widening to general docs.
 
 ## Agent-first testing rules
 
@@ -35,6 +36,10 @@ The canonical profile definitions live in `docs/REGRESSION_MAP.md`.
 ## Where details live
 
 - `docs/REGRESSION_MAP.md` — single durable regression map
+- `docs/TODAY_WEEK_DETAIL_LAYER_REFACTOR_PLAN.md` — active Day/Week detail-layer slice plan
+- `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` — observability gate memo and verdict model
+- `docs/frontend_functional_reliability_packet/verification-matrix.slice.frontend-functional-reliability.md` — frontend structural remediation functional packet
+- `docs/frontend_test_hardening_packet/verification-matrix.slice.frontend-test-hardening.md` — frontend structural remediation hardening packet
 - `verification-matrix.md` — legacy root matrix retained as a pointer and snapshot-specific companion
 - `docs/GRACE_TEST_PLAYBOOK.md` — legacy playbook retained for historical context
 - `docs/TESTING_GUIDE.md` — legacy narrow guide retained for specific DayBrief notes

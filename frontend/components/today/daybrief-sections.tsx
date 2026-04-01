@@ -1,11 +1,54 @@
+// START_MODULE_CONTRACT: M-TODAY-SECTIONS
+// purpose: Render today detail sections and explainability disclosures from normalized day brief DTOs.
+// owns:
+//   - frontend/components/today/daybrief-sections.tsx
+// inputs:
+//   - normalized `DayBriefDto`, detail-layer normalized factors/items, optional CTA handlers
+// outputs:
+//   - presentational Today panels with disclosure-ready copy and evidence chips
+// dependencies:
+//   - consumer page shell primitives, detail helpers, TrafficLights
+// invariants:
+//   - section components stay render-only and derive content from normalized DTOs
+//   - explainability suppression removes duplicate or semantically raw phrases
+// failure_policy:
+//   - sparse payload branches collapse to compact UI without throwing
+// non_goals:
+//   - fetching today payloads or emitting analytics
+// END_MODULE_CONTRACT: M-TODAY-SECTIONS
+
+// START_MODULE_MAP: M-TODAY-SECTIONS
+// entrypoints:
+//   - TodayVerdict
+//   - TodayScores
+//   - TodayWindows
+//   - TodayActions
+//   - TodayRisks
+//   - TodayExplainability
+//   - TodayCtaPanel
+// helpers:
+//   - buildTodayExplainabilityCards
+//   - buildScoreDisclosureContent
+//   - buildWindowDisclosureContent
+// owned_tests:
+//   - frontend/test/components/today/daybrief-sections.test.tsx
+// adjacent_modules:
+//   - frontend/app/page.tsx
+//   - frontend/lib/day-brief.ts
+//   - frontend/lib/detail-layer.ts
+// END_MODULE_MAP: M-TODAY-SECTIONS
+
 "use client";
 
 import Link from "next/link";
-import { useCallback, useId, useState } from "react";
-import { AlertTriangle, ArrowRight, ChevronDown, Clock3, Sparkles } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { AlertTriangle, ArrowRight, Clock3, Sparkles } from "lucide-react";
 import { ConsumerPanel, ConsumerStatusBadge } from "../consumer-page-shell";
 import { TrafficLights } from "../TrafficLights";
 import type { DayBriefDto } from "../../lib/day-brief";
+import { normalizeTodayDetailItems, type NormalizedDetailFactor, type NormalizedDetailItem } from "../../lib/detail-layer";
+import { DetailDisclosureCard } from "../detail/detail-disclosure-card";
+import { DetailEvidenceChips } from "../detail/detail-evidence-chips";
 
 const DAY_MODE_COPY: Record<DayBriefDto["summary"]["day_type"], { label: string; badgeClass: string }> = {
   push: { label: "День для рывка", badgeClass: "border border-emerald-200 bg-emerald-50 text-emerald-900" },
@@ -21,6 +64,8 @@ const WINDOW_MODE_COPY = {
   caution: { label: "С осторожностью", className: "border-rose-100 bg-rose-50" },
 } as const;
 
+// FN-CONTRACT: FN-TODAY-FORMAT-TIMEFRAME
+// purpose: Convert raw timeframe labels into concise human-facing copy.
 function formatItemTimeframe(value: string | null | undefined): string | null {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return null;
@@ -40,6 +85,8 @@ function formatItemTimeframe(value: string | null | undefined): string | null {
   return /^[a-z0-9_-]+$/.test(normalized) ? null : String(value).trim();
 }
 
+// FN-CONTRACT: FN-TODAY-FORMAT-IMPACT
+// purpose: Hide generic impact keys and preserve only user-meaningful impact labels.
 function formatImpact(value: string | null | undefined): string | null {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) return null;
@@ -84,6 +131,39 @@ function isGenericExplainabilityPhrase(value: string | null | undefined): boolea
   ].includes(normalized);
 }
 
+function isLikelyRawSemanticKey(value: string | null | undefined): boolean {
+  const raw = String(value || "").trim();
+  if (!raw) return true;
+  if (/[А-Яа-яЁё]/.test(raw)) return false;
+  const normalized = raw.toLowerCase();
+  if (/^[a-z0-9_./:-]+$/.test(normalized) && (normalized.includes("_") || normalized.includes(".") || normalized.includes("/"))) {
+    return true;
+  }
+  return [
+    "factor",
+    "signal",
+    "astro_factor",
+    "human_thesis",
+    "why_text",
+    "supporting_factor",
+  ].includes(normalized);
+}
+
+function shouldSuppressAstroText(
+  astro: string | null | undefined,
+  itemText: string | null | undefined,
+  whyText?: string | null,
+  humanText?: string | null,
+): boolean {
+  const trimmed = String(astro || "").trim();
+  if (!trimmed) return true;
+  if (isLikelyRawSemanticKey(trimmed)) return true;
+  if (isSemanticallyDuplicateText(trimmed, itemText) || isSemanticallyDuplicateText(trimmed, whyText) || isSemanticallyDuplicateText(trimmed, humanText)) {
+    return true;
+  }
+  return false;
+}
+
 function collectTodayCompositionAnchors(brief: DayBriefDto): string[] {
   return [
     brief.summary.headline,
@@ -111,7 +191,10 @@ function pickExplainabilityLead(cards: Array<{ explanation_human: string }>): st
   return lead.explanation_human;
 }
 
+// FN-CONTRACT: FN-TODAY-BUILD-EXPLAINABILITY-CARDS
+// purpose: Build de-duplicated explainability cards from personalized and selected factors.
 function buildTodayExplainabilityCards(brief: DayBriefDto) {
+  // START_BLOCK: TODAY_EXPLAINABILITY_CARD_SELECTION
   const compositionAnchors = collectTodayCompositionAnchors(brief);
   const personalized = brief.personalized_factors.map((factor, index) => ({
     id: factor.id || `personalized-${index}`,
@@ -172,28 +255,11 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
       return left.label.localeCompare(right.label, "ru");
     })
     .slice(0, 3);
+  // END_BLOCK: TODAY_EXPLAINABILITY_CARD_SELECTION
 }
 
-function buildItemDisclosureFactors(
-  factors: Array<{ label: string; explanation_human: string; explanation_astro?: string | null; value?: string | null }> | undefined,
-  itemText: string,
-  whyText?: string | null,
-) {
-  return (factors ?? []).filter((factor) => {
-    const label = String(factor?.label || "").trim();
-    const human = String(factor?.explanation_human || "").trim();
-    if (!label && !human) return false;
-    if (isGenericExplainabilityPhrase(human)) return false;
-    if (isSemanticallyDuplicateText(human, itemText) || isSemanticallyDuplicateText(human, whyText)) {
-      return false;
-    }
-    if (isSemanticallyDuplicateText(label, itemText) || isSemanticallyDuplicateText(label, whyText)) {
-      return false;
-    }
-    return true;
-  });
-}
-
+// FN-CONTRACT: FN-TODAY-BUILD-SCORE-DISCLOSURE
+// purpose: Prepare score disclosure copy and evidence factors from brief detail branches.
 function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief: DayBriefDto) {
   const rawWhyText = String(score.details?.why_text || "").trim();
   const ownFactors = Array.isArray(score.details?.supporting_factors)
@@ -204,7 +270,7 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
     return {
       title: score.details?.why_title || "Почему такой ритм",
       body: rawWhyText,
-      factors: ownFactors,
+      factors: mapLegacyFactorsToNormalized(ownFactors, score.key),
     };
   }
 
@@ -230,89 +296,83 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
   return {
     title: ownFactors.length || fallbackFactors.length ? (score.details?.why_title || "Что влияет на оценку") : "Как открыть разбор",
     body: ownFactors.length || fallbackFactors.length ? null : "Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.",
-    factors: ownFactors.length ? ownFactors : fallbackFactors,
+    factors: mapLegacyFactorsToNormalized(ownFactors.length ? ownFactors : fallbackFactors, score.key),
   };
 }
 
+function mapLegacyFactorsToNormalized(
+  factors: Array<{ label?: string | null; explanation_human?: string | null; explanation_astro?: string | null; value?: string | null }> | undefined,
+  relatedKey: string,
+): NormalizedDetailFactor[] {
+  return (factors ?? [])
+    .filter((factor) => factor?.label || factor?.explanation_human)
+    .map((factor, index) => {
+      const label = String(factor.label || "").trim();
+      const human = String(factor.explanation_human || "").trim();
+      const astro = String(factor.explanation_astro || "").trim();
+      return {
+        id: `today-${relatedKey}-factor-${index + 1}`,
+        label: isLikelyRawSemanticKey(label) ? `Фактор ${index + 1}` : label || `Фактор ${index + 1}`,
+        explanationHuman: human,
+        explanationAstro: shouldSuppressAstroText(astro, null, null, human) ? null : astro,
+        value: String(factor.value || "").trim() || null,
+        impact: null,
+        source: "today_supporting_factor",
+        relatedKey,
+      };
+    });
+}
 
-function DetailDisclosure({
-  title,
-  body,
-  factors,
-  testId,
-  compact,
-  isOpen,
-  onToggle,
-}: {
-  title?: string | null;
-  body?: string | null;
-  factors?: Array<{ label: string; explanation_human: string; explanation_astro?: string | null; value?: string | null }>;
-  testId: string;
-  compact?: boolean;
-  isOpen?: boolean;
-  onToggle?: () => void;
-}) {
-  const contentId = useId();
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = isOpen ?? internalOpen;
-  const handleToggle = useCallback(() => {
-    if (onToggle) {
-      onToggle();
-      return;
-    }
-    setInternalOpen((current) => !current);
-  }, [onToggle]);
+function buildItemDisclosureFactors(
+  factors: Array<{ label: string; explanation_human: string; explanation_astro?: string | null; value?: string | null }> | undefined,
+  itemText: string,
+  whyText?: string | null,
+): NormalizedDetailFactor[] {
+  return (factors ?? []).filter((factor) => {
+    const label = String(factor?.label || "").trim();
+    const human = String(factor?.explanation_human || "").trim();
+    if (!label && !human) return false;
+    if (isLikelyRawSemanticKey(label)) return false;
+    if (isGenericExplainabilityPhrase(human)) return false;
+    if (isSemanticallyDuplicateText(human, itemText) || isSemanticallyDuplicateText(human, whyText)) return false;
+    if (isSemanticallyDuplicateText(label, itemText) || isSemanticallyDuplicateText(label, whyText)) return false;
+    return true;
+  }).map((factor, index) => {
+    const human = String(factor.explanation_human || "").trim();
+    const astro = String(factor.explanation_astro || "").trim();
+    return {
+      id: `today-item-factor-${index + 1}`,
+      label: String(factor.label || "").trim() || `Фактор ${index + 1}`,
+      explanationHuman: human,
+      explanationAstro: shouldSuppressAstroText(astro, itemText, whyText, human) ? null : astro,
+      value: String(factor.value || "").trim() || null,
+      impact: null,
+      source: "today_supporting_factor",
+      relatedKey: null,
+    };
+  });
+}
 
-  const handleSummaryClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    handleToggle();
-  }, [handleToggle]);
+function filterNormalizedItemFactors(factors: NormalizedDetailFactor[] | undefined, itemText: string, whyText?: string | null): NormalizedDetailFactor[] {
+  return (factors ?? []).flatMap((factor) => {
+    if (isLikelyRawSemanticKey(factor.label)) return [];
+    if (isGenericExplainabilityPhrase(factor.explanationHuman)) return [];
+    if (isSemanticallyDuplicateText(factor.explanationHuman, itemText) || isSemanticallyDuplicateText(factor.explanationHuman, whyText)) return [];
+    if (isSemanticallyDuplicateText(factor.label, itemText) || isSemanticallyDuplicateText(factor.label, whyText)) return [];
+    return [{
+      ...factor,
+      explanationAstro: shouldSuppressAstroText(factor.explanationAstro, itemText, whyText, factor.explanationHuman) ? null : factor.explanationAstro,
+    }];
+  });
+}
 
-  const handleSummaryKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
-    handleToggle();
-  }, [handleToggle]);
-
+function normalizeItemDisclosureBody(body: string | null | undefined, itemText: string, factors: NormalizedDetailFactor[]): string | null {
   const normalizedBody = String(body || "").trim();
-  const normalizedFactors = Array.isArray(factors) ? factors.filter((item) => item?.label || item?.explanation_human) : [];
-  if (!normalizedBody && !normalizedFactors.length) return null;
-
-  return (
-    <details data-testid={testId} open={open} className="group mt-4 rounded-[20px] border border-slate-200/80 bg-slate-50/80 open:border-indigo-200 open:bg-white">
-      <summary
-        role="button"
-        aria-expanded={open}
-        aria-controls={contentId}
-        tabIndex={0}
-        onClick={handleSummaryClick}
-        onKeyDown={handleSummaryKeyDown}
-        className={`flex w-full cursor-pointer list-none select-none touch-manipulation items-center justify-between gap-3 ${compact ? "p-3 text-[13px]" : "p-4 text-sm"} font-semibold text-slate-700 marker:content-none [-webkit-tap-highlight-color:transparent]`}
-      >
-        <span>{title || "Почему так"}</span>
-        <ChevronDown size={16} className="shrink-0 text-slate-400 transition group-open:rotate-180" aria-hidden />
-      </summary>
-      <div id={contentId} hidden={!open} className={compact ? "px-3 pb-3" : "px-4 pb-4"}>
-      {normalizedBody ? <p className="text-sm leading-relaxed text-slate-700">{normalizedBody}</p> : null}
-      {normalizedFactors.length ? (
-        <div className="mt-4 grid gap-3">
-          {normalizedFactors.map((factor, index) => (
-            <div key={`${factor.label}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-900">{factor.label}</p>
-                {factor.value ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{factor.value}</span> : null}
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{factor.explanation_human}</p>
-              {factor.explanation_astro ? <p className="mt-2 text-xs leading-relaxed text-slate-500">{factor.explanation_astro}</p> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      </div>
-    </details>
-  );
+  if (!normalizedBody) return null;
+  if (isSemanticallyDuplicateText(normalizedBody, itemText)) {
+    return factors.length ? null : normalizedBody;
+  }
+  return normalizedBody;
 }
 
 function formatWindowMeta(window: DayBriefDto["windows"][number]): string | null {
@@ -418,7 +478,7 @@ function TodayScoreCard({
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
       </button>
       <div id={panelId}>
-        <DetailDisclosure
+        <DetailDisclosureCard
           testId={`today-score-details-${score.key}`}
           title={disclosure.title}
           body={disclosure.body}
@@ -433,6 +493,7 @@ function TodayScoreCard({
 }
 
 export function TodayWindows({ brief }: { brief: DayBriefDto }) {
+  const detailItems = useMemo(() => normalizeTodayDetailItems(brief), [brief]);
   return (
     <ConsumerPanel data-testid="today-windows" className="p-5 sm:p-6">
       <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -441,6 +502,7 @@ export function TodayWindows({ brief }: { brief: DayBriefDto }) {
       </div>
       <div className="mt-4 grid gap-3">
         {brief.windows.map((window) => {
+          const detailItem = detailItems.find((item) => item.id === window.id && item.source === "today_window");
           const modeCopy = WINDOW_MODE_COPY[window.mode];
           const meta = formatWindowMeta(window);
           return (
@@ -449,15 +511,16 @@ export function TodayWindows({ brief }: { brief: DayBriefDto }) {
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{window.label}</p>
                   {meta ? <p className="mt-1 text-xs text-slate-500">{meta}</p> : null}
+                  <DetailEvidenceChips impact={detailItem?.impact} />
                 </div>
                 {shouldShowWindowModeBadge(window) ? <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700">{modeCopy.label}</span> : null}
               </div>
               <p className="mt-3 text-sm leading-relaxed text-slate-700">{window.advice}</p>
-              <DetailDisclosure
+              <DetailDisclosureCard
                 testId={`today-window-details-${window.id}`}
                 title="Почему окно такое"
-                body={window.details?.why_text}
-                factors={window.details?.supporting_factors}
+                body={detailItem?.body ?? window.details?.why_text}
+                factors={detailItem?.factors ?? []}
               />
             </article>
           );
@@ -470,7 +533,7 @@ export function TodayWindows({ brief }: { brief: DayBriefDto }) {
   );
 }
 
-function ItemList({ title, testId, items, icon }: { title: string; testId: string; items: DayBriefDto["best_uses"] | DayBriefDto["risks"]; icon: "good" | "risk" }) {
+function ItemList({ title, testId, items, icon, detailItems }: { title: string; testId: string; items: DayBriefDto["best_uses"] | DayBriefDto["risks"]; icon: "good" | "risk"; detailItems: NormalizedDetailItem[] }) {
   return (
     <ConsumerPanel data-testid={testId} className="p-5 sm:p-6">
       <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -479,21 +542,21 @@ function ItemList({ title, testId, items, icon }: { title: string; testId: strin
       </div>
       <div className="mt-4 grid gap-3">
         {items.map((item) => {
-          const impact = formatImpact(item.impact);
           const timeframe = formatItemTimeframe(item.timeframe);
           const detailTestId = icon === "risk" ? `today-risks-details-${item.id}` : `today-actions-details-${item.id}`;
-          const disclosureFactors = buildItemDisclosureFactors(item.supporting_factors, item.text, item.why_text);
+          const normalizedItem = detailItems.find((candidate) => candidate.id === item.id);
+          const disclosureFactors = normalizedItem?.factors?.length ? filterNormalizedItemFactors(normalizedItem.factors, item.text, item.why_text) : buildItemDisclosureFactors(item.supporting_factors, item.text, item.why_text);
+          const disclosureBody = normalizeItemDisclosureBody(normalizedItem?.body ?? item.why_text, item.text, disclosureFactors);
           return (
             <article key={item.id} className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm leading-relaxed text-slate-700">{item.text}</p>
-                {impact ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">{impact}</span> : null}
               </div>
-              {timeframe ? <p className="mt-2 text-xs text-slate-400">{timeframe}</p> : null}
-              <DetailDisclosure
+              <DetailEvidenceChips timeframe={timeframe} impact={normalizedItem?.impact} />
+              <DetailDisclosureCard
                 testId={detailTestId}
                 title={icon === "risk" ? "Почему это важно" : "Почему это в приоритете"}
-                body={item.why_text}
+                body={disclosureBody}
                 factors={disclosureFactors}
               />
             </article>
@@ -505,13 +568,17 @@ function ItemList({ title, testId, items, icon }: { title: string; testId: strin
 }
 
 export function TodayActions({ brief }: { brief: DayBriefDto }) {
-  return <ItemList title="Лучше использовать" testId="today-actions" items={brief.best_uses} icon="good" />;
+  const detailItems = useMemo(() => normalizeTodayDetailItems(brief).filter((item) => item.source === "today_best_use"), [brief]);
+  return <ItemList title="Лучше использовать" testId="today-actions" items={brief.best_uses} icon="good" detailItems={detailItems} />;
 }
 
 export function TodayRisks({ brief }: { brief: DayBriefDto }) {
-  return <ItemList title="Риски дня" testId="today-risks" items={brief.risks} icon="risk" />;
+  const detailItems = useMemo(() => normalizeTodayDetailItems(brief).filter((item) => item.source === "today_risk"), [brief]);
+  return <ItemList title="Риски дня" testId="today-risks" items={brief.risks} icon="risk" detailItems={detailItems} />;
 }
 
+// FN-CONTRACT: FN-TODAY-EXPLAINABILITY
+// purpose: Render the today explainability panel from normalized factor cards and detail items.
 export function TodayExplainability({ brief }: { brief: DayBriefDto }) {
   const confidence = Math.round(brief.explainability.confidence * 100);
   const cards = buildTodayExplainabilityCards(brief);

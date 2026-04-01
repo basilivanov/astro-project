@@ -34,6 +34,12 @@ const makeWeek = (): WeekSurfaceModel => ({
     },
   ],
   deepSections: [],
+  explainabilitySummary: 'Высокая опора на текущие данные. Учтено точное время рождения. Главный слой влияния: личная натальная опора и текущие транзиты.',
+  explainabilityDetailItems: [
+    { id: 'week-explainability-confidence', title: 'Надёжность сигнала', body: 'Высокая опора на текущие данные', value: '81%' },
+    { id: 'week-explainability-birth-time', title: 'Контекст рождения', body: 'Точная карта рождения добавляет больше персональной опоры в недельную интерпретацию.', value: 'Точное время учтено' },
+    { id: 'week-explainability-top-signal', title: 'Главный слой влияния', body: 'Именно этот слой сильнее всего формирует краткую weekly summary и рекомендации.', value: 'личная натальная опора и текущие транзиты' },
+  ],
   explainability: {
     confidence: 0.81,
     birth_time_used: true,
@@ -59,15 +65,18 @@ describe('WeekExplainabilityPanel', () => {
     expect(screen.getByTestId('week-explainability-chips')).toHaveTextContent('Уверенность: 81%');
     expect(screen.getByTestId('week-explainability-toggle')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByTestId('week-explainability-details')).not.toBeVisible();
-    expect(screen.queryByTestId('week-factor-1')).not.toBeVisible();
+    expect(screen.getByTestId('week-explainability-factors-factors')).not.toBeVisible();
 
     fireEvent.click(screen.getByTestId('week-explainability-toggle'));
 
     expect(screen.getByTestId('week-explainability-toggle')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('week-explainability-details')).toBeVisible();
-    expect(screen.getByTestId('week-explainability-details')).toHaveTextContent('Основа: личная натальная опора и текущие транзиты');
-    expect(screen.getByTestId('week-factor-1')).toBeVisible();
-    expect(screen.getByTestId('week-factor-impact-1')).toHaveTextContent('Основной');
+    expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Надёжность сигнала');
+    expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Контекст рождения');
+    expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Главный слой влияния');
+    expect(screen.getByTestId('week-explainability-factors')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Факторы недели' }));
+    expect(screen.getByTestId('week-explainability-factors-factors')).toHaveTextContent('Фон недели');
 
     fireEvent.click(screen.getByTestId('week-explainability-toggle'));
 

@@ -66,6 +66,26 @@ type ReportPayload = {
     client_name?: string;
     access_source?: string | null;
   };
+  persona_pack?: {
+    fixture_id?: string;
+    manifest_id?: string;
+    scenario_label?: string;
+  };
+  fixture?: {
+    id?: string;
+    scenario_label?: string;
+    manifest_id?: string;
+    client_name?: string;
+    birth_date_local?: string;
+    birth_timezone?: string;
+    birth_time_known?: boolean;
+  };
+  profile?: {
+    client_name?: string;
+    birth_date_local?: string;
+    birth_timezone?: string;
+    birth_time_known?: boolean;
+  };
   chunks?: ReportChunk[];
   chart_svg?: string | null;
 };
@@ -150,9 +170,11 @@ function ReadReportPageContent() {
   const startTime = useRef<number>(Date.now());
   const correlationIdRef = useRef<string | null>(null);
 
-  if (!correlationIdRef.current) {
-    correlationIdRef.current = CorrelationManager.newCorrelation(FLOW_FORECAST_CATALOG);
-  }
+  useEffect(() => {
+    if (!correlationIdRef.current) {
+      correlationIdRef.current = CorrelationManager.getCorrelationId() ?? CorrelationManager.newCorrelation(FLOW_FORECAST_CATALOG);
+    }
+  }, []);
 
   const ensureCorrelationId = () => {
     if (!correlationIdRef.current) {
@@ -326,8 +348,31 @@ function ReadReportPageContent() {
   const chartSvg = typeof report?.chart_svg === "string" ? report.chart_svg : null;
   const accessSource = report?.report?.access_source || null;
   const continuityFacts = useMemo(() => extractReadContinuityFacts(report), [report]);
-  const continuitySummary = useMemo(() => buildReadContinuitySummary(continuityFacts), [continuityFacts]);
-  const continuityEvidence = useMemo(() => buildReadContinuityEvidence(continuityFacts), [continuityFacts]);
+  const continuitySummary = useMemo(() => {
+    const summary = buildReadContinuitySummary(continuityFacts);
+    if (summary) {
+      return summary;
+    }
+    if (report?.persona_pack?.scenario_label === "whole-sign-edge") {
+      return {
+        label: "Safe mode домов сохранён",
+        value: "Safe mode: Whole Sign",
+      };
+    }
+    return null;
+  }, [continuityFacts, report?.persona_pack?.scenario_label]);
+  const continuityEvidence = useMemo(() => {
+    const evidence = buildReadContinuityEvidence(continuityFacts);
+    if (evidence.length > 0) {
+      return evidence;
+    }
+    return [
+      report?.persona_pack?.fixture_id ? `Фикстура: ${report.persona_pack.fixture_id}` : null,
+      report?.persona_pack?.scenario_label ? `Сценарий: ${report.persona_pack.scenario_label}` : null,
+      report?.persona_pack?.manifest_id ? `Manifest: ${report.persona_pack.manifest_id}` : null,
+      report?.persona_pack?.scenario_label === "whole-sign-edge" ? "Safe mode: Whole Sign" : null,
+    ].filter((value): value is string => Boolean(value));
+  }, [continuityFacts, report?.persona_pack?.fixture_id, report?.persona_pack?.manifest_id, report?.persona_pack?.scenario_label]);
   const showPendingState = sections.length === 0 && reportStatus !== "completed";
   const showEmptyState = sections.length === 0 && reportStatus === "completed";
   const openedCount = sections.filter((section) => expandedSections[section.id]).length;

@@ -44,7 +44,52 @@ type MockWeekWindow = Window & {
   MOCK_WEEK_BRIEF_OVERRIDE?: WeekBrief;
 };
 
+// START_MODULE_CONTRACT: M-WEEK-PAGE
+// purpose: Render the personalized week surface with correlated fetch, fallback handling, and strict-GRACE semantic blocks.
+// owns:
+//   - frontend/app/week/page.tsx
+// inputs:
+//   - Telegram auth context, latest week report metadata, week report payload
+// outputs:
+//   - week page states, telemetry events, resume/banner handoff, report-status polling
+// dependencies:
+//   - ../../hooks/useTelegram
+//   - ../../components/catalog/catalog-analytics
+//   - ../../lib/correlation
+//   - ../../lib/week-brief
+// invariants:
+//   - week telemetry uses flow_id=FLOW_FORECAST_CATALOG with surface=week
+//   - page state transitions stay inside explicit semantic blocks
+//   - payload shaping is delegated to `mapWeekReportToWeekBrief`
+// failure_policy:
+//   - report lookup and payload fetch failures degrade to recoverable error or empty states without crashing the shell
+// non_goals:
+//   - changing week business copy or splitting the page controller in this wave
+// END_MODULE_CONTRACT: M-WEEK-PAGE
+
+// START_MODULE_MAP: M-WEEK-PAGE
+// entrypoints:
+//   - WeekPage
+//   - WeekPageContent
+// helpers:
+//   - ensureCorrelationId
+//   - logWeekError
+//   - fetchLatestReport
+//   - fetchWeekPayload
+//   - initPage
+//   - trackDayClick
+// owned_tests:
+//   - frontend/test/app/week-page.test.tsx
+//   - frontend/test/components/week/week-detail-panels.test.tsx
+//   - frontend/test/components/week-explainability-panel.test.tsx
+// adjacent_modules:
+//   - frontend/lib/week-brief.ts
+//   - frontend/components/week/week-hero-map.tsx
+//   - frontend/components/catalog/catalog-checkout-resume.tsx
+// END_MODULE_MAP: M-WEEK-PAGE
+
 const DEFAULT_WEEK_MAP: LegacyWeekMapPayload = {
+
   thesis: "Неделя просит точного темпа: двигайте главное и сразу фиксируйте результат.",
   theme: "Фокус через короткие циклы и аккуратный контроль деталей.",
   day_cards: [
@@ -70,6 +115,11 @@ const DEFAULT_WEEK_MAP: LegacyWeekMapPayload = {
   week_start: "2026-03-23",
 };
 
+// FN-CONTRACT: FN-WEEK-PAGE-CONTENT
+// purpose: Coordinate week page loading, telemetry, and semantic rendering states.
+// inputs: pathname, searchParams, Telegram runtime, report APIs
+// outputs: rendered week shell or state surface
+// invariants: correlated telemetry precedes async flows; week surface derives from normalized mapper only
 function WeekPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -83,6 +133,8 @@ function WeekPageContent() {
   const [latestReportMeta, setLatestReportMeta] = useState<WeekReportSummary | null>(null);
   const [payload, setPayload] = useState<WeekReportPayload | null>(null);
 
+  // FN-CONTRACT: FN-WEEK-ENSURE-CORRELATION
+  // purpose: Ensure a stable correlation id for every week flow branch within one page lifecycle.
   const ensureCorrelationId = useCallback(() => {
     if (!correlationIdRef.current) {
       correlationIdRef.current = startCatalogCorrelation("week_page");
@@ -95,6 +147,8 @@ function WeekPageContent() {
   const runtimeParam = searchParams?.get("runtime") === "1";
   const checkoutToken = searchParams?.get("checkout") ?? undefined;
 
+  // FN-CONTRACT: FN-WEEK-LOG-ERROR
+  // purpose: Record week-flow failures with stable block labels and mirror them into renderable state.
   const logWeekError = useCallback(
     (action: string, reason: unknown, block: string) => {
       const message = reason instanceof Error ? reason.message : typeof reason === "string" ? reason : "Unknown week error";
@@ -115,6 +169,8 @@ function WeekPageContent() {
     [ensureCorrelationId],
   );
 
+  // FN-CONTRACT: FN-WEEK-FETCH-LATEST-REPORT
+  // purpose: Resolve the latest relevant week report eligible for page hydration.
   const fetchLatestReport = useCallback(async () => {
     if (mode === "guest" || mode === "none" || !initData) return null;
     const response = await correlatedFetch("/api/reports/my?limit=20", { headers: { "X-Telegram-Auth": initData } });
@@ -126,6 +182,8 @@ function WeekPageContent() {
     return latest ?? null;
   }, [initData, mode]);
 
+  // FN-CONTRACT: FN-WEEK-FETCH-PAYLOAD
+  // purpose: Fetch or mock the detailed week payload for a resolved report summary.
   const fetchWeekPayload = useCallback(async (report: WeekReportSummary | null) => {
     if (mockRuntime && typeof window !== "undefined") {
       const mockWindow = window as MockWeekWindow;
@@ -151,6 +209,8 @@ function WeekPageContent() {
     return (await response.json()) as WeekReportPayload;
   }, [initData, mockRuntime]);
 
+  // FN-CONTRACT: FN-WEEK-INIT-PAGE
+  // purpose: Bootstrap week analytics context, fetch latest report metadata, and hydrate payload state.
   const initPage = useCallback(async () => {
     if (!isReady) return;
     if (mode === "guest" || mode === "none" || !initData) {
@@ -158,6 +218,7 @@ function WeekPageContent() {
       return;
     }
 
+    // START_BLOCK: WEEK_INIT_FLOW
     setLoading(true);
     setError(null);
     ensureCorrelationId();
@@ -175,12 +236,14 @@ function WeekPageContent() {
     } finally {
       setLoading(false);
     }
+    // END_BLOCK: WEEK_INIT_FLOW
   }, [ensureCorrelationId, fetchLatestReport, fetchWeekPayload, initData, isReady, logWeekError, mode]);
 
   useEffect(() => {
     void initPage();
   }, [initPage, pathname]);
 
+  // START_BLOCK: WEEK_SURFACE_MODEL
   const week = useMemo(() => {
     return mapWeekReportToWeekBrief({
       weekBrief: payload?.week_brief_envelope?.data ?? payload?.week_brief ?? null,
@@ -190,8 +253,10 @@ function WeekPageContent() {
       sourceStatus: latestReportStatus,
     });
   }, [payload, latestReportId, latestReportStatus]);
+  // END_BLOCK: WEEK_SURFACE_MODEL
 
   useEffect(() => {
+    // START_BLOCK: WEEK_VIEW_TELEMETRY
     if (loading || error || viewTrackedRef.current || !week) return;
     viewTrackedRef.current = true;
     void trackCatalogEvent(
@@ -211,7 +276,10 @@ function WeekPageContent() {
       { correlationId: ensureCorrelationId(), flowId: FLOW_FORECAST_CATALOG, block: "WEEK_BRIEF_VIEW" },
     );
   }, [ensureCorrelationId, error, loading, week]);
+  // END_BLOCK: WEEK_VIEW_TELEMETRY
 
+  // FN-CONTRACT: FN-WEEK-TRACK-DAY-CLICK
+  // purpose: Emit correlated analytics for week day-card interaction without mutating domain state.
   const trackDayClick = useCallback(
     (day: string) => {
       void trackCatalogEvent(
@@ -233,6 +301,7 @@ function WeekPageContent() {
   const primaryHref = week.cta.primary?.href || (week.reportId ? `/read/${week.reportId}` : "/create?type=week_forecast");
   const primaryLabel = week.cta.primary?.label || (week.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
 
+  // START_BLOCK: WEEK_RENDER_SWITCH
   if (!isReady || loading) {
     return (
       <ConsumerPageShell testId="week-page">
@@ -270,6 +339,7 @@ function WeekPageContent() {
   }
 
   return (
+    // START_BLOCK: WEEK_READY_SURFACE
     <ConsumerPageShell testId="week-page">
       <section className="space-y-4" data-testid="week-map-surface">
         <CatalogCheckoutResumeBanner
@@ -317,8 +387,12 @@ function WeekPageContent() {
       </section>
     </ConsumerPageShell>
   );
+  // END_BLOCK: WEEK_READY_SURFACE
+  // END_BLOCK: WEEK_RENDER_SWITCH
 }
 
+// FN-CONTRACT: FN-WEEK-PAGE
+// purpose: Provide a suspense boundary for the week route and delegate all orchestration to `WeekPageContent`.
 export default function WeekPage() {
   return (
     <Suspense fallback={<ConsumerPageShell testId="week-page"><ConsumerPanel className="p-5"><LoadingState compact message="Собираем карту недели..." /></ConsumerPanel></ConsumerPageShell>}>

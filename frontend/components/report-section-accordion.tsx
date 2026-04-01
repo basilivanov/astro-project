@@ -133,7 +133,7 @@ export default function ReportSectionAccordion({
   const canGenerate = ["pending", "failed"].includes(chunk.status);
 
   return (
-    <details className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50" open={initiallyOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
+    <details className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50" open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
       <summary className="cursor-pointer list-none px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">

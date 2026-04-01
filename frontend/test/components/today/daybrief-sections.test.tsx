@@ -449,6 +449,66 @@ describe('daybrief sections', () => {
     expect(disclosure).toHaveTextContent('Чем короче формулировка, тем проще не сорваться в давление.');
   });
 
+  it('suppresses raw semantic keys and duplicate thesis in risk disclosure factors', () => {
+    const brief = buildBrief();
+    brief.risks = [
+      {
+        id: 'risk-raw-keys',
+        text: 'Не разгоняйте спор и держите короткую формулировку.',
+        impact: 'medium',
+        timeframe: 'evening',
+        why_text: 'Не разгоняйте спор и держите короткую формулировку.',
+        supporting_factors: [
+          {
+            label: 'human_thesis',
+            explanation_human: 'Не разгоняйте спор и держите короткую формулировку.',
+            explanation_astro: 'signal',
+          },
+          {
+            label: 'Тон',
+            explanation_human: 'Чем короче формулировка, тем проще не сорваться в давление.',
+            explanation_astro: 'Чем короче формулировка, тем проще не сорваться в давление.',
+          },
+        ],
+      },
+    ];
+
+    render(React.createElement(TodayRisks, { brief }));
+
+    const disclosure = screen.getByTestId('today-risks-details-risk-raw-keys');
+    const summary = disclosure.querySelector('summary') as HTMLElement;
+    fireEvent.click(summary);
+
+    expect(disclosure).not.toHaveTextContent('human_thesis');
+    expect(disclosure).not.toHaveTextContent('signal');
+    expect(disclosure).toHaveTextContent('Тон');
+    expect(disclosure).toHaveTextContent('Чем короче формулировка, тем проще не сорваться в давление.');
+    expect(disclosure.querySelectorAll('p.text-xs.leading-relaxed.text-slate-500')).toHaveLength(0);
+  });
+
+  it('suppresses raw-key astro text in score disclosure fallback factors', () => {
+    const brief = buildBrief();
+    brief.scores[0].details = undefined as never;
+    brief.personalized_factors = [
+      {
+        id: 'factor-raw-score',
+        label: 'Ритм дня',
+        impact: 'medium',
+        explanation_human: 'Лучше держать один темп без лишнего шума.',
+        explanation_astro: 'astro_factor',
+      },
+    ];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    const disclosure = screen.getByTestId('today-score-details-energy');
+
+    expect(disclosure).toHaveTextContent('Ритм дня');
+    expect(disclosure).toHaveTextContent('Лучше держать один темп без лишнего шума.');
+    expect(disclosure).not.toHaveTextContent('astro_factor');
+  });
+
   it('renders cta defaults for inactive premium and forwards click payloads', () => {
     const onCta = jest.fn();
     render(React.createElement(TodayCtaPanel, { brief: buildBrief(), onCta }));
@@ -487,4 +547,20 @@ describe('daybrief sections', () => {
     expect(onCta).toHaveBeenNthCalledWith(1, 'open_week', '/week', 'daybrief_primary', 'CTA_PRIMARY');
     expect(onCta).toHaveBeenNthCalledWith(2, 'open_history', '/reports/history', 'daybrief_secondary', 'CTA_SECONDARY');
   });
+
+
+  it('renders Today actions and risks through shared detail primitives', () => {
+    const brief = buildBrief();
+    render(
+      React.createElement(React.Fragment, null,
+        React.createElement(TodayActions, { brief }),
+        React.createElement(TodayRisks, { brief }),
+      ),
+    );
+
+    expect(screen.queryByTestId('today-actions-details-action-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('today-risks-details-risk-1')).toBeInTheDocument();
+    expect(screen.getAllByTestId('detail-evidence-chips').length).toBeGreaterThan(0);
+  });
+
 });

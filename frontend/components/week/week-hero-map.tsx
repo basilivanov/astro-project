@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { ConsumerHero, ConsumerMetaPill, ConsumerStatusBadge } from "../consumer-page-shell";
 import ReportStatusPoller from "../report-status-poller";
@@ -44,8 +44,8 @@ export function WeekHeroMap({
       }
       meta={
         <>
-          <ConsumerMetaPill label="Тема" value={week.theme} icon={<Sparkles size={14} />} />
-          <ConsumerMetaPill label="Неделя" value={formatWeekDateRange(week.weekStart, week.weekEnd)} icon={<CalendarDays size={14} />} />
+          <ConsumerMetaPill label="Тема" value={week.theme} />
+          <ConsumerMetaPill label="Неделя" value={formatWeekDateRange(week.weekStart, week.weekEnd)} />
           <ConsumerMetaPill label="Локация" value={week.location || "—"} />
           <ConsumerMetaPill label="Часовой пояс" value={week.timezone || "—"} />
         </>

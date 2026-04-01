@@ -88,7 +88,7 @@ test.describe("Today DayBrief surface", () => {
 
     const scoreDisclosure = scoreCard.getByTestId("today-score-details-energy");
     await expect(scoreDisclosure).toHaveAttribute("open", "");
-    await expect(scoreDisclosure.locator("summary")).toContainText("Что повлияло");
+    await expect(scoreDisclosure.locator("summary")).toContainText("Что влияет на оценку");
     await expect(scoreDisclosure).toContainText("Лунный драйв");
     await expect(scoreDisclosure).toContainText("Утром проще быстро войти в темп и взять инициативу.");
     await expect(scoreDisclosure).not.toContainText("Как открыть разбор");

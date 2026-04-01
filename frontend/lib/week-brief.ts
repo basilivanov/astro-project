@@ -1,3 +1,40 @@
+// START_MODULE_CONTRACT: M-WEEK-BRIEF-ADAPTER
+// purpose: Normalize week report payloads into the stable week surface model consumed by route and presentation modules.
+// owns:
+//   - frontend/lib/week-brief.ts
+// inputs:
+//   - week brief DTO, legacy week map payload, deep-section chunks, report metadata
+// outputs:
+//   - `WeekSurfaceModel` with normalized dates, sections, CTA, and explainability labels
+// dependencies:
+//   - local date and text normalization helpers
+// invariants:
+//   - legacy and modern week sources reconcile into a single surface model
+//   - degraded deep sections can be repaired from chunk payloads before rendering
+// failure_policy:
+//   - missing or partial payloads degrade into stable defaults rather than undefined state
+// non_goals:
+//   - network access or route-level telemetry
+// END_MODULE_CONTRACT: M-WEEK-BRIEF-ADAPTER
+
+// START_MODULE_MAP: M-WEEK-BRIEF-ADAPTER
+// entrypoints:
+//   - mapWeekReportToWeekBrief
+//   - formatWeekDateRange
+//   - confidenceBucket
+// helpers:
+//   - repairWeekBriefDeepSections
+//   - normalizeStatus
+//   - normalizeLegacyScore
+//   - normalizeLegacyWeekday
+// owned_tests:
+//   - frontend/test/lib/week-brief.test.ts
+// adjacent_modules:
+//   - frontend/app/week/page.tsx
+//   - frontend/components/week/week-hero-map.tsx
+//   - frontend/lib/detail-layer.ts
+// END_MODULE_MAP: M-WEEK-BRIEF-ADAPTER
+
 import { extractReportFallbackText } from "../components/blocks/report-renderer";
 
 export type WeekBriefStatus = "ready" | "in_progress" | "pending" | "error";
@@ -163,6 +200,13 @@ export type WeekSurfaceModel = {
   risks: ActionRiskItem[];
   factors: NonNullable<WeekBrief["major_factors"]>;
   deepSections: NonNullable<WeekBrief["deep_sections"]>;
+  explainabilitySummary: string;
+  explainabilityDetailItems: {
+    id: string;
+    title: string;
+    body: string | null;
+    value: string | null;
+  }[];
   explainability: NonNullable<WeekBrief["explainability"]>;
   confidenceLabel: string | null;
   confidenceShortLabel: string | null;
@@ -212,6 +256,8 @@ const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallba
   return normalizeList(fallback).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
 };
 
+// FN-CONTRACT: FN-WEEK-MAP-REPORT-TO-BRIEF
+// purpose: Merge modern week brief and legacy week map payloads into one render-ready surface model.
 export function mapWeekReportToWeekBrief(input: {
   weekBrief?: WeekBrief | null;
   legacyWeekMap?: LegacyWeekMapPayload | null;
@@ -219,6 +265,7 @@ export function mapWeekReportToWeekBrief(input: {
   latestReportId?: string | null;
   sourceStatus?: string | null;
 }): WeekSurfaceModel {
+  // START_BLOCK: WEEK_BRIEF_SURFACE_MAPPING
   const brief = input.weekBrief;
   const legacy = input.legacyWeekMap;
   const chunks = Array.isArray(input.chunks) ? input.chunks : [];
@@ -297,6 +344,43 @@ export function mapWeekReportToWeekBrief(input: {
     risks,
     factors,
     deepSections,
+    explainabilitySummary: [
+      humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
+      (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
+        ? "Учтено точное время рождения"
+        : "Без точного времени рождения",
+      humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)
+        ? `Главный слой влияния: ${humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)}`
+        : null,
+    ].filter(Boolean).join('. ') + '.',
+    explainabilityDetailItems: [
+      {
+        id: "week-explainability-confidence",
+        title: "Надёжность сигнала",
+        body: humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
+        value: typeof (brief?.explainability?.confidence ?? legacy?.explainability?.confidence) === "number"
+          ? `${Math.round((brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? 0) * 100)}%`
+          : null,
+      },
+      {
+        id: "week-explainability-birth-time",
+        title: "Контекст рождения",
+        body: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
+          ? "Точная карта рождения добавляет больше персональной опоры в недельную интерпретацию."
+          : "Интерпретация собрана без точного времени рождения, поэтому часть нюансов остаётся более общей.",
+        value: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
+          ? "Точное время учтено"
+          : "Точное время не указано",
+      },
+      {
+        id: "week-explainability-top-signal",
+        title: "Главный слой влияния",
+        body: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)
+          ? "Именно этот слой сильнее всего формирует краткую weekly summary и рекомендации."
+          : "Сигнал распределён между несколькими факторами без одного доминирующего слоя.",
+        value: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null),
+      },
+    ].filter((item) => item.body || item.value),
     explainability: {
       confidence: brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null,
       birth_time_used: brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false,
@@ -321,8 +405,11 @@ export function mapWeekReportToWeekBrief(input: {
         ? legacy?.thesis?.trim() || "Неделя собирается, лог уже в работе"
         : null,
   };
+  // END_BLOCK: WEEK_BRIEF_SURFACE_MAPPING
 }
 
+// FN-CONTRACT: FN-WEEK-REPAIR-DEEP-SECTIONS
+// purpose: Repair degraded deep sections by backfilling summaries and markdown from chunk payloads.
 function repairWeekBriefDeepSections(
   sections: NonNullable<WeekBrief["deep_sections"]>,
   chunkSections: NonNullable<WeekBrief["deep_sections"]>,
@@ -398,6 +485,8 @@ function normalizeLegacyWeekday(value: string | null | undefined): string | null
   return map[normalized] ?? value;
 }
 
+// FN-CONTRACT: FN-WEEK-FORMAT-DATE-RANGE
+// purpose: Format normalized week date boundaries into compact Russian UI copy.
 export function formatWeekDateRange(start?: string | null, end?: string | null): string {
   if (!start && !end) return "Неделя без даты";
   const startDate = parseIsoDate(start);
@@ -410,6 +499,8 @@ export function formatWeekDateRange(start?: string | null, end?: string | null):
   return start ?? end ?? "Неделя без даты";
 }
 
+// FN-CONTRACT: FN-WEEK-CONFIDENCE-BUCKET
+// purpose: Collapse numeric explainability confidence into stable analytics and UI buckets.
 export function confidenceBucket(confidence?: number | null): "low" | "medium" | "high" | "unknown" {
   if (typeof confidence !== "number") return "unknown";
   if (confidence >= 0.75) return "high";

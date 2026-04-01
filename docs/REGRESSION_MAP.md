@@ -92,6 +92,18 @@ These are the stable cross-slice surfaces that global docs should describe.
 
 - slice verification matrices remain in packet folders such as `docs/*packet/verification-matrix*.md`
 - use packet-local matrices for active waves and bounded implementation slices
+- active packet-local slices currently include Today screen, Week UI, natal daily backend, Today/Week detail-layer refactor, frontend functional reliability, and frontend test hardening
+
+### Observability evidence surface
+
+- post-test observability is a first-class verification surface, not a note after green tests
+- use `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` as the durable memo for required digest/replay/trace review and verdict vocabulary
+- for `Today`, `Week`, `Admin`, `Catalog`, and `Billing`, verification is incomplete without explicit evidence review
+
+### Auth and webapp entry surface
+
+- Telegram signed-auth remains a durable entry lane through WebApp init data and bot-assisted identity/profile routing
+- keep global docs aligned with `knowledge-graph.xml` whenever auth entry scopes expand beyond the existing webapp/bot lane
 
 ## Current global anchors
 
@@ -99,6 +111,7 @@ These are the stable cross-slice surfaces that global docs should describe.
 - `docs/TESTING.md` — testing home
 - `docs/FIXTURES.md` — fixture home
 - `docs/GRACE_HOME.md` — GRACE home
+- `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` — observability gate memo
 - `verification-matrix.md` — legacy root matrix retained for snapshot-specific detail and historical continuity
 
 ## Legacy note

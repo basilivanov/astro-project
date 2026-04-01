@@ -13,8 +13,9 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
     <ConsumerPanel className="p-5" data-testid="week-deep-sections">
       <div className="space-y-5">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Глубокий разбор</p>
-          <h2 className="mt-2 text-lg font-black text-slate-950">Полный weekly report ниже</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Deep report layer</p>
+          <h2 className="mt-2 text-lg font-black text-slate-950">Развёрнутый разбор недели</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-summary">Здесь начинается длинный narrative layer: стратегия, интерпретация и markdown-блоки полного weekly report.</p>
         </div>
         {week.deepSections.map((section, index) => {
           const blocks = parseReportBlocks(section.body_markdown);

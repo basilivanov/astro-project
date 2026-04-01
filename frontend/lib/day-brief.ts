@@ -1,3 +1,38 @@
+// START_MODULE_CONTRACT: M-DAY-BRIEF-ADAPTER
+// purpose: Normalize today/day brief payloads into stable frontend view models with fallback-safe defaults.
+// owns:
+//   - frontend/lib/day-brief.ts
+// inputs:
+//   - unknown API payloads, optional profile subscription context
+// outputs:
+//   - `TodayViewModel` and `DayBriefDto` structures with normalized defaults
+// dependencies:
+//   - local coercion helpers only
+// invariants:
+//   - adapter never throws on malformed payloads
+//   - CTA, explainability, and premium branches always resolve to explicit defaults
+// failure_policy:
+//   - malformed values degrade into fallback-safe placeholder structures
+// non_goals:
+//   - rendering or analytics side effects
+// END_MODULE_CONTRACT: M-DAY-BRIEF-ADAPTER
+
+// START_MODULE_MAP: M-DAY-BRIEF-ADAPTER
+// entrypoints:
+//   - normalizeDayBriefPayload
+// helpers:
+//   - normalizeSupportingFactors
+//   - normalizeDetails
+//   - normalizeScores
+//   - normalizeWindows
+//   - normalizeActionItems
+// owned_tests:
+//   - frontend/test/lib/day-brief.test.ts
+// adjacent_modules:
+//   - frontend/app/page.tsx
+//   - frontend/components/today/daybrief-sections.tsx
+// END_MODULE_MAP: M-DAY-BRIEF-ADAPTER
+
 export type DayBriefLight = "green" | "yellow" | "red";
 export type DayBriefImpact = "high" | "medium" | "low";
 export type DayBriefWindowMode = "best" | "soft" | "caution";
@@ -132,6 +167,8 @@ const text = (value: unknown, fallback = ""): string => typeof value === "string
 const bool = (value: unknown, fallback = false): boolean => typeof value === "boolean" ? value : fallback;
 const num = (value: unknown, fallback = 0): number => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
+// FN-CONTRACT: FN-DAY-NORMALIZE-SUPPORTING-FACTORS
+// purpose: Coerce supporting-factor payloads into a stable array of human-readable factor records.
 function normalizeSupportingFactors(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item) => ({
@@ -142,6 +179,8 @@ function normalizeSupportingFactors(value: unknown) {
   }));
 }
 
+// FN-CONTRACT: FN-DAY-NORMALIZE-DETAILS
+// purpose: Normalize optional score/window detail payloads with fallback-safe why-text and factors.
 function normalizeDetails(value: unknown) {
   if (!isRecord(value)) return null;
   return {
@@ -151,6 +190,8 @@ function normalizeDetails(value: unknown) {
   };
 }
 
+// FN-CONTRACT: FN-DAY-NORMALIZE-SCORES
+// purpose: Convert raw score payloads into bounded `DayBriefDto` score entries.
 function normalizeScores(value: unknown): DayBriefDto["scores"] {
   if (!Array.isArray(value)) return [];
   return value
@@ -178,6 +219,8 @@ function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
   }));
 }
 
+// FN-CONTRACT: FN-DAY-NORMALIZE-WINDOWS
+// purpose: Convert raw timing-window payloads into stable today window cards.
 function normalizeWindows(value: unknown): DayBriefDto["windows"] {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item, index) => ({
@@ -275,6 +318,8 @@ export function buildLegacyDayBrief(source: unknown, premiumActiveUntil?: string
   };
 }
 
+// FN-CONTRACT: FN-DAY-NORMALIZE-PAYLOAD
+// purpose: Produce a `TodayViewModel` from raw payloads and optional profile subscription context.
 export function normalizeDayBriefPayload(payload: unknown, profile?: { subscription_active_until?: string | null } | null): TodayViewModel | null {
   if (!isRecord(payload)) return null;
   const premiumActiveUntil = profile?.subscription_active_until ?? null;
