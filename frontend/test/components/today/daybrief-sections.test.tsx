@@ -213,7 +213,7 @@ describe('daybrief sections', () => {
     expect(screen.getByTestId('today-score-details-focus')).toBeInTheDocument();
   });
 
-  it('uses personalized factors when score why text duplicates the card advice', () => {
+  it('falls back to body-only disclosure when score why text duplicates advice and no scoped factors remain', () => {
     const brief = buildBrief();
     brief.scores[0].advice = 'Держите устойчивый темп и не рвите ритм.';
     brief.scores[0].details = {
@@ -228,12 +228,6 @@ describe('daybrief sections', () => {
         impact: 'high',
         explanation_human: 'Фон дня лучше поддерживает ровную подачу, чем силовой рывок.',
       },
-      {
-        id: 'factor-energy-2',
-        label: 'Нагрузка',
-        impact: 'medium',
-        explanation_human: 'Если сузить главный фокус, ресурс расходуется заметно чище.',
-      },
     ];
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
@@ -242,14 +236,10 @@ describe('daybrief sections', () => {
     const summary = disclosure.querySelector('summary') as HTMLElement;
     fireEvent.click(summary);
 
-    expect(summary).not.toHaveTextContent('Как открыть разбор');
-    expect(disclosure).not.toHaveTextContent('Держите устойчивый темп и не рвите ритм.');
-    expect(disclosure).not.toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.');
-    expect(disclosure).toHaveTextContent('Почему энергия такая');
-    expect(disclosure).toHaveTextContent('Лунный ритм');
-    expect(disclosure).toHaveTextContent('Фон дня лучше поддерживает ровную подачу, чем силовой рывок.');
-    expect(disclosure).toHaveTextContent('Если сузить главный фокус, ресурс расходуется заметно чище.');
-    expect(disclosure).toHaveTextContent('Сильный сигнал');
+    expect(summary).toHaveTextContent('Как открыть разбор');
+    expect(disclosure).not.toHaveTextContent('Лунный ритм');
+    expect(disclosure).not.toHaveTextContent('Фон дня лучше поддерживает ровную подачу, чем силовой рывок.');
+    expect(disclosure).toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.');
   });
 
   it('renders window meta and suppresses redundant mode badge when label matches semantic mode', () => {
@@ -297,14 +287,14 @@ describe('daybrief sections', () => {
     expect(screen.queryByTestId('today-risks-details-risk-2')).not.toBeInTheDocument();
   });
 
-  it('uses explainability selected factors in score disclosure when personalized factors are empty', () => {
+  it('uses explainability selected factors in score disclosure when they match the score domain', () => {
     const brief = buildBrief();
     brief.personalized_factors = [];
     brief.scores[1].details = null;
     brief.explainability.selected_factors = [
       {
         id: 'sf-1',
-        label: 'Главный сигнал',
+        label: 'Фокус-сигнал',
         explanation_human: 'Сначала держите один главный шаг.',
         explanation_astro: 'Точный транзит',
         signal: 0.45,
@@ -314,7 +304,7 @@ describe('daybrief sections', () => {
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
     const disclosure = screen.getByTestId('today-score-details-focus');
-    expect(disclosure).toHaveTextContent('Главный сигнал');
+    expect(disclosure).toHaveTextContent('Фокус-сигнал');
     expect(disclosure).toHaveTextContent('Сначала держите один главный шаг.');
   });
 
@@ -484,29 +474,181 @@ describe('daybrief sections', () => {
     expect(disclosure).toHaveTextContent('Тон');
     expect(disclosure).toHaveTextContent('Чем короче формулировка, тем проще не сорваться в давление.');
     expect(disclosure.querySelectorAll('p.text-xs.leading-relaxed.text-slate-500')).toHaveLength(0);
+    expect(disclosure).not.toHaveTextContent('human_thesis:');
+    expect(disclosure).not.toHaveTextContent('signal:');
   });
 
   it('suppresses raw-key astro text in score disclosure fallback factors', () => {
     const brief = buildBrief();
     brief.scores[0].details = undefined as never;
-    brief.personalized_factors = [
+    brief.personalized_factors = [];
+    brief.explainability.selected_factors = [
       {
         id: 'factor-raw-score',
-        label: 'Ритм дня',
-        impact: 'medium',
+        label: 'Энергия дня',
         explanation_human: 'Лучше держать один темп без лишнего шума.',
         explanation_astro: 'astro_factor',
+        signal: 0.35,
       },
-    ];
+    ] as DayBriefDto['explainability']['selected_factors'];
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
     const disclosure = screen.getByTestId('today-score-details-energy');
 
-    expect(disclosure).toHaveTextContent('Ритм дня');
+    expect(disclosure).toHaveTextContent('Энергия дня');
     expect(disclosure).toHaveTextContent('Лучше держать один темп без лишнего шума.');
     expect(disclosure).not.toHaveTextContent('astro_factor');
+  });
+
+  it('uses only matching selected factors for score disclosure fallback', () => {
+    const brief = buildBrief();
+    brief.scores[0].details = undefined as never;
+    brief.personalized_factors = [];
+    brief.explainability.selected_factors = [
+      {
+        id: 'selected-money',
+        label: 'Money flow',
+        explanation_human: 'Этот фактор не должен попасть в energy disclosure.',
+        signal: 0.91,
+      },
+      {
+        id: 'selected-energy-raw',
+        label: 'energy:green',
+        explanation_human: 'Ровный темп помогает держать ресурс.',
+        explanation_astro: 'focus:green',
+        signal: 0.42,
+      },
+      {
+        id: 'selected-energy-1',
+        label: 'Энергия фокуса',
+        explanation_human: 'Утром проще быстро войти в рабочий ритм.',
+        signal: 0.38,
+      },
+    ] as DayBriefDto['explainability']['selected_factors'];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    const disclosure = screen.getByTestId('today-score-details-energy');
+
+    expect(disclosure).toHaveTextContent('Энергия фокуса');
+    expect(disclosure).toHaveTextContent('Утром проще быстро войти в рабочий ритм.');
+    expect(disclosure).not.toHaveTextContent('Money flow');
+    expect(disclosure).not.toHaveTextContent('Этот фактор не должен попасть');
+    expect(disclosure).not.toHaveTextContent('energy:green');
+    expect(disclosure).not.toHaveTextContent('focus:green');
+  });
+
+  it('falls back to body only when selected factors do not match score domain', () => {
+    const brief = buildBrief();
+    brief.scores[0].details = {
+      why_title: 'Почему энергия такая',
+      why_text: 'Держите ровный темп и не размазывайте внимание.',
+      supporting_factors: [],
+    };
+    brief.scores[0].advice = 'Держите ровный темп и не размазывайте внимание.';
+    brief.personalized_factors = [
+      {
+        id: 'personalized-global',
+        label: 'Глобальный фактор',
+        impact: 'high',
+        explanation_human: 'Этот глобальный фактор больше нельзя использовать как fallback.',
+      },
+    ];
+    brief.explainability.selected_factors = [
+      {
+        id: 'selected-money-only',
+        label: 'Money flow',
+        explanation_human: 'Нерелевантный фактор для energy disclosure.',
+        signal: 0.6,
+      },
+    ] as DayBriefDto['explainability']['selected_factors'];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    const disclosure = screen.getByTestId('today-score-details-energy');
+
+    expect(disclosure).toHaveTextContent('Как открыть разбор');
+    expect(disclosure).toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.');
+    expect(disclosure).not.toHaveTextContent('Глобальный фактор');
+    expect(disclosure).not.toHaveTextContent('Money flow');
+  });
+
+  it('dedupes identical legacy score factors including self-duplicates', () => {
+    const brief = buildBrief();
+    brief.scores[0].details = {
+      why_title: 'Почему энергия высокая',
+      why_text: 'Есть запас на важные задачи.',
+      supporting_factors: [
+        {
+          label: 'Тонус',
+          explanation_human: 'Ресурс тела выше среднего.',
+          explanation_astro: 'Гармоничный лунный фон.',
+          value: '82/100',
+        },
+        {
+          label: 'Тонус',
+          explanation_human: 'Ресурс тела выше среднего.',
+          explanation_astro: 'Гармоничный лунный фон.',
+          value: '82/100',
+        },
+        {
+          label: 'money:green',
+          explanation_human: 'Ресурс тела выше среднего.',
+          explanation_astro: 'Гармоничный лунный фон.',
+          value: '82/100',
+        },
+      ],
+    };
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    const disclosure = screen.getByTestId('today-score-details-energy');
+
+    expect(disclosure.textContent?.match(/Тонус/g) ?? []).toHaveLength(1);
+    expect(disclosure.textContent?.match(/Ресурс тела выше среднего\./g) ?? []).toHaveLength(1);
+    expect(disclosure).not.toHaveTextContent('money:green');
+  });
+
+  it('suppresses colon labels and repeated thesis in score disclosure details', () => {
+    const brief = buildBrief();
+    brief.scores[0].details = undefined as never;
+    brief.personalized_factors = [];
+    brief.explainability.selected_factors = [
+      {
+        id: 'factor-colon-1',
+        label: 'energy:green',
+        explanation_human: 'Держите один темп без лишнего шума.',
+        signal: 0.4,
+      },
+      {
+        id: 'factor-colon-2',
+        label: 'Энергия ритма',
+        explanation_human: 'Держите один темп без лишнего шума.',
+        signal: 0.3,
+      },
+      {
+        id: 'factor-colon-3',
+        label: 'Энергетическое окно',
+        explanation_human: 'Лучше закрыть один главный слот без переключений.',
+        signal: 0.7,
+      },
+    ] as DayBriefDto['explainability']['selected_factors'];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    const disclosure = screen.getByTestId('today-score-details-energy');
+
+    expect(disclosure).not.toHaveTextContent('energy:green');
+    expect(disclosure).not.toHaveTextContent('Энергия ритма');
+    expect(disclosure).toHaveTextContent('Энергетическое окно');
+    expect(disclosure).toHaveTextContent('Лучше закрыть один главный слот без переключений.');
+    expect(disclosure.textContent?.match(/Держите один темп без лишнего шума\./g) ?? []).toHaveLength(1);
   });
 
   it('renders cta defaults for inactive premium and forwards click payloads', () => {
@@ -561,6 +703,40 @@ describe('daybrief sections', () => {
     expect(screen.queryByTestId('today-actions-details-action-1')).not.toBeInTheDocument();
     expect(screen.getByTestId('today-risks-details-risk-1')).toBeInTheDocument();
     expect(screen.getAllByTestId('detail-evidence-chips').length).toBeGreaterThan(0);
+  });
+
+  it('keeps today rendered copy free from raw keys and nested interactive markup', () => {
+    const brief = buildBrief();
+    brief.risks = [
+      {
+        id: 'risk-rendered-1',
+        text: 'Снизьте темп перед спорными решениями.',
+        impact: 'signal_only' as never,
+        timeframe: 'structured_value',
+        why_text: 'Это снижает лишний шум и импульсивность.',
+        supporting_factors: [
+          {
+            label: 'signal_only',
+            explanation_human: 'Это снижает лишний шум и импульсивность.',
+            value: 'structured_value',
+          },
+        ],
+      },
+    ];
+
+    const { container } = render(
+      React.createElement(React.Fragment, null,
+        React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }),
+        React.createElement(TodayRisks, { brief }),
+      ),
+    );
+
+    expect(container).not.toHaveTextContent(/\bgreen\b/i);
+    expect(container).not.toHaveTextContent(/\bsignal_only\b/i);
+    expect(container).not.toHaveTextContent(/\bstructured_value\b/i);
+    expect(container.querySelector('button details')).toBeNull();
+    expect(container.querySelector('summary button')).toBeNull();
+    expect(screen.getByTestId('today-risks-details-risk-rendered-1')).toBeInTheDocument();
   });
 
 });

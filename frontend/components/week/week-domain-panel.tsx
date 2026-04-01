@@ -146,7 +146,7 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
                 <p className="text-xs leading-relaxed text-slate-600" data-testid={`week-domain-guidance-${domain.key ?? index}`}>
                   {domain.advice?.trim() || "Держите решения в этой зоне простыми и проверяемыми."}
                 </p>
-                <DetailEvidenceChips values={[domain.status, domain.value != null ? `${domain.value}/100` : null]} />
+                <DetailEvidenceChips values={[domain.value != null ? `${domain.value}/100` : null]} />
                 <DetailDisclosureCard
                   testId={`week-domain-explainability-${domain.key ?? index}`}
                   title="Что повлияло"

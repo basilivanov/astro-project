@@ -149,6 +149,27 @@ def test_build_week_brief_payload_validates_schema_and_logs_telemetry():
     assert built_events[-1][1]["week_brief_confidence_bucket"] in {"medium", "high"}
 
 
+def test_build_week_brief_payload_keeps_neighbor_day_cards_differentiated():
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=_sample_context(),
+        chunks=_sample_chunks(),
+        user=None,
+    )
+
+    monday = payload["day_cards"][0]
+    tuesday = payload["day_cards"][1]
+    thursday = payload["day_cards"][3]
+
+    assert monday["headline"] != tuesday["headline"]
+    assert monday["best_for"] != tuesday["best_for"]
+    assert "Меркурий -> Овен" in monday["headline"]
+    assert any("Телец" in item for item in tuesday["best_for"])
+    assert any("Квадрат" in item for item in monday["avoid"])
+    assert any(any(token in item.lower() for token in ("перегруз", "жесткий спор", "пустот")) for item in thursday["avoid"])
+
+
 def test_build_week_brief_payload_falls_back_but_stays_schema_valid():
     report = _sample_report(status="failed")
     bad_chunks = [SimpleNamespace(section="week_strategy", content="{not-json", status="failed", order_index=0)]

@@ -154,6 +154,9 @@ class WeekDayCard(StrictModel):
     mode: WeekDayMode
     score: int = Field(..., ge=0, le=100)
     headline: str = Field(..., min_length=4, max_length=100)
+    lead: str | None = Field(default=None, max_length=180)
+    practical: list[str] = Field(default_factory=list, max_length=3)
+    supporting_factors: list[FactorEntry] = Field(default_factory=list, max_length=3)
     best_for: list[str] = Field(default_factory=list, max_length=4)
     avoid: list[str] = Field(default_factory=list, max_length=4)
     peak_window_label: str | None = Field(default=None, max_length=64)

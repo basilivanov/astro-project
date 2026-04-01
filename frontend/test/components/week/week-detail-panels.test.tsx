@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { WeekActionsPanel } from '../../../components/week/week-actions-panel';
+import { WeekDayGrid } from '../../../components/week/week-day-grid';
 import { WeekDomainPanel } from '../../../components/week/week-domain-panel';
 import type { WeekSurfaceModel } from '../../../lib/week-brief';
 
@@ -73,7 +74,7 @@ describe('Week unified detail panels', () => {
     render(<WeekDomainPanel week={baseWeek} />);
 
     expect(screen.getByTestId('week-domain-explainability-work')).toHaveTextContent('Что повлияло');
-    expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('green');
+    expect(screen.getByTestId('detail-evidence-chips')).not.toHaveTextContent(/green|yellow|red/i);
     expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('74/100');
 
     fireEvent.click(screen.getByRole('button', { name: 'Что повлияло' }));
@@ -93,5 +94,66 @@ describe('Week unified detail panels', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Почему это важно' }));
     expect(screen.getByTestId('week-risks-list-explainability-1-factors')).toHaveTextContent('Нептун');
+  });
+
+  it('renders weekly day cards with user-facing semantics instead of raw enum-like status', () => {
+    const onDayClick = jest.fn();
+    const week: WeekSurfaceModel = {
+      ...baseWeek,
+      dayCards: [
+        {
+          date: '2026-04-01',
+          weekday: 'wed',
+          mode: 'green',
+          score: 88,
+          headline: 'Фокус на главном',
+          peak_window_label: 'Утро',
+          best_for: ['Стратегия'],
+          avoid: ['Перегруз'],
+        },
+      ],
+    };
+
+    render(<WeekDayGrid week={week} onDayClick={onDayClick} />);
+
+    const card = screen.getByTestId('week-day-card-1');
+    expect(card).toHaveTextContent('Ср');
+    expect(card).toHaveTextContent('88/100');
+    expect(card).toHaveTextContent('Фокус на главном');
+    expect(card).toHaveTextContent('Утро');
+    expect(card).toHaveTextContent('Избегать: Перегруз');
+    expect(card).not.toHaveTextContent(/green|yellow|red/i);
+
+    fireEvent.click(card.querySelector('button') as HTMLElement);
+    expect(onDayClick).toHaveBeenCalledWith('2026-04-01');
+  });
+});
+
+
+describe('Week day card detail layer', () => {
+  it('renders day detail disclosure with practical and supporting factors', () => {
+    const { WeekDayGrid } = require('../../../components/week/week-day-grid');
+    const week = {
+      ...baseWeek,
+      dayCards: [{
+        date: '2026-04-01',
+        weekday: 'wed',
+        mode: 'green',
+        score: 88,
+        headline: 'Фокус на главном',
+        lead: 'День лучше держать через один главный приоритет.',
+        practical: ['Закрыть одно главное дело', 'Проверить дедлайны'],
+        supporting_factors: [{ label: 'Марс', explanation_human: 'Помогает дожимать задачи', value: '88/100' }],
+        best_for: ['Стратегия'],
+        avoid: ['Суета'],
+        peak_window_label: 'Утро',
+      }],
+    };
+    render(<WeekDayGrid week={week} onDayClick={() => {}} />);
+    expect(screen.getByTestId('week-day-card-1')).toHaveTextContent('Фокус на главном');
+    expect(screen.getByTestId('week-day-card-1')).toHaveTextContent('Закрыть одно главное дело');
+    fireEvent.click(screen.getByRole('button', { name: 'Детали дня' }));
+    expect(screen.getByTestId('week-day-card-detail-1-factors')).toHaveTextContent('Марс');
+    expect(screen.getByTestId('week-day-card-detail-1')).toHaveTextContent('День лучше держать через один главный приоритет.');
   });
 });

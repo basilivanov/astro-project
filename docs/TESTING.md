@@ -37,6 +37,7 @@ The canonical profile definitions live in `docs/REGRESSION_MAP.md`.
 
 - `docs/REGRESSION_MAP.md` — single durable regression map
 - `docs/TODAY_WEEK_DETAIL_LAYER_REFACTOR_PLAN.md` — active Day/Week detail-layer slice plan
+- `docs/day_week_contract_audit_v2_2026-04-02.md` — precise Day score-disclosure contract and Week day-card detail-system audit for the current v2 wave
 - `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` — observability gate memo and verdict model
 - `docs/frontend_functional_reliability_packet/verification-matrix.slice.frontend-functional-reliability.md` — frontend structural remediation functional packet
 - `docs/frontend_test_hardening_packet/verification-matrix.slice.frontend-test-hardening.md` — frontend structural remediation hardening packet

@@ -160,6 +160,25 @@ def test_build_day_brief_payload_returns_contract_shape() -> None:
     assert payload["legacy"]["general_vibe"].startswith("Главный акцент дня")
 
 
+def test_build_day_brief_payload_keeps_score_disclosures_item_local() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        general_vibe="Главный акцент дня: Марс квадрат Солнце. Действуй точечно и не спорь на скорости.",
+        generation_mode="llm",
+    )
+
+    scores = {item["key"]: item for item in payload["scores"]}
+    energy_factors = scores["energy"]["details"]["supporting_factors"]
+    money_factors = scores["money"]["details"]["supporting_factors"]
+    love_factors = scores["love"]["details"]["supporting_factors"]
+
+    assert energy_factors == []
+    assert all("Венера" in str(item.get("label") or "") for item in money_factors)
+    assert love_factors == []
+
+
+
 def test_build_day_brief_fallback_is_safe_and_approximate() -> None:
     payload = build_day_brief_fallback(
         datetime(2026, 3, 27, 6, 0, tzinfo=timezone.utc),

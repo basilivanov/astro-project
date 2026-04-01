@@ -82,6 +82,8 @@ These are the stable cross-slice surfaces that global docs should describe.
 - Playwright create/read/history/admin flows
 - read-surface fallback and rendering safety
 - targeted route regressions for changed UX
+- Today score-disclosure quality contract and score-tap disclosure behavior
+- Week day-card detail disclosure behavior and user-facing day-card semantics
 
 ### Fixture surface
 
@@ -93,12 +95,14 @@ These are the stable cross-slice surfaces that global docs should describe.
 - slice verification matrices remain in packet folders such as `docs/*packet/verification-matrix*.md`
 - use packet-local matrices for active waves and bounded implementation slices
 - active packet-local slices currently include Today screen, Week UI, natal daily backend, Today/Week detail-layer refactor, frontend functional reliability, and frontend test hardening
+- the current Day/Week v2 wave also has a narrow audit artifact in `docs/day_week_contract_audit_v2_2026-04-02.md` covering the materialized day score-disclosure contract and weekly day-card detail system
 
 ### Observability evidence surface
 
 - post-test observability is a first-class verification surface, not a note after green tests
 - use `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` as the durable memo for required digest/replay/trace review and verdict vocabulary
 - for `Today`, `Week`, `Admin`, `Catalog`, and `Billing`, verification is incomplete without explicit evidence review
+- rendered gate/pass-matrix views should stay as compact routing overlays on top of canonical profiles and packet-local matrices, not duplicated global matrices
 
 ### Auth and webapp entry surface
 
@@ -112,6 +116,7 @@ These are the stable cross-slice surfaces that global docs should describe.
 - `docs/FIXTURES.md` — fixture home
 - `docs/GRACE_HOME.md` — GRACE home
 - `docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md` — observability gate memo
+- `docs/RENDERED_GATE_PASS_MATRIX_SYNC.md` — minimal global sync for rendered gate/pass-matrix routing
 - `verification-matrix.md` — legacy root matrix retained for snapshot-specific detail and historical continuity
 
 ## Legacy note

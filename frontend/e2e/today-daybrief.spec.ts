@@ -78,7 +78,7 @@ test.describe("Today DayBrief surface", () => {
     hygiene.dispose();
   });
 
-  test("score disclosure stays product-first for canonical persona", async ({ page }) => {
+  test("score disclosure hides global factor fallback for canonical persona", async ({ page }) => {
     await bootstrapTelegramMobile(page);
     await page.goto("/");
 
@@ -88,10 +88,10 @@ test.describe("Today DayBrief surface", () => {
 
     const scoreDisclosure = scoreCard.getByTestId("today-score-details-energy");
     await expect(scoreDisclosure).toHaveAttribute("open", "");
-    await expect(scoreDisclosure.locator("summary")).toContainText("Что влияет на оценку");
-    await expect(scoreDisclosure).toContainText("Лунный драйв");
-    await expect(scoreDisclosure).toContainText("Утром проще быстро войти в темп и взять инициативу.");
-    await expect(scoreDisclosure).not.toContainText("Как открыть разбор");
+    await expect(scoreDisclosure.locator("summary")).toContainText("Как открыть разбор");
+    await expect(scoreDisclosure).toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
+    await expect(scoreDisclosure).not.toContainText("Лунный драйв");
+    await expect(scoreDisclosure).not.toContainText("Утром проще быстро войти в темп и взять инициативу.");
   });
 
   test("week CTA preserves Today to Week continuity for canonical persona", async ({ page }) => {

@@ -229,6 +229,72 @@ describe('day-brief helpers', () => {
     expect(result?.brief.scores[1]).toEqual(expect.objectContaining({ key: 'money', status: 'yellow', value: 57 }));
   });
 
+  it('does not inject explainability factors into unrelated score disclosures', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
+        context: {},
+        scores: [
+          {
+            key: 'energy',
+            title: 'Энергия',
+            value: 72,
+            status: 'green',
+            advice: 'Берегите темп.',
+            details: { why_text: 'Нужен спокойный ритм.', supporting_factors: [] },
+          },
+          {
+            key: 'money',
+            title: 'Деньги',
+            value: 68,
+            status: 'green',
+            advice: 'Проверьте договорённости.',
+            details: { why_text: 'Важны точные цифры.', supporting_factors: [{ label: 'Венера усиливает Venus', explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.' }] },
+          },
+        ],
+        windows: [],
+        best_uses: [],
+        risks: [],
+        personalized_factors: [
+          {
+            id: 'rare_booster_1',
+            label: 'Венера усиливает Venus',
+            impact: 'high',
+            explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.',
+            explanation_astro: 'Транзитный фактор «Венера усиливает Venus» формирует один из главных дневных сигналов.',
+            source_models: ['transit_natal'],
+          },
+        ],
+        explainability: {
+          confidence: 0.74,
+          birth_time_used: true,
+          factor_count: 1,
+          timing_precision: 'exact',
+          top_signal_source: 'transit_natal',
+          explanation_depth: 'standard',
+          selected_factors: [
+            {
+              id: 'rare_booster_1',
+              label: 'Венера усиливает Venus',
+              explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.',
+              domain: 'money',
+              signal: 0.82,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
+    expect(result?.brief.scores[1].details?.supporting_factors).toEqual([
+      expect.objectContaining({ label: 'Венера усиливает Venus' }),
+    ]);
+  });
+
   it('returns null for non-object payloads', () => {
     expect(normalizeDayBriefPayload(null)).toBeNull();
     expect(normalizeDayBriefPayload('bad payload')).toBeNull();

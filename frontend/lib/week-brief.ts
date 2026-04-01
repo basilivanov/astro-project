@@ -81,6 +81,14 @@ export type WeekBrief = {
     mode?: LightStatus | null;
     score?: number | null;
     headline?: string | null;
+    lead?: string | null;
+    practical?: string[] | null;
+    supporting_factors?: {
+      label?: string | null;
+      explanation_human?: string | null;
+      explanation_astro?: string | null;
+      value?: string | null;
+    }[] | null;
     best_for?: string[] | null;
     avoid?: string[] | null;
     peak_window_label?: string | null;
@@ -294,6 +302,9 @@ export function mapWeekReportToWeekBrief(input: {
         mode: normalizeStatus(item.mode),
         score: normalizeLegacyScore(item.score),
         headline: item.headline ?? null,
+        lead: item.headline ?? null,
+        practical: normalizeList(item.best_for).slice(0, 2),
+        supporting_factors: [],
         best_for: normalizeList(item.best_for),
         avoid: normalizeList(item.avoid),
         peak_window_label: null,

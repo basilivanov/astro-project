@@ -807,6 +807,64 @@ def _build_supporting_factor_entries(factor_ids: list[str], factor_lookup: dict[
     return entries
 
 
+def _collect_local_score_factor_ids(
+    factor_refs: list[dict[str, Any]],
+    *,
+    domain: str,
+    factor_lookup: dict[str, dict[str, Any]],
+    score_item: dict[str, Any],
+    explainability_factors: list[dict[str, Any]] | None = None,
+    limit: int = 4,
+) -> list[str]:
+    local_ids = _collect_factor_ids(factor_refs, domain, "positive", limit=limit)
+    if local_ids:
+        return local_ids
+
+    details = score_item.get("details") if isinstance(score_item.get("details"), dict) else {}
+    item_text = " ".join(
+        str(part or "")
+        for part in (
+            score_item.get("title"),
+            score_item.get("advice"),
+            details.get("why_title"),
+            details.get("why_text"),
+        )
+    ).strip().lower()
+    if not item_text:
+        return []
+
+    explainability_lookup = {
+        str(item.get("id") or "").strip(): item
+        for item in (explainability_factors or [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
+    }
+    matches: list[str] = []
+    for factor_id, factor in factor_lookup.items():
+        if factor_id in matches:
+            continue
+        label = str(factor.get("label") or "").strip().lower()
+        human = str(factor.get("explanation_human") or "").strip().lower()
+        if not label and not human:
+            continue
+
+        explainability_factor = explainability_lookup.get(factor_id, {})
+        related_key = str(
+            explainability_factor.get("related_key")
+            or explainability_factor.get("domain")
+            or explainability_factor.get("key")
+            or ""
+        ).strip().lower()
+        if related_key and related_key != domain:
+            continue
+
+        tokens = [token for token in (label, human) if token]
+        if any(token in item_text for token in tokens):
+            matches.append(factor_id)
+        if len(matches) >= limit:
+            break
+    return matches
+
+
 def _build_best_and_risks(
     scores: dict[str, int],
     windows: list[dict[str, Any]],
@@ -1125,15 +1183,19 @@ def _assemble_day_brief_payload(
         ]
 
     score_items = _build_score_items(int_scores, semantic)
-    domain_factor_map: dict[str, list[dict[str, Any]]] = {key: [] for key in DOMAIN_KEYS}
-    for domain in DOMAIN_KEYS:
-        factor_ids = _collect_factor_ids(factor_refs, domain, None, limit=4)
-        domain_factor_map[domain] = _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4)
     for item in score_items:
+        factor_ids = _collect_local_score_factor_ids(
+            factor_refs,
+            domain=str(item["key"]),
+            factor_lookup=factor_lookup or {},
+            score_item=item,
+            explainability_factors=explainability.get("selected_factors"),
+            limit=4,
+        )
         item["details"] = {
             "why_title": item.get("details", {}).get("why_title") or f"Почему {str(item['title']).lower()} именно такие",
             "why_text": item.get("details", {}).get("why_text") or item.get("advice") or "Здесь важна точная дозировка, а не простой напор.",
-            "supporting_factors": domain_factor_map.get(str(item["key"]), []),
+            "supporting_factors": _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4),
         }
 
     now_local = _parse_local_dt(facts)

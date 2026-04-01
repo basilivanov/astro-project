@@ -191,7 +191,7 @@ test.describe("VM-WEEK-P0", () => {
     await expect(page.getByTestId("week-risks-list")).toContainText("Не пытайтесь закрыть то, что ещё не дозрело");
     await expect(page.getByTestId("week-primary-cta")).toBeVisible();
 
-    await page.getByTestId("week-day-card-1").click();
+    await page.getByTestId("week-day-card-1").locator("button").first().click();
     await page.getByTestId("week-primary-cta").click();
     await expect(page).toHaveURL(new RegExp(`/read/${reportId}$`));
 

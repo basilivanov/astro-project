@@ -308,9 +308,33 @@ def _build_day_headline(day: dict[str, Any], focus_key: str) -> str:
     return "День лучше вести спокойно и по шагам"
 
 
+def _moon_context_tokens(day: dict[str, Any]) -> tuple[str | None, str | None]:
+    moon = day.get("moon") or {}
+    sign = str(moon.get("sign") or "").strip()
+    phase = str(moon.get("phase") or "").strip()
+    return (sign or None, phase or None)
+
+
+def _dedupe_keep_order(items: Iterable[str], *, limit: int) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        normalized = re.sub(r"\s+", " ", str(item or "")).strip()
+        key = normalized.lower()
+        if not normalized or key in seen:
+            continue
+        seen.add(key)
+        result.append(normalized)
+        if len(result) >= limit:
+            break
+    return result
+
+
 def _build_day_actions(day: dict[str, Any], focus_key: str) -> tuple[list[str], list[str]]:
     status = str(day.get("traffic_light") or "YELLOW").upper()
     moon_label = str(day.get("moon_label") or "").strip()
+    moon_sign, moon_phase = _moon_context_tokens(day)
+    events = [str(item).strip() for item in (day.get("events") or []) if str(item).strip()]
     best_for = {
         "money_admin": ["согласование", "фиксация условий"],
         "relationship": ["разговор по существу", "мягкая обратная связь"],
@@ -323,17 +347,39 @@ def _build_day_actions(day: dict[str, Any], focus_key: str) -> tuple[list[str], 
         "rest": ["перегрев", "гонка без пауз"],
         "launch": ["распыление", "мелкая суета"],
     }.get(focus_key, ["спешка"])
+
+    event_hints: list[str] = []
+    risk_hints: list[str] = []
+    for event in events[:2]:
+        lowered = event.lower()
+        if "->" in event:
+            event_hints.append(event)
+            continue
+        if _is_hard_aspect(lowered):
+            risk_hints.append(event)
+        else:
+            event_hints.append(event)
+
+    moon_hints = [item for item in (moon_sign, moon_phase) if item]
+
     if status == "GREEN":
         if moon_label:
-            best_for = best_for + [moon_label]
-        return best_for[:4], avoid[:2]
+            moon_hints.append(moon_label)
+        return (
+            _dedupe_keep_order([*best_for, *event_hints, *moon_hints], limit=4),
+            _dedupe_keep_order([*avoid, *risk_hints], limit=3),
+        )
     if status == "RED":
-        return ["один приоритет", "проверка вводных"], (avoid + ["жесткий спор", "перегруз"])[
-            :4
-        ]
+        return (
+            _dedupe_keep_order(["один приоритет", "проверка вводных", *moon_hints], limit=4),
+            _dedupe_keep_order([*risk_hints, *avoid, "жесткий спор", "перегруз"], limit=4),
+        )
     if (day.get("moon") or {}).get("void_of_course"):
         avoid = ["жесткое решение", "обещания без ответа"] + avoid
-    return best_for[:2], avoid[:4]
+    return (
+        _dedupe_keep_order([*best_for, *event_hints, *moon_hints], limit=4),
+        _dedupe_keep_order([*risk_hints, *avoid], limit=4),
+    )
 
 
 def _domain_status(value: int) -> str:
@@ -1157,13 +1203,31 @@ def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
         current_date = start + timedelta(days=index)
         normalized = _normalize_week_day_payload(source or {"date": current_date.isoformat(), "weekday": current_date.strftime("%A"), "traffic_light": "YELLOW"})
         best_for, avoid = _build_day_actions(normalized, focus_key)
+        headline = _build_day_headline(normalized, focus_key)[:100]
+        lead = ". ".join(part for part in [headline, f"Опора дня — {best_for[0]}" if best_for else None] if part)[:180] or None
+        practical = best_for[:2] if best_for else avoid[:1]
+        supporting_factors = [
+            {
+                "label": "Лучше направить в",
+                "explanation_human": best_for[0] if best_for else "Спокойный ритм и проверяемые шаги дадут лучший результат.",
+                "value": f"{_score_day_card(normalized)}/100",
+            },
+            {
+                "label": "Стоит снизить",
+                "explanation_human": avoid[0] if avoid else "Избегайте резких решений без подтверждения.",
+                "value": str(normalized.get("traffic_light") or "YELLOW").lower(),
+            },
+        ]
         cards.append(
             {
                 "date": _safe_date(normalized.get("date"), default=current_date).isoformat(),
                 "weekday": _weekday_code(normalized, current_date),
                 "mode": str(normalized.get("traffic_light") or "YELLOW").lower(),
                 "score": _score_day_card(normalized),
-                "headline": _build_day_headline(normalized, focus_key)[:100],
+                "headline": headline,
+                "lead": lead,
+                "practical": practical[:3],
+                "supporting_factors": supporting_factors[:3],
                 "best_for": best_for[:4],
                 "avoid": avoid[:4],
                 "peak_window_label": None if (normalized.get("moon") or {}).get("void_of_course") else "до 14:00",
