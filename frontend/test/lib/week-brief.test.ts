@@ -76,6 +76,14 @@ describe('week-brief helpers', () => {
       waitMessage: null,
     }));
     expect(surface.dayCards).toHaveLength(1);
+    expect(surface.dayStrip).toHaveLength(1);
+    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
+      weekday: 'wed',
+      score: 88,
+      headline: 'Фокус на главном',
+      lead: null,
+      supporting_factors: [],
+    }));
     expect(surface.domains).toHaveLength(1);
     expect(surface.actions[0]).toEqual(expect.objectContaining({ id: 'a-1', impact: 'high' }));
     expect(surface.risks[0]).toEqual(expect.objectContaining({ id: 'r-1', text: 'Не спорить на износе' }));
@@ -139,6 +147,8 @@ describe('week-brief helpers', () => {
       expect.objectContaining({ weekday: 'fri', mode: 'red', score: 35 }),
       expect.objectContaining({ weekday: null, mode: 'red', score: 50 }),
     ]);
+    expect(surface.dayStrip).toHaveLength(3);
+    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'mon', best_for: ['запуск'], avoid: ['спешка'] }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),
       expect.objectContaining({ key: 'unknown', title: 'unknown', status: 'red', headline: 'unknown: 44/100' }),

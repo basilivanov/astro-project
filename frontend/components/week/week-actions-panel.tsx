@@ -37,9 +37,9 @@ function supportingFactors(week: WeekSurfaceModel, factorId?: string | null) {
   // START_BLOCK: SUPPORTING_FACTOR_RESOLUTION
   if (factorId) {
     const exact = week.factors.filter((factor) => factor.id === factorId);
-    if (exact.length) return exact.slice(0, 2);
+    if (exact.length) return exact;
   }
-  return week.factors.slice(0, 2);
+  return [];
   // END_BLOCK: SUPPORTING_FACTOR_RESOLUTION
 }
 
@@ -75,19 +75,21 @@ function mapItemFactors(
       const explanationHuman = String(factor?.explanation_human || "").trim();
       const explanationAstro = String(factor?.explanation_astro || "").trim();
       const value = String(factor?.value || "").trim();
+      const normalizedValue = value.toLowerCase();
       if (!label && !explanationHuman && !explanationAstro) return null;
+      if (/^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) && !explanationHuman) return null;
       return {
         id: `${relatedKey}-factor-${index + 1}`,
-        label: label || `Фактор ${index + 1}`,
+        label: /^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) ? '' : label,
         explanationHuman: explanationHuman || explanationAstro,
         explanationAstro: explanationAstro || null,
-        value: value || null,
+        value: ["green", "yellow", "red", "high", "medium", "background"].includes(normalizedValue) ? null : (value || null),
         impact: null,
         source: "week_supporting_factor",
         relatedKey,
       } satisfies NormalizedDetailFactor;
     })
-    .filter((item): item is NormalizedDetailFactor => Boolean(item));
+    .filter((item): item is NormalizedDetailFactor => Boolean(item && (item.label || item.explanationHuman || item.explanationAstro || item.value)));
   // END_BLOCK: DISCLOSURE_FACTOR_NORMALIZATION
 }
 

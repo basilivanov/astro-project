@@ -34,4 +34,10 @@ describe('detail primitives', () => {
     render(React.createElement(DetailEvidenceChips, { timeframe: 'Утро' }));
     expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('Утро');
   });
+
+  it('does not render raw status-like evidence chips', () => {
+    render(React.createElement(DetailEvidenceChips, { timeframe: 'week:green', values: ['green', 'all_day', 'Проверить план'] }));
+    expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('Проверить план');
+    expect(screen.getByTestId('detail-evidence-chips')).not.toHaveTextContent(/week:green|green|all_day/i);
+  });
 });

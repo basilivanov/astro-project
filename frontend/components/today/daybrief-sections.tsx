@@ -94,9 +94,30 @@ function formatImpact(value: string | null | undefined): string | null {
     high: null,
     medium: null,
     low: null,
+    green: null,
+    yellow: null,
+    red: null,
+    background: null,
   };
   if (normalized in map) return map[normalized] ?? null;
+  if (/^[a-z]+:[a-z0-9_-]+$/.test(normalized)) return null;
   return /^[a-z0-9_-]+$/.test(normalized) ? null : String(value).trim();
+}
+
+function looksLikeDomainScopedFactor(factor: { domain?: string | null; category?: string | null; label?: string | null }, scoreKey: string): boolean {
+  const normalizedScoreKey = String(scoreKey || "").trim().toLowerCase();
+  const candidates = [factor.domain, factor.category, factor.label]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (!candidates.length) return false;
+  const aliases: Record<string, string[]> = {
+    energy: ["energy", "health", "tone", "ресурс", "энерг"],
+    work_money: ["work_money", "work", "money", "career", "работ", "деньг", "финанс"],
+    relationships: ["relationships", "relationship", "love", "relation", "отнош", "чувств", "контакт"],
+    focus: ["focus", "mind", "focus_time", "фокус", "ритм", "вниман"],
+  };
+  const needles = aliases[normalizedScoreKey] ?? [normalizedScoreKey];
+  return candidates.some((candidate) => needles.some((needle) => candidate.includes(needle)));
 }
 
 function normalizeComparableText(value: string | null | undefined): string {
@@ -349,12 +370,21 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
       factors: normalizedOwnFactors,
     };
   }
-  const normalizedFallbackFactors = mapLegacyFactorsToNormalized(buildScoreFallbackFactors(score, brief), score.key);
+  const domainScopedSelected = (brief.explainability.selected_factors ?? [])
+    .filter((factor) => looksLikeDomainScopedFactor(factor, score.key))
+    .map((factor) => ({
+      label: factor.label,
+      explanation_human: factor.explanation_human,
+      explanation_astro: factor.explanation_astro,
+      value: null,
+    }));
+  const normalizedFallbackFactors = mapLegacyFactorsToNormalized(domainScopedSelected, score.key);
+  const hasMeaningfulFallback = normalizedFallbackFactors.some((factor) => factor.label || factor.explanationHuman || factor.explanationAstro || factor.value);
 
   return {
-    title: normalizedOwnFactors.length || normalizedFallbackFactors.length ? (score.details?.why_title || "Что влияет на оценку") : "Как открыть разбор",
-    body: normalizedOwnFactors.length || normalizedFallbackFactors.length ? null : "Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.",
-    factors: normalizedOwnFactors.length ? normalizedOwnFactors : normalizedFallbackFactors,
+    title: normalizedOwnFactors.length || hasMeaningfulFallback ? (score.details?.why_title || "Что влияет на оценку") : "Как открыть разбор",
+    body: normalizedOwnFactors.length || hasMeaningfulFallback ? null : "Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.",
+    factors: normalizedOwnFactors.length ? normalizedOwnFactors : (hasMeaningfulFallback ? normalizedFallbackFactors : []),
   };
 }
 
@@ -371,12 +401,17 @@ function mapLegacyFactorsToNormalized(
       if (isLikelyRawSemanticKey(label) && !human) {
         return [];
       }
+      const safeLabel = isLikelyRawSemanticKey(label) ? "" : label;
+      const safeValue = String(factor.value || "").trim();
+      if (!safeLabel && !human && !astro && !safeValue) {
+        return [];
+      }
       return [{
         id: `today-${relatedKey}-factor-${index + 1}`,
-        label: isLikelyRawSemanticKey(label) ? "" : label || `Фактор ${index + 1}`,
+        label: safeLabel,
         explanationHuman: human,
         explanationAstro: shouldSuppressAstroText(astro, null, null, human) ? null : astro,
-        value: String(factor.value || "").trim() || null,
+        value: safeValue || null,
         impact: null,
         source: "today_supporting_factor",
         relatedKey,

@@ -31,21 +31,19 @@ import { type WeekSurfaceModel } from "../../lib/week-brief";
 // INTENT: Resolve bounded fallback factors for a domain when explicit supporting factors are absent.
 // INPUTS: Week surface model and optional domain key.
 // OUTPUTS: Up to two supporting factors aligned to the requested domain.
-// INVARIANTS: Direct category match wins; heuristic label matching stays bounded; final fallback uses week factor head.
+// INVARIANTS: Direct category match wins; heuristic label matching stays bounded; no unrelated global factor fallback.
 // END_FUNCTION_CONTRACT: pickSupportingFactors
 function pickSupportingFactors(week: WeekSurfaceModel, domainKey: string | null | undefined) {
   // START_BLOCK: DOMAIN_FACTOR_FALLBACK_SELECTION
   const normalizedKey = String(domainKey ?? "").trim().toLowerCase();
   if (!normalizedKey) {
-    return week.factors.slice(0, 2);
+    return [];
   }
 
-  const direct = week.factors.filter((factor) => String(factor.category ?? "").trim().toLowerCase() === normalizedKey);
-  if (direct.length) {
-    return direct.slice(0, 2);
-  }
-
-  const byLabel = week.factors.filter((factor) => {
+  return week.factors.filter((factor) => {
+    if (String(factor.category ?? "").trim().toLowerCase() === normalizedKey) {
+      return true;
+    }
     const label = String(factor.label ?? "").trim().toLowerCase();
     return normalizedKey.includes("work")
       ? label.includes("работ") || label.includes("деньг")
@@ -56,9 +54,11 @@ function pickSupportingFactors(week: WeekSurfaceModel, domainKey: string | null 
           : normalizedKey.includes("focus")
             ? label.includes("фокус") || label.includes("ритм") || label.includes("тайм")
             : false;
+  }).filter((factor) => {
+    const label = String(factor.label ?? "").trim();
+    const human = String(factor.explanation_human ?? "").trim();
+    return Boolean(label || human);
   });
-
-  return (byLabel.length ? byLabel : week.factors).slice(0, 2);
   // END_BLOCK: DOMAIN_FACTOR_FALLBACK_SELECTION
 }
 
@@ -94,19 +94,21 @@ function mapDomainFactors(
       const explanationHuman = String(factor?.explanation_human || "").trim();
       const explanationAstro = String(factor?.explanation_astro || "").trim();
       const value = String(factor?.value || "").trim();
+      const normalizedValue = value.toLowerCase();
       if (!label && !explanationHuman && !explanationAstro) return null;
+      if (/^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) && !explanationHuman) return null;
       return {
         id: `${relatedKey}-factor-${index + 1}`,
-        label: label || `Фактор ${index + 1}`,
+        label: /^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) ? '' : label,
         explanationHuman: explanationHuman || explanationAstro,
         explanationAstro: explanationAstro || null,
-        value: value || null,
+        value: ["green", "yellow", "red", "high", "medium", "background"].includes(normalizedValue) ? null : (value || null),
         impact: null,
         source: "week_supporting_factor",
         relatedKey,
       } satisfies NormalizedDetailFactor;
     })
-    .filter((item): item is NormalizedDetailFactor => Boolean(item));
+    .filter((item): item is NormalizedDetailFactor => Boolean(item && (item.label || item.explanationHuman || item.explanationAstro || item.value)));
   // END_BLOCK: DOMAIN_FACTOR_NORMALIZATION
 }
 

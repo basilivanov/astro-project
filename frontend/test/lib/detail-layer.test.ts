@@ -1,4 +1,4 @@
-import { normalizeTodayDetailItems, normalizeWeekDetailItems } from '../../lib/detail-layer';
+import { normalizeTodayDetailItems, normalizeWeekDetailItems, sanitizeDetailLayer } from '../../lib/detail-layer';
 import type { DayBriefDto } from '../../lib/day-brief';
 import type { WeekBrief } from '../../lib/week-brief';
 
@@ -57,5 +57,22 @@ describe('detail-layer normalization', () => {
     expect(items[2]).toEqual(expect.objectContaining({ id: 'wr-1', body: 'Перегрузка быстро проявится', source: 'week_risk' }));
     expect(items[3]).toEqual(expect.objectContaining({ id: 'wf-1', title: 'Юпитер', body: 'Расширяет окно возможностей', impact: 'medium', source: 'week_factor' }));
     expect(items[3].factors[0]).toEqual(expect.objectContaining({ source: 'week_major_factor', label: 'Юпитер' }));
+  });
+
+  it('drops raw semantic keys, raw status chips, and duplicate factor rows', () => {
+    const sanitized = sanitizeDetailLayer({
+      body: 'Нужен приоритет',
+      timeframe: 'week:green',
+      factors: [
+        { id: 'f1', label: 'money:green', explanationHuman: '', explanationAstro: null, value: 'green', impact: null, source: 'week_supporting_factor', relatedKey: 'money' },
+        { id: 'f2', label: 'Солнце', explanationHuman: 'Нужен приоритет', explanationAstro: null, value: null, impact: null, source: 'week_supporting_factor', relatedKey: 'money' },
+        { id: 'f3', label: 'Солнце', explanationHuman: 'Собирает внимание', explanationAstro: null, value: null, impact: null, source: 'week_supporting_factor', relatedKey: 'money' },
+        { id: 'f4', label: 'Солнце', explanationHuman: 'Собирает внимание', explanationAstro: null, value: null, impact: null, source: 'week_supporting_factor', relatedKey: 'money' },
+      ],
+    });
+
+    expect(sanitized.timeframe).toBeNull();
+    expect(sanitized.factors).toHaveLength(1);
+    expect(sanitized.factors[0]).toEqual(expect.objectContaining({ label: 'Солнце', explanationHuman: 'Собирает внимание' }));
   });
 });

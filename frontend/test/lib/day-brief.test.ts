@@ -168,7 +168,7 @@ describe('day-brief helpers', () => {
       details: expect.objectContaining({
         why_title: null,
         why_text: 'Сегодня здесь лучше идти через спокойную точность, а не через голый напор.',
-        supporting_factors: [expect.objectContaining({ label: 'A', explanation_human: 'B', value: null })],
+        supporting_factors: [expect.objectContaining({ label: 'A', explanation_human: 'B', value: '10' })],
       }),
     }));
     expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
@@ -182,7 +182,7 @@ describe('day-brief helpers', () => {
     expect(result?.brief.best_uses[0]).toEqual(expect.objectContaining({
       id: 'item-0',
       impact: 'medium',
-      supporting_factors: [expect.objectContaining({ label: 'Фактор дня' })],
+      supporting_factors: [],
     }));
     expect(result?.brief.risks[0]).toEqual(expect.objectContaining({
       impact: null,
@@ -289,15 +289,49 @@ describe('day-brief helpers', () => {
       },
     });
 
-    expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
-    expect(result?.brief.scores[1].details?.supporting_factors).toEqual([
+  expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
+  expect(result?.brief.scores[1].details?.supporting_factors).toEqual([
       expect.objectContaining({ label: 'Венера усиливает Venus' }),
-    ]);
-  });
+  ]);
+
+  const scoreWithoutOwnFactors = result?.brief.scores.find((score) => score.key === 'energy');
+  expect(scoreWithoutOwnFactors?.details?.supporting_factors).toEqual([]);
+});
 
   it('returns null for non-object payloads', () => {
     expect(normalizeDayBriefPayload(null)).toBeNull();
     expect(normalizeDayBriefPayload('bad payload')).toBeNull();
+  });
+
+  it('keeps empty supporting factor arrays when detail payload contains only placeholder-generic material', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
+        context: {},
+        scores: [{
+          key: 'focus',
+          title: 'Фокус',
+          value: 60,
+          status: 'yellow',
+          advice: 'Сузьте контекст.',
+          details: { why_text: 'Сузьте контекст.', supporting_factors: [{ label: 'factor', explanation_human: '', value: 'green' }] },
+        }],
+        windows: [],
+        best_uses: [],
+        risks: [],
+        personalized_factors: [],
+        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 0, selected_factors: [{ id: 'sf1', label: 'factor', explanation_human: '', domain: 'focus' }] },
+        premium: null,
+        cta: null,
+        legacy: null,
+      },
+    }, null);
+
+    expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
   });
 
   it('builds legacy defaults when optional legacy sections are absent', () => {

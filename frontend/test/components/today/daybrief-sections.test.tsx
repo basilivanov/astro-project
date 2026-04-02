@@ -736,6 +736,8 @@ describe('daybrief sections', () => {
     expect(container).not.toHaveTextContent(/\bstructured_value\b/i);
     expect(container.querySelector('button details')).toBeNull();
     expect(container.querySelector('summary button')).toBeNull();
+    expect(container).not.toHaveTextContent(/\bEurope\/Moscow\b/i);
+    expect(container).not.toHaveTextContent(/\bUTC\b/i);
     expect(screen.getByTestId('today-risks-details-risk-rendered-1')).toBeInTheDocument();
   });
 

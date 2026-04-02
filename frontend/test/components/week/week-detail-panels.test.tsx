@@ -96,6 +96,38 @@ describe('Week unified detail panels', () => {
     expect(screen.getByTestId('week-risks-list-explainability-1-factors')).toHaveTextContent('Нептун');
   });
 
+  it('does not inject arbitrary week factors into actions without exact match', () => {
+    const week = {
+      ...baseWeek,
+      actions: [{ id: 'action-x', text: 'Сузить план', factor_id: 'missing-factor', impact: 'green', timeframe: 'week:green' }],
+      risks: [],
+    };
+
+    render(<WeekActionsPanel week={week} />);
+    expect(screen.queryByRole('button', { name: 'Почему это в фокусе' })).toBeNull();
+    expect(screen.getByTestId('week-actions-list')).not.toHaveTextContent(/green|week:green/i);
+  });
+
+  it('does not inject global week factors into domain without domain match', () => {
+    const week = {
+      ...baseWeek,
+      domains: [{
+        key: 'focus',
+        title: 'Фокус',
+        status: 'green',
+        value: 74,
+        headline: 'Один приоритет держит неделю',
+        advice: 'Сужайте контекст.',
+        why_text: null,
+        supporting_factors: [],
+      }],
+      factors: [{ id: 'factor-z', label: 'money:green', impact: 'high', category: 'other', explanation_human: null, explanation_astro: null, source_models: [], weight: 0.1 }],
+    };
+
+    render(<WeekDomainPanel week={week} />);
+    expect(screen.queryByRole('button', { name: 'Что повлияло' })).toBeNull();
+  });
+
   it('renders weekly day cards with user-facing semantics instead of raw enum-like status', () => {
     const onDayClick = jest.fn();
     const week: WeekSurfaceModel = {
@@ -153,7 +185,8 @@ describe('Week day card detail layer', () => {
     expect(screen.getByTestId('week-day-card-1')).toHaveTextContent('Фокус на главном');
     expect(screen.getByTestId('week-day-card-1')).toHaveTextContent('Закрыть одно главное дело');
     fireEvent.click(screen.getByRole('button', { name: 'Детали дня' }));
-    expect(screen.getByTestId('week-day-card-detail-1-factors')).toHaveTextContent('Марс');
-    expect(screen.getByTestId('week-day-card-detail-1')).toHaveTextContent('День лучше держать через один главный приоритет.');
+    expect(screen.getByTestId('week-day-detail-1-factors')).toHaveTextContent('Марс');
+    expect(screen.getByTestId('week-day-detail-1')).toHaveTextContent('День лучше держать через один главный приоритет.');
+    expect(screen.getByTestId('week-day-card-1')).toHaveTextContent('Лучше: Закрыть одно главное дело · Проверить дедлайны');
   });
 });

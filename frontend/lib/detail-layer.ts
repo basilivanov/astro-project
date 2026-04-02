@@ -56,10 +56,63 @@ function isLikelyRawSemanticKey(value: string | null | undefined): boolean {
   if (!raw) return true;
   if (/[А-Яа-яЁё]/.test(raw)) return false;
   const normalized = raw.toLowerCase();
+  if (/^[a-z]+:[a-z0-9_-]+$/.test(normalized)) {
+    return true;
+  }
   if (/^[a-z0-9_./:-]+$/.test(normalized) && (normalized.includes("_") || normalized.includes(".") || normalized.includes("/"))) {
     return true;
   }
   return ["factor", "signal", "astro_factor", "human_thesis", "why_text", "supporting_factor"].includes(normalized);
+}
+
+function isLikelyRawStatusValue(value: string | null | undefined): boolean {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return ["green", "yellow", "red", "high", "medium", "low", "background", "week:green", "week:yellow", "week:red", "all_day", "morning", "evening", "week_start", "week_end"].includes(normalized);
+}
+
+function sanitizeDetailText(value: string | null | undefined): string | null {
+  const normalized = nullable(value);
+  if (!normalized) return null;
+  if (/^\d{2}:\d{2}[–-]\d{2}:\d{2}$/.test(normalized)) return normalized;
+  if (/^[a-z_]+$/.test(normalized.toLowerCase()) && ["morning", "evening", "all_day", "week_start", "week_end"].includes(normalized.toLowerCase())) return normalized;
+  if (isLikelyRawSemanticKey(normalized) || isLikelyRawStatusValue(normalized)) return null;
+  return normalized;
+}
+
+function sanitizeFactorValue(value: string | null | undefined, label: string | null | undefined, explanationHuman: string | null | undefined): string | null {
+  const normalized = sanitizeDetailText(value);
+  if (!normalized) return null;
+  if (isSemanticallyDuplicateText(normalized, label) || isSemanticallyDuplicateText(normalized, explanationHuman)) {
+    return null;
+  }
+  return normalized;
+}
+
+export function sanitizeDetailLayer<T extends { body: string | null; timeframe: string | null; factors: NormalizedDetailFactor[] }>(item: T): T {
+  const body = sanitizeDetailText(item.body);
+  const timeframe = sanitizeDetailText(item.timeframe);
+  const seen = new Set<string>();
+  const factors = item.factors.filter((factor) => {
+    const label = sanitizeDetailText(factor.label);
+    const explanationHuman = sanitizeDetailText(factor.explanationHuman);
+    const explanationAstro = sanitizeDetailText(factor.explanationAstro);
+    const value = sanitizeFactorValue(factor.value, label, explanationHuman);
+    if (!label && !explanationHuman && !explanationAstro && !value) return false;
+    if ((label && body && isSemanticallyDuplicateText(label, body)) || (explanationHuman && body && isSemanticallyDuplicateText(explanationHuman, body))) {
+      return false;
+    }
+    const dedupKey = [normalizeComparableText(label), normalizeComparableText(explanationHuman), normalizeComparableText(value)].filter(Boolean).join('|');
+    if (dedupKey && seen.has(dedupKey)) return false;
+    if (dedupKey) seen.add(dedupKey);
+    factor.label = label || "";
+    factor.explanationHuman = explanationHuman || "";
+    factor.explanationAstro = explanationAstro;
+    factor.value = value;
+    return Boolean(factor.label || factor.explanationHuman || factor.explanationAstro || factor.value);
+  });
+
+  return { ...item, body, timeframe, factors };
 }
 
 function supportingFactorsToNormalized(
@@ -86,7 +139,7 @@ function supportingFactorsToNormalized(
         explanationAstro: explanationAstro && !isLikelyRawSemanticKey(explanationAstro) && !isSemanticallyDuplicateText(explanationAstro, explanationHuman)
           ? explanationAstro
           : null,
-        value: nullable(factor?.value),
+        value: sanitizeFactorValue(factor?.value, label, explanationHuman),
         impact: null,
         source,
         relatedKey,
@@ -156,7 +209,7 @@ export function normalizeTodayDetailItems(brief: DayBriefDto): NormalizedDetailI
     relatedKey: nullable(item.factor_id),
   })).filter((item) => item.title);
 
-  return [...scoreItems, ...windowItems, ...bestUseItems, ...riskItems];
+  return [...scoreItems, ...windowItems, ...bestUseItems, ...riskItems].map((item) => sanitizeDetailLayer(item));
 }
 
 export function normalizeWeekDetailItems(brief: WeekBrief): NormalizedDetailItem[] {
@@ -200,5 +253,5 @@ export function normalizeWeekDetailItems(brief: WeekBrief): NormalizedDetailItem
     };
   }).filter((item): item is NormalizedDetailItem => Boolean(item));
 
-  return [...domainItems, ...actionItems, ...riskItems, ...factorItems];
+  return [...domainItems, ...actionItems, ...riskItems, ...factorItems].map((item) => item.source === 'week_factor' ? item : sanitizeDetailLayer(item));
 }

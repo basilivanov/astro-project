@@ -16,6 +16,21 @@ const WEEK_TYPE_LABELS: Record<string, string> = {
   transition: "Неделя на переход",
 };
 
+function formatWeekTimezoneLabel(value: string | null | undefined): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const normalized = raw.toLowerCase();
+  if (normalized === "utc") return "UTC";
+  if (/^[a-z]+\/[a-z_+-]+(?:\/[a-z_+-]+)?$/i.test(raw)) {
+    const city = raw.split("/").pop()?.replace(/_/g, " ").trim();
+    return city || null;
+  }
+  if (/^utc[+-]\d{1,2}(?::\d{2})?$/i.test(raw) || /^[+-]\d{2}:\d{2}$/.test(raw)) {
+    return raw.toUpperCase();
+  }
+  return raw.includes("/") ? raw.split("/").pop()?.replace(/_/g, " ").trim() ?? null : raw;
+}
+
 export function WeekHeroMap({
   week,
   primaryHref,
@@ -30,6 +45,7 @@ export function WeekHeroMap({
   const statusTone = week.status === "in_progress" || week.status === "pending" ? "amber" : week.fallbackMode ? "amber" : "emerald";
   const statusLabel = week.status === "in_progress" ? "Неделя в сборке" : week.status === "pending" ? "Неделя запускается" : WEEK_TYPE_LABELS[week.weekType] ?? "Неделя";
   const statusDescription = week.status === "in_progress" || week.status === "pending" ? "Генерируем персональную карту" : formatWeekDateRange(week.weekStart, week.weekEnd);
+  const timezoneLabel = formatWeekTimezoneLabel(week.timezone);
   return (
     <ConsumerHero
       eyebrow="Карта недели"
@@ -47,7 +63,7 @@ export function WeekHeroMap({
           <ConsumerMetaPill label="Тема" value={week.theme} />
           <ConsumerMetaPill label="Неделя" value={formatWeekDateRange(week.weekStart, week.weekEnd)} />
           <ConsumerMetaPill label="Локация" value={week.location || "—"} />
-          <ConsumerMetaPill label="Часовой пояс" value={week.timezone || "—"} />
+          {timezoneLabel ? <ConsumerMetaPill label="Часовой пояс" value={timezoneLabel} /> : null}
         </>
       }
       actions={

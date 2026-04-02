@@ -74,6 +74,9 @@ test.describe("Today DayBrief surface", () => {
     await expect(page.getByTestId("today-explainability")).toContainText("Почему такой день");
     await expect(page.getByTestId("today-cta-week")).toContainText("Открыть неделю");
     await expect(page.getByTestId("today-cta-premium")).toContainText("История разборов");
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bsignal_only\b/i);
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bstructured_value\b/i);
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bgreen\b/i);
     await expectNoRuntimeErrors(hygiene, "today canonical persona render");
     hygiene.dispose();
   });
@@ -92,6 +95,8 @@ test.describe("Today DayBrief surface", () => {
     await expect(scoreDisclosure).toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
     await expect(scoreDisclosure).not.toContainText("Лунный драйв");
     await expect(scoreDisclosure).not.toContainText("Утром проще быстро войти в темп и взять инициативу.");
+    await expect(scoreDisclosure).not.toContainText(/\bsignal_only\b/i);
+    await expect(scoreDisclosure).not.toContainText(/\bstructured_value\b/i);
   });
 
   test("week CTA preserves Today to Week continuity for canonical persona", async ({ page }) => {

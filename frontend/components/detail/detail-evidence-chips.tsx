@@ -2,7 +2,11 @@ import type { DetailLayerImpact } from "../../lib/detail-layer";
 
 function normalizeDisplay(value: string | null | undefined): string | null {
   const text = String(value || "").trim();
-  return text || null;
+  if (!text) return null;
+  const normalized = text.toLowerCase();
+  if (/^[a-z]+:[a-z0-9_-]+$/i.test(text)) return null;
+  if (["green", "yellow", "red", "high", "medium", "background", "low", "all_day", "morning", "evening", "week_start", "week_end"].includes(normalized)) return null;
+  return text;
 }
 
 function impactLabel(impact: DetailLayerImpact): string | null {

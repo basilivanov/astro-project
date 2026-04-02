@@ -172,11 +172,20 @@ const num = (value: unknown, fallback = 0): number => typeof value === "number" 
 function normalizeSupportingFactors(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item) => ({
-    label: text(item.label, "Фактор дня"),
-    explanation_human: text(item.explanation_human, "Фактор поддерживает вывод дня."),
+    label: typeof item.label === "string" ? item.label : "",
+    explanation_human: typeof item.explanation_human === "string" ? item.explanation_human : "",
     explanation_astro: typeof item.explanation_astro === "string" ? item.explanation_astro : null,
-    value: typeof item.value === "string" ? item.value : null,
-  }));
+    value: typeof item.value === "string" || typeof item.value === "number" ? String(item.value) : null,
+  })).filter((item) => {
+    const label = item.label.trim().toLowerCase();
+    const human = item.explanation_human.trim();
+    const astro = String(item.explanation_astro || '').trim();
+    const valueText = String(item.value || '').trim().toLowerCase();
+    if (!label && !human && !astro && !valueText) return false;
+    if (["factor", "supporting_factor", "why_text"].includes(label)) return false;
+    if (["green", "yellow", "red", "high", "medium", "low", "all_day", "morning", "evening"].includes(valueText) && !label && !human && !astro) return false;
+    return true;
+  });
 }
 
 // FN-CONTRACT: FN-DAY-NORMALIZE-DETAILS

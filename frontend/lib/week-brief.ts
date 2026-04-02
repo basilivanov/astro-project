@@ -203,6 +203,7 @@ export type WeekSurfaceModel = {
   fallbackMode: boolean;
   reportId: string | null;
   dayCards: NonNullable<WeekBrief["day_cards"]>;
+  dayStrip: NonNullable<WeekBrief["day_cards"]>;
   domains: NonNullable<WeekBrief["domains"]>;
   actions: ActionRiskItem[];
   risks: ActionRiskItem[];
@@ -350,6 +351,19 @@ export function mapWeekReportToWeekBrief(input: {
     fallbackMode: Boolean(brief?.fallback_mode),
     reportId: brief?.report_ref?.report_id ?? input.latestReportId ?? null,
     dayCards,
+    dayStrip: dayCards.map((card) => ({
+      date: card.date ?? null,
+      weekday: card.weekday ?? null,
+      mode: card.mode ?? null,
+      score: card.score ?? null,
+      headline: card.headline ?? null,
+      lead: null,
+      practical: [],
+      supporting_factors: [],
+      best_for: normalizeList(card.best_for).slice(0, 1),
+      avoid: normalizeList(card.avoid).slice(0, 1),
+      peak_window_label: card.peak_window_label ?? null,
+    })),
     domains,
     actions,
     risks,

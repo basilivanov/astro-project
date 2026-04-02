@@ -53,6 +53,24 @@ function mapDayFactors(card: WeekSurfaceModel["dayCards"][number], index: number
     .filter((item): item is NormalizedDetailFactor => Boolean(item));
 }
 
+function buildDayDetailBody(card: WeekSurfaceModel["dayCards"][number]): string | null {
+  const parts = [card.lead, card.headline]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  if (!parts.length) return null;
+  return Array.from(new Set(parts)).join(" ");
+}
+
+function buildDayDetailSummary(card: WeekSurfaceModel["dayCards"][number]): string | null {
+  if (card.practical?.length) {
+    return `Лучше: ${card.practical.join(" · ")}`;
+  }
+  if (card.avoid?.length) {
+    return `Избегать: ${card.avoid.join(" · ")}`;
+  }
+  return null;
+}
+
 export function WeekDayGrid({ week, onDayClick }: { week: WeekSurfaceModel; onDayClick: (day: string) => void }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -81,9 +99,10 @@ export function WeekDayGrid({ week, onDayClick }: { week: WeekSurfaceModel; onDa
             {card.practical?.length ? <p className="mt-3 text-xs">Лучше: {card.practical.join(" · ")}</p> : null}
             {card.avoid?.length ? <p className="mt-1 text-xs">Избегать: {card.avoid.join(" · ")}</p> : null}
             <DetailDisclosureCard
-              testId={`week-day-card-detail-${index + 1}`}
+              testId={`week-day-detail-${index + 1}`}
               title="Детали дня"
-              body={card.lead ?? null}
+              summary={buildDayDetailSummary(card)}
+              body={buildDayDetailBody(card)}
               factors={mapDayFactors(card, index)}
               compact
               isOpen={openKey === cardKey}

@@ -15,7 +15,7 @@ import { CorrelationManager, correlatedFetch } from "../../lib/correlation";
 import { ConsumerPageShell, ConsumerPanel, ConsumerStatusBadge } from "../../components/consumer-page-shell";
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states";
 import { WeekHeroMap } from "../../components/week/week-hero-map";
-import { WeekDayGrid } from "../../components/week/week-day-grid";
+import { WeekDayStrip } from "../../components/week/week-day-strip";
 import { WeekDomainPanel } from "../../components/week/week-domain-panel";
 import { WeekActionsPanel } from "../../components/week/week-actions-panel";
 import { WeekExplainabilityPanel } from "../../components/week/week-explainability-panel";
@@ -373,7 +373,7 @@ function WeekPageContent() {
           }}
         />
 
-        <WeekDayGrid week={week} onDayClick={trackDayClick} />
+        <WeekDayStrip week={week} onDayClick={trackDayClick} />
         <WeekDomainPanel week={week} />
         <WeekActionsPanel week={week} />
         <WeekExplainabilityPanel week={week} />
@@ -381,7 +381,7 @@ function WeekPageContent() {
 
         {week.fallbackMode ? (
           <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-            Карта собрана в безопасном режиме — данные проверяются.
+            Карта собрана в безопасном режиме: используйте её как ориентир и перепроверьте важные решения, пока персональный weekly report уточняется.
           </p>
         ) : null}
       </section>
