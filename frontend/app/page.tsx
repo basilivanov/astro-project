@@ -151,6 +151,7 @@ function formatSubscriptionLabel(dateValue?: string | null) {
 
 function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutProps) {
   const heroLabel = today?.brief.summary.headline ?? "Сегодня";
+  const shouldRenderLegacyHero = state !== "ready";
   return (
     <ConsumerPageShell
       testId="home-feed-page"
@@ -163,14 +164,13 @@ function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutPr
         },
       }}
     >
-      <ConsumerHero
-        title={heroLabel}
-        data-testid="consumer-hero"
-      >
-        <div className="flex flex-wrap items-center gap-2" data-testid="consumer-hero-meta">
-          <ConsumerMetaPill>{dateLabel ?? "Сегодня"}</ConsumerMetaPill>
-        </div>
-      </ConsumerHero>
+      {shouldRenderLegacyHero ? (
+        <ConsumerHero
+          eyebrow={dateLabel ?? "Сегодня"}
+          title={heroLabel}
+          meta={<ConsumerMetaPill label="Дата" value={dateLabel ?? "Сегодня"} />}
+        />
+      ) : null}
       {children}
     </ConsumerPageShell>
   );
@@ -206,16 +206,22 @@ export default function FeedPage() {
     setError(null);
 
     try {
-      const [profileResult, feedResult] = await Promise.allSettled([
-        fetchJson("/api/profile", { headers: { "X-Telegram-Auth": initData } }, "PROFILE_LOAD"),
-        fetchJson("/api/feed/today", { headers: { "X-Telegram-Auth": initData } }, "FEED_LOAD"),
+      const profileRequest = fetchJson("/api/users/me", { headers: { "X-Telegram-Auth": initData } }, "PROFILE_LOAD")
+        .then((payload) => {
+          const nextProfile = normalizeProfile(payload);
+          setProfile(nextProfile);
+          return nextProfile;
+        })
+        .catch(() => null);
+
+      const feedResult = await fetchJson("/api/feed/today", { headers: { "X-Telegram-Auth": initData } }, "FEED_LOAD");
+      const nextProfile = await Promise.race([
+        profileRequest,
+        Promise.resolve(profile),
       ]);
 
-      const nextProfile = profileResult.status === "fulfilled" ? normalizeProfile(profileResult.value) : null;
-      setProfile(nextProfile);
-
-      if (feedResult.status === "fulfilled") {
-        const nextToday = normalizeDayBriefPayload(feedResult.value, nextProfile);
+      {
+        const nextToday = normalizeDayBriefPayload(feedResult, nextProfile);
         if (nextToday) {
           setToday(nextToday);
           setFeedState(nextToday.state);
@@ -236,17 +242,20 @@ export default function FeedPage() {
             entry_point: "home-feed-api",
           });
         }
-      } else {
-        const fallback = normalizeDayBriefPayload({}, nextProfile);
-        setToday(fallback);
-        setFeedState("fallback");
-        await emitHomeEvent("home.feed_load_fallback", "FEED_LOAD_FALLBACK", "FEED_LOAD_FALLBACK", {
-          contract: HOME_CONTRACTS.load,
-          status: "fallback",
-          entry_point: "home-feed-api",
-          message: toErrorMessage(feedResult.reason, "fallback"),
-        });
       }
+
+      void profileRequest.then((resolvedProfile) => {
+        if (!resolvedProfile) {
+          return;
+        }
+
+        setToday((currentToday) => {
+          if (!currentToday) {
+            return currentToday;
+          }
+          return normalizeDayBriefPayload(feedResult, resolvedProfile) ?? currentToday;
+        });
+      });
     } catch (err) {
       setProfile(null);
       setToday(null);

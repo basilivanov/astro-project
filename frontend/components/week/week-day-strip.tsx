@@ -3,16 +3,6 @@
 import { cn } from "../../lib/utils";
 import { type WeekSurfaceModel } from "../../lib/week-brief";
 
-const DAY_LABELS: Record<string, string> = {
-  mon: "Пн",
-  tue: "Вт",
-  wed: "Ср",
-  thu: "Чт",
-  fri: "Пт",
-  sat: "Сб",
-  sun: "Вс",
-};
-
 const MODE_CLASSES: Record<string, string> = {
   green: "border-emerald-100 bg-emerald-50/80 text-emerald-900",
   yellow: "border-amber-100 bg-amber-50/80 text-amber-900",
@@ -27,7 +17,7 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Ритм недели</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">Дни как краткий обзор</h2>
         </div>
-        <p className="text-xs text-slate-500">Главные детали — в доменах ниже</p>
+        <p className="text-xs text-slate-500">Окно и фокус — в одной строке</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" data-testid="week-day-strip">
         {week.dayStrip.map((card, index) => {
@@ -44,12 +34,17 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
             >
               <button type="button" onClick={() => onDayClick(cardKey)} className="w-full text-left">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-black uppercase tracking-[0.18em]">{DAY_LABELS[card.weekday ?? ""] ?? card.weekday ?? "День"}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.12em]">{card.weekday ?? "День"}</p>
                   <p className="text-xs font-semibold">{card.score ?? 0}/100</p>
                 </div>
                 <p className="mt-3 text-sm font-bold leading-snug">{card.headline || "Спокойный обзор дня"}</p>
-                {card.peak_window_label ? <p className="mt-2 text-xs leading-relaxed opacity-85">Окно: {card.peak_window_label}</p> : null}
-                {primaryHint ? <p className="mt-2 text-xs leading-relaxed opacity-85">Фокус: {primaryHint}</p> : null}
+                {card.peak_window_label || primaryHint ? (
+                  <p className="mt-2 text-[11px] leading-relaxed opacity-85">
+                    {card.peak_window_label ? `Окно ${card.peak_window_label}` : null}
+                    {card.peak_window_label && primaryHint ? " · " : null}
+                    {primaryHint ? `Фокус ${primaryHint}` : null}
+                  </p>
+                ) : null}
               </button>
             </article>
           );

@@ -78,7 +78,7 @@ describe('week-brief helpers', () => {
     expect(surface.dayCards).toHaveLength(1);
     expect(surface.dayStrip).toHaveLength(1);
     expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
-      weekday: 'wed',
+      weekday: 'СР, 1 апр',
       score: 88,
       headline: 'Фокус на главном',
       lead: null,
@@ -148,7 +148,7 @@ describe('week-brief helpers', () => {
       expect.objectContaining({ weekday: null, mode: 'red', score: 50 }),
     ]);
     expect(surface.dayStrip).toHaveLength(3);
-    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'mon', best_for: ['запуск'], avoid: ['спешка'] }));
+    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'ПН, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус на запуск' }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),
       expect.objectContaining({ key: 'unknown', title: 'unknown', status: 'red', headline: 'unknown: 44/100' }),
@@ -179,10 +179,12 @@ describe('week-brief helpers', () => {
         },
         best_uses: [
           { id: null, text: '  Сфокусироваться  ', factor_id: 'factor-x', impact: 'medium', timeframe: 'am' },
+          { id: 'hidden-action', text: '  Скрыть по тегу  ', tag: 'all_week' },
           { text: '   ' },
         ],
         risks: [
           { text: '  Не распыляться  ' },
+          { id: 'hidden-risk', text: '  Тоже скрыть  ', tag: 'all_week' },
         ],
         major_factors: [],
         deep_sections: [],
@@ -225,10 +227,10 @@ describe('week-brief helpers', () => {
       waitMessage: 'Черновик недели',
     }));
     expect(surface.actions).toEqual([
-      { id: 'action-1', text: 'Сфокусироваться', factor_id: 'factor-x', impact: 'medium', timeframe: 'am', why_text: null, supporting_factors: [] },
+      { id: 'action-1', text: 'Сфокусироваться', factor_id: 'factor-x', impact: 'medium', timeframe: 'am', why_text: null, supporting_factors: [], tag: null },
     ]);
     expect(surface.risks).toEqual([
-      { id: 'risk-1', text: 'Не распыляться', factor_id: null, impact: null, timeframe: null, why_text: null, supporting_factors: [] },
+      { id: 'risk-1', text: 'Не распыляться', factor_id: null, impact: null, timeframe: null, why_text: null, supporting_factors: [], tag: null },
     ]);
     expect(surface.factors).toEqual([]);
     expect(surface.deepSections).toEqual([

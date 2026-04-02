@@ -21,6 +21,12 @@ from .forecast_factor_pipeline import build_normalized_factors, build_semantic_l
 MODULE_NAME = "M-DAY-BRIEF-SERVICE"
 DAY_BRIEF_PROMPT_VERSION = "day_brief_prompt_v2"
 DOMAIN_KEYS = ("energy", "money", "love", "focus")
+DOMAIN_ALIASES = {
+    "energy": {"energy", "health", "tonus"},
+    "money": {"money", "work_money", "work", "career"},
+    "love": {"love", "relationship", "relationships"},
+    "focus": {"focus", "launch", "strategy"},
+}
 CATEGORY_WEIGHTS = DAY_BRIEF_WEIGHT_TABLE
 BASELINE_SCORE = 55
 BENEFIC_TRANSITS = {"Venus", "Jupiter", "Sun"}
@@ -73,6 +79,22 @@ SCORE_TITLES = {
     "money": "Работа и деньги",
     "love": "Чувства",
     "focus": "Фокус",
+}
+SUPPORTING_FACTOR_DOMAIN_LABELS = {
+    "energy": "Ресурс дня",
+    "money": "Рабочий контекст",
+    "love": "Контакт и тон",
+    "focus": "Фокус дня",
+}
+SUPPORTING_FACTOR_BLOCKLIST_PREFIXES = (
+    "traffic:",
+    "semantic:",
+)
+SUPPORTING_FACTOR_BLOCKLIST_LABELS = {
+    "Рабочий контекст",
+    "Контакт и тон",
+    "Ресурс дня",
+    "Фокус дня",
 }
 DAY_TYPE_THRESHOLDS = (
     (75, "push"),
@@ -772,8 +794,10 @@ def _collect_factor_ids(factor_refs: list[dict[str, Any]], domain: str | None, p
     results: list[str] = []
     if domain is None:
         return results
+    accepted_domains = DOMAIN_ALIASES.get(str(domain).strip().lower(), {str(domain).strip().lower()})
     for item in factor_refs:
-        if item.get("domain") == domain and item.get("polarity") == polarity:
+        item_domain = str(item.get("domain") or "").strip().lower()
+        if item_domain in accepted_domains and item.get("polarity") == polarity:
             factor_id = str(item.get("id"))
             if factor_id not in results:
                 results.append(factor_id)
@@ -788,7 +812,28 @@ def _build_supporting_factor_entries(factor_ids: list[str], factor_lookup: dict[
         factor = factor_lookup.get(factor_id)
         if not factor:
             continue
+        factor_id_text = str(factor.get("id") or "").strip().lower()
         impact = str(factor.get("impact") or "").strip().lower()
+        raw_label = str(factor.get("label") or "").strip()
+        domain = str(factor.get("domain") or "").strip().lower()
+        family = str(factor.get("category") or factor.get("family") or "").strip().lower()
+        human = str(factor.get("explanation_human") or "").strip()
+        astro = str(factor.get("explanation_astro") or "").strip()
+        if factor_id_text.startswith(SUPPORTING_FACTOR_BLOCKLIST_PREFIXES):
+            continue
+        if raw_label in SUPPORTING_FACTOR_BLOCKLIST_LABELS:
+            continue
+        if human and (human == raw_label or human.lower().startswith("светофор ")):
+            human = ""
+        if astro and astro.lower().startswith("светофор "):
+            astro = ""
+        label = raw_label
+        if ":" in raw_label and domain in SUPPORTING_FACTOR_DOMAIN_LABELS:
+            label = SUPPORTING_FACTOR_DOMAIN_LABELS[domain]
+        elif family == "slow_background" and domain in SUPPORTING_FACTOR_DOMAIN_LABELS:
+            label = SUPPORTING_FACTOR_DOMAIN_LABELS[domain]
+        if not label and not human and not astro:
+            continue
         value = {
             "high": "Сильный сигнал",
             "medium": "Умеренный сигнал",
@@ -797,9 +842,9 @@ def _build_supporting_factor_entries(factor_ids: list[str], factor_lookup: dict[
         entries.append(
             {
                 "id": factor.get("id"),
-                "label": factor.get("label"),
-                "explanation_human": factor.get("explanation_human"),
-                "explanation_astro": factor.get("explanation_astro"),
+                "label": label,
+                "explanation_human": human or None,
+                "explanation_astro": astro if astro and astro != raw_label else None,
                 "impact": factor.get("impact"),
                 "value": value,
             }
@@ -817,8 +862,9 @@ def _collect_local_score_factor_ids(
     limit: int = 4,
 ) -> list[str]:
     local_ids = _collect_factor_ids(factor_refs, domain, "positive", limit=limit)
-    if local_ids:
-        return local_ids
+    viable_local_ids = [factor_id for factor_id in local_ids if factor_lookup.get(factor_id)]
+    if viable_local_ids:
+        return viable_local_ids
 
     details = score_item.get("details") if isinstance(score_item.get("details"), dict) else {}
     item_text = " ".join(
@@ -838,6 +884,7 @@ def _collect_local_score_factor_ids(
         for item in (explainability_factors or [])
         if isinstance(item, dict) and str(item.get("id") or "").strip()
     }
+    accepted_domains = DOMAIN_ALIASES.get(str(domain).strip().lower(), {str(domain).strip().lower()})
     matches: list[str] = []
     for factor_id, factor in factor_lookup.items():
         if factor_id in matches:
@@ -854,15 +901,42 @@ def _collect_local_score_factor_ids(
             or explainability_factor.get("key")
             or ""
         ).strip().lower()
-        if related_key and related_key != domain:
+        if related_key and related_key not in accepted_domains:
             continue
 
         tokens = [token for token in (label, human) if token]
-        if any(token in item_text for token in tokens):
+        if related_key in accepted_domains:
+            matches.append(factor_id)
+        elif any(token in item_text for token in tokens):
             matches.append(factor_id)
         if len(matches) >= limit:
             break
     return matches
+
+
+def _merge_explainability_factor_lookup(
+    factor_lookup: dict[str, dict[str, Any]],
+    explainability_factors: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    merged = dict(factor_lookup or {})
+    for item in explainability_factors or []:
+        if not isinstance(item, dict):
+            continue
+        factor_id = str(item.get("id") or "").strip()
+        if not factor_id:
+            continue
+        existing = merged.get(factor_id, {})
+        merged[factor_id] = {
+            **existing,
+            "id": factor_id,
+            "label": str(item.get("label") or existing.get("label") or "").strip(),
+            "domain": str(item.get("domain") or existing.get("domain") or "").strip() or None,
+            "category": str(item.get("family") or existing.get("category") or "").strip() or None,
+            "explanation_human": str(item.get("explanation_human") or existing.get("explanation_human") or "").strip(),
+            "explanation_astro": str(item.get("explanation_astro") or existing.get("explanation_astro") or "").strip(),
+            "weight": existing.get("weight") if existing.get("weight") is not None else abs(float(item.get("signal") or 0.0)),
+        }
+    return merged
 
 
 def _build_best_and_risks(
@@ -1181,13 +1255,17 @@ def _assemble_day_brief_payload(
             }
             for factor in calibrated_factors[: 5 if not fallback_mode else 3]
         ]
+    detail_factor_lookup = _merge_explainability_factor_lookup(
+        factor_lookup,
+        explainability.get("selected_factors"),
+    )
 
     score_items = _build_score_items(int_scores, semantic)
     for item in score_items:
         factor_ids = _collect_local_score_factor_ids(
             factor_refs,
             domain=str(item["key"]),
-            factor_lookup=factor_lookup or {},
+            factor_lookup=detail_factor_lookup,
             score_item=item,
             explainability_factors=explainability.get("selected_factors"),
             limit=4,
@@ -1195,7 +1273,7 @@ def _assemble_day_brief_payload(
         item["details"] = {
             "why_title": item.get("details", {}).get("why_title") or f"Почему {str(item['title']).lower()} именно такие",
             "why_text": item.get("details", {}).get("why_text") or item.get("advice") or "Здесь важна точная дозировка, а не простой напор.",
-            "supporting_factors": _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4),
+            "supporting_factors": _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4),
         }
 
     now_local = _parse_local_dt(facts)
@@ -1209,7 +1287,7 @@ def _assemble_day_brief_payload(
                 fallback="Это окно работает лучше, когда вы не распыляетесь и держите спокойный темп.",
                 max_len=280,
             ),
-            "supporting_factors": _build_supporting_factor_entries(factor_ids, factor_lookup or {}, limit=4),
+            "supporting_factors": _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4),
         }
         clean_windows.append(clean_window)
 
@@ -1301,14 +1379,27 @@ def build_day_brief_payload(
                 general_vibe=general_vibe,
             )
         )
-        _log_day_brief_event(
-            "info",
-            "day_brief.built",
-            fn="build_day_brief_payload",
-            block="DAY_BRIEF_BUILD",
-            payload=payload,
-            generation_mode=generation_mode,
-        )
+        try:
+            _log_day_brief_event(
+                "info",
+                "day_brief.built",
+                fn="build_day_brief_payload",
+                block="DAY_BRIEF_BUILD",
+                payload=payload,
+                generation_mode=generation_mode,
+            )
+        except Exception as exc:
+            log_grace_event(
+                "warning",
+                "day_brief.log_failed",
+                module=MODULE_NAME,
+                fn="build_day_brief_payload",
+                block="DAY_BRIEF_BUILD",
+                generation_mode=generation_mode or "deterministic",
+                personalization_level=payload.get("personalization_level"),
+                fallback_mode=payload.get("fallback_mode"),
+                error=str(exc),
+            )
         return payload
     except ValidationError as exc:
         fallback = build_day_brief_fallback(

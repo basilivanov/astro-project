@@ -101,11 +101,12 @@ function mapItemFactors(
 // END_FUNCTION_CONTRACT: renderItems
 function renderItems(items: WeekSurfaceModel["actions"], testId: string, week: WeekSurfaceModel, kind: "action" | "risk") {
   const [openId, setOpenId] = useState<string | null>(null);
+  const visibleItems = items.filter((item) => item.tag !== "all_week");
 
   return (
     // START_BLOCK: ACTION_RISK_LIST_RENDER
     <ul className="space-y-2" data-testid={testId}>
-      {items.map((item, index) => {
+      {visibleItems.map((item, index) => {
         const itemKey = item.id ?? `${index}`;
         return (
           <li key={item.id ?? item.text} className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-sm leading-relaxed text-slate-700">

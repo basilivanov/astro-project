@@ -294,7 +294,7 @@ def _build_day_headline(day: dict[str, Any], focus_key: str) -> str:
     events = [str(item).strip() for item in (day.get("events") or []) if str(item).strip()]
     if events:
         event_line = events[0]
-        if len(event_line) <= 96:
+        if len(event_line) <= 96 and not _looks_like_raw_astro_phrase(event_line):
             return event_line
     if status == "GREEN":
         return {
@@ -330,6 +330,53 @@ def _dedupe_keep_order(items: Iterable[str], *, limit: int) -> list[str]:
     return result
 
 
+def _looks_like_raw_astro_phrase(value: str) -> bool:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    lowered = text.lower()
+    if not text:
+        return False
+    astro_tokens = (
+        "квадрат",
+        "соединение",
+        "оппози",
+        "секстиль",
+        "тригон",
+        "нептун",
+        "плутон",
+        "сатурн",
+        "юпитер",
+        "венера",
+        "меркурий",
+        "марс",
+        "луна",
+        "солнце",
+        " asc",
+        " mc",
+    )
+    return any(token in lowered for token in astro_tokens) or bool(re.search(r"\b\d{1,2}\.\d{1,2}\b", text))
+
+
+def _sanitize_user_hint(value: str | None, *, fallback: str | None = None) -> str | None:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .,-–—")
+    if not text or _looks_like_raw_astro_phrase(text):
+        return fallback
+    return text[:96]
+
+
+def _looks_like_placeholder_text(value: str) -> bool:
+    text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+    if not text:
+        return True
+    return any(token in text for token in ("week_strategy", "week_timing", "week_background", "section ", "раздел ", "placeholder", "todo"))
+
+
+def _looks_like_placeholder_markdown(value: str) -> bool:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return True
+    return _looks_like_placeholder_text(text) or text.startswith("{") or text.startswith("[") or len(text) < 24
+
+
 def _build_day_actions(day: dict[str, Any], focus_key: str) -> tuple[list[str], list[str]]:
     status = str(day.get("traffic_light") or "YELLOW").upper()
     moon_label = str(day.get("moon_label") or "").strip()
@@ -357,12 +404,13 @@ def _build_day_actions(day: dict[str, Any], focus_key: str) -> tuple[list[str], 
             continue
         if _is_hard_aspect(lowered):
             risk_hints.append(event)
-        else:
+        elif not _looks_like_raw_astro_phrase(event):
             event_hints.append(event)
 
-    moon_hints = [item for item in (moon_sign, moon_phase) if item]
+    moon_hints = [item for item in (_sanitize_user_hint(moon_sign), _sanitize_user_hint(moon_phase)) if item]
 
     if status == "GREEN":
+        moon_label = _sanitize_user_hint(moon_label)
         if moon_label:
             moon_hints.append(moon_label)
         return (
@@ -435,7 +483,11 @@ def _build_best_uses(semantic_layer: dict[str, Any], best_day: dict[str, Any] | 
     if best_day is not None:
         label = str(best_day.get("date") or best_day.get("weekday") or "").strip()
         if label:
-            items.append(f"Ставь ключевые фиксации, переговоры и полезные подтверждения ближе к {label}.")
+            best_hint = _sanitize_user_hint(
+                ((best_day.get("best_for") or [None])[0]),
+                fallback="спокойные договоренности и шаги с проверяемым результатом",
+            )
+            items.append(f"Ставь на {label} задачи, где важны {best_hint}.")
     items.extend(GENERIC_BEST_USES)
     return _format_action_items(items, prefix="best")[:4]
 
@@ -448,7 +500,11 @@ def _build_risks(semantic_layer: dict[str, Any], worst_day: dict[str, Any] | Non
     if worst_day is not None:
         label = str(worst_day.get("date") or worst_day.get("weekday") or "").strip()
         if label:
-            items.append(f"Не перегружай {label}: там лишний нажим даст больше шума, чем результата.")
+            avoid_hint = _sanitize_user_hint(
+                ((worst_day.get("avoid") or [None])[0]),
+                fallback="лишний нажим и решения без перепроверки",
+            )
+            items.append(f"На {label} снизь {avoid_hint}: это даст меньше шума и ошибок.")
     items.extend(GENERIC_RISKS)
     return _format_action_items(items, prefix="risk")[:4]
 
@@ -1181,13 +1237,13 @@ def _merge_seed_with_chunk_sections(
         chunk_section = chunk_by_slug.get(str(seed_section.get("slug") or "").strip())
         if chunk_section:
             chunk_body = str(chunk_section.get("body_markdown") or "").strip()
-            if chunk_body:
+            if chunk_body and not _looks_like_placeholder_markdown(chunk_body):
                 merged_section["body_markdown"] = chunk_body
             chunk_title = str(chunk_section.get("title") or "").strip()
-            if chunk_title:
+            if chunk_title and not _looks_like_placeholder_text(chunk_title):
                 merged_section["title"] = chunk_title[:80]
             chunk_summary = str(chunk_section.get("summary") or "").strip()
-            if chunk_summary:
+            if chunk_summary and not _looks_like_placeholder_text(chunk_summary):
                 merged_section["summary"] = chunk_summary[:240]
         merged.append(merged_section)
     return merged[:16]

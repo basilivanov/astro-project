@@ -640,7 +640,7 @@ def _build_public_meta(facts: dict[str, Any]) -> dict[str, Any]:
 
 
 # #START_BLOCK_PERSONALIZED_DAILY_FACTS
-def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None) -> dict[str, Any]:
+def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None, *, bypass_cache: bool = False) -> dict[str, Any]:
     # START_CONTRACT: FN-BUILD-PERSONALIZED-DAILY-FACTS
     # purpose: Assemble deterministic fact payload for /api/feed/today with cache + personalization metadata.
     # inputs:
@@ -672,7 +672,7 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
     # END_BLOCK: FACTS_CONTEXT_RESOLUTION
 
     # START_BLOCK: FACTS_CACHE_CHECK
-    cached = _PERSONALIZED_DAILY_CACHE.get(cache_key)
+    cached = None if bypass_cache else _PERSONALIZED_DAILY_CACHE.get(cache_key)
     if cached:
         _emit_feed_log(
             "info",
@@ -900,7 +900,10 @@ def build_personalized_daily_facts(now_utc: datetime, user: Optional[Any] = None
         fallback_reason=("limited_profile" if fallback_mode else None),
         prompt_path="personalized_daily_v2",
     )
-    _PERSONALIZED_DAILY_CACHE[cache_key] = copy.deepcopy(facts)
+    if bypass_cache:
+        _PERSONALIZED_DAILY_CACHE.pop(cache_key, None)
+    else:
+        _PERSONALIZED_DAILY_CACHE[cache_key] = copy.deepcopy(facts)
     return facts
     # END_BLOCK: FACTS_FINALIZE_RESPONSE
 

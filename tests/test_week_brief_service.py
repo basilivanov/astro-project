@@ -164,7 +164,7 @@ def test_build_week_brief_payload_keeps_neighbor_day_cards_differentiated():
 
     assert monday["headline"] != tuesday["headline"]
     assert monday["best_for"] != tuesday["best_for"]
-    assert "Меркурий -> Овен" in monday["headline"]
+    assert monday["headline"] == "День лучше вести спокойно и по шагам"
     assert any("Телец" in item for item in tuesday["best_for"])
     assert any("Квадрат" in item for item in monday["avoid"])
     assert any(any(token in item.lower() for token in ("перегруз", "жесткий спор", "пустот")) for item in thursday["avoid"])
@@ -332,3 +332,49 @@ def test_week_brief_keeps_non_fallback_when_seed_is_complete_but_some_chunks_are
     assert any(section["slug"] == "overview" for section in validated["deep_sections"])
     assert validated["explainability"]["confidence"] < 0.9
     assert validated["explainability"]["explanation_depth"] in {"full", "standard"}
+
+
+def test_week_brief_uses_report_created_window_when_seed_days_are_stale_or_missing():
+    report = _sample_report()
+
+    payload = build_week_brief_payload(
+        report=report,
+        payload=_sample_payload(),
+        context={},
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    assert payload["week_start"] == "2026-03-30"
+    assert payload["week_end"] == "2026-04-05"
+
+
+def test_week_brief_suppresses_raw_astro_phrases_in_user_facing_day_and_risk_copy():
+    context = _sample_context()
+    context["week_forecast_data"]["days"] = [
+        {
+            "date": "2026-03-30",
+            "weekday": "Monday",
+            "moon": {"sign": "Весы", "phase": "Полнолуние", "void_of_course": False},
+            "events": ["03.04 Нептун Квадрат (90°) MC"],
+            "traffic_light": "RED",
+            "traffic_desc": "🔴 Шторм",
+            "tension_score": 2.8,
+        }
+    ]
+
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=context,
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    first_day = payload["day_cards"][0]
+    assert "Нептун Квадрат" not in first_day["headline"]
+    assert all("Нептун Квадрат" not in item for item in first_day["best_for"])
+    assert payload["risks"][0]["text"]
+    assert "Нептун Квадрат" not in payload["risks"][0]["text"]

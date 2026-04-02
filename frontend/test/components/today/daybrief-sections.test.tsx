@@ -199,8 +199,7 @@ describe('daybrief sections', () => {
     expect(screen.getByTestId('today-score-energy')).toBeInTheDocument();
     const disclosure = screen.getByTestId('today-score-details-energy');
     const summary = screen.getByTestId('today-score-details-energy').querySelector('summary') as HTMLElement;
-    expect(summary).toHaveTextContent('Почему энергия высокая');
-    expect(summary).not.toHaveTextContent('Что повлияло');
+    expect(summary).toHaveTextContent('Что повлияло');
     expect(disclosure).toHaveAttribute('open');
     fireEvent.click(summary);
     expect(disclosure).not.toHaveAttribute('open');
@@ -210,10 +209,10 @@ describe('daybrief sections', () => {
     expect(disclosure).toHaveAttribute('open');
     fireEvent.click(disclosure);
     expect(disclosure).toHaveAttribute('open');
-    expect(screen.getByTestId('today-score-details-focus')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-score-details-focus')).not.toBeInTheDocument();
   });
 
-  it('falls back to body-only disclosure when score why text duplicates advice and no scoped factors remain', () => {
+  it('hides disclosure when score why text duplicates advice and no scoped factors remain', () => {
     const brief = buildBrief();
     brief.scores[0].advice = 'Держите устойчивый темп и не рвите ритм.';
     brief.scores[0].details = {
@@ -232,14 +231,180 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    const disclosure = screen.getByTestId('today-score-details-energy');
-    const summary = disclosure.querySelector('summary') as HTMLElement;
+    expect(screen.queryByTestId('today-score-details-energy')).not.toBeInTheDocument();
+  });
+
+  it('hides disclosure when score has local why text but no local factors', () => {
+    const brief = buildBrief();
+    brief.scores[1].title = 'Работа и деньги';
+    brief.scores[1].details = {
+      why_title: 'Почему сфера такая',
+      why_text: 'Лучше опираться на проверяемые цифры и не раздувать ожидания.',
+      supporting_factors: [],
+    };
+    brief.explainability.selected_factors = [
+      {
+        id: 'sf-relationships-1',
+        label: 'Чувства',
+        explanation_human: 'Разговоры становятся эмоциональнее и чувствительнее.',
+        domain: 'relationships',
+        signal: 0.77,
+      },
+    ];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    expect(screen.queryByTestId('today-score-details-focus')).not.toBeInTheDocument();
+  });
+
+
+  it('suppresses generic own supporting-factor labels while keeping scoped human copy', () => {
+    const brief = buildBrief();
+    brief.scores = [
+      {
+        key: 'love',
+        title: 'Чувства',
+        value: 20,
+        status: 'red',
+        advice: 'Не достраивай мотивы за другого: сначала уточни, потом реагируй.',
+        details: {
+          why_title: 'Почему сфера такая',
+          why_text: 'Не достраивай мотивы за другого: сначала уточни, потом реагируй.',
+          supporting_factors: [
+            {
+              label: 'Контакт и тон',
+              explanation_human: 'Закрой один документ, один дедлайн или одно согласование и не обещай лишнего до перепроверки.',
+              explanation_astro: 'Светофор love: red',
+            },
+            {
+              label: 'Солнце Квадрат (90°) Луна',
+              explanation_human: 'Солнце Квадрат (90°) Луна',
+              explanation_astro: null,
+            },
+          ],
+        },
+      },
+    ];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    const disclosure = screen.getByTestId('today-score-details-love');
+    const summary = disclosure.querySelector('summary');
+    if (!summary) throw new Error('summary missing');
     fireEvent.click(summary);
 
-    expect(summary).toHaveTextContent('Как открыть разбор');
-    expect(disclosure).not.toHaveTextContent('Лунный ритм');
-    expect(disclosure).not.toHaveTextContent('Фон дня лучше поддерживает ровную подачу, чем силовой рывок.');
-    expect(disclosure).toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.');
+    expect(disclosure).not.toHaveTextContent('Контакт и тон');
+    expect(disclosure).toHaveTextContent('Закрой один документ, один дедлайн или одно согласование и не обещай лишнего до перепроверки.');
+    expect(disclosure).not.toHaveTextContent('Светофор love: red');
+    expect(disclosure).toHaveTextContent('Солнце Квадрат (90°) Луна');
+  });
+
+  it('does not leak generic fallback copy into score disclosure across domains', () => {
+    const brief = buildBrief();
+    brief.scores[1].details = null;
+    brief.explainability.selected_factors = [
+      {
+        id: 'sf-generic-1',
+        label: 'Общий фон дня',
+        explanation_human: 'Ключевые сигналы дня собраны в короткий персональный вывод.',
+        signal: 0.64,
+      },
+      {
+        id: 'sf-relationships-2',
+        label: 'Чувства и контакт',
+        explanation_human: 'Эмоции легче считываются в близком разговоре.',
+        domain: 'relationships',
+        signal: 0.71,
+      },
+    ];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    expect(screen.queryByTestId('today-score-details-focus')).not.toBeInTheDocument();
+  });
+
+
+  it('falls back to domain-scoped selected factor when score details only repeat card advice', () => {
+    const brief = buildBrief();
+    brief.scores = [
+      {
+        key: 'money',
+        title: 'Работа и деньги',
+        value: 67,
+        status: 'green',
+        advice: 'Деньги и условия любят холодную проверку цены, срока и объема обязательств.',
+        details: {
+          why_title: 'Почему',
+          why_text: 'Деньги и условия любят холодную проверку цены, срока и объема обязательств.',
+          supporting_factors: [],
+        },
+      },
+    ];
+    brief.explainability.selected_factors = [
+      {
+        id: 'selected-money-1',
+        label: 'Венера Секстиль MC',
+        explanation_human: 'Рабочие и статусные договоренности проще собирать через вежливость и форму.',
+        explanation_astro: 'Венера Секстиль MC',
+        domain: 'money',
+        family: 'fast_transits',
+        signal: 0.7,
+      },
+    ];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+    const disclosure = screen.getByTestId('today-score-details-money');
+    const summary = disclosure.querySelector('summary');
+    if (!summary) throw new Error('summary missing');
+    fireEvent.click(summary);
+
+    expect(disclosure).toHaveTextContent('Венера Секстиль MC');
+    expect(disclosure).not.toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор');
+  });
+
+  it('suppresses repeated generic why_text reused across score cards and hides disclosures', () => {
+    const brief = buildBrief();
+    const repeatedWhyText = 'Двигай одну покупку или решение за раз: импульсивные траты и эмоциональные обещания сегодня дают лишний шум.';
+    brief.scores = [
+      {
+        key: 'work_money',
+        title: 'Работа и деньги',
+        value: 58,
+        status: 'yellow',
+        advice: 'Сначала сверяйте цифры и сроки.',
+        details: {
+          why_title: 'Почему сфера такая',
+          why_text: repeatedWhyText,
+          supporting_factors: [],
+        },
+      },
+      {
+        key: 'relationships',
+        title: 'Чувства',
+        value: 55,
+        status: 'yellow',
+        advice: 'Говорите мягче и проверяйте ожидания.',
+        details: {
+          why_title: 'Почему сфера такая',
+          why_text: repeatedWhyText,
+          supporting_factors: [],
+        },
+      },
+    ] as DayBriefDto['scores'];
+    brief.personalized_factors = [];
+    brief.explainability.selected_factors = [
+      {
+        id: 'sf-generic-repeat',
+        label: 'Общий сигнал дня',
+        explanation_human: repeatedWhyText,
+        signal: 0.68,
+      },
+    ] as DayBriefDto['explainability']['selected_factors'];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    expect(screen.queryByTestId('today-score-details-work_money')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('today-score-details-relationships')).not.toBeInTheDocument();
   });
 
   it('renders window meta and suppresses redundant mode badge when label matches semantic mode', () => {
@@ -533,15 +698,16 @@ describe('daybrief sections', () => {
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
     const disclosure = screen.getByTestId('today-score-details-energy');
 
-    expect(disclosure).toHaveTextContent('Энергия фокуса');
-    expect(disclosure).toHaveTextContent('Утром проще быстро войти в рабочий ритм.');
+    expect(disclosure).toHaveTextContent('Ровный темп помогает держать ресурс.');
+    expect(disclosure).not.toHaveTextContent('Энергия фокуса');
+    expect(disclosure).not.toHaveTextContent('Утром проще быстро войти в рабочий ритм.');
     expect(disclosure).not.toHaveTextContent('Money flow');
     expect(disclosure).not.toHaveTextContent('Этот фактор не должен попасть');
     expect(disclosure).not.toHaveTextContent('energy:green');
     expect(disclosure).not.toHaveTextContent('focus:green');
   });
 
-  it('falls back to body only when selected factors do not match score domain', () => {
+  it('hides disclosure when selected factors do not match score domain', () => {
     const brief = buildBrief();
     brief.scores[0].details = {
       why_title: 'Почему энергия такая',
@@ -569,12 +735,8 @@ describe('daybrief sections', () => {
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
-    const disclosure = screen.getByTestId('today-score-details-energy');
 
-    expect(disclosure).toHaveTextContent('Как открыть разбор');
-    expect(disclosure).toHaveTextContent('Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.');
-    expect(disclosure).not.toHaveTextContent('Глобальный фактор');
-    expect(disclosure).not.toHaveTextContent('Money flow');
+    expect(screen.queryByTestId('today-score-details-energy')).not.toBeInTheDocument();
   });
 
   it('dedupes identical legacy score factors including self-duplicates', () => {
@@ -642,13 +804,77 @@ describe('daybrief sections', () => {
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
-    const disclosure = screen.getByTestId('today-score-details-energy');
 
-    expect(disclosure).not.toHaveTextContent('energy:green');
-    expect(disclosure).not.toHaveTextContent('Энергия ритма');
-    expect(disclosure).toHaveTextContent('Энергетическое окно');
-    expect(disclosure).toHaveTextContent('Лучше закрыть один главный слот без переключений.');
-    expect(disclosure.textContent?.match(/Держите один темп без лишнего шума\./g) ?? []).toHaveLength(1);
+    expect(screen.queryByTestId('today-score-details-energy')).not.toBeInTheDocument();
+  });
+
+  it('removes raw technical text from explainability descriptions and dedupes repeated aspects', () => {
+    const brief = buildBrief();
+    brief.personalized_factors = [
+      {
+        id: 'factor-raw-tech',
+        label: 'Светофор money: green',
+        impact: 'medium',
+        explanation_human: 'Светофор money: green',
+        explanation_astro: 'money:green',
+      },
+      {
+        id: 'factor-aspect-1',
+        label: 'Марс и фокус',
+        impact: 'high',
+        explanation_human: 'Утром проще держать одну линию движения.',
+      },
+      {
+        id: 'factor-aspect-2',
+        label: 'Марс и фокус',
+        impact: 'medium',
+        explanation_human: 'Утром проще держать одну линию движения.',
+      },
+    ];
+    brief.explainability.selected_factors = [
+      {
+        id: 'sf-tech',
+        label: 'money:green',
+        explanation_human: 'Светофор money: green',
+        explanation_astro: 'money:green',
+        signal: 0.85,
+      },
+      {
+        id: 'sf-keep',
+        label: 'Окно концентрации',
+        explanation_human: 'Лучше закрывать один главный блок без скачков.',
+        signal: 0.72,
+      },
+    ];
+
+    const { container } = render(React.createElement(TodayExplainability, { brief }));
+
+    expect(container).not.toHaveTextContent(/Светофор\s+money:\s+green/i);
+    expect(container).not.toHaveTextContent(/money:green/i);
+    expect(screen.getByText('Почему такой день')).toBeInTheDocument();
+    expect(screen.getAllByText('Марс и фокус')).toHaveLength(1);
+    expect(screen.getAllByText('Утром проще держать одну линию движения.').length).toBeLessThanOrEqual(2);
+    expect(screen.getByText('Окно концентрации')).toBeInTheDocument();
+  });
+
+  it('replaces duplicated aspect second line with astro explanation when available', () => {
+    const brief = buildBrief();
+    brief.personalized_factors = [
+      {
+        id: 'factor-aspect-astro',
+        label: 'Меркурий Квадрат (90°) Марс',
+        impact: 'high',
+        explanation_human: 'Меркурий Квадрат (90°) Марс',
+        explanation_astro: 'Даёт резкость в словах и повышает риск спорить быстрее, чем вы успели уточнить смысл.',
+      },
+    ];
+
+    render(React.createElement(TodayExplainability, { brief }));
+
+    const title = screen.getByText('Меркурий Квадрат (90°) Марс');
+    expect(title).toBeInTheDocument();
+    expect(screen.getAllByText('Меркурий Квадрат (90°) Марс')).toHaveLength(1);
+    expect(screen.getAllByText('Даёт резкость в словах и повышает риск спорить быстрее, чем вы успели уточнить смысл.').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders cta defaults for inactive premium and forwards click payloads', () => {

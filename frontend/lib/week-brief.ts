@@ -44,6 +44,7 @@ export type LightStatus = "green" | "yellow" | "red";
 export type ActionRiskItem = {
   id?: string | null;
   text?: string | null;
+  tag?: string | null;
   factor_id?: string | null;
   impact?: string | null;
   timeframe?: string | null;
@@ -226,6 +227,16 @@ export type WeekSurfaceModel = {
   waitMessage: string | null;
 };
 
+const RU_DAY_SHORT: Record<string, string> = {
+  mon: "ПН",
+  tue: "ВТ",
+  wed: "СР",
+  thu: "ЧТ",
+  fri: "ПТ",
+  sat: "СБ",
+  sun: "ВС",
+};
+
 const LEGACY_DOMAIN_TITLES: Record<string, string> = {
   work: "Работа и деньги",
   work_money: "Работа и деньги",
@@ -243,11 +254,47 @@ const LEGACY_STATUS_BY_SCORE = (value: number): LightStatus => {
 const normalizeList = (value: string[] | null | undefined): string[] =>
   Array.isArray(value) ? value.map((item) => item?.trim()).filter(Boolean) as string[] : [];
 
+const compactDateLabel = (dateValue?: string | null, weekdayValue?: string | null) => {
+  const normalizedWeekday = normalizeLegacyWeekday(weekdayValue);
+  if (!dateValue) {
+    return normalizedWeekday ? RU_DAY_SHORT[normalizedWeekday] ?? null : null;
+  }
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return normalizedWeekday ? RU_DAY_SHORT[normalizedWeekday] ?? null : null;
+  }
+
+  const dayLabel = normalizedWeekday ? RU_DAY_SHORT[normalizedWeekday] : null;
+  const dateLabel = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" })
+    .format(date)
+    .replace('.', '')
+    .trim();
+
+  return dayLabel ? `${dayLabel}, ${dateLabel}` : dateLabel;
+};
+
+const normalizeStripHeadline = (headline?: string | null, bestFor?: string[] | null, avoid?: string[] | null) => {
+  const cleanHeadline = headline?.trim();
+  if (cleanHeadline) return cleanHeadline;
+
+  const primaryBest = normalizeList(bestFor)[0] ?? null;
+  if (primaryBest) return `Фокус на ${primaryBest.toLowerCase()}`;
+
+  const primaryRisk = normalizeList(avoid)[0] ?? null;
+  if (primaryRisk) return `Держите темп без ${primaryRisk.toLowerCase()}`;
+
+  return "Спокойный обзор дня";
+};
+
 const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallback: string[] | null | undefined, prefix: string) => {
   if (Array.isArray(items) && items.length > 0) {
-    return items.filter((item) => item?.text?.trim()).map((item, index) => ({
+    return items
+      .filter((item) => item?.text?.trim())
+      .map((item, index) => ({
       id: item.id ?? `${prefix}-${index + 1}`,
       text: item.text?.trim() ?? "",
+      tag: item.tag?.trim() ?? null,
       factor_id: item.factor_id ?? null,
       impact: item.impact ?? null,
       timeframe: item.timeframe ?? null,
@@ -260,7 +307,8 @@ const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallba
             value: factor?.value?.trim() ?? null,
           }))
         : [],
-    }));
+      }))
+      .filter((item) => item.tag !== "all_week");
   }
   return normalizeList(fallback).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
 };
@@ -353,10 +401,10 @@ export function mapWeekReportToWeekBrief(input: {
     dayCards,
     dayStrip: dayCards.map((card) => ({
       date: card.date ?? null,
-      weekday: card.weekday ?? null,
+      weekday: compactDateLabel(card.date ?? null, card.weekday ?? null),
       mode: card.mode ?? null,
       score: card.score ?? null,
-      headline: card.headline ?? null,
+      headline: normalizeStripHeadline(card.headline, card.best_for, card.avoid),
       lead: null,
       practical: [],
       supporting_factors: [],

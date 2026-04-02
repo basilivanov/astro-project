@@ -301,7 +301,9 @@ def _build_daily_headline(
     traffic_lights: dict[str, Any],
 ) -> str:
     if support_pattern and tension_pattern:
-        return f"День про {support_pattern}, но {tension_pattern}."
+        return (
+            f"День про {support_pattern}, но важно помнить: {tension_pattern}."
+        )
     if tension_pattern:
         return f"День про {tension_pattern}, поэтому лишний нажим быстро даст отдачу."
     if support_pattern:

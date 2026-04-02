@@ -68,6 +68,7 @@ from backend.app.services.day_brief import (
     build_day_brief_payload,
     build_day_brief_telemetry,
 )
+from backend.app.services.day_brief_validators import validate_day_brief_payload
 
 
 client = TestClient(app)
@@ -197,6 +198,70 @@ def test_build_day_brief_fallback_is_safe_and_approximate() -> None:
     assert telemetry["confidence_bucket"] in {"low", "medium"}
 
 
+@patch("backend.app.services.day_brief._log_day_brief_event")
+def test_build_day_brief_payload_keeps_personalized_payload_when_logging_fails(mock_log_event) -> None:
+    mock_log_event.side_effect = RuntimeError("synthetic log failure")
+
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(
+            birth_time="07:05",
+            birth_time_known=True,
+            subscription_active_until=datetime(2026, 4, 3, tzinfo=timezone.utc),
+        ),
+        general_vibe="Главный акцент дня: Марс квадрат Солнце. Действуй точечно и не спорь на скорости.",
+        generation_mode="llm",
+    )
+
+    assert payload["fallback_mode"] is False
+    assert payload["personalization_level"] != "anonymous"
+    assert payload["premium"]["subscription_active"] is True
+    assert payload["cta"]["primary"]["type"] == "open_week"
+    assert payload["explainability"]["birth_time_used"] is True
+
+
+def test_build_day_brief_payload_clips_long_explainability_labels_instead_of_falling_back() -> None:
+    facts = _sample_facts()
+    long_label = (
+        "День про рабочие и статусные договоренности проще собирать через вежливость и форму, "
+        "но личное желание и эмоциональная реакция спорят за центр дня."
+    )
+    facts["semantic_layer"]["headline"] = long_label
+    facts["fast_hits"] = []
+    facts["meta"] = {"fallback_mode": False}
+    facts["normalized_factors"] = [
+        SimpleNamespace(
+            id="semantic:money_admin",
+            label=long_label,
+            domain="money",
+            family="slow_background",
+            signal=0.45,
+            weight=1.0,
+            explanation_human="Выбери один главный шаг, зафиксируй его письменно и не распыляйся на всё сразу.",
+            explanation_astro="",
+            metadata={},
+        )
+    ]
+
+    payload = build_day_brief_payload(
+        facts,
+        user=SimpleNamespace(
+            birth_time="07:05",
+            birth_time_known=True,
+            subscription_active_until=datetime(2026, 4, 3, tzinfo=timezone.utc),
+        ),
+        general_vibe="Главный акцент дня: мягкий, но точный темп.",
+        generation_mode="llm",
+    )
+
+    assert payload["fallback_mode"] is False
+    model = validate_day_brief_payload(payload)
+    assert model.fallback_mode is False
+    assert model.personalization_level == "personalized_v2"
+    assert model.explainability.selected_factors
+    assert len(model.explainability.selected_factors[0].label) <= 120
+
+
 @patch("backend.app.main.get_daily_vibe_llm")
 @patch("backend.app.main.build_personalized_daily_facts")
 def test_feed_today_returns_day_brief_and_top_level_telemetry(mock_facts, mock_vibe) -> None:
@@ -254,3 +319,58 @@ def test_feed_today_preserves_cache_generation_mode(mock_facts, mock_vibe) -> No
     assert data["day_brief"]["fallback_mode"] is False
     assert data["day_brief"]["legacy"]["general_vibe"] == "Кэшированный прогноз дня."
 
+
+def test_build_daily_forecast_semantic_headline_avoids_run_on_joiner() -> None:
+    from backend.app.services.forecast_semantics import build_daily_forecast_semantic_layer
+
+    payload = build_daily_forecast_semantic_layer(
+        fast_hits=[
+            {"transit": "Venus", "natal": "MC", "type": "Секстиль (60°)"},
+            {"transit": "Sun", "natal": "Moon", "type": "Квадрат (90°)"},
+        ],
+        traffic_lights={"money": "red", "love": "red", "health": "red"},
+        day_context={},
+        month_data={},
+    )
+
+    assert ", но важно помнить: " in payload["headline"]
+    assert "но личное желание" not in payload["headline"]
+
+def test_build_day_brief_payload_populates_score_supporting_factors_from_selected_explainability() -> None:
+    payload = build_day_brief_payload(
+        {
+            'personalization_level': 'personalized_v2',
+            'meta': {'fallback_mode': False},
+            'timezone': 'Europe/Moscow',
+            'location_label': 'Мончегорск, Россия',
+            'moon_sign': 'Весы',
+            'moon_phase': 'Полнолуние',
+            'moon_emoji': '🌕',
+            'aspects_count': 2,
+            'traffic_lights': {'health': 'green', 'money': 'green', 'love': 'green'},
+            'fast_hits': [
+                {'transit': 'Mercury', 'natal': 'Mercury', 'type': 'Тригон (120°)', 'summary': 'Меркурий Тригон (120°) Меркурий'},
+                {'transit': 'Sun', 'natal': 'Mars', 'type': 'Тригон (120°)', 'summary': 'Солнце Тригон (120°) Марс'},
+            ],
+            'semantic_layer': {
+                'headline': 'День про проще собрать мысль, договориться о деталях и сшить разрозненные вводные: хороший результат дает короткий и взрослый ход.',
+                'practical_move': 'Двигай одну покупку, одно условие или одну рабочую задачу, а остальное оставь в фоне.',
+                'pacing': 'рабочий темп держится на одном-двух приоритетах, без расползания в суету',
+                'rest': 'силы лучше держатся на ровном темпе, чем на вспышках',
+                'money_admin_focus': 'рабочие и денежные вопросы лучше собирать по одному, а не параллельной пачкой',
+                'relationship_softness': 'отношения сегодня любят ясность без нажима и без скрытых проверок',
+                'focus_key': 'launch',
+                'friction': 'распыление внимания, лишние обещания и попытка решить все одним рывком',
+            },
+        },
+        user=None,
+        generation_mode='deterministic',
+    )
+
+    scores = {item['key']: item for item in payload['scores']}
+    assert scores['energy']['details']['supporting_factors']
+    assert scores['money']['details']['supporting_factors']
+    assert scores['love']['details']['supporting_factors']
+    assert any('Солнце Тригон (120°) Марс' in (factor.get('label') or '') for factor in scores['energy']['details']['supporting_factors'])
+    assert any('money:green' in (factor.get('label') or '') for factor in scores['money']['details']['supporting_factors'])
+    assert any('love:green' in (factor.get('label') or '') for factor in scores['love']['details']['supporting_factors'])

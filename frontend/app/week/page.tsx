@@ -27,6 +27,7 @@ type WeekReportSummary = {
   id?: string;
   report_type?: string;
   status?: string;
+  created_at?: string;
 };
 
 type WeekReportPayload = {
@@ -39,10 +40,38 @@ type WeekReportPayload = {
   location?: string | null;
 };
 
+type WeekEmptyStateCopy = {
+  primaryLabel: string;
+  primaryHref: string;
+  note: string;
+};
+
 type MockWeekWindow = Window & {
   MOCK_WEEK_MAP_OVERRIDE?: LegacyWeekMapPayload;
   MOCK_WEEK_BRIEF_OVERRIDE?: WeekBrief;
 };
+
+function parseReportCreatedAt(value?: string): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): WeekEmptyStateCopy {
+  if (latestReportMeta?.status === "in_progress") {
+    return {
+      primaryLabel: "Открыть собирающийся отчёт",
+      primaryHref: latestReportMeta.id ? `/read/${latestReportMeta.id}` : "/reports/history",
+      note: "Персональный weekly report ещё собирается. Пока показываем короткую карту недели как безопасный ориентир.",
+    };
+  }
+
+  return {
+    primaryLabel: "Собрать персональную неделю",
+    primaryHref: "/create?type=week_forecast",
+    note: "Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Сейчас показываем базовую карту недели без персонального разбора.",
+  };
+}
 
 // START_MODULE_CONTRACT: M-WEEK-PAGE
 // purpose: Render the personalized week surface with correlated fetch, fallback handling, and strict-GRACE semantic blocks.
@@ -177,7 +206,9 @@ function WeekPageContent() {
     if (!response.ok) throw new Error(`REPORT_LOOKUP_${response.status}`);
     const data = (await response.json()) as WeekReportSummary[];
     const latest = Array.isArray(data)
-      ? data.find((item) => item.report_type === "week_forecast" && (item.status === "completed" || item.status === "in_progress"))
+      ? data
+          .filter((item) => item.report_type === "week_forecast" && (item.status === "completed" || item.status === "in_progress"))
+          .sort((left, right) => parseReportCreatedAt(right.created_at) - parseReportCreatedAt(left.created_at))[0] ?? null
       : null;
     return latest ?? null;
   }, [initData, mode]);
@@ -300,6 +331,7 @@ function WeekPageContent() {
 
   const primaryHref = week.cta.primary?.href || (week.reportId ? `/read/${week.reportId}` : "/create?type=week_forecast");
   const primaryLabel = week.cta.primary?.label || (week.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
+  const emptyStateCopy = useMemo(() => resolveWeekEmptyStateCopy(latestReportMeta), [latestReportMeta]);
 
   // START_BLOCK: WEEK_RENDER_SWITCH
   if (!isReady || loading) {
@@ -338,6 +370,11 @@ function WeekPageContent() {
     );
   }
 
+  const hasConcreteWeekReport = Boolean(week.reportId);
+  const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
+  const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
+  const shouldShowFallbackNote = week.fallbackMode || !hasConcreteWeekReport;
+
   return (
     // START_BLOCK: WEEK_READY_SURFACE
     <ConsumerPageShell testId="week-page">
@@ -355,8 +392,8 @@ function WeekPageContent() {
 
         <WeekHeroMap
           week={week}
-          primaryHref={primaryHref}
-          primaryLabel={primaryLabel}
+          primaryHref={resolvedPrimaryHref}
+          primaryLabel={resolvedPrimaryLabel}
           onPrimaryClick={() => {
             void trackCatalogEvent(
               week.reportId ? "week.open_full_report_click" : "week.premium_click",
@@ -366,7 +403,7 @@ function WeekPageContent() {
                 correlation_id: ensureCorrelationId(),
                 block: "WEEK_PRIMARY_CTA",
                 week_type: week.weekType,
-                cta_href: primaryHref,
+                cta_href: resolvedPrimaryHref,
               },
               { correlationId: ensureCorrelationId(), flowId: FLOW_FORECAST_CATALOG, block: "WEEK_PRIMARY_CTA" },
             );
@@ -379,9 +416,9 @@ function WeekPageContent() {
         <WeekExplainabilityPanel week={week} />
         <WeekDeepSections week={week} />
 
-        {week.fallbackMode ? (
+        {shouldShowFallbackNote ? (
           <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-            Карта собрана в безопасном режиме: используйте её как ориентир и перепроверьте важные решения, пока персональный weekly report уточняется.
+            {emptyStateCopy.note}
           </p>
         ) : null}
       </section>

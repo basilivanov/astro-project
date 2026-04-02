@@ -197,17 +197,25 @@ def preprocess_factors_for_ranking(factors: Iterable[NormalizedFactor], *, weigh
 def select_explainability_factors(factors: Iterable[NormalizedFactor], *, limit: int = 5) -> list[dict[str, Any]]:
     ranked, _ = preprocess_factors_for_ranking(factors)
     selected: list[dict[str, Any]] = []
+
+    def _clip(value: str | None, max_len: int) -> str:
+        raw = str(value or "").strip()
+        if len(raw) <= max_len:
+            return raw
+        clipped = raw[:max_len].rsplit(" ", 1)[0].strip()
+        return clipped or raw[:max_len].strip()
+
     for item in ranked[: max(0, limit)]:
         factor = item["factor"]
         selected.append(
             {
                 "id": factor.id,
-                "label": factor.label,
+                "label": _clip(factor.label, 120),
                 "domain": factor.domain,
                 "family": factor.family,
                 "signal": round(item["score"], 3),
-                "explanation_human": factor.explanation_human,
-                "explanation_astro": factor.explanation_astro,
+                "explanation_human": _clip(factor.explanation_human, 260),
+                "explanation_astro": _clip(factor.explanation_astro, 260) or None,
             }
         )
     return selected

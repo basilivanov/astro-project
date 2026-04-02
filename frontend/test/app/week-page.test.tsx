@@ -159,7 +159,7 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('Карта собрана в безопасном режиме');
+    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('weekly report ещё собирается');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя собирается');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-42');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Открыть полный отчёт');
@@ -168,6 +168,58 @@ describe('WeekPage', () => {
       expect.objectContaining({ status: 'in_progress', sections_count: 1 }),
       expect.any(Object),
     );
+  });
+
+  it('renders honest signed fallback when report history is empty', async () => {
+    correlatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
+
+    render(<WeekPage />);
+
+    expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('ещё нет сохранённого weekly report в истории');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/create?type=week_forecast');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Собрать персональную неделю');
+  });
+
+  it('prefers the freshest eligible week report before fetching details', async () => {
+    correlatedFetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            { id: 'week-old', report_type: 'week_forecast', status: 'completed', created_at: '2026-03-24T09:00:00+00:00' },
+            { id: 'week-new', report_type: 'week_forecast', status: 'completed', created_at: '2026-04-02T08:00:00+00:00' },
+          ]),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            report: { id: 'week-new', report_type: 'week_forecast', status: 'completed' },
+            week_brief: {
+              status: 'ready',
+              fallback_mode: false,
+              summary: {
+                headline: 'Свежая неделя',
+                subhead: 'Берём newest completed report, а не первый в списке.',
+                week_type: 'balance',
+                theme: 'Fresh binding',
+              },
+              report_ref: { report_id: 'week-new', source_status: 'completed' },
+            },
+            chunks: [],
+          }),
+          { status: 200 },
+        ),
+      );
+
+    render(<WeekPage />);
+
+    expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(correlatedFetchMock).toHaveBeenNthCalledWith(2, '/api/reports/week-new', expect.any(Object));
+    });
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-new');
   });
 
   it('uses mock runtime payload without fetching report details', async () => {
@@ -186,7 +238,7 @@ describe('WeekPage', () => {
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
     await waitFor(() => expect(correlatedFetchMock).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-99');
-    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('mon');
+    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 23 мар');
   });
 
 });

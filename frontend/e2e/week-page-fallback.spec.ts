@@ -81,10 +81,14 @@ test.describe("Week Page Fallback Parsing", () => {
     await expect(page.getByTestId('week-map-surface')).not.toContainText('Europe/Moscow');
     await expect(page.getByTestId('week-primary-cta')).toBeVisible();
     await expect(page.getByTestId('week-day-strip')).toBeVisible();
+    await expect(page.getByTestId('week-day-strip-card-1')).toContainText(/^[А-Я]{2},\s\d+\s[а-я]+/);
     await expect(page.getByTestId('week-day-strip').locator('article[data-testid^="week-day-strip-card-"]')).toHaveCount(7);
     await expect(page.getByTestId('week-day-strip-card-1')).not.toContainText(/\bgreen\b/i);
     await expect(page.getByTestId('week-day-strip-card-2')).not.toContainText(/\byellow\b/i);
     await expect(page.getByTestId('week-day-strip-card-3')).not.toContainText(/\bred\b/i);
+    await expect(page.getByTestId('week-day-strip')).not.toContainText(/светофор\s+money\s*:\s*green/i);
+    await expect(page.getByTestId('week-day-strip')).not.toContainText(/\ball_week\b/i);
+    await expect(page.getByTestId('week-day-strip')).not.toContainText(/explanation_astro|transit|natal|aspect/i);
     await expect(page.getByTestId('week-deep-sections')).toBeVisible();
     await expect(page.getByTestId('week-deep-sections')).toContainText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.');
     await expect(page.getByTestId('week-deep-sections-summary')).toContainText('narrative layer');
@@ -154,6 +158,7 @@ test.describe("Week Page Fallback Parsing", () => {
     await expect(page.getByTestId('week-deep-sections')).toBeVisible();
     await expect(page.getByTestId('week-deep-sections')).toContainText('Раздел 1');
     await expect(page.getByTestId('week-deep-sections')).not.toContainText('week_strategy');
+    await expect(page.getByTestId('week-deep-sections')).not.toContainText(/accordion/i);
     await expect(page.getByTestId('report-fallback-card')).toHaveCount(0);
 
     await context.close();

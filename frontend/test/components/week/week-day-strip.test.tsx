@@ -20,7 +20,7 @@ const week: WeekSurfaceModel = {
   dayStrip: [
     {
       date: '2026-04-01',
-      weekday: 'wed',
+      weekday: 'СР, 1 апр',
       mode: 'green',
       score: 88,
       headline: 'Фокус на главном',
@@ -55,12 +55,11 @@ describe('WeekDayStrip', () => {
     render(<WeekDayStrip week={week} onDayClick={onDayClick} />);
 
     const card = screen.getByTestId('week-day-strip-card-1');
-    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Главные детали — в доменах ниже');
-    expect(card).toHaveTextContent('Ср');
+    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Окно и фокус — в одной строке');
+    expect(card).toHaveTextContent('СР, 1 апр');
     expect(card).toHaveTextContent('88/100');
     expect(card).toHaveTextContent('Фокус на главном');
-    expect(card).toHaveTextContent('Окно: Утро');
-    expect(card).toHaveTextContent('Фокус: Стратегия');
+    expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
     expect(card).not.toHaveTextContent('Детали дня');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);

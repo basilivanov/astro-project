@@ -112,12 +112,30 @@ function looksLikeDomainScopedFactor(factor: { domain?: string | null; category?
   if (!candidates.length) return false;
   const aliases: Record<string, string[]> = {
     energy: ["energy", "health", "tone", "ресурс", "энерг"],
-    work_money: ["work_money", "work", "money", "career", "работ", "деньг", "финанс"],
-    relationships: ["relationships", "relationship", "love", "relation", "отнош", "чувств", "контакт"],
+    money: ["money", "work_money", "work", "career", "работ", "деньг", "финанс"],
+    work_money: ["work_money", "money", "work", "career", "работ", "деньг", "финанс"],
+    love: ["love", "relationships", "relationship", "relation", "отнош", "чувств", "контакт"],
+    relationships: ["relationships", "love", "relationship", "relation", "отнош", "чувств", "контакт"],
     focus: ["focus", "mind", "focus_time", "фокус", "ритм", "вниман"],
   };
   const needles = aliases[normalizedScoreKey] ?? [normalizedScoreKey];
   return candidates.some((candidate) => needles.some((needle) => candidate.includes(needle)));
+}
+
+function isGenericDomainFactor(
+  factor: { label?: string | null; explanation_human?: string | null; explanation_astro?: string | null },
+  brief: DayBriefDto,
+): boolean {
+  const human = String(factor.explanation_human || "").trim();
+  const astro = String(factor.explanation_astro || "").trim();
+  const label = String(factor.label || "").trim();
+  const anchors = collectTodayCompositionAnchors(brief);
+
+  if (isGenericExplainabilityPhrase(label) || isGenericExplainabilityPhrase(human) || isGenericExplainabilityPhrase(astro)) {
+    return true;
+  }
+
+  return [human, astro, label].some((value) => value && shouldSuppressByComposition(value, anchors));
 }
 
 function normalizeComparableText(value: string | null | undefined): string {
@@ -149,6 +167,9 @@ function isGenericExplainabilityPhrase(value: string | null | undefined): boolea
     "что повлияло",
     "почему такой день",
     "фактор дня",
+    "рабочий контекст",
+    "контакт и тон",
+    "ресурс и темп",
   ].includes(normalized);
 }
 
@@ -173,41 +194,167 @@ function isLikelyRawSemanticKey(value: string | null | undefined): boolean {
   ].includes(normalized);
 }
 
+function sanitizeHumanFacingText(value: string | null | undefined): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (isLikelyRawSemanticKey(raw)) return null;
+
+  const normalized = raw.toLowerCase();
+  const cleaned = raw
+    .replace(/\b(?:светофор|traffic\s*light)\s+[a-z0-9_./-]+\s*:\s*[a-z0-9_./-]+\b/gi, "")
+    .replace(/\b(?:светофор|traffic\s*light)\b/gi, "")
+    .replace(/\b[a-z0-9_./-]+\s*:\s*(?:green|yellow|red|high|medium|low|background|signal_only|structured_value)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[,;:–—\-\s]+|[,;:–—\-\s]+$/g, "")
+    .trim();
+
+  if (!cleaned) return null;
+  if (isLikelyRawSemanticKey(cleaned)) return null;
+  if (/^(?:светофор|traffic\s*light)$/i.test(cleaned)) return null;
+  if (/\b(?:светофор|traffic\s*light)\b/i.test(raw) && normalizeComparableText(cleaned).length < 3) return null;
+  if (/^(?:green|yellow|red|high|medium|low|background|signal only|structured value)$/i.test(cleaned)) return null;
+  if (normalized !== cleaned.toLowerCase() && isGenericExplainabilityPhrase(cleaned)) return null;
+  return cleaned;
+}
+
 function dedupeNormalizedFactors(factors: NormalizedDetailFactor[] | undefined): NormalizedDetailFactor[] {
   const deduped = new Map<string, NormalizedDetailFactor>();
   const seenHumanAstro = new Set<string>();
+  const seenLabels = new Set<string>();
+  const seenHuman = new Set<string>();
 
   for (const factor of factors ?? []) {
-    const label = String(factor.label || "").trim();
-    const human = String(factor.explanationHuman || "").trim();
-    const astro = String(factor.explanationAstro || "").trim();
+    const label = sanitizeHumanFacingText(factor.label);
+    const human = sanitizeHumanFacingText(factor.explanationHuman);
+    const astro = sanitizeHumanFacingText(factor.explanationAstro);
     if (!label && !human && !astro) continue;
 
-    const dedupeKey = [normalizeComparableText(label), normalizeComparableText(human), normalizeComparableText(astro)].join("|");
+    const normalizedLabel = normalizeComparableText(label);
+    const normalizedHuman = normalizeComparableText(human);
+    const normalizedAstro = normalizeComparableText(astro);
+
+    if (normalizedLabel && seenLabels.has(normalizedLabel)) {
+      continue;
+    }
+
+    if (normalizedHuman && seenHuman.has(normalizedHuman)) {
+      if (!normalizedLabel || seenLabels.has(normalizedLabel)) {
+        continue;
+      }
+    }
+
+    const dedupeKey = [normalizedLabel, normalizedHuman, normalizedAstro].join("|");
     if (!dedupeKey.replace(/\|/g, "")) continue;
 
-    const humanAstroKey = [normalizeComparableText(human), normalizeComparableText(astro)].join("|");
+    const humanAstroKey = [normalizedHuman, normalizedAstro].join("|");
     if (humanAstroKey !== "|" && seenHumanAstro.has(humanAstroKey)) {
       continue;
     }
 
     const existing = deduped.get(dedupeKey);
     if (!existing) {
-      deduped.set(dedupeKey, factor);
+      deduped.set(dedupeKey, {
+        ...factor,
+        label,
+        explanationHuman: human,
+        explanationAstro: astro,
+      });
       if (humanAstroKey !== "|") {
         seenHumanAstro.add(humanAstroKey);
       }
+      if (normalizedLabel) seenLabels.add(normalizedLabel);
+      if (normalizedHuman) seenHuman.add(normalizedHuman);
       continue;
     }
 
     const existingScore = Number(Boolean(existing.value)) + Number(Boolean(existing.explanationAstro)) + Number(Boolean(existing.explanationHuman));
     const candidateScore = Number(Boolean(factor.value)) + Number(Boolean(factor.explanationAstro)) + Number(Boolean(factor.explanationHuman));
     if (candidateScore > existingScore) {
-      deduped.set(dedupeKey, factor);
+      deduped.set(dedupeKey, {
+        ...factor,
+        label,
+        explanationHuman: human,
+        explanationAstro: astro,
+      });
     }
   }
 
   return Array.from(deduped.values());
+}
+
+function preferAstroExplanationWhenHumanDuplicatesLabel(factor: NormalizedDetailFactor): NormalizedDetailFactor {
+  const label = sanitizeHumanFacingText(factor.label);
+  const human = sanitizeHumanFacingText(factor.explanationHuman);
+  const astro = sanitizeHumanFacingText(factor.explanationAstro);
+
+  if (!isSemanticallyDuplicateText(human, label)) {
+    return {
+      ...factor,
+      label: label || factor.label,
+      explanationHuman: human || factor.explanationHuman,
+      explanationAstro: astro,
+    };
+  }
+
+  if (astro && !isSemanticallyDuplicateText(astro, label)) {
+    return {
+      ...factor,
+      label: label || factor.label,
+      explanationHuman: astro,
+      explanationAstro: null,
+    };
+  }
+
+  return {
+    ...factor,
+    label: label || factor.label,
+    explanationHuman: "",
+    explanationAstro: astro,
+  };
+}
+
+function normalizeExplainabilityCard<T extends { label: string; explanation_human: string; explanation_astro?: string | null }>(item: T): T {
+  const label = sanitizeHumanFacingText(item.label) || "";
+  const human = sanitizeHumanFacingText(item.explanation_human) || "";
+  const astro = sanitizeHumanFacingText(item.explanation_astro);
+
+  if (isSemanticallyDuplicateText(human, label)) {
+    if (astro && !isSemanticallyDuplicateText(astro, label)) {
+      return {
+        ...item,
+        label,
+        explanation_human: astro,
+        explanation_astro: null,
+      };
+    }
+
+    return {
+      ...item,
+      label,
+      explanation_human: "",
+      explanation_astro: astro,
+    };
+  }
+
+  return {
+    ...item,
+    label,
+    explanation_human: human,
+    explanation_astro: astro,
+  };
+}
+
+function textLooksDomainScoped(value: string | null | undefined, scoreKey: string): boolean {
+  const normalizedValue = normalizeComparableText(value);
+  if (!normalizedValue) return false;
+  const aliases: Record<string, string[]> = {
+    energy: ['energy', 'health', 'tone', 'ресурс', 'энерг', 'тел', 'тонус'],
+    money: ['money', 'work_money', 'work', 'career', 'работ', 'деньг', 'финанс', 'цен', 'срок', 'обязательств'],
+    love: ['love', 'relationships', 'relationship', 'relation', 'отнош', 'чувств', 'контакт', 'партнер', 'близост', 'мотив'],
+    focus: ['focus', 'mind', 'focus_time', 'фокус', 'ритм', 'вниман'],
+  };
+  return (aliases[String(scoreKey || '').trim().toLowerCase()] ?? [String(scoreKey || '').trim().toLowerCase()])
+    .some((needle) => normalizedValue.includes(needle));
 }
 
 function factorMatchesScoreKey(label: string | null | undefined, relatedKey: string): boolean {
@@ -226,7 +373,7 @@ function factorMatchesScoreKey(label: string | null | undefined, relatedKey: str
 }
 
 function buildScoreFallbackFactors(score: DayBriefDto["scores"][number], brief: DayBriefDto) {
-  return (brief.explainability.selected_factors ?? [])
+  const scoped = (brief.explainability.selected_factors ?? [])
     .filter((factor) => {
       if (!(factor?.label || factor?.explanation_human)) return false;
       const factorRecord = factor as { related_key?: string | null; domain?: string | null; key?: string | null };
@@ -234,15 +381,18 @@ function buildScoreFallbackFactors(score: DayBriefDto["scores"][number], brief: 
       if (relatedKey) {
         return normalizeComparableText(relatedKey) === normalizeComparableText(score.key);
       }
-      return factorMatchesScoreKey(factor.label, score.key);
+      return factorMatchesScoreKey(factor.label, score.key)
+        || textLooksDomainScoped(factor.explanation_human, score.key)
+        || textLooksDomainScoped(factor.explanation_astro, score.key);
     })
-    .slice(0, 3)
     .map((factor) => ({
       label: factor.label,
       explanation_human: factor.explanation_human,
       explanation_astro: factor.explanation_astro,
       value: factor.signal != null && factor.signal >= 0.35 ? "Сильный сигнал" : factor.signal != null && factor.signal >= 0.15 ? "Умеренный сигнал" : factor.signal != null ? "Фоновый сигнал" : null,
     }));
+
+  return scoped.slice(0, 3);
 }
 
 function shouldSuppressAstroText(
@@ -279,6 +429,38 @@ function shouldSuppressByComposition(value: string | null | undefined, anchors: 
   return anchors.some((anchor) => isSemanticallyDuplicateText(normalizedValue, anchor));
 }
 
+function isScopedScoreWhyText(
+  whyText: string | null | undefined,
+  score: DayBriefDto["scores"][number],
+  brief: DayBriefDto,
+): boolean {
+  const normalizedWhyText = normalizeComparableText(whyText);
+  if (!normalizedWhyText) return false;
+  if (isGenericExplainabilityPhrase(whyText)) return false;
+  if (isSemanticallyDuplicateText(whyText, score.advice) && !textLooksDomainScoped(whyText, score.key)) return false;
+
+  const occurrences = brief.scores.reduce((count, candidate) => {
+    const candidateWhyText = candidate.details?.why_text;
+    return isSemanticallyDuplicateText(candidateWhyText, whyText) ? count + 1 : count;
+  }, 0);
+
+  if (occurrences > 1) return false;
+
+  const reusedSelectedFactor = (brief.explainability.selected_factors ?? []).some((factor) => {
+    if (!isSemanticallyDuplicateText(factor.explanation_human, whyText)) return false;
+    return !looksLikeDomainScopedFactor(factor, score.key);
+  });
+
+  if (reusedSelectedFactor) return false;
+
+  const reusedPersonalizedFactor = (brief.personalized_factors ?? []).some((factor) => {
+    if (!isSemanticallyDuplicateText(factor.explanation_human, whyText)) return false;
+    return !factorMatchesScoreKey(factor.label, score.key);
+  });
+
+  return !reusedPersonalizedFactor;
+}
+
 function pickExplainabilityLead(cards: Array<{ explanation_human: string }>): string {
   const lead = cards.find((card) => !isGenericExplainabilityPhrase(card.explanation_human));
   if (!lead) {
@@ -292,11 +474,11 @@ function pickExplainabilityLead(cards: Array<{ explanation_human: string }>): st
 function buildTodayExplainabilityCards(brief: DayBriefDto) {
   // START_BLOCK: TODAY_EXPLAINABILITY_CARD_SELECTION
   const compositionAnchors = collectTodayCompositionAnchors(brief);
-  const personalized = brief.personalized_factors.map((factor, index) => ({
+  const personalized = brief.personalized_factors.map((factor, index) => normalizeExplainabilityCard({
     id: factor.id || `personalized-${index}`,
-    label: String(factor.label || "").trim(),
-    explanation_human: String(factor.explanation_human || "").trim(),
-    explanation_astro: String(factor.explanation_astro || "").trim() || null,
+    label: sanitizeHumanFacingText(factor.label) || "",
+    explanation_human: sanitizeHumanFacingText(factor.explanation_human) || "",
+    explanation_astro: sanitizeHumanFacingText(factor.explanation_astro),
     priority: typeof factor.weight === "number"
       ? factor.weight
       : factor.impact === "high"
@@ -307,16 +489,17 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
     source: "personalized" as const,
   }));
 
-  const selected = (brief.explainability.selected_factors ?? []).map((factor, index) => ({
+  const selected = (brief.explainability.selected_factors ?? []).map((factor, index) => normalizeExplainabilityCard({
     id: factor.id || `selected-${index}`,
-    label: String(factor.label || "").trim(),
-    explanation_human: String(factor.explanation_human || "").trim(),
-    explanation_astro: String(factor.explanation_astro || "").trim() || null,
+    label: sanitizeHumanFacingText(factor.label) || "",
+    explanation_human: sanitizeHumanFacingText(factor.explanation_human) || "",
+    explanation_astro: sanitizeHumanFacingText(factor.explanation_astro),
     priority: typeof factor.signal === "number" ? factor.signal : 0,
     source: "selected" as const,
   }));
 
   const deduped = new Map<string, (typeof personalized)[number]>();
+  const seenExplanationKeys = new Set<string>();
 
   for (const item of [...personalized, ...selected]) {
     const normalizedLabel = normalizeComparableText(item.label);
@@ -329,10 +512,15 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
       continue;
     }
 
-    const dedupKey = normalizedLabel || normalizedExplanation;
+    if (normalizedExplanation && seenExplanationKeys.has(normalizedExplanation)) {
+      continue;
+    }
+
+    const dedupKey = [normalizedExplanation, normalizedLabel].filter(Boolean).join('|');
     const existing = deduped.get(dedupKey);
     if (!existing) {
       deduped.set(dedupKey, item);
+      if (normalizedExplanation) seenExplanationKeys.add(normalizedExplanation);
       continue;
     }
 
@@ -340,6 +528,7 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
     const candidateScore = item.priority + (item.source === "personalized" ? 0.25 : 0);
     if (candidateScore > existingScore) {
       deduped.set(dedupKey, item);
+      if (normalizedExplanation) seenExplanationKeys.add(normalizedExplanation);
     }
   }
 
@@ -357,21 +546,14 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
 // FN-CONTRACT: FN-TODAY-BUILD-SCORE-DISCLOSURE
 // purpose: Prepare score disclosure copy and evidence factors from brief detail branches.
 function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief: DayBriefDto) {
-  const rawWhyText = String(score.details?.why_text || "").trim();
   const ownFactors = Array.isArray(score.details?.supporting_factors)
     ? score.details.supporting_factors.filter((item) => item?.label || item?.explanation_human)
     : [];
   const normalizedOwnFactors = mapLegacyFactorsToNormalized(ownFactors, score.key);
-
-  if (rawWhyText && !isSemanticallyDuplicateText(rawWhyText, score.advice)) {
-    return {
-      title: score.details?.why_title || "Почему такой ритм",
-      body: rawWhyText,
-      factors: normalizedOwnFactors,
-    };
-  }
+  const hasScopedOwnFactors = normalizedOwnFactors.length > 0;
   const domainScopedSelected = (brief.explainability.selected_factors ?? [])
     .filter((factor) => looksLikeDomainScopedFactor(factor, score.key))
+    .filter((factor) => !isGenericDomainFactor(factor, brief))
     .map((factor) => ({
       label: factor.label,
       explanation_human: factor.explanation_human,
@@ -382,9 +564,9 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
   const hasMeaningfulFallback = normalizedFallbackFactors.some((factor) => factor.label || factor.explanationHuman || factor.explanationAstro || factor.value);
 
   return {
-    title: normalizedOwnFactors.length || hasMeaningfulFallback ? (score.details?.why_title || "Что влияет на оценку") : "Как открыть разбор",
-    body: normalizedOwnFactors.length || hasMeaningfulFallback ? null : "Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.",
-    factors: normalizedOwnFactors.length ? normalizedOwnFactors : (hasMeaningfulFallback ? normalizedFallbackFactors : []),
+    title: hasScopedOwnFactors || hasMeaningfulFallback ? "Что повлияло" : null,
+    body: null,
+    factors: hasScopedOwnFactors ? normalizedOwnFactors : (hasMeaningfulFallback ? normalizedFallbackFactors : []),
   };
 }
 
@@ -395,20 +577,40 @@ function mapLegacyFactorsToNormalized(
   return dedupeNormalizedFactors((factors ?? [])
     .filter((factor) => factor?.label || factor?.explanation_human)
     .flatMap((factor, index) => {
-      const label = String(factor.label || "").trim();
-      const human = String(factor.explanation_human || "").trim();
-      const astro = String(factor.explanation_astro || "").trim();
-      if (isLikelyRawSemanticKey(label) && !human) {
+      const label = sanitizeHumanFacingText(factor.label);
+      const human = sanitizeHumanFacingText(factor.explanation_human);
+      const astro = sanitizeHumanFacingText(factor.explanation_astro);
+      if (!label && !human && !astro) {
         return [];
       }
-      const safeLabel = isLikelyRawSemanticKey(label) ? "" : label;
-      const safeValue = String(factor.value || "").trim();
-      if (!safeLabel && !human && !astro && !safeValue) {
+      const sanitizedLabel = label && !isGenericExplainabilityPhrase(label) ? label : null;
+      const keepLabel = label && (
+        factorMatchesScoreKey(label, relatedKey)
+        || textLooksDomainScoped(label, relatedKey)
+        || (!human && !astro)
+      ) ? sanitizedLabel : null;
+      if (label && isGenericExplainabilityPhrase(label) && !human && !astro) {
+        return [];
+      }
+      if (human && keepLabel && isSemanticallyDuplicateText(human, keepLabel)) {
+        return [{
+          id: `today-${relatedKey}-factor-${index + 1}`,
+          label: keepLabel,
+          explanationHuman: null,
+          explanationAstro: shouldSuppressAstroText(astro, null, null, human) ? null : astro,
+          value: null,
+          impact: null,
+          source: "today_supporting_factor",
+          relatedKey,
+        }];
+      }
+      const safeValue = sanitizeHumanFacingText(factor.value);
+      if (!keepLabel && !human && !astro && !safeValue) {
         return [];
       }
       return [{
         id: `today-${relatedKey}-factor-${index + 1}`,
-        label: safeLabel,
+        label: keepLabel,
         explanationHuman: human,
         explanationAstro: shouldSuppressAstroText(astro, null, null, human) ? null : astro,
         value: safeValue || null,
@@ -416,7 +618,7 @@ function mapLegacyFactorsToNormalized(
         source: "today_supporting_factor",
         relatedKey,
       }];
-    }));
+    })).map(preferAstroExplanationWhenHumanDuplicatesLabel);
 }
 
 function buildItemDisclosureFactors(
@@ -446,7 +648,7 @@ function buildItemDisclosureFactors(
       source: "today_supporting_factor",
       relatedKey: null,
     };
-  }));
+  })).map(preferAstroExplanationWhenHumanDuplicatesLabel);
 }
 
 function filterNormalizedItemFactors(factors: NormalizedDetailFactor[] | undefined, itemText: string, whyText?: string | null): NormalizedDetailFactor[] {
@@ -459,7 +661,7 @@ function filterNormalizedItemFactors(factors: NormalizedDetailFactor[] | undefin
       ...factor,
       explanationAstro: shouldSuppressAstroText(factor.explanationAstro, itemText, whyText, factor.explanationHuman) ? null : factor.explanationAstro,
     }];
-  }));
+  })).map(preferAstroExplanationWhenHumanDuplicatesLabel);
 }
 
 function normalizeItemDisclosureBody(body: string | null | undefined, itemText: string, factors: NormalizedDetailFactor[]): string | null {

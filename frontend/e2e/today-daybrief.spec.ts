@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { attachRuntimeErrorGuards, bootstrapMockTelegram, expectNoCrash, expectNoRuntimeErrors } from "./utils";
+import { attachRuntimeErrorGuards, bootstrapMockTelegram, bootstrapSignedTelegram, expectNoCrash, expectNoRuntimeErrors } from "./utils";
 import { buildCanonicalTodayPersonaPack } from "./fixtures/canonical-personas";
 
 type AnalyticsEvent = { event: string; payload: Record<string, unknown> };
@@ -17,6 +17,28 @@ async function mobileActivate(locator: ReturnType<Parameters<typeof test>[0]["pa
   await locator.dispatchEvent('touchstart');
   await locator.dispatchEvent('touchend');
   await locator.click();
+}
+
+async function seedSignedTodayProfile(page: Parameters<typeof test>[0]["page"], initData: string, fullName: string) {
+  const response = await page.request.put('/api/users/me', {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Telegram-Auth': initData,
+    },
+    data: {
+      full_name: fullName,
+      birth_date: '1991-08-21',
+      birth_time: '08:45',
+      birth_time_known: true,
+      birth_place: 'Moscow, Russia',
+      birth_lat: 55.7558,
+      birth_lon: 37.6176,
+      birth_timezone: 'Europe/Moscow',
+      current_timezone: 'Europe/Moscow',
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
 }
 
 const canonicalPersona = buildCanonicalTodayPersonaPack("CF-BE-001-baseline-exact-time");
@@ -77,11 +99,13 @@ test.describe("Today DayBrief surface", () => {
     await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bsignal_only\b/i);
     await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bstructured_value\b/i);
     await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bgreen\b/i);
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/светофор\s+money\s*:\s*green/i);
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/\ball_week\b/i);
     await expectNoRuntimeErrors(hygiene, "today canonical persona render");
     hygiene.dispose();
   });
 
-  test("score disclosure hides global factor fallback for canonical persona", async ({ page }) => {
+  test("score disclosure stays hidden when canonical persona has no scoped aspects", async ({ page }) => {
     await bootstrapTelegramMobile(page);
     await page.goto("/");
 
@@ -89,14 +113,259 @@ test.describe("Today DayBrief surface", () => {
     await expect(scoreCard).toContainText("72");
     await scoreCard.getByRole("button", { name: /Энергия: 72/ }).click();
 
-    const scoreDisclosure = scoreCard.getByTestId("today-score-details-energy");
-    await expect(scoreDisclosure).toHaveAttribute("open", "");
-    await expect(scoreDisclosure.locator("summary")).toContainText("Как открыть разбор");
-    await expect(scoreDisclosure).toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
-    await expect(scoreDisclosure).not.toContainText("Лунный драйв");
-    await expect(scoreDisclosure).not.toContainText("Утром проще быстро войти в темп и взять инициативу.");
-    await expect(scoreDisclosure).not.toContainText(/\bsignal_only\b/i);
-    await expect(scoreDisclosure).not.toContainText(/\bstructured_value\b/i);
+    await expect(scoreCard.getByTestId("today-score-details-energy")).toHaveCount(0);
+  });
+
+  test("score disclosure stays hidden when why_text is reused across domains", async ({ page }) => {
+    await bootstrapTelegramMobile(page, {
+      feedState: "ready",
+      profileOverride: canonicalPersona.profile,
+      feedOverride: {
+        ...canonicalPersona.feed,
+        day_brief: {
+          ...canonicalPersona.feed.day_brief,
+          scores: [
+            {
+              key: "money",
+              title: "Работа и деньги",
+              value: 58,
+              status: "yellow",
+              advice: "Сначала сверяйте цифры и сроки.",
+              details: {
+                why_title: "Почему сфера такая",
+                why_text: "Двигай одну покупку или решение за раз: импульсивные траты и эмоциональные обещания сегодня дают лишний шум.",
+                supporting_factors: [],
+              },
+            },
+            {
+              key: "love",
+              title: "Чувства",
+              value: 55,
+              status: "yellow",
+              advice: "Говорите мягче и проверяйте ожидания.",
+              details: {
+                why_title: "Почему сфера такая",
+                why_text: "Двигай одну покупку или решение за раз: импульсивные траты и эмоциональные обещания сегодня дают лишний шум.",
+                supporting_factors: [],
+              },
+            },
+          ],
+          personalized_factors: [],
+          explainability: {
+            ...canonicalPersona.feed.day_brief.explainability,
+            selected_factors: [
+              {
+                id: "sf-generic-repeat",
+                label: "Общий сигнал дня",
+                explanation_human: "Двигай одну покупку или решение за раз: импульсивные траты и эмоциональные обещания сегодня дают лишний шум.",
+                signal: 0.68,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    await page.goto("/");
+
+    const workCard = page.getByTestId("today-score-money");
+    await workCard.getByRole("button", { name: /Работа и деньги: 58/ }).click();
+    await expect(workCard.getByTestId("today-score-details-money")).toHaveCount(0);
+
+    const relationshipsCard = page.getByTestId("today-score-love");
+    await relationshipsCard.getByRole("button", { name: /Чувства: 55/ }).click();
+    await expect(relationshipsCard.getByTestId("today-score-details-love")).toHaveCount(0);
+  });
+
+  test("real DEV payload keeps focus disclosure on CTA when selected factor is generic composition echo", async ({ page }) => {
+    test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454545,
+        first_name: "Today",
+        last_name: "Signed",
+        username: "signed_today",
+        language_code: "ru",
+      },
+    });
+    await page.route("**/api/feed/today", async (route) => {
+      const response = await route.fetch();
+      const json = await response.json();
+      await route.fulfill({
+        response,
+        contentType: "application/json",
+        body: JSON.stringify(json),
+      });
+    });
+
+    await page.route("**/api/users/me", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: await response.text(), contentType: "application/json" });
+    });
+
+    await page.goto("/?mock=0");
+
+    const focusCard = page.getByTestId("today-score-focus");
+    await expect(focusCard).toBeVisible();
+    await focusCard.getByRole("button", { name: /Фокус:/ }).click();
+
+    const focusDisclosure = focusCard.getByTestId("today-score-details-focus");
+    await expect(focusDisclosure.locator("summary")).toContainText("Что повлияло");
+    await expect(focusDisclosure).toContainText("день любит узкий фокус, короткий список дел и запас по времени");
+    await expect(focusDisclosure).not.toContainText("Сузь день до одного приоритета");
+    await expect(focusDisclosure.locator('p')).toHaveCount(0);
+  });
+
+  test("real DEV payload keeps domain-scoped score disclosures for energy money love", async ({ page }) => {
+    test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454546,
+        first_name: "Today",
+        last_name: "Scoped",
+        username: "signed_today_scoped",
+        language_code: "ru",
+      },
+    });
+
+    await page.route("**/api/feed/today", async (route) => {
+      const response = await route.fetch();
+      const json = await response.json();
+      await route.fulfill({ response, contentType: "application/json", body: JSON.stringify(json) });
+    });
+
+    await page.route("**/api/users/me", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: await response.text(), contentType: "application/json" });
+    });
+
+    await page.goto("/?mock=0");
+
+    for (const key of ["energy", "money", "love"] as const) {
+      const card = page.getByTestId(`today-score-${key}`);
+      await expect(card).toBeVisible();
+      await card.locator("button").first().click();
+      const disclosure = card.getByTestId(`today-score-details-${key}`);
+      await expect(disclosure.locator("summary")).toContainText("Что повлияло");
+      await expect(disclosure).not.toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
+    }
+  });
+
+  test("signed Telegram lane keeps disclosure copy human and domain-scoped across user shapes", async ({ page }) => {
+    test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
+
+    const signedUsers = [
+      {
+        id: 45454546,
+        first_name: "Today",
+        last_name: "Scoped",
+        username: "signed_today_scoped",
+        language_code: "ru",
+        fullName: "Today Scoped",
+      },
+      {
+        id: 833478509,
+        first_name: "Real",
+        last_name: "Lane",
+        username: "real_lane",
+        language_code: "ru",
+        fullName: "Real Lane",
+      },
+      {
+        id: 45454545,
+        first_name: "Today",
+        last_name: "Signed",
+        username: "signed_today",
+        language_code: "ru",
+        fullName: "Today Signed",
+      },
+    ] as const;
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const signedUser of signedUsers) {
+      const runtime = await bootstrapSignedTelegram(page, { user: signedUser });
+      await seedSignedTodayProfile(page, runtime.initData, signedUser.fullName);
+      await page.goto('/?mock=0');
+      await expectNoCrash(page);
+
+      for (const key of ["energy", "money", "love", "focus"] as const) {
+        const card = page.getByTestId(`today-score-${key}`);
+        await expect(card).toBeVisible();
+        await card.locator('button').first().click();
+        const disclosure = card.getByTestId(`today-score-details-${key}`);
+        await expect(disclosure).toBeVisible();
+        await expect(disclosure).not.toContainText(/\bsignal_only\b/i);
+        await expect(disclosure).not.toContainText(/\bstructured_value\b/i);
+        await expect(disclosure).not.toContainText(/\b(?:money|love|health|focus):(?:green|yellow|red)\b/i);
+        await expect(disclosure).not.toContainText(/\btraffic\s*light\b/i);
+        await expect(disclosure).not.toContainText(/\bсветофор\b/i);
+      }
+
+      const moneyDisclosure = page.getByTestId('today-score-money').getByTestId('today-score-details-money');
+      const loveDisclosure = page.getByTestId('today-score-love').getByTestId('today-score-details-love');
+      const focusDisclosure = page.getByTestId('today-score-focus').getByTestId('today-score-details-focus');
+
+      await expect(moneyDisclosure.locator('summary')).toContainText('Что повлияло');
+      await expect(loveDisclosure.locator('summary')).toContainText('Что повлияло');
+      await expect(focusDisclosure.locator('summary')).toContainText('Что повлияло');
+      await expect(moneyDisclosure).not.toContainText('Рабочий контекст');
+      await expect(loveDisclosure).not.toContainText('Контакт и тон');
+      await expect(focusDisclosure).not.toContainText('Нажмите на карточку, чтобы открыть подробный разбор этой сферы');
+    }
+  });
+
+
+  test("live lane 833478509 keeps Today UI scores in parity with /api/feed/today and renders clean disclosures", async ({ page }) => {
+    test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
+
+    const signedUser = {
+      id: 833478509,
+      first_name: "Real",
+      last_name: "Lane",
+      username: "real_lane",
+      language_code: "ru",
+    } as const;
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const runtime = await bootstrapSignedTelegram(page, { user: signedUser });
+
+    const apiResponse = await page.request.get('/api/feed/today', {
+      headers: { 'X-Telegram-Auth': runtime.initData },
+    });
+    expect(apiResponse.ok()).toBeTruthy();
+    const apiPayload = await apiResponse.json();
+    const apiScores = new Map((apiPayload?.day_brief?.scores ?? []).map((item: any) => [item.key, item]));
+
+    await page.goto('/?mock=0');
+    await expectNoCrash(page);
+
+    for (const key of ['energy', 'money', 'love', 'focus'] as const) {
+      const expected = apiScores.get(key);
+      expect(expected).toBeTruthy();
+      const card = page.getByTestId(`today-score-${key}`);
+      await expect(card).toBeVisible();
+      await expect(card).toContainText(String(expected.value));
+      await expect(card).toContainText(String(expected.advice));
+
+      await card.locator('button').first().click();
+      const disclosure = card.getByTestId(`today-score-details-${key}`);
+      if (await disclosure.count()) {
+        await expect(disclosure).toBeVisible();
+        await expect(disclosure).not.toContainText(/\bsignal_only\b/i);
+        await expect(disclosure).not.toContainText(/\bstructured_value\b/i);
+        await expect(disclosure).not.toContainText(/\b(?:money|love|health|focus):(?:green|yellow|red)\b/i);
+        await expect(disclosure).not.toContainText(/\btraffic\s*light\b/i);
+        await expect(disclosure).not.toContainText(/\bсветофор\b/i);
+      }
+    }
+
+    const moneyDisclosure = page.getByTestId('today-score-money').getByTestId('today-score-details-money');
+    const loveDisclosure = page.getByTestId('today-score-love').getByTestId('today-score-details-love');
+    if (await moneyDisclosure.count()) await expect(moneyDisclosure).not.toContainText('Рабочий контекст');
+    if (await loveDisclosure.count()) await expect(loveDisclosure).not.toContainText('Контакт и тон');
   });
 
   test("week CTA preserves Today to Week continuity for canonical persona", async ({ page }) => {

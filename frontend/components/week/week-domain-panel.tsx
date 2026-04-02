@@ -25,7 +25,39 @@ import { ConsumerPanel } from "../consumer-page-shell";
 import { DetailDisclosureCard } from "../detail/detail-disclosure-card";
 import { DetailEvidenceChips } from "../detail/detail-evidence-chips";
 import type { NormalizedDetailFactor } from "../../lib/detail-layer";
-import { type WeekSurfaceModel } from "../../lib/week-brief";
+import { type LightStatus, type WeekSurfaceModel } from "../../lib/week-brief";
+
+const DOMAIN_STATUS_STYLES: Record<LightStatus, { badge: string; progress: string; track: string; card: string }> = {
+  green: {
+    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    progress: "bg-emerald-500",
+    track: "bg-emerald-100",
+    card: "border-emerald-200/80 bg-emerald-50/40",
+  },
+  yellow: {
+    badge: "border-amber-200 bg-amber-50 text-amber-700",
+    progress: "bg-amber-500",
+    track: "bg-amber-100",
+    card: "border-amber-200/80 bg-amber-50/40",
+  },
+  red: {
+    badge: "border-rose-200 bg-rose-50 text-rose-700",
+    progress: "bg-rose-500",
+    track: "bg-rose-100",
+    card: "border-rose-200/80 bg-rose-50/40",
+  },
+};
+
+function normalizeDomainStatus(value: string | null | undefined, score: number | null | undefined): LightStatus {
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+  if (normalizedValue === "green" || normalizedValue === "yellow" || normalizedValue === "red") {
+    return normalizedValue as LightStatus;
+  }
+  const numericScore = Number(score ?? 0);
+  if (numericScore >= 70) return "green";
+  if (numericScore >= 45) return "yellow";
+  return "red";
+}
 
 // START_FUNCTION_CONTRACT: pickSupportingFactors
 // INTENT: Resolve bounded fallback factors for a domain when explicit supporting factors are absent.
@@ -57,7 +89,8 @@ function pickSupportingFactors(week: WeekSurfaceModel, domainKey: string | null 
   }).filter((factor) => {
     const label = String(factor.label ?? "").trim();
     const human = String(factor.explanation_human ?? "").trim();
-    return Boolean(label || human);
+    const astro = String(factor.explanation_astro ?? "").trim();
+    return Boolean(label || human || astro);
   });
   // END_BLOCK: DOMAIN_FACTOR_FALLBACK_SELECTION
 }
@@ -77,6 +110,19 @@ function resolveDomainFactors(week: WeekSurfaceModel, domain: WeekSurfaceModel["
   // END_BLOCK: DOMAIN_FACTOR_SOURCE_SELECTION
 }
 
+function pickFactorLabel(factor: ReturnType<typeof resolveDomainFactors>[number]) {
+  const rawLabel = String(factor?.label || "").trim();
+  const explanationAstro = String(factor?.explanation_astro || "").trim();
+  if (rawLabel && !/^[a-z]+:[a-z0-9_-]+$/.test(rawLabel.toLowerCase())) {
+    return rawLabel;
+  }
+  if (explanationAstro) {
+    const astroLead = explanationAstro.split(/[—:.]/)[0]?.trim();
+    if (astroLead) return astroLead;
+  }
+  return rawLabel;
+}
+
 // START_FUNCTION_CONTRACT: mapDomainFactors
 // INTENT: Normalize domain supporting factors for the shared detail disclosure layer.
 // INPUTS: Raw domain factors and domain identifier.
@@ -90,13 +136,13 @@ function mapDomainFactors(
   // START_BLOCK: DOMAIN_FACTOR_NORMALIZATION
   return factors
     .map((factor, index) => {
-      const label = String(factor?.label || "").trim();
+      const label = pickFactorLabel(factor);
       const explanationHuman = String(factor?.explanation_human || "").trim();
       const explanationAstro = String(factor?.explanation_astro || "").trim();
       const value = String(factor?.value || "").trim();
       const normalizedValue = value.toLowerCase();
       if (!label && !explanationHuman && !explanationAstro) return null;
-      if (/^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) && !explanationHuman) return null;
+      if (/^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) && !explanationHuman && !explanationAstro) return null;
       return {
         id: `${relatedKey}-factor-${index + 1}`,
         label: /^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) ? '' : label,
@@ -132,18 +178,27 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
         <div className="space-y-4">
           {week.domains.map((domain, index) => {
             const domainKey = domain.key ?? `${index}`;
+            const domainStatus = normalizeDomainStatus(domain.status, domain.value);
+            const statusStyle = DOMAIN_STATUS_STYLES[domainStatus];
             return (
-              <div key={`${domain.key ?? index}`} className="space-y-3" data-testid={`week-domain-${domain.key ?? index}`}>
+              <div
+                key={`${domain.key ?? index}`}
+                className={`space-y-3 rounded-3xl border p-4 ${statusStyle.card}`}
+                data-testid={`week-domain-${domain.key ?? index}`}
+                data-domain-status={domainStatus}
+              >
                 {/* START_BLOCK: WEEK_DOMAIN_CARD_CONTENT */}
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">{domain.title}</p>
                     {domain.headline ? <p className="text-xs text-slate-500">{domain.headline}</p> : null}
                   </div>
-                  <p className="text-sm font-black text-slate-900">{domain.value ?? 0}/100</p>
+                  <div className={`rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.18em] ${statusStyle.badge}`} data-testid={`week-domain-status-${domain.key ?? index}`}>
+                    {domain.value ?? 0}/100
+                  </div>
                 </div>
-                <div className="h-2 rounded-full bg-slate-100">
-                  <div className="h-2 rounded-full bg-slate-900" style={{ width: `${Math.max(0, Math.min(100, domain.value ?? 0))}%` }} />
+                <div className={`h-2 rounded-full ${statusStyle.track}`}>
+                  <div className={`h-2 rounded-full ${statusStyle.progress}`} style={{ width: `${Math.max(0, Math.min(100, domain.value ?? 0))}%` }} />
                 </div>
                 <p className="text-xs leading-relaxed text-slate-600" data-testid={`week-domain-guidance-${domain.key ?? index}`}>
                   {domain.advice?.trim() || "Держите решения в этой зоне простыми и проверяемыми."}

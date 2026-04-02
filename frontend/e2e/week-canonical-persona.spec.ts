@@ -108,9 +108,18 @@ test.describe("Week surface canonical persona", () => {
     await expectNoCrash(page);
     await expect(page.getByTestId("week-map-surface")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Неделя держит курс на одно главное направление.");
-    await expect(page.getByTestId("week-day-grid")).toContainText("Стартуйте с одной ключевой задачи.");
+    await expect(page.getByTestId("week-day-strip")).toBeVisible();
+    await expect(page.getByTestId("week-day-strip")).toContainText("Стартуйте с одной ключевой задачи.");
+    await expect(page.getByTestId("week-day-strip")).toContainText(/^[А-Я]{2},\s\d+\s[а-я]+/);
     await expect(page.getByTestId("week-domain-panel")).toContainText("Работа и деньги");
     await expect(page.getByTestId("week-domain-panel")).toContainText("74");
+    await expect(page.getByTestId("week-domain-work")).toContainText("Работа и деньги");
+    await expect(page.getByTestId("week-domain-work")).not.toContainText(/контакт/i);
+    await expect(page.getByTestId("week-domain-work")).not.toContainText(/relationship|relationships/i);
+    await expect(page.getByTestId("week-map-surface")).not.toContainText(/\ball_week\b/i);
+    await expect(page.getByTestId("week-day-strip")).not.toContainText(/\bgreen\b|\byellow\b|\bred\b/i);
+    await expect(page.getByTestId("week-day-strip")).not.toContainText(/светофор\s+money\s*:\s*green/i);
+    await expect(page.getByTestId("week-day-strip")).not.toContainText(/explanation_astro|transit|natal|aspect/i);
     await expect(page.getByTestId("week-actions-list")).toContainText("Закрыть один глубокий рабочий цикл до середины недели");
     await expect(page.getByTestId("week-risks-list")).toContainText("Не обещайте больше, чем реально удержать в темпе недели");
     await expect(page.getByTestId("week-primary-cta")).toContainText("Открыть полный отчёт");
@@ -136,9 +145,11 @@ test.describe("Week surface canonical persona", () => {
     await expect(details).toBeVisible();
     await expect(page.getByTestId("week-explainability-panel")).toContainText("Почему карта именно такая");
     await expect(page.getByTestId("week-factor-1")).toContainText("Опорный ритм");
-    await expect(page.getByTestId("week-factor-1")).toContainText("Неделя лучше складывается, когда вы повторяете один рабочий ритм вместо резких переключений.");
+    await expect(page.getByTestId("week-explainability-factors")).toContainText("Неделя лучше складывается, когда вы повторяете один рабочий ритм вместо резких переключений.");
+    await expect(page.getByTestId("week-explainability-factors")).toContainText("Опорный ритм");
     await expect(page.getByTestId("week-explainability-panel")).toContainText("Учтено точное время рождения");
     await expect(page.getByTestId("week-explainability-panel")).not.toContainText("week_brief_v1");
+    await expect(page.getByTestId("week-explainability-panel")).not.toContainText(/signal_only|structured_value|explanation_astro/i);
 
     await toggle.click();
 

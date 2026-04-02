@@ -695,6 +695,7 @@ async def get_daily_vibe_llm(
     cache_scope: Optional[str] = None,
     correlation_id: Optional[str] = None,
     return_metadata: bool = False,
+    bypass_cache: bool = False,
 ) -> str | tuple[str, dict[str, Any]]:
     # START_CONTRACT: FN-GET-DAILY-VIBE-LLM
     # purpose: Produce 2-sentence vibe text using cheap LLM with deterministic fallback + caching.
@@ -716,7 +717,7 @@ async def get_daily_vibe_llm(
         correlation_id=correlation_id,
         cache_scope=cache_scope or "shared",
     ):
-        if cache_key in _FEED_CACHE:
+        if (not bypass_cache) and cache_key in _FEED_CACHE:
             _log_feed_event(
                 "info",
                 "feed.cache_hit",
@@ -802,7 +803,8 @@ async def get_daily_vibe_llm(
                 emphasis=fallback_detail,
                 personalization_context=personalization_context,
             )
-            _FEED_CACHE[cache_key] = vibe
+            if not bypass_cache:
+                _FEED_CACHE[cache_key] = vibe
             _log_feed_event(
                 "info",
                 "feed.generated",
@@ -816,7 +818,7 @@ async def get_daily_vibe_llm(
             )
             if return_metadata:
                 return vibe, {
-                    "generation_mode": "fallback",
+                    "generation_mode": "fallback" if not bypass_cache else "fallback_bypass",
                     "cache_hit": False,
                     "llm_mode": mode,
                     "cache_scope": cache_scope or "shared",
@@ -840,7 +842,8 @@ async def get_daily_vibe_llm(
                 personalization_context=personalization_context,
             )
 
-            _FEED_CACHE[cache_key] = vibe
+            if not bypass_cache:
+                _FEED_CACHE[cache_key] = vibe
             _log_feed_event(
                 "info",
                 "feed.generated",
@@ -854,7 +857,7 @@ async def get_daily_vibe_llm(
             )
             if return_metadata:
                 return vibe, {
-                    "generation_mode": "llm",
+                    "generation_mode": "llm" if not bypass_cache else "llm_bypass",
                     "cache_hit": False,
                     "llm_mode": mode,
                     "cache_scope": cache_scope or "shared",
@@ -879,10 +882,11 @@ async def get_daily_vibe_llm(
                 emphasis=fallback_detail,
                 personalization_context=personalization_context,
             )
-            _FEED_CACHE[cache_key] = vibe
+            if not bypass_cache:
+                _FEED_CACHE[cache_key] = vibe
             if return_metadata:
                 return vibe, {
-                    "generation_mode": "fallback",
+                    "generation_mode": "fallback" if not bypass_cache else "fallback_bypass",
                     "cache_hit": False,
                     "llm_mode": mode,
                     "cache_scope": cache_scope or "shared",

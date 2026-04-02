@@ -4073,8 +4073,10 @@ async def get_daily_feed(
     fallback_phase = "Текущий день"
     fallback_vibe = build_daily_vibe_fallback(fallback_sign, fallback_phase, "Нет мажорных аспектов")
 
+    bypass_runtime_cache = bool(debug_enabled and x_telegram_auth)
+
     try:
-        facts = build_personalized_daily_facts(now, user=user)
+        facts = build_personalized_daily_facts(now, user=user, bypass_cache=bypass_runtime_cache)
         prompt_context = summarize_personalization_for_prompt(facts)
         logger.info(
             "feed.debug",
@@ -4091,6 +4093,7 @@ async def get_daily_feed(
             facts["aspect_summary"],
             personalization_context=prompt_context,
             cache_scope=prompt_context.get("cache_scope"),
+            bypass_cache=bypass_runtime_cache,
             return_metadata=True,
         )
         day_brief = build_day_brief_payload(
@@ -4141,12 +4144,19 @@ async def get_daily_feed(
             fast_hits=facts.get("fast_hits") or [],
             personalization_level=facts.get("personalization_level"),
             meta=(facts.get("meta") if debug_enabled and bool(x_telegram_auth) else None),
-            day_brief=day_brief,
             trace_id=day_brief_telemetry.get("trace_id"),
             generation_mode=day_brief_telemetry.get("generation_mode"),
             birth_time_used=day_brief_telemetry.get("birth_time_used"),
             confidence_bucket=day_brief_telemetry.get("confidence_bucket"),
             factor_count=day_brief_telemetry.get("factor_count"),
+            day_brief=(
+                {
+                    **day_brief,
+                    "debug": day_brief.get("debug"),
+                }
+                if debug_enabled and isinstance(day_brief, dict) and day_brief.get("debug")
+                else day_brief
+            ),
         )
     except Exception as exc:
         logger.error(

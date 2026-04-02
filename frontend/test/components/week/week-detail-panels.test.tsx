@@ -70,6 +70,23 @@ const baseWeek: WeekSurfaceModel = {
 };
 
 describe('Week unified detail panels', () => {
+  it('binds domain styling to status and score fallback', () => {
+    const week = {
+      ...baseWeek,
+      domains: [
+        { ...baseWeek.domains[0], key: 'work', status: 'green', value: 74 },
+        { ...baseWeek.domains[0], key: 'energy', title: 'Энергия', status: 'yellow', value: 52 },
+        { ...baseWeek.domains[0], key: 'focus', title: 'Фокус', status: null, value: 21 },
+      ],
+    };
+
+    render(<WeekDomainPanel week={week} />);
+
+    expect(screen.getByTestId('week-domain-work')).toHaveAttribute('data-domain-status', 'green');
+    expect(screen.getByTestId('week-domain-energy')).toHaveAttribute('data-domain-status', 'yellow');
+    expect(screen.getByTestId('week-domain-focus')).toHaveAttribute('data-domain-status', 'red');
+  });
+
   it('renders domain explainability via detail disclosure card', () => {
     render(<WeekDomainPanel week={baseWeek} />);
 
@@ -80,6 +97,26 @@ describe('Week unified detail panels', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Что повлияло' }));
     expect(screen.getByTestId('week-domain-explainability-work-factors')).toHaveTextContent('Солнце');
     expect(screen.getByTestId('week-domain-explainability-work')).toHaveTextContent('Неделя лучше работает через один главный фокус.');
+  });
+
+  it('maps astro explanations into domain disclosure factors', () => {
+    const week = {
+      ...baseWeek,
+      domains: [{
+        ...baseWeek.domains[0],
+        supporting_factors: [{
+          label: 'work:green',
+          explanation_human: null,
+          explanation_astro: 'Солнце в 10 доме — усиливает видимость и рабочий фокус',
+          value: '74/100',
+        }],
+      }],
+    };
+
+    render(<WeekDomainPanel week={week} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Что повлияло' }));
+    expect(screen.getByTestId('week-domain-explainability-work-factors')).toHaveTextContent('Солнце в 10 доме');
+    expect(screen.getByTestId('week-domain-explainability-work-factors')).toHaveTextContent('усиливает видимость и рабочий фокус');
   });
 
   it('renders action and risk explainability via unified detail layer', () => {
@@ -106,6 +143,24 @@ describe('Week unified detail panels', () => {
     render(<WeekActionsPanel week={week} />);
     expect(screen.queryByRole('button', { name: 'Почему это в фокусе' })).toBeNull();
     expect(screen.getByTestId('week-actions-list')).not.toHaveTextContent(/green|week:green/i);
+  });
+
+  it('filters all_week tagged global action and risk cards', () => {
+    const week = {
+      ...baseWeek,
+      actions: [
+        ...baseWeek.actions,
+        { id: 'action-hidden', text: 'Скрытый глобальный action', tag: 'all_week' },
+      ],
+      risks: [
+        ...baseWeek.risks,
+        { id: 'risk-hidden', text: 'Скрытый глобальный risk', tag: 'all_week' },
+      ],
+    };
+
+    render(<WeekActionsPanel week={week} />);
+    expect(screen.getByTestId('week-actions-list')).not.toHaveTextContent('Скрытый глобальный action');
+    expect(screen.getByTestId('week-risks-list')).not.toHaveTextContent('Скрытый глобальный risk');
   });
 
   it('does not inject global week factors into domain without domain match', () => {
