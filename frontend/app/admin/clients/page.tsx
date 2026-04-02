@@ -37,7 +37,7 @@ const formatDateTime = (value?: string | null) => {
   }).format(date);
 };
 
-export default function ClientsPage() {
+function ClientsPageContent() {
   const { initData, isReady } = useTelegram();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -233,5 +233,13 @@ export default function ClientsPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Загрузка...</div>}>
+      <ClientsPageContent />
+    </Suspense>
   );
 }

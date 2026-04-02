@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { 
   Users, 
@@ -79,7 +79,7 @@ const getStatusColor = (status: string) => {
     }
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const { initData, isReady } = useTelegram();
   const searchParams = useSearchParams();
   
@@ -422,5 +422,13 @@ export default function DashboardPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Загрузка...</div>}>
+      <DashboardPageContent />
+    </Suspense>
   );
 }

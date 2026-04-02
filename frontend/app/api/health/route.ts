@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const backendUrl = process.env.INTERNAL_API_URL || "http://backend:8000";
   

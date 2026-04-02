@@ -121,7 +121,15 @@ export function CatalogCheckoutResumeBanner({
   const pollRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const shouldRender = Boolean(checkoutToken);
-  const correlationId = useMemo(() => CorrelationManager.ensureCorrelationId(), []);
+  const correlationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!correlationIdRef.current) {
+      correlationIdRef.current = CorrelationManager.getCorrelationId() ?? CorrelationManager.newCorrelation();
+    }
+  }, []);
+
+  const correlationId = correlationIdRef.current ?? "";
 
   // START_CONTRACT: FN-RESOLVE-REPORT-LABEL
   // purpose: Derive user-facing report label for resume copy.

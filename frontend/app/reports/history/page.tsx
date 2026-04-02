@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
@@ -185,7 +185,7 @@ const formatReportCount = (count: number) => {
   return `${count} разборов`;
 };
 
-export default function HistoryPage() {
+function HistoryPageContent() {
   const searchParams = useSearchParams();
   const checkoutToken = searchParams.get("checkout");
   const mockEnabled = searchParams.get("mock") === "1";
@@ -663,5 +663,13 @@ export default function HistoryPage() {
         </section>
       )}
     </ConsumerPageShell>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<ConsumerPageShell testId="history-page"><ConsumerPanel className="p-5 text-sm text-slate-500">Загрузка истории...</ConsumerPanel></ConsumerPageShell>}>
+      <HistoryPageContent />
+    </Suspense>
   );
 }

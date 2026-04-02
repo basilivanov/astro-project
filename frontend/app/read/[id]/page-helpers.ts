@@ -276,7 +276,7 @@ export const extractReadContinuityFacts = (payload: unknown): ReadContinuityFact
 const isWholeSignEdgeScenario = (facts: ReadContinuityFacts) => facts.scenarioLabel === "whole-sign-edge";
 
 export const buildReadContinuitySummary = (facts: ReadContinuityFacts) => {
-  if (facts.birthTimeKnown !== true) {
+  if (facts.birthTimeKnown !== true && !isWholeSignEdgeScenario(facts)) {
     return null;
   }
 

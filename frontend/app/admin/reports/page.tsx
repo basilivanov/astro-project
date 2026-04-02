@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { FileText, Calendar, User, Eye, RefreshCw } from "lucide-react";
 import { RegenerateReportButton } from "../../../components/admin/RegenerateReportButton";
@@ -44,7 +44,7 @@ const getStatusBadge = (status: string) => {
     }
 }
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const { initData, isReady } = useTelegram();
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
@@ -218,5 +218,13 @@ export default function ReportsPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Загрузка...</div>}>
+      <ReportsPageContent />
+    </Suspense>
   );
 }
