@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 
 import GeoAutocomplete from "../../../components/GeoAutocomplete";
-import { LoadingState } from "../../../components/ui-states";
+import { EmptyState, ErrorState, LoadingState } from "../../../components/ui-states";
+import { ConsumerPageShell, ConsumerPanel } from "../../../components/consumer-page-shell";
 import {
   setCatalogAnalyticsContext,
   startCatalogCorrelation,
@@ -70,7 +71,8 @@ const EMPTY_PROFILE_FORM: EditableProfile = {
 // helpers:
 //   - EMPTY_PROFILE_FORM
 // owned_tests:
-//   - frontend/e2e/core-ux.spec.ts
+//   - frontend/e2e/profile-edit.spec.ts
+//   - frontend/e2e/profile.referral.spec.ts
 // adjacent_modules:
 //   - frontend/app/profile/page.tsx
 //   - frontend/components/catalog/catalog-analytics.ts
@@ -79,10 +81,14 @@ const EMPTY_PROFILE_FORM: EditableProfile = {
 
 export default function ProfileEditPage() {
   const { user, initData, isReady, mode } = useTelegram();
+  const isMockHelperLane = mode === "mock";
+  const isCanonicalTelegramLane = mode === "telegram" && Boolean(user) && Boolean(initData);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<EditableProfile | null>(null);
   const [form, setForm] = useState<EditableProfile>(EMPTY_PROFILE_FORM);
+  const [pageState, setPageState] = useState<"loading" | "ready" | "auth_required" | "error">("loading");
+  const [pageError, setPageError] = useState<string | null>(null);
   const correlationIdRef = useRef<string | null>(null);
 
   if (!correlationIdRef.current) {
@@ -102,6 +108,8 @@ export default function ProfileEditPage() {
 
   const logProfileEditError = (action: string, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
+    setPageError(message);
+    setPageState("error");
     void trackCatalogEvent(
       "catalog.profile_edit_error",
       {
@@ -134,13 +142,22 @@ export default function ProfileEditPage() {
       "catalog.profile_edit_view",
       {
         surface: "profile_edit",
-        action: mode === "mock" ? "view_mock" : "view_live",
+        action: isMockHelperLane ? "view_helper_mock" : isCanonicalTelegramLane ? "view_live" : "view_auth_gate",
         block: "profile_edit_data_flow",
       },
       { correlationId: ensureCorrelationId() },
     );
 
+    if (!isCanonicalTelegramLane && !isMockHelperLane) {
+      setProfile(null);
+      setPageError(null);
+      setPageState("auth_required");
+      return;
+    }
+
     if (user && initData) {
+      setPageState("loading");
+      setPageError(null);
       fetchWithCorrelation("/api/users/me", { headers: { "X-Telegram-Auth": initData } })
         .then((res) => res.json())
         .then((data: EditableProfile) => {
@@ -156,6 +173,7 @@ export default function ProfileEditPage() {
             birth_timezone: data.birth_timezone || "",
             sun_sign: data.sun_sign || "",
           });
+          setPageState("ready");
           void trackCatalogEvent(
             "catalog.profile_edit_loaded",
             {
@@ -172,10 +190,10 @@ export default function ProfileEditPage() {
         });
     }
     // END_BLOCK: PROFILE_EDIT_DATA_FLOW
-  }, [user, initData, isReady, mode]);
+  }, [user, initData, isCanonicalTelegramLane, isMockHelperLane, isReady]);
 
   const handleSave = async () => {
-    if (!user || !initData) {
+    if ((!isCanonicalTelegramLane && !isMockHelperLane) || !user || !initData) {
       return;
     }
 
@@ -237,6 +255,36 @@ export default function ProfileEditPage() {
     }
     // END_BLOCK: PROFILE_SAVE_FLOW
   };
+
+  if (pageState === "loading" || !isReady) {
+    return <LoadingState />;
+  }
+
+  if (pageState === "auth_required") {
+    return (
+      <ConsumerPageShell testId="profile-edit-page">
+        <ConsumerPanel className="p-5">
+          <EmptyState
+            compact
+            title="Настройки доступны после входа через Telegram"
+            message="Для редактирования профиля нужен подписанный Telegram WebApp initData. Guest и без-Telegram режимы здесь не считаются канонической auth lane."
+            actionLabel="Открыть вход"
+            actionHref="/start"
+          />
+        </ConsumerPanel>
+      </ConsumerPageShell>
+    );
+  }
+
+  if (pageState === "error") {
+    return (
+      <ConsumerPageShell testId="profile-edit-page">
+        <ConsumerPanel className="p-5">
+          <ErrorState compact error={pageError ?? "Не удалось загрузить настройки профиля"} />
+        </ConsumerPanel>
+      </ConsumerPageShell>
+    );
+  }
 
   if (!profile) {
     return <LoadingState />;

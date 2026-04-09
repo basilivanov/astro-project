@@ -3,7 +3,7 @@ defaults:
   log_dir: logs/gracectl
   frontend_container: astro-project-frontend_dev-1
   backend_container: astro-project-backend-1
-  repo_root: /opt/astro-project
+  repo_root: .
 
 slices:
   M-NATAL-SUMMARY-LAYER:
@@ -51,7 +51,7 @@ slices:
       frontend:
         - FRONTEND_HEALTH_CONTAINER=astro-project-frontend-1 E2E_BASE_URL=http://astro-project-frontend-1:3000 ./scripts/run_e2e.sh e2e/core-ux.spec.ts
       replay:
-        - python3 tools/feed_logs/replay_last.py /var/log/astro/feed.jsonl
+        - python3 tools/feed_logs/replay_last.py logs/feed.jsonl
     evidence:
       - docs/personalized_daily_feed_v2.md
       - frontend/test-results/
@@ -74,7 +74,7 @@ slices:
       frontend:
         - FRONTEND_HEALTH_CONTAINER=astro-project-frontend-1 E2E_BASE_URL=http://astro-project-frontend-1:3000 ./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/admin.entitlements.spec.ts
       replay:
-        - python3 tools/admin_logs/replay_last.py /var/log/astro/admin.jsonl 200
+        - python3 tools/admin_logs/replay_last.py logs/admin.jsonl 200
     evidence:
       - docs/rollout_notes/admin-entitlements-gate3-2026-03-20.md
       - frontend/test-results/
@@ -109,7 +109,7 @@ slices:
         - ./scripts/run_e2e.sh e2e/synastry-bridge-storefront.spec.ts
         - E2E_ENABLE_ONE_OFF_RUNTIME=1 ./scripts/run_e2e.sh e2e/billing-mock.spec.ts -g "should bridge natal one-off mock checkout through billing complete to read"
       replay:
-        - PYTHONPATH=/opt/astro-project python3 tools/log_watch/forecast_catalog_watch.py --catalog-log /opt/astro-project/logs/catalog.jsonl --window-minutes 30
+        - PYTHONPATH=. python3 tools/log_watch/forecast_catalog_watch.py --catalog-log logs/catalog.jsonl --window-minutes 30
     evidence:
       - docs/GRACE_SLICE_FORECAST_LADDER.md
       - docs/BILLING_CATALOG_ALIGNMENT_2026-03-19.md
@@ -119,19 +119,19 @@ watch:
   flows:
     - id: FLOW-FEED-ADMIN
       label: "Feed & Admin"
-      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/feed_admin_watch.py
+      script: PYTHONPATH=. python3 tools/log_watch/feed_admin_watch.py
       args:
-        --feed-log: /var/log/astro/feed.jsonl
-        --admin-log: /var/log/astro/admin.jsonl
+        --feed-log: logs/feed.jsonl
+        --admin-log: logs/admin.jsonl
         --window-minutes: 30
       slices:
         - FEED-PERSONALIZED-DAILY
         - ADMIN-ENTITLEMENTS-FLOW
     - id: FLOW-SCHEDULER
       label: "Scheduler & Notifications"
-      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/scheduler_watch.py
+      script: PYTHONPATH=. python3 tools/log_watch/scheduler_watch.py
       args:
-        --scheduler-log: /var/log/astro/scheduler.jsonl
+        --scheduler-log: logs/scheduler.jsonl
         --window-minutes: 60
         --job: FLOW-DAILY-FEED
         --job: FLOW-NOTIFY
@@ -143,18 +143,18 @@ watch:
         - ADMIN-ENTITLEMENTS-FLOW
     - id: FLOW-FORECAST-CATALOG
       label: "Forecast Catalog"
-      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/forecast_catalog_watch.py
+      script: PYTHONPATH=. python3 tools/log_watch/forecast_catalog_watch.py
       args:
-        --catalog-log: /opt/astro-project/logs/catalog.jsonl
+        --catalog-log: logs/catalog.jsonl
         --window-minutes: 30
       json_output: true
       slices:
         - FORECAST-LADDER-CATALOG-FLIP
     - id: FLOW-BILLING
       label: "Billing & Credits"
-      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py
+      script: PYTHONPATH=. python3 tools/log_watch/billing_watch.py
       args:
-        --billing-log: /var/log/astro/billing.jsonl
+        --billing-log: logs/billing.jsonl
         --window-minutes: 20
         --json: true
       json_output: true

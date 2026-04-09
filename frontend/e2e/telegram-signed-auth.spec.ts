@@ -5,10 +5,85 @@ import {
   bootstrapSignedTelegram,
   expectNoCrash,
   expectNoRouteHygieneIssues,
+  mockCommonApis,
 } from "./utils";
+import { buildCanonicalTodayPersonaPack } from "./fixtures/canonical-personas";
+
+const canonicalTodayPersona = buildCanonicalTodayPersonaPack("CF-BE-001-baseline-exact-time");
 
 test.describe("telegram signed auth lane", () => {
   test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
+  test("loads Today authenticated content via signed auth without mock mode", async ({ page }) => {
+    const hygiene = attachConsoleAndPageErrors(page);
+    const runtime = await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454545,
+        first_name: "Signed",
+        last_name: "Today",
+        username: "signed_today",
+        language_code: "ru",
+      },
+    });
+
+    await mockCommonApis(page);
+
+    const profileHeaders: string[] = [];
+    const feedHeaders: string[] = [];
+
+    await page.route("**/api/users/me", async (route) => {
+      profileHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...canonicalTodayPersona.profile,
+          full_name: "Signed Today",
+          telegram_id: 45454545,
+        }),
+      });
+    });
+
+    await page.route("**/api/feed/today", async (route) => {
+      feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(canonicalTodayPersona.feed),
+      });
+    });
+
+    await page.goto("/");
+    await expectNoCrash(page);
+
+    expect(new URL(page.url()).searchParams.get("mock")).toBeNull();
+    await expect(page.getByTestId("home-feed-page")).toBeVisible();
+    await expect(page.getByTestId("consumer-page-shell-content")).toHaveAttribute("data-block", "SHELL_CONTENT");
+    await expect(page.getByTestId("today-verdict")).toBeVisible();
+    await expect(page.getByTestId("today-day-mode")).toBeVisible();
+    await expect(page.getByTestId("today-score-energy")).toBeVisible();
+    await expect(page.getByTestId("today-score-money")).toBeVisible();
+    await expect(page.getByTestId("today-score-love")).toBeVisible();
+    await expect(page.getByTestId("today-score-focus")).toBeVisible();
+    await expect(page.getByTestId("today-windows")).toBeVisible();
+    await expect(page.getByTestId("today-actions")).toBeVisible();
+    await expect(page.getByTestId("today-risks")).toBeVisible();
+    await expect(page.getByTestId("today-explainability")).toBeVisible();
+    await expect(page.getByTestId("today-cta-panel")).toBeVisible();
+    await expect(page.getByTestId("today-cta-week")).toBeVisible();
+    await expect(page.getByTestId("today-cta-premium")).toBeVisible();
+    await expect(page.getByTestId("today-score-energy")).toContainText("Энергия");
+    await expect(page.getByTestId("today-score-money")).toContainText("Деньги");
+    await expect(page.getByTestId("today-score-love")).toContainText("Отношения");
+    await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
+    await expect(page.getByTestId("today-verdict")).toContainText("Держите главный вектор узким и точным.");
+
+    await expect.poll(() => profileHeaders[0]).toBe(runtime.initData);
+    await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
+
+    await expectNoRouteHygieneIssues("/", hygiene);
+    hygiene.dispose();
+  });
+
   test("loads profile via real signed X-Telegram-Auth header", async ({ page }) => {
     const hygiene = attachConsoleAndPageErrors(page);
     const runtime = await bootstrapSignedTelegram(page, {

@@ -48,6 +48,9 @@ docker exec astro-project-backend-1 python3 scripts/pipeline.py
 
 Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
 
+This is the canonical authenticated acceptance lane.
+It must cover signed Telegram WebApp initData for Today, Week, Profile, and onboarding/profile without mock runtime.
+
 ```bash
 ./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts
 ```
@@ -55,6 +58,8 @@ Use when a change touches authenticated consumer behavior, Telegram runtime dete
 ### `frontend:guest-lane`
 
 Use when a change touches landing/start/public entry semantics.
+
+`e2e/core-ux.spec.ts` is guest/public-only proof and must not be treated as authenticated consumer acceptance.
 
 ```bash
 ./scripts/run_e2e.sh e2e/core-ux.spec.ts
@@ -65,6 +70,7 @@ Use when a change touches landing/start/public entry semantics.
 Use only for deterministic fixture regressions and fallback harness checks.
 
 This profile does not prove production-authenticated behavior.
+Keep fallback/mock suites separate from signed-auth acceptance.
 
 ### `full-regression`
 
@@ -130,6 +136,7 @@ These are the stable cross-slice surfaces that global docs should describe.
 ### Auth and webapp entry surface
 
 - Telegram signed-auth remains a durable entry lane through WebApp init data and bot-assisted identity/profile routing
+- mock Telegram remains a non-production helper lane and must not be counted as canonical authenticated proof for Today/Week/Profile
 - keep global docs aligned with `knowledge-graph.xml` whenever auth entry scopes expand beyond the existing webapp/bot lane
 
 ## Current global anchors

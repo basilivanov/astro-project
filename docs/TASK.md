@@ -1,5 +1,5 @@
 
-- 2026-04-09: Task Auth/Week lane divergence — tightened MVP auth/test lane policy across docs: signed Telegram initData is the canonical authenticated path; mock lane remains test-only; guest lane remains public-entry-only. Verification target: docs-only packet, no runtime code changed.
+- 2026-04-09: Task Auth/Week lane divergence — closed runtime/test split for consumer auth lanes: `frontend/hooks/useTelegram.ts`, `frontend/app/page.tsx`, `frontend/app/week/page.tsx`, `frontend/app/profile/page.tsx`, `frontend/app/profile/edit/page.tsx`, `frontend/e2e/core-ux.spec.ts`, and `frontend/e2e/telegram-signed-auth.spec.ts` now enforce signed Telegram as canonical authenticated proof, keep guest/public shell separate, and leave mock as non-production helper lane only. Verification target: `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts && ./scripts/run_e2e.sh e2e/core-ux.spec.ts && ./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts e2e/week-fallback.regression.spec.ts`.
 
 - 2026-03-27: Task F2 — migrated `/week` top layer to `WeekBrief` map (`frontend/app/week/page.tsx`, `frontend/components/week/*`, `frontend/lib/week-brief.ts`), preserved deep markdown/resume banner, refreshed `frontend/e2e/week-home-refresh.regression.spec.ts`, verification target: `./scripts/run_e2e.sh e2e/week-home-refresh.regression.spec.ts`.
 

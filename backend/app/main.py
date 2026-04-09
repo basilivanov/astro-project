@@ -4393,6 +4393,7 @@ def create_b2c_report(
     log_checkout_start(user=user, report_type=payload.report_type)
 
     error_log_context: dict[str, Any] = {}
+    semantic_checkout_block_logged = False
 
     try:
         access_decision = resolve_report_access(user, payload.report_type, db)
@@ -4400,6 +4401,7 @@ def create_b2c_report(
         log_checkout_decision(user=user, report_type=payload.report_type, decision=access_decision)
         if not access_decision.allowed:
             log_checkout_denied(user=user, report_type=payload.report_type, decision=access_decision)
+            semantic_checkout_block_logged = True
             raise HTTPException(
                 status_code=402,
                 detail="Access unavailable. Please check your subscription or payment status."
@@ -4407,6 +4409,13 @@ def create_b2c_report(
 
         if not user.birth_date or not user.birth_place:
             error_log_context["error_phase"] = "profile_validation"
+            log_checkout_denied(
+                user=user,
+                report_type=payload.report_type,
+                decision=access_decision,
+                reason="profile_incomplete",
+            )
+            semantic_checkout_block_logged = True
             raise HTTPException(
                 status_code=400,
                 detail="Profile incomplete. Please set birth data in Profile."
@@ -4475,6 +4484,15 @@ def create_b2c_report(
                     "error_detail": str(exc),
                 }
             )
+            log_checkout_denied(
+                user=user,
+                report_type=payload.report_type,
+                decision=access_decision,
+                reason="access_consume_conflict",
+                report_id=str(report.id),
+                error_detail=str(exc),
+            )
+            semantic_checkout_block_logged = True
             raise HTTPException(
                 status_code=409,
                 detail=f"Access could not be consumed: {exc}",
@@ -4518,16 +4536,28 @@ def create_b2c_report(
         }
     except HTTPException as exc:
         db.rollback()
-        log_checkout_error(
-            user=user,
-            report=error_log_context.get("report"),
-            report_type=payload.report_type,
-            decision=error_log_context.get("decision"),
-            status_code=exc.status_code,
-            error=str(exc.detail or exc),
-            error_phase=error_log_context.get("error_phase"),
-            error_detail=error_log_context.get("error_detail"),
-        )
+        if exc.status_code >= 500:
+            log_checkout_error(
+                user=user,
+                report=error_log_context.get("report"),
+                report_type=payload.report_type,
+                decision=error_log_context.get("decision"),
+                status_code=exc.status_code,
+                error=str(exc.detail or exc),
+                error_phase=error_log_context.get("error_phase"),
+                error_detail=error_log_context.get("error_detail"),
+            )
+        elif not semantic_checkout_block_logged:
+            log_checkout_denied(
+                user=user,
+                report_type=payload.report_type,
+                decision=error_log_context.get("decision"),
+                reason=f"http_{exc.status_code}",
+                status_code=exc.status_code,
+                error=str(exc.detail or exc),
+                error_phase=error_log_context.get("error_phase"),
+                error_detail=error_log_context.get("error_detail"),
+            )
         raise
     except Exception as exc:
         db.rollback()

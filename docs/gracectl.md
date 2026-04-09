@@ -369,9 +369,9 @@ watch:
   flows:
     - id: FLOW-BILLING
       label: "Billing & Credits"
-      script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py
+      script: PYTHONPATH=. python3 tools/log_watch/billing_watch.py
       args:
-        --billing-log: /var/log/astro/billing.jsonl
+        --billing-log: logs/billing.jsonl
         --window-minutes: 20
         --json: true
       json_output: true

@@ -30,7 +30,7 @@ def _parse_defaults(data: Dict[str, Any], base: Path) -> Defaults:
     log_dir = _path(data.get("log_dir", "logs/gracectl"), base)
     frontend_container = data.get("frontend_container", "astro-project-frontend_dev-1")
     backend_container = data.get("backend_container", "astro-project-backend-1")
-    repo_root = Path(data.get("repo_root", base))
+    repo_root = _path(data.get("repo_root", "."), base)
     return Defaults(
         report_path=report_path,
         log_dir=log_dir,

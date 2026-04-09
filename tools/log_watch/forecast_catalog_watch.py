@@ -39,10 +39,7 @@ SUCCESS_EVENTS: set[str] = {
 
 ERROR_EVENTS: set[str] = {
     "catalog.error",
-    "catalog.checkout_denied",
 }
-
-CHECKOUT_STATUS_FAILURES: set[str] = {"failed", "canceled"}
 
 
 def _success_predicate(record: dict[str, Any]) -> bool:
@@ -54,12 +51,7 @@ def _is_error_event(record: dict[str, Any]) -> bool:
     event = record.get("event")
     if not isinstance(event, str):
         return False
-    if event in ERROR_EVENTS:
-        return True
-    if event == "catalog.checkout_status":
-        status = record.get("status")
-        return isinstance(status, str) and status in CHECKOUT_STATUS_FAILURES
-    return False
+    return event in ERROR_EVENTS
 
 
 def _record_surface(record: dict[str, Any]) -> str | None:
@@ -205,7 +197,9 @@ def _analyze_flow(config: FlowConfig, now: datetime, window: timedelta, limit: i
             status.last_error_surface = _record_surface(record)
             status.last_error_context = _error_context(record)
 
-    if status.last_error_at is not None:
+    if status.last_error_at is not None and (
+        status.last_success_at is None or status.last_error_at > status.last_success_at
+    ):
         status.alerts.append(
             f"{config.flow_id}: last error {status.last_error_event} at {status.last_error_at.isoformat()} "
             f"(surface={status.last_error_surface or 'n/a'}) details: {_summarize_context(status.last_error_context)}"

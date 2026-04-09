@@ -60,8 +60,8 @@ def test_analyze_flow_captures_success_and_error_details():
 
         assert status.last_success_event == "catalog.checkout_resume_ready"
         assert status.success_context["checkout_session_id"] == "sess-1"
-        assert status.last_error_event == "catalog.checkout_status"
-        assert any("last error" in alert for alert in status.alerts)
+        assert status.last_error_event is None
+        assert not any("last error" in alert for alert in status.alerts)
         assert not any("no success" in alert for alert in status.alerts)
 
 
@@ -94,6 +94,44 @@ def test_analyze_flow_alerts_when_no_success_events():
 
         assert status.last_success_event is None
         assert any("no success events" in alert for alert in status.alerts)
+
+
+def test_analyze_flow_clears_hard_error_when_later_success_exists():
+    now = datetime(2026, 3, 21, 12, 0, tzinfo=timezone.utc)
+    window = timedelta(minutes=30)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_path = Path(tmpdir) / "catalog.jsonl"
+        _write_jsonl(
+            log_path,
+            [
+                {
+                    "event": "catalog.error",
+                    "timestamp": "2026-03-21T11:40:00+00:00",
+                    "surface": "checkout",
+                    "error": "provider timeout",
+                },
+                {
+                    "event": "catalog.history_success",
+                    "timestamp": "2026-03-21T11:45:00+00:00",
+                    "user_id": "user-2",
+                    "report_id": "rep-2",
+                    "surface": "report_detail",
+                },
+            ],
+        )
+
+        config = FlowConfig(
+            flow_id="FLOW-FORECAST-CATALOG",
+            label="CATALOG",
+            log_path=log_path,
+            allowed_events=CATALOG_ALLOWED_EVENTS,
+            success_predicate=_success_predicate,
+        )
+        status = _analyze_flow(config, now, window, 200)
+
+        assert status.last_error_event == "catalog.error"
+        assert status.last_success_event == "catalog.history_success"
+        assert not any("last error" in alert for alert in status.alerts)
 
 
 def test_cli_outputs_summary_and_exit_code():

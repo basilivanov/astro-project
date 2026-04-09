@@ -55,8 +55,16 @@ CATALOG_EVENTS = {
     "catalog.checkout_status",
     "catalog.error",
 }
+REPORT_EVENTS = {
+    "report.failure_packet",
+    "week_brief_built",
+    "week_brief_fallback_triggered",
+    "week_brief_validation_failed",
+    "week_brief.response_returned",
+}
 
 BILLING_PREFIXES = ("billing.", "catalog.checkout_", "catalog.bridge_resume_")
+REPORT_PREFIXES = ("report.workflow.",)
 SCHEDULER_PREFIXES = ("scheduler.", "daily.", "notification.", "notify.")
 DIAGNOSTIC_PREFIXES = ("diagnostic.", "llm.cli.")
 
@@ -64,6 +72,7 @@ JSONL_ROUTES: tuple[tuple[str, set[str] | None, Sequence[str] | None], ...] = (
     ("feed.jsonl", FEED_EVENTS, None),
     ("admin.jsonl", ADMIN_EVENTS, None),
     ("catalog.jsonl", CATALOG_EVENTS, None),
+    ("report.jsonl", REPORT_EVENTS, REPORT_PREFIXES),
     ("billing.jsonl", None, BILLING_PREFIXES),
     ("scheduler.jsonl", None, SCHEDULER_PREFIXES),
     ("diagnostic.jsonl", None, DIAGNOSTIC_PREFIXES),

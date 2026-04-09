@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "../../components/ui-states";
 import { trackCatalogEvent } from "../../components/catalog/catalog-analytics";
@@ -245,18 +245,18 @@ export default function StartPage() {
   const { user, initData, isReady, mode, correlationId, flowId } = useTelegram();
   const router = useRouter();
   const [status, setStatus] = useState<StartStatus>("init");
+  const [effectiveCorrelationId, setEffectiveCorrelationId] = useState<string>("");
 
   const activeFlowId = flowId || FLOW_HOME_FEED;
-  const effectiveCorrelationId = useMemo(() => {
-    if (correlationId) {
-      CorrelationManager.setCorrelationId(correlationId, { flowId: activeFlowId, reason: "start.page" });
-      return correlationId;
-    }
-    return CorrelationManager.ensureCorrelationId();
+
+  useEffect(() => {
+    const nextCorrelationId = correlationId || CorrelationManager.ensureCorrelationId();
+    CorrelationManager.setCorrelationId(nextCorrelationId, { flowId: activeFlowId, reason: "start.page" });
+    setEffectiveCorrelationId(nextCorrelationId);
   }, [correlationId, activeFlowId]);
 
   useEffect(() => {
-    if (!isReady) {
+    if (!isReady || !effectiveCorrelationId) {
       return;
     }
 

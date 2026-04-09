@@ -161,17 +161,17 @@ def _classify_status(*, has_records: bool, degradation_count: int, expected_reas
     return "unexpected-degradation"
 
 
-def _canonical_feed_logs(feed_log: Path) -> list[Path]:
-    paths = [feed_log]
-    fallback_log = Path("/tmp/astro-project/logs/feed.jsonl")
-    if feed_log == ACTIVE_LOG_DIR / "feed.jsonl" and fallback_log != feed_log:
+def _canonical_log_paths(active_log: Path, filename: str) -> list[Path]:
+    paths = [active_log]
+    fallback_log = Path("/tmp/astro-project/logs") / filename
+    if active_log == ACTIVE_LOG_DIR / filename and fallback_log != active_log:
         paths.append(fallback_log)
     return paths
 
 
 def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> FlowDigest:
     records = []
-    for path in _canonical_feed_logs(feed_log):
+    for path in _canonical_log_paths(feed_log, "feed.jsonl"):
         records.extend(_recent_records(path, allowed_events=TODAY_EVENTS, limit=limit, since_delta=since_delta))
     records = sorted(records, key=lambda record: extract_timestamp(record) or datetime.min.replace(tzinfo=timezone.utc))[-limit:]
     counters = Counter()
@@ -253,7 +253,10 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
 
 
 def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> FlowDigest:
-    records = _recent_records(report_log, allowed_events=REPORT_EVENTS, limit=limit, since_delta=since_delta)
+    records = []
+    for path in _canonical_log_paths(report_log, "report.jsonl"):
+        records.extend(_recent_records(path, allowed_events=REPORT_EVENTS, limit=limit, since_delta=since_delta))
+    records = sorted(records, key=lambda record: extract_timestamp(record) or datetime.min.replace(tzinfo=timezone.utc))[-limit:]
     counters = Counter()
     reason_codes: Counter[str] = Counter()
     alerts: list[str] = []

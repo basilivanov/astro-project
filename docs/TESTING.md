@@ -21,6 +21,7 @@ Use this document first. It keeps the durable rules short, points to the canonic
 - Record an explicit observability verdict: `clean`, `degraded-but-expected`, `unexpected-degradation`, or `no-evidence-blocker`.
 - If a build, route, or page crashes, first add or update a reproducing test, then fix, then rerun until pass.
 - Full regression is not required after every small change, but the chosen profile must match the task scope.
+- Host-side observability helpers are expected to read canonical repo sinks under `logs/*.jsonl`; in dev Docker, keep backend UID/GID aligned with the host user so the container writes there instead of falling back to `/tmp/astro-project/logs`.
 
 ## Canonical profiles
 
@@ -42,6 +43,9 @@ The canonical profile definitions live in `docs/REGRESSION_MAP.md`.
 
 Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
 
+This is the only canonical authenticated proof lane for MVP consumer routes.
+The suite must prove signed Telegram WebApp initData on `Today`, `Week`, `Profile`, and onboarding/profile flows without mock runtime.
+
 ```bash
 ./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts
 ```
@@ -49,6 +53,8 @@ Use when a change touches authenticated consumer behavior, Telegram runtime dete
 ### `frontend:guest-lane`
 
 Use when a change touches landing/start/public entry semantics.
+
+`e2e/core-ux.spec.ts` is guest/public shell proof only. It is not an authenticated consumer proof file.
 
 ```bash
 ./scripts/run_e2e.sh e2e/core-ux.spec.ts
@@ -59,6 +65,7 @@ Use when a change touches landing/start/public entry semantics.
 Use only for deterministic fixture regressions and fallback harness checks.
 
 This profile does not prove production-authenticated behavior.
+Preferred examples: `e2e/week-page-fallback.spec.ts`, `e2e/week-fallback.regression.spec.ts`.
 
 ## Where details live
 

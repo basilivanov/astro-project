@@ -236,7 +236,9 @@ git push origin master
 ## Auth runtime lanes
 
 - Production consumer auth lane: signed Telegram WebApp initData only.
+- Implemented runtime rule: `Today`, `Week`, `Profile`, and `Profile Edit` accept signed Telegram as the canonical authenticated lane; `?mock=1` is not a normal production consumer path there.
 - Mock Telegram lane: local development and deterministic Playwright harness only.
+- Implemented runtime rule: mock helper lane is enabled only in non-production/local helper contexts and must not be counted as MVP authenticated acceptance proof.
 - Guest/no-Telegram lane: public entry only, without premium authenticated guarantees.
 - Dev/test bypasses in backend are non-production helpers and must not redefine the MVP product contract.
 

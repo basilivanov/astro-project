@@ -154,6 +154,8 @@ function WeekPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { initData, isReady, mode } = useTelegram();
+  const isMockHelperLane = mode === "mock";
+  const isCanonicalTelegramLane = mode === "telegram" && Boolean(initData);
   const correlationIdRef = useRef<string>("");
   const viewTrackedRef = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -173,7 +175,7 @@ function WeekPageContent() {
     return correlationIdRef.current;
   }, []);
 
-  const mockRuntime = searchParams?.get("mock") === "1";
+  const mockRuntime = isMockHelperLane && searchParams?.get("mock") === "1";
   const runtimeParam = searchParams?.get("runtime") === "1";
   const checkoutToken = searchParams?.get("checkout") ?? undefined;
 
@@ -202,7 +204,15 @@ function WeekPageContent() {
   // FN-CONTRACT: FN-WEEK-FETCH-LATEST-REPORT
   // purpose: Resolve the latest relevant week report eligible for page hydration.
   const fetchLatestReport = useCallback(async () => {
-    if (mode === "guest" || mode === "none" || !initData) return null;
+    if (mockRuntime) {
+      return {
+        id: "mock-week-report",
+        report_type: "week_forecast",
+        status: "completed",
+      } satisfies WeekReportSummary;
+    }
+
+    if ((!isCanonicalTelegramLane && !isMockHelperLane) || !initData) return null;
     const response = await correlatedFetch("/api/reports/my?limit=20", { headers: { "X-Telegram-Auth": initData } });
     if (!response.ok) throw new Error(`REPORT_LOOKUP_${response.status}`);
     const data = (await response.json()) as WeekReportSummary[];
@@ -212,7 +222,7 @@ function WeekPageContent() {
           .sort((left, right) => parseReportCreatedAt(right.created_at) - parseReportCreatedAt(left.created_at))[0] ?? null
       : null;
     return latest ?? null;
-  }, [initData, mode]);
+  }, [initData, isCanonicalTelegramLane, isMockHelperLane, mockRuntime]);
 
   // FN-CONTRACT: FN-WEEK-FETCH-PAYLOAD
   // purpose: Fetch or mock the detailed week payload for a resolved report summary.
@@ -245,7 +255,7 @@ function WeekPageContent() {
   // purpose: Bootstrap week analytics context, fetch latest report metadata, and hydrate payload state.
   const initPage = useCallback(async () => {
     if (!isReady) return;
-    if (mode === "guest" || mode === "none" || !initData) {
+    if (!isCanonicalTelegramLane && !isMockHelperLane) {
       setLoading(false);
       return;
     }
@@ -269,7 +279,7 @@ function WeekPageContent() {
       setLoading(false);
     }
     // END_BLOCK: WEEK_INIT_FLOW
-  }, [ensureCorrelationId, fetchLatestReport, fetchWeekPayload, initData, isReady, logWeekError, mode]);
+  }, [ensureCorrelationId, fetchLatestReport, fetchWeekPayload, isCanonicalTelegramLane, isMockHelperLane, isReady, logWeekError]);
 
   useEffect(() => {
     void initPage();
@@ -345,7 +355,7 @@ function WeekPageContent() {
     );
   }
 
-  if (mode === "guest" || mode === "none" || !initData) {
+  if (!isCanonicalTelegramLane && !isMockHelperLane) {
     return (
       <ConsumerPageShell testId="week-page">
         <ConsumerPanel className="p-5">

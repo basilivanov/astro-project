@@ -180,7 +180,9 @@ export default function FeedPage() {
   const router = useRouter();
   const { isReady, user, initData, mode } = useTelegram();
   const correlationId = useMemo(() => ensureHomeCorrelation(), []);
-  const shouldShowLanding = mode === "guest" || mode === "none" || !user;
+  const isMockHelperLane = mode === "mock";
+  const isCanonicalTelegramLane = mode === "telegram" && Boolean(user) && Boolean(initData);
+  const shouldShowLanding = !isMockHelperLane && !isCanonicalTelegramLane;
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileViewModel | null>(null);
   const [today, setToday] = useState<TodayViewModel | null>(null);
@@ -199,7 +201,7 @@ export default function FeedPage() {
   }, [correlationId]);
 
   const loadFeedPage = useCallback(async () => {
-    if (!user || !initData) {
+    if (!isCanonicalTelegramLane || !user || !initData) {
       return;
     }
     setLoading(true);
@@ -271,7 +273,7 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  }, [emitHomeEvent, initData, user]);
+  }, [emitHomeEvent, initData, isCanonicalTelegramLane, user]);
 
   useEffect(() => {
     if (!isReady) {
@@ -290,7 +292,7 @@ export default function FeedPage() {
       { correlationId, flowId: HOME_FLOW_ID, block: "FEED_BOOTSTRAP" },
     );
 
-    if (mode === "mock") {
+    if (isMockHelperLane) {
       const mockWindow = window as MockWindow;
       const nextProfile = normalizeMockProfile(mockWindow.MOCK_PROFILE_OVERRIDE);
       const { nextToday, nextFeedState, nextError } = resolveMockToday(mockWindow.MOCK_FEED_STATE, mockWindow.MOCK_FEED_OVERRIDE, nextProfile);
@@ -312,18 +314,13 @@ export default function FeedPage() {
       return;
     }
 
-    if (mode === "telegram" && user && initData) {
+    if (isCanonicalTelegramLane && user && initData) {
       void loadFeedPage();
       return;
     }
 
-    if (mode === "guest" || mode === "none" || !user || !initData) {
-      setLoading(false);
-      return;
-    }
-
-    void loadFeedPage();
-  }, [correlationId, initData, isReady, loadFeedPage, mode, user]);
+    setLoading(false);
+  }, [correlationId, initData, isCanonicalTelegramLane, isMockHelperLane, isReady, loadFeedPage, mode, user]);
 
   const handleHomeCta = useCallback((ctaId: string, href: string, entryPoint: string, block: string) => {
     void trackHomeEvent(

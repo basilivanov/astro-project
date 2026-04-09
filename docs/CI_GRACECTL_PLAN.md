@@ -141,8 +141,8 @@ PASS/FAIL.
 
 | Purpose | Suggested cadence | Command | Notes |
 | --- | --- | --- | --- |
-| Feed + Admin health | `*/15 * * * *` | `cd /opt/astro-project && GRACECTL_REPORT_PATH=test-results/grace-report.json gracectl watch run FEED-PERSONALIZED-DAILY --json >> /var/log/astro/feed_admin_watch.log 2>&1` | Covers both FEED-PERSONALIZED-DAILY and ADMIN-ENTITLEMENTS-FLOW because the watcher tails both logs; configure alerting on non-zero exit. |
-| Catalog/storefront health | `*/15 * * * *` | `cd /opt/astro-project && gracectl watch run FORECAST-LADDER-CATALOG-FLIP --json >> /opt/astro-project/logs/forecast-catalog-watch.log 2>&1` | Mirrors existing `forecast_catalog_watch` instructions and ensures cron writes to repo logs for triage. |
+| Feed + Admin health | `*/15 * * * *` | `cd /opt/astro-project && GRACECTL_REPORT_PATH=test-results/grace-report.json gracectl watch run FEED-PERSONALIZED-DAILY --json >> logs/feed_admin_watch.log 2>&1` | Covers both FEED-PERSONALIZED-DAILY and ADMIN-ENTITLEMENTS-FLOW because the watcher tails both logs; configure alerting on non-zero exit. |
+| Catalog/storefront health | `*/15 * * * *` | `cd /opt/astro-project && gracectl watch run FORECAST-LADDER-CATALOG-FLIP --json >> logs/forecast-catalog-watch.log 2>&1` | Mirrors existing `forecast_catalog_watch` instructions and ensures cron writes to repo logs for triage. |
 | Daily demo sweep | `0 3 * * *` | `cd /opt/astro-project && gracectl demo run FEED-PERSONALIZED-DAILY --backend --frontend --replay --json` (repeat per slice or call a wrapper script) | Provides an early-morning confirmation that env, verification, and log replay still pass before business hours. |
 | Benchmark rerun (Natal) | `0 4 * * 1,4` | `cd /opt/astro-project && gracectl slice replay M-NATAL-SUMMARY-LAYER --json` | Replaces manual `scripts/live_quality_benchmark.py` invocations; upload benchmark logs on completion. |
 

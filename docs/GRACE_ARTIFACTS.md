@@ -421,12 +421,12 @@ This is intended for reproducing the latest admin queue/detail/fallback/entitlem
 ```bash
 PYTHONPATH=/opt/astro-project \
 python3 tools/log_watch/feed_admin_watch.py \
-  --feed-log /var/log/astro/feed.jsonl \
-  --admin-log /var/log/astro/admin.jsonl \
+  --feed-log logs/feed.jsonl \
+  --admin-log logs/admin.jsonl \
   --window-minutes 30
 ```
 
-- Cron (every 15 minutes): add to host/user crontab — `*/15 * * * * cd /opt/astro-project && PYTHONPATH=/opt/astro-project python3 tools/log_watch/feed_admin_watch.py --feed-log /var/log/astro/feed.jsonl --admin-log /var/log/astro/admin.jsonl >> /var/log/astro/feed_admin_watch.log 2>&1`. Cron failure (exit 1) surfaces via standard monitoring hooks; log tails can be shipped to Slack or PagerDuty by wrapping this command.
+- Cron (every 15 minutes): add to host/user crontab — `*/15 * * * * cd /opt/astro-project && PYTHONPATH=. python3 tools/log_watch/feed_admin_watch.py --feed-log logs/feed.jsonl --admin-log logs/admin.jsonl >> logs/feed_admin_watch.log 2>&1`. Cron failure (exit 1) surfaces via standard monitoring hooks; log tails can be shipped to Slack or PagerDuty by wrapping this command.
   subgraph S4["Slice: FORECAST-LADDER-CATALOG-FLIP"]
     SF4["FLOW-FORECAST-CATALOG"]:::slice
     C1F["docs/GRACE_SLICE_FORECAST_LADDER.md"]:::slice

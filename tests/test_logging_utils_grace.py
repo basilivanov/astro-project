@@ -1,3 +1,6 @@
+import json
+
+from backend.app import logging_utils
 from backend.app.logging_utils import (
     build_grace_log_payload,
     correlation_scope,
@@ -94,6 +97,21 @@ def test_build_grace_log_payload_accepts_request_id():
     )
 
     assert payload['request_id'] == 'req-789'
+
+
+def test_feed_admin_sink_routes_week_and_report_workflow_events_to_report_jsonl(tmp_path, monkeypatch):
+    monkeypatch.setattr(logging_utils, "LOG_DIR", tmp_path)
+
+    logging_utils.feed_admin_sink(None, "", {"event": "week_brief_built", "trace_id": "trace-week"})
+    logging_utils.feed_admin_sink(None, "", {"event": "report.workflow.run_start", "trace_id": "trace-report"})
+
+    report_log = tmp_path / "report.jsonl"
+    rows = [json.loads(line) for line in report_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    assert [row["event"] for row in rows] == ["week_brief_built", "report.workflow.run_start"]
+    assert rows[0]["trace_id"] == "trace-week"
+    assert rows[1]["trace_id"] == "trace-report"
+    assert not (tmp_path / "catalog.jsonl").exists()
 
 
 from backend.app.logging_utils import bind_correlation_ids

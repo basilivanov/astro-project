@@ -210,8 +210,8 @@ watch:
       label: Personalized feed
       script: python3 tools/log_watch/feed_admin_watch.py
       args:
-        --feed-log: /var/log/astro/feed.jsonl
-        --admin-log: /var/log/astro/admin.jsonl
+        --feed-log: logs/feed.jsonl
+        --admin-log: logs/admin.jsonl
         --window-minutes: 30
       surfaces: [feed.debug, feed.error]
       stale_after: 15m
@@ -473,16 +473,16 @@ schemas backward compatible with `test-results/grace-report.json` entries.
   ```yaml
   - id: FLOW-BILLING
     label: Billing & Credits
-    script: PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py
+    script: PYTHONPATH=. python3 tools/log_watch/billing_watch.py
     args:
-      --billing-log: /var/log/astro/billing.jsonl
+      --billing-log: logs/billing.jsonl
       --window-minutes: 20
     json_output: true
     stale_after: 30m
   ```
-- CLI example: `PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py --billing-log logs/billing.jsonl --window-minutes 20 --json` (exit 0-4 per severity). Add this flow to `gracectl watch tui FORECAST-LADDER-CATALOG-FLIP --flows FLOW-BILLING` to visualize billing freshness.
+- CLI example: `PYTHONPATH=. python3 tools/log_watch/billing_watch.py --billing-log logs/billing.jsonl --window-minutes 20 --json` (exit 0-4 per severity). Add this flow to `gracectl watch tui FORECAST-LADDER-CATALOG-FLIP --flows FLOW-BILLING` to visualize billing freshness.
 - The watcher JSON payload now includes a `block` field (set to `FLOW-BILLING`) so future TUIs can map alerts back to the configured row automatically.
 - Cron snippet (place into `scripts/cron/watchers.cron` or systemd timer):
   ```cron
-  */10 * * * * cd /opt/astro-project && PYTHONPATH=/opt/astro-project python3 tools/log_watch/billing_watch.py --billing-log /var/log/astro/billing.jsonl --window-minutes 20 --json >> /var/log/astro/billing_watch.jsonl 2>&1
+  */10 * * * * cd /opt/astro-project && PYTHONPATH=. python3 tools/log_watch/billing_watch.py --billing-log logs/billing.jsonl --window-minutes 20 --json >> logs/billing_watch.jsonl 2>&1
   ```

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { User as UserIcon, Settings, Clock, ShieldQuestion, ChevronRight, Copy, Check, Gift } from "lucide-react";
 import Link from "next/link";
 
-import { LoadingState } from "../../components/ui-states";
+import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states";
+import { ConsumerPageShell, ConsumerPanel } from "../../components/consumer-page-shell";
 import {
   setCatalogAnalyticsContext,
   startCatalogCorrelation,
@@ -72,7 +73,8 @@ const AUDIENCE_STORAGE_KEY = "profile_audience_mode";
 //   - buildMockProfile
 //   - MenuLink
 // owned_tests:
-//   - frontend/e2e/core-ux.spec.ts
+//   - frontend/e2e/telegram-signed-auth.spec.ts
+//   - frontend/e2e/profile.referral.spec.ts
 // adjacent_modules:
 //   - frontend/app/profile/edit/page.tsx
 //   - frontend/components/catalog/catalog-analytics.ts
@@ -81,7 +83,11 @@ const AUDIENCE_STORAGE_KEY = "profile_audience_mode";
 
 export default function ProfilePage() {
   const { user, initData, mode, isReady } = useTelegram();
+  const isMockHelperLane = mode === "mock";
+  const isCanonicalTelegramLane = mode === "telegram" && Boolean(user) && Boolean(initData);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [pageState, setPageState] = useState<"loading" | "ready" | "auth_required" | "error">("loading");
+  const [pageError, setPageError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [audienceMode, setAudienceMode] = useState<AudienceMode>("client");
   const correlationIdRef = useRef<string | null>(null);
@@ -103,6 +109,8 @@ export default function ProfilePage() {
 
   const logProfileError = (action: string, error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
+    setPageError(message);
+    setPageState("error");
     void trackCatalogEvent(
       "catalog.profile_error",
       {
@@ -135,22 +143,34 @@ export default function ProfilePage() {
       "catalog.profile_view",
       {
         surface: "profile",
-        action: mode === "mock" ? "view_mock" : "view_live",
+        action: isMockHelperLane ? "view_helper_mock" : isCanonicalTelegramLane ? "view_live" : "view_auth_gate",
         block: "profile_data_flow",
       },
       { correlationId: ensureCorrelationId() },
     );
 
-    if (mode === "mock") {
-      setProfile(buildMockProfile());
+    if (!isCanonicalTelegramLane && !isMockHelperLane) {
+      setProfile(null);
+      setPageError(null);
+      setPageState("auth_required");
       return;
     }
 
-    if (user && initData) {
+    if (isMockHelperLane) {
+      setProfile(buildMockProfile());
+      setPageError(null);
+      setPageState("ready");
+      return;
+    }
+
+    if (isCanonicalTelegramLane && user && initData) {
+      setPageState("loading");
+      setPageError(null);
       fetchWithCorrelation("/api/users/me", { headers: { "X-Telegram-Auth": initData } })
         .then((res) => res.json())
         .then((data: ProfileData) => {
           setProfile(data);
+          setPageState("ready");
           void trackCatalogEvent(
             "catalog.profile_loaded",
             {
@@ -167,7 +187,7 @@ export default function ProfilePage() {
         });
     }
     // END_BLOCK: PROFILE_DATA_FLOW
-  }, [user, initData, mode, isReady]);
+  }, [user, initData, isCanonicalTelegramLane, isMockHelperLane, isReady]);
 
   const isVasilyProfile = useMemo(() => {
     const telegramId = profile?.telegram_id ?? user?.id ?? null;
@@ -234,7 +254,37 @@ export default function ProfilePage() {
     // END_BLOCK: REFERRAL_CTA
   };
 
-  if (!isReady || !profile) {
+  if (!isReady || pageState === "loading") {
+    return <LoadingState />;
+  }
+
+  if (pageState === "auth_required") {
+    return (
+      <ConsumerPageShell testId="profile-page">
+        <ConsumerPanel className="p-5">
+          <EmptyState
+            compact
+            title="Профиль доступен после входа через Telegram"
+            message="Для этого экрана нужен подписанный Telegram WebApp initData. Guest и без-Telegram режимы сюда не считаются канонической auth lane."
+            actionLabel="Открыть вход"
+            actionHref="/start"
+          />
+        </ConsumerPanel>
+      </ConsumerPageShell>
+    );
+  }
+
+  if (pageState === "error") {
+    return (
+      <ConsumerPageShell testId="profile-page">
+        <ConsumerPanel className="p-5">
+          <ErrorState compact error={pageError ?? "Не удалось загрузить профиль"} />
+        </ConsumerPanel>
+      </ConsumerPageShell>
+    );
+  }
+
+  if (!profile) {
     return <LoadingState />;
   }
 

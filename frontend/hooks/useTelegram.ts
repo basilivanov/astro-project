@@ -50,6 +50,26 @@ const MOCK_USER: TelegramUser = {
   photo_url: "",
 };
 
+function isLocalMockHost(hostname: string) {
+  return hostname === "localhost"
+    || hostname === "127.0.0.1"
+    || hostname === "0.0.0.0"
+    || hostname.endsWith(".local");
+}
+
+function mockHelperLaneEnabled() {
+  const runtimeEnvironment = (process.env.NEXT_PUBLIC_ENVIRONMENT || process.env.NODE_ENV || "").toLowerCase();
+  if (runtimeEnvironment && runtimeEnvironment !== "production") {
+    return true;
+  }
+
+  if (typeof window !== "undefined" && isLocalMockHost(window.location.hostname)) {
+    return true;
+  }
+
+  return false;
+}
+
 // START_MODULE_CONTRACT: M-USE-TELEGRAM
 // purpose: Normalize Telegram WebApp runtime into a stable client hook contract.
 // owns:
@@ -62,7 +82,8 @@ const MOCK_USER: TelegramUser = {
 //   - browser window, sessionStorage, Telegram WebApp runtime
 // invariants:
 //   - hook always resolves `isReady` after client bootstrap attempt
-//   - mock and guest modes remain explicit and stable for consumers
+//   - signed Telegram WebApp initData is the canonical authenticated runtime
+//   - mock and guest modes remain explicit helper/public lanes for non-production consumers
 // non_goals:
 //   - analytics dispatch or API fetching
 // END_MODULE_CONTRACT: M-USE-TELEGRAM
@@ -105,12 +126,21 @@ export function useTelegram(): UseTelegramResult {
       setFlowId(flowSeed);
       const runtimeOverride = (window as typeof window & { __TEST_TELEGRAM_RUNTIME__?: TelegramRuntimeOverride }).__TEST_TELEGRAM_RUNTIME__;
       const telegramRuntime = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+      const helperLaneEnabled = mockHelperLaneEnabled();
       const hasMockSession = window.sessionStorage.getItem("mock_telegram_user") === "1";
       const mockParam = params.get("mock");
       const hasMockQuery = mockParam === "1";
       const hasMockInitData = telegramRuntime?.initData === MOCK_INIT_DATA;
       const forceDisableMock = mockParam === "0";
-      const isMock = forceDisableMock ? false : hasMockQuery || hasMockSession || hasMockInitData;
+      const hasCanonicalRuntimeOverride = Boolean(runtimeOverride?.initData && runtimeOverride.initData !== MOCK_INIT_DATA);
+      const hasCanonicalTelegramRuntime = Boolean(telegramRuntime?.initData && telegramRuntime.initData !== MOCK_INIT_DATA);
+      const allowExplicitMockLane = !forceDisableMock && helperLaneEnabled && hasMockQuery;
+      const allowImplicitMockLane =
+        !forceDisableMock
+        && helperLaneEnabled
+        && !hasCanonicalRuntimeOverride
+        && !hasCanonicalTelegramRuntime
+        && (hasMockSession || hasMockInitData);
       const isGuest = params.get("guest") === "1";
       // END_BLOCK: RUNTIME_DETECTION
 
@@ -120,7 +150,7 @@ export function useTelegram(): UseTelegramResult {
         return;
       }
 
-      if (isMock) {
+      if (allowExplicitMockLane || allowImplicitMockLane) {
         window.sessionStorage.setItem("mock_telegram_user", "1");
         const overrideData = (window as typeof window & { MOCK_INIT_DATA_OVERRIDE?: string }).MOCK_INIT_DATA_OVERRIDE;
         const overrideUser = (window as typeof window & { MOCK_USER_OVERRIDE?: TelegramUser }).MOCK_USER_OVERRIDE;
@@ -131,12 +161,14 @@ export function useTelegram(): UseTelegramResult {
         return;
       }
 
-      if (runtimeOverride?.initData) {
+      window.sessionStorage.removeItem("mock_telegram_user");
+
+      if (hasCanonicalRuntimeOverride && runtimeOverride?.initData) {
         setWebApp(telegramRuntime || null);
         setInitData(runtimeOverride.initData);
         setUser(runtimeOverride.user || null);
         setMode("telegram");
-      } else if (telegramRuntime && telegramRuntime.initData) {
+      } else if (hasCanonicalTelegramRuntime && telegramRuntime?.initData) {
         telegramRuntime.ready?.();
         setWebApp(telegramRuntime);
         setInitData(telegramRuntime.initData);
