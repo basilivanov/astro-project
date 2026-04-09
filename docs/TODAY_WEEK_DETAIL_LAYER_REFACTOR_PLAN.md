@@ -3,6 +3,12 @@
 ## Goal
 Bring `Today` and `Week` to one reusable, premium-looking detail-layer model without a blind rewrite. The refactor should preserve current surface behavior, reduce contract asymmetry, and allow staged rollout with minimal regression risk.
 
+## 2026-04-10 Status
+- Shared frontend detail contract is now implemented in `frontend/lib/detail-layer.ts` and reused by `Today` plus `Week` domain/action/risk disclosures.
+- `Today` canonical happy-path is now limited to `day_brief_v1`; legacy payloads are rendered as explicit compatibility fallback instead of premium reconstruction.
+- `Week` now has split mappers in `frontend/lib/week-brief.ts`: canonical `week_brief` and compatibility `week_map/chunks` are no longer merged in one happy-path adapter.
+- `Week` day strip is intentionally compact-only; item-level depth stays in domain/action/risk/day-grid disclosures and deep sections.
+
 ## Current State Summary
 
 ### Today

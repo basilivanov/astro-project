@@ -146,6 +146,7 @@ describe('day-brief helpers', () => {
 
     expect(result).not.toBeNull();
     expect(result?.state).toBe('fallback');
+    expect(result?.usesCanonicalDayBrief).toBe(true);
     expect(result?.premiumActiveUntil).toBe('2026-05-01');
     expect(result?.brief.summary).toEqual(expect.objectContaining({
       headline: 'Точный день',
@@ -225,6 +226,7 @@ describe('day-brief helpers', () => {
     expect(result).not.toBeNull();
     expect(result?.state).toBe('fallback');
     expect(result?.brief.fallback_mode).toBe(true);
+    expect(result?.usesCanonicalDayBrief).toBe(false);
     expect(result?.brief.summary.headline).toContain('Legacy fallback headline');
     expect(result?.brief.scores[1]).toEqual(expect.objectContaining({ key: 'money', status: 'yellow', value: 57 }));
   });
@@ -455,6 +457,7 @@ describe('day-brief helpers', () => {
 
     expect(result).not.toBeNull();
     expect(result?.state).toBe('ready');
+    expect(result?.usesCanonicalDayBrief).toBe(true);
     expect(result?.premiumActiveUntil).toBeNull();
     expect(result?.brief.context).toEqual(expect.objectContaining({
       moon_sign: null,

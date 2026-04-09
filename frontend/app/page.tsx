@@ -393,6 +393,26 @@ export default function FeedPage() {
     );
   }
 
+  if (!today.usesCanonicalDayBrief) {
+    return (
+      <FeedLayout state="fallback" profile={profile} dateLabel={today.brief.date} today={today}>
+        <ConsumerPanel className="p-5" data-testid="today-degraded-state">
+          <EmptyState
+            compact
+            title="Сводка дня в совместимом режиме"
+            message="Канонический day_brief_v1 для этого дня недоступен, поэтому не показываем premium-карточки, собранные из legacy feed."
+            actionLabel="Открыть неделю"
+            actionHref="/week"
+            actionTestId="today-degraded-cta"
+          />
+          <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-degraded-note">
+            Сейчас доступен только совместимый fallback-слой. Для канонического Today нужен payload `day_brief_v1`.
+          </p>
+        </ConsumerPanel>
+      </FeedLayout>
+    );
+  }
+
   return (
     <FeedLayout state={feedState} profile={profile} dateLabel={today.brief.date} today={today}>
       <div className="space-y-4">

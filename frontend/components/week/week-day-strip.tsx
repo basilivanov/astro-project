@@ -17,14 +17,12 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Ритм недели</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">Дни как краткий обзор</h2>
         </div>
-        <p className="text-xs text-slate-500">Окно и фокус — в одной строке</p>
+        <p className="text-xs text-slate-500">Окно и фокус — без лишней глубины</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" data-testid="week-day-strip">
         {week.dayStrip.map((card, index) => {
           const cardKey = card.date ?? `${index}`;
           const primaryHint = card.best_for?.[0] ?? card.avoid?.[0] ?? null;
-          const detailHint = card.details?.why_text ?? null;
-          const detailFactors = Array.isArray(card.details?.supporting_factors) ? card.details.supporting_factors.filter((factor) => factor?.label || factor?.explanation_human) : [];
           return (
             <article
               key={cardKey}
@@ -45,12 +43,6 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
                     {card.peak_window_label ? `Окно ${card.peak_window_label}` : null}
                     {card.peak_window_label && primaryHint ? " · " : null}
                     {primaryHint ? `Фокус ${primaryHint}` : null}
-                  </p>
-                ) : null}
-                {detailHint ? <p className="mt-2 text-[11px] leading-relaxed opacity-80 line-clamp-3">{detailHint}</p> : null}
-                {detailFactors.length ? (
-                  <p className="mt-2 text-[11px] font-medium opacity-80">
-                    {detailFactors.slice(0, 2).map((factor) => factor.label || factor.explanation_human).filter(Boolean).join(' · ')}
                   </p>
                 ) : null}
               </button>

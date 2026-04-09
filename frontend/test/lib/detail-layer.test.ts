@@ -1,4 +1,4 @@
-import { normalizeTodayDetailItems, normalizeWeekDetailItems, sanitizeDetailLayer } from '../../lib/detail-layer';
+import { dedupeSemanticTexts, findDetailLayer, normalizeTodayDetailItems, normalizeWeekDetailItems, sanitizeDetailLayer } from '../../lib/detail-layer';
 import type { DayBriefDto } from '../../lib/day-brief';
 import type { WeekBrief } from '../../lib/week-brief';
 
@@ -57,6 +57,18 @@ describe('detail-layer normalization', () => {
     expect(items[2]).toEqual(expect.objectContaining({ id: 'wr-1', body: 'Перегрузка быстро проявится', source: 'week_risk' }));
     expect(items[3]).toEqual(expect.objectContaining({ id: 'wf-1', title: 'Юпитер', body: 'Расширяет окно возможностей', impact: 'medium', source: 'week_factor' }));
     expect(items[3].factors[0]).toEqual(expect.objectContaining({ source: 'week_major_factor', label: 'Юпитер' }));
+  });
+
+  it('dedupes semantic copy and resolves shared detail items by source plus key', () => {
+    expect(dedupeSemanticTexts(['  Фокус  ', 'фокус', 'Ритм'])).toEqual(['Фокус', 'Ритм']);
+
+    const items = normalizeWeekDetailItems({
+      domains: [{ key: 'work', title: 'Работа', why_text: 'Нужен приоритет', supporting_factors: [{ label: 'Солнце', explanation_human: 'Собирает внимание' }] }],
+      best_uses: [{ id: 'wa-1', text: 'Сфокусироваться на одном спринте', factor_id: 'factor-1', why_text: 'Один шаг даёт больше результата.' }],
+    });
+
+    expect(findDetailLayer(items, { source: 'week_domain', relatedKey: 'work' })).toEqual(expect.objectContaining({ id: 'work', source: 'week_domain' }));
+    expect(findDetailLayer(items, { source: 'week_action', id: 'wa-1', relatedKey: 'factor-1' })).toEqual(expect.objectContaining({ id: 'wa-1', source: 'week_action' }));
   });
 
   it('drops raw semantic keys, raw status chips, and duplicate factor rows', () => {

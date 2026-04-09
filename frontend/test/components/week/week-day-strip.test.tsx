@@ -4,6 +4,7 @@ import { WeekDayStrip } from '../../../components/week/week-day-strip';
 import { type WeekSurfaceModel } from '../../../lib/week-brief';
 
 const week: WeekSurfaceModel = {
+  surfaceMode: 'canonical',
   headline: 'Неделя фокуса',
   subhead: 'Краткий ритм',
   theme: 'Тест',
@@ -16,6 +17,7 @@ const week: WeekSurfaceModel = {
   personalizationLevel: 'full',
   fallbackMode: false,
   reportId: 'rep-1',
+  usesCanonicalWeekBrief: true,
   dayCards: [],
   dayStrip: [
     {
@@ -38,6 +40,7 @@ const week: WeekSurfaceModel = {
   actions: [],
   risks: [],
   factors: [],
+  detailLayers: [],
   deepSections: [],
   explainabilitySummary: 'Высокая опора.',
   explainabilityDetailItems: [],
@@ -57,13 +60,11 @@ describe('WeekDayStrip', () => {
     render(<WeekDayStrip week={week} onDayClick={onDayClick} />);
 
     const card = screen.getByTestId('week-day-strip-card-1');
-    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Окно и фокус — в одной строке');
+    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Окно и фокус — без лишней глубины');
     expect(card).toHaveTextContent('СР, 1 апр');
     expect(card).toHaveTextContent('88/100');
     expect(card).toHaveTextContent('Фокус на главном');
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
-    expect(card).toHaveTextContent('День лучше держать через один ритм.');
-    expect(card).toHaveTextContent('Солнце');
     expect(card).not.toHaveTextContent('Детали дня');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);

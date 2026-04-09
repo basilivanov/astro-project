@@ -5,6 +5,7 @@ import { WeekExplainabilityPanel } from '../../components/week/week-explainabili
 import type { WeekSurfaceModel } from '../../lib/week-brief';
 
 const makeWeek = (): WeekSurfaceModel => ({
+  surfaceMode: 'canonical',
   headline: 'Неделя держит фокус',
   subhead: 'Делайте меньше, но точнее',
   theme: 'Фокус и ритм',
@@ -17,6 +18,7 @@ const makeWeek = (): WeekSurfaceModel => ({
   personalizationLevel: 'personal',
   fallbackMode: false,
   reportId: 'week-1',
+  usesCanonicalWeekBrief: true,
   dayCards: [],
   domains: [],
   actions: [],
@@ -33,6 +35,7 @@ const makeWeek = (): WeekSurfaceModel => ({
       weight: 0.42,
     },
   ],
+  detailLayers: [],
   deepSections: [],
   explainabilitySummary: 'Высокая опора на текущие данные. Учтено точное время рождения. Главный слой влияния: личная натальная опора и текущие транзиты.',
   explainabilityDetailItems: [

@@ -23,7 +23,7 @@
 //   - formatWeekDateRange
 //   - confidenceBucket
 // helpers:
-//   - repairWeekBriefDeepSections
+//   - legacyWeekMapToCompatibilityBrief
 //   - normalizeStatus
 //   - normalizeLegacyScore
 //   - normalizeLegacyWeekday
@@ -36,6 +36,7 @@
 // END_MODULE_MAP: M-WEEK-BRIEF-ADAPTER
 
 import { extractReportFallbackText } from "../components/blocks/report-renderer";
+import { dedupeSemanticTexts, normalizeWeekDetailItems, type DetailLayer } from "./detail-layer";
 
 export type WeekBriefStatus = "ready" | "in_progress" | "pending" | "error";
 export type WeekType = "push" | "balance" | "caution" | "deep_work" | "recovery" | "transition";
@@ -203,6 +204,7 @@ export type LegacyWeekMapPayload = {
 };
 
 export type WeekSurfaceModel = {
+  surfaceMode: "canonical" | "compatibility";
   headline: string;
   subhead: string;
   theme: string;
@@ -222,6 +224,7 @@ export type WeekSurfaceModel = {
   actions: ActionRiskItem[];
   risks: ActionRiskItem[];
   factors: NonNullable<WeekBrief["major_factors"]>;
+  detailLayers: DetailLayer[];
   deepSections: NonNullable<WeekBrief["deep_sections"]>;
   explainabilitySummary: string;
   explainabilityDetailItems: {
@@ -265,7 +268,7 @@ const LEGACY_STATUS_BY_SCORE = (value: number): LightStatus => {
 };
 
 const normalizeList = (value: string[] | null | undefined): string[] =>
-  Array.isArray(value) ? value.map((item) => item?.trim()).filter(Boolean) as string[] : [];
+  Array.isArray(value) ? dedupeSemanticTexts(value) : [];
 
 const compactDateLabel = (dateValue?: string | null, weekdayValue?: string | null) => {
   const normalizedWeekday = normalizeLegacyWeekday(weekdayValue);
@@ -323,25 +326,13 @@ const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallba
       }))
       .filter((item) => item.tag !== "all_week");
   }
-  return normalizeList(fallback).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
+  return dedupeSemanticTexts(fallback ?? []).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
 };
 
-// FN-CONTRACT: FN-WEEK-MAP-REPORT-TO-BRIEF
-// purpose: Merge modern week brief and legacy week map payloads into one render-ready surface model.
-export function mapWeekReportToWeekBrief(input: {
-  weekBrief?: WeekBrief | null;
-  legacyWeekMap?: LegacyWeekMapPayload | null;
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
-  latestReportId?: string | null;
-  sourceStatus?: string | null;
-}): WeekSurfaceModel {
-  // START_BLOCK: WEEK_BRIEF_SURFACE_MAPPING
-  const brief = input.weekBrief;
-  const legacy = input.legacyWeekMap;
-  const chunks = Array.isArray(input.chunks) ? input.chunks : [];
-  const hasCanonicalWeekBrief = Boolean(brief);
-
-  const chunkSections = chunks
+function normalizeChunkSections(
+  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null,
+): NonNullable<WeekBrief["deep_sections"]> {
+  return (Array.isArray(chunks) ? chunks : [])
     .filter((chunk) => typeof chunk?.content !== "undefined")
     .map((chunk, index) => ({
       id: chunk.id ?? `chunk-${index + 1}`,
@@ -352,74 +343,128 @@ export function mapWeekReportToWeekBrief(input: {
       is_primary: index === 0,
       order: index,
     }));
+}
 
-  const deepSections = brief?.deep_sections?.length
-    ? repairWeekBriefDeepSections(brief.deep_sections, chunkSections)
-    : chunkSections;
-
-  const dayCards = brief?.day_cards?.length
-    ? brief.day_cards
-    : (legacy?.day_cards ?? []).map((item, index) => ({
-        id: item.date ? `week-day-${item.date}` : `week-day-${index + 1}`,
-        date: item.date ?? null,
-        weekday: normalizeLegacyWeekday(item.weekday),
-        mode: normalizeStatus(item.mode),
-        score: normalizeLegacyScore(item.score),
-        headline: item.headline ?? null,
-        lead: item.headline ?? null,
-        practical: normalizeList(item.best_for).slice(0, 2),
-        supporting_factors: [],
-        details: {
-          why_text: null,
-          why_title: null,
-          supporting_factors: [],
-        },
-        factor_ids: [],
-        best_for: normalizeList(item.best_for),
-        avoid: normalizeList(item.avoid),
-        peak_window_label: null,
-      }));
-
-  const domains = brief?.domains?.length
-    ? brief.domains
-    : Object.entries(legacy?.domains ?? {}).map(([key, value]) => ({
-        key,
-        title: LEGACY_DOMAIN_TITLES[key] ?? key,
-        status: LEGACY_STATUS_BY_SCORE(Number(value ?? 0)),
-        value: Number(value ?? 0),
-        headline: `${LEGACY_DOMAIN_TITLES[key] ?? key}: ${Number(value ?? 0)}/100`,
-        advice: null,
-        why_text: null,
-        supporting_factors: [],
-      }));
-
-  const actions = normalizeActionItems(brief?.best_uses, legacy?.actions, "action");
-  const risks = normalizeActionItems(brief?.risks, legacy?.risks, "risk");
-  const factors = brief?.major_factors ?? (legacy?.major_factors ?? []).map((item, index) => ({
-    id: `factor-${index + 1}`,
-    label: item.label ?? `Фактор ${index + 1}`,
-    impact: item.impact_pct && item.impact_pct >= 35 ? "high" : item.impact_pct && item.impact_pct >= 18 ? "medium" : "low",
-    category: item.category ?? null,
-    explanation_human: item.explanation ?? null,
-    explanation_astro: null,
-    source_models: null,
-    weight: typeof item.impact_pct === "number" ? Math.max(0, Math.min(1, item.impact_pct / 100)) : null,
-  }));
+function legacyWeekMapToCompatibilityBrief(
+  legacyWeekMap?: LegacyWeekMapPayload | null,
+  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null,
+): WeekBrief {
+  const legacy = legacyWeekMap ?? null;
+  const chunkSections = normalizeChunkSections(chunks);
 
   return {
-    headline: brief?.summary?.headline?.trim() || legacy?.thesis?.trim() || "Неделя держится на спокойном темпе и точных решениях",
-    subhead: brief?.summary?.subhead?.trim() || legacy?.theme?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
-    theme: brief?.summary?.theme?.trim() || legacy?.theme?.trim() || "Карта недели",
-    weekType: brief?.summary?.week_type ?? "balance",
-    status: brief?.status ?? (input.sourceStatus === "in_progress" ? "in_progress" : input.sourceStatus === "pending" ? "pending" : "ready"),
-    weekStart: brief?.week_start ?? legacy?.week_start ?? null,
-    weekEnd: brief?.week_end ?? null,
-    timezone: legacy?.timezone ?? null,
-    location: legacy?.location ?? null,
-    personalizationLevel: brief?.personalization_level ?? null,
-    fallbackMode: Boolean(brief?.fallback_mode),
-    usesCanonicalWeekBrief: hasCanonicalWeekBrief,
-    reportId: brief?.report_ref?.report_id ?? input.latestReportId ?? null,
+    version: "week_brief_v1",
+    fallback_mode: true,
+    week_start: legacy?.week_start ?? null,
+    summary: {
+      headline: legacy?.thesis?.trim() || "Неделя держится на спокойном темпе и точных решениях",
+      subhead: legacy?.theme?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
+      week_type: "balance",
+      theme: legacy?.theme?.trim() || "Карта недели",
+    },
+    day_cards: (legacy?.day_cards ?? []).map((item, index) => ({
+      id: item.date ? `week-day-${item.date}` : `week-day-${index + 1}`,
+      date: item.date ?? null,
+      weekday: normalizeLegacyWeekday(item.weekday),
+      mode: normalizeStatus(item.mode),
+      score: normalizeLegacyScore(item.score),
+      headline: item.headline ?? null,
+      lead: null,
+      practical: [],
+      supporting_factors: [],
+      details: {
+        why_text: null,
+        why_title: null,
+        supporting_factors: [],
+      },
+      factor_ids: [],
+      best_for: normalizeList(item.best_for),
+      avoid: normalizeList(item.avoid),
+      peak_window_label: null,
+    })),
+    domains: Object.entries(legacy?.domains ?? {}).map(([key, value]) => ({
+      key,
+      title: LEGACY_DOMAIN_TITLES[key] ?? key,
+      status: LEGACY_STATUS_BY_SCORE(Number(value ?? 0)),
+      value: Number(value ?? 0),
+      headline: `${LEGACY_DOMAIN_TITLES[key] ?? key}: ${Number(value ?? 0)}/100`,
+      advice: null,
+      why_text: null,
+      supporting_factors: [],
+    })),
+    best_uses: normalizeActionItems(null, legacy?.actions, "action"),
+    risks: normalizeActionItems(null, legacy?.risks, "risk"),
+    major_factors: (legacy?.major_factors ?? []).map((item, index) => ({
+      id: `factor-${index + 1}`,
+      label: item.label ?? `Фактор ${index + 1}`,
+      impact: item.impact_pct && item.impact_pct >= 35 ? "high" : item.impact_pct && item.impact_pct >= 18 ? "medium" : "low",
+      category: item.category ?? null,
+      explanation_human: item.explanation ?? null,
+      explanation_astro: null,
+      source_models: null,
+      weight: typeof item.impact_pct === "number" ? Math.max(0, Math.min(1, item.impact_pct / 100)) : null,
+    })),
+    deep_sections: chunkSections,
+    explainability: {
+      confidence: legacy?.explainability?.confidence ?? null,
+      birth_time_used: legacy?.explainability?.used_exact_birth_time ?? false,
+      factor_count: null,
+      timing_precision: null,
+      top_signal_source: null,
+      explanation_depth: null,
+    },
+    cta: {
+      primary: null,
+      secondary: null,
+    },
+  };
+}
+
+function buildWeekSurfaceModel(input: {
+  brief: WeekBrief;
+  latestReportId?: string | null;
+  sourceStatus?: string | null;
+  surfaceMode: WeekSurfaceModel["surfaceMode"];
+  usesCanonicalWeekBrief: boolean;
+  timezone?: string | null;
+  location?: string | null;
+  waitMessageFallback?: string | null;
+}): WeekSurfaceModel {
+  const brief = input.brief;
+  const dayCards = brief.day_cards ?? [];
+  const actions = normalizeActionItems(brief.best_uses, null, "action");
+  const risks = normalizeActionItems(brief.risks, null, "risk");
+  const factors = brief.major_factors ?? [];
+  const detailLayers = normalizeWeekDetailItems({
+    ...brief,
+    best_uses: actions,
+    risks,
+    major_factors: factors,
+  });
+  const confidence = brief.explainability?.confidence ?? null;
+  const birthTimeUsed = brief.explainability?.birth_time_used ?? false;
+  const topSignalLabel = humanizeTopSignalSource(brief.explainability?.top_signal_source ?? null);
+  const explainabilitySummaryParts = [
+    humanizeConfidence(confidence),
+    birthTimeUsed ? "Учтено точное время рождения" : "Без точного времени рождения",
+    topSignalLabel ? `Главный слой влияния: ${topSignalLabel}` : null,
+  ].filter(Boolean);
+
+  return {
+    surfaceMode: input.surfaceMode,
+    headline: brief.summary?.headline?.trim() || "Неделя держится на спокойном темпе и точных решениях",
+    subhead: brief.summary?.subhead?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
+    theme: brief.summary?.theme?.trim() || "Карта недели",
+    weekType: brief.summary?.week_type ?? "balance",
+    status: brief.status ?? (input.sourceStatus === "in_progress" ? "in_progress" : input.sourceStatus === "pending" ? "pending" : "ready"),
+    weekStart: brief.week_start ?? null,
+    weekEnd: brief.week_end ?? null,
+    timezone: input.timezone ?? null,
+    location: input.location ?? null,
+    personalizationLevel: brief.personalization_level ?? null,
+    fallbackMode: input.surfaceMode === "compatibility" || Boolean(brief.fallback_mode),
+    usesCanonicalWeekBrief: input.usesCanonicalWeekBrief,
+    reportId: brief.report_ref?.report_id ?? input.latestReportId ?? null,
     dayCards,
     dayStrip: dayCards.map((card) => ({
       id: card.id ?? null,
@@ -431,120 +476,123 @@ export function mapWeekReportToWeekBrief(input: {
       lead: null,
       practical: [],
       supporting_factors: [],
-      details: card.details ?? { why_text: null, why_title: null, supporting_factors: [] },
+      details: { why_text: null, why_title: null, supporting_factors: [] },
       factor_ids: Array.isArray(card.factor_ids) ? card.factor_ids : [],
       best_for: normalizeList(card.best_for).slice(0, 1),
       avoid: normalizeList(card.avoid).slice(0, 1),
       peak_window_label: card.peak_window_label ?? null,
     })),
-    domains,
+    domains: brief.domains ?? [],
     actions,
     risks,
     factors,
-    deepSections,
-    explainabilitySummary: [
-      humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
-      (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
-        ? "Учтено точное время рождения"
-        : "Без точного времени рождения",
-      humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)
-        ? `Главный слой влияния: ${humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)}`
-        : null,
-    ].filter(Boolean).join('. ') + '.',
+    detailLayers,
+    deepSections: brief.deep_sections ?? [],
+    explainabilitySummary: explainabilitySummaryParts.length ? `${explainabilitySummaryParts.join(". ")}.` : "Опора недели собрана в краткий сводный слой.",
     explainabilityDetailItems: [
       {
         id: "week-explainability-confidence",
         title: "Надёжность сигнала",
-        body: humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
-        value: typeof (brief?.explainability?.confidence ?? legacy?.explainability?.confidence) === "number"
-          ? `${Math.round((brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? 0) * 100)}%`
-          : null,
+        body: humanizeConfidence(confidence),
+        value: typeof confidence === "number" ? `${Math.round(confidence * 100)}%` : null,
       },
       {
         id: "week-explainability-birth-time",
         title: "Контекст рождения",
-        body: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
+        body: birthTimeUsed
           ? "Точная карта рождения добавляет больше персональной опоры в недельную интерпретацию."
           : "Интерпретация собрана без точного времени рождения, поэтому часть нюансов остаётся более общей.",
-        value: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
-          ? "Точное время учтено"
-          : "Точное время не указано",
+        value: birthTimeUsed ? "Точное время учтено" : "Точное время не указано",
       },
       {
         id: "week-explainability-top-signal",
         title: "Главный слой влияния",
-        body: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null)
+        body: topSignalLabel
           ? "Именно этот слой сильнее всего формирует краткую weekly summary и рекомендации."
           : "Сигнал распределён между несколькими факторами без одного доминирующего слоя.",
-        value: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null),
+        value: topSignalLabel,
       },
     ].filter((item) => item.body || item.value),
     explainability: {
-      confidence: brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null,
-      birth_time_used: brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false,
-      factor_count: brief?.explainability?.factor_count ?? factors.length,
-      timing_precision: brief?.explainability?.timing_precision ?? null,
-      top_signal_source: brief?.explainability?.top_signal_source ?? null,
-      explanation_depth: brief?.explainability?.explanation_depth ?? null,
+      confidence,
+      birth_time_used: birthTimeUsed,
+      factor_count: brief.explainability?.factor_count ?? factors.length,
+      timing_precision: brief.explainability?.timing_precision ?? null,
+      top_signal_source: brief.explainability?.top_signal_source ?? null,
+      explanation_depth: brief.explainability?.explanation_depth ?? null,
     },
-    confidenceLabel: humanizeConfidence(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
-    confidenceShortLabel: humanizeConfidenceShort(brief?.explainability?.confidence ?? legacy?.explainability?.confidence ?? null),
-    birthTimeLabel: (brief?.explainability?.birth_time_used ?? legacy?.explainability?.used_exact_birth_time ?? false)
-      ? "учтено точное время рождения"
-      : "без точного времени рождения",
-    topSignalLabel: humanizeTopSignalSource(brief?.explainability?.top_signal_source ?? null),
+    confidenceLabel: humanizeConfidence(confidence),
+    confidenceShortLabel: humanizeConfidenceShort(confidence),
+    birthTimeLabel: birthTimeUsed ? "учтено точное время рождения" : "без точного времени рождения",
+    topSignalLabel,
     cta: {
-      primary: brief?.cta?.primary ?? null,
-      secondary: brief?.cta?.secondary ?? null,
+      primary: brief.cta?.primary ?? null,
+      secondary: brief.cta?.secondary ?? null,
     },
-    sectionsCount: deepSections.length,
+    sectionsCount: (brief.deep_sections ?? []).length,
     waitMessage:
-      brief?.status === "in_progress" || brief?.status === "pending" || input.sourceStatus === "in_progress" || input.sourceStatus === "pending"
-        ? legacy?.thesis?.trim() || "Неделя собирается, лог уже в работе"
+      brief.status === "in_progress" || brief.status === "pending" || input.sourceStatus === "in_progress" || input.sourceStatus === "pending"
+        ? input.waitMessageFallback ?? "Неделя собирается, лог уже в работе"
         : null,
   };
-  // END_BLOCK: WEEK_BRIEF_SURFACE_MAPPING
 }
 
-// FN-CONTRACT: FN-WEEK-REPAIR-DEEP-SECTIONS
-// purpose: Repair degraded deep sections by backfilling summaries and markdown from chunk payloads.
-function repairWeekBriefDeepSections(
-  sections: NonNullable<WeekBrief["deep_sections"]>,
-  chunkSections: NonNullable<WeekBrief["deep_sections"]>,
-): NonNullable<WeekBrief["deep_sections"]> {
-  const hasDegradedSection = sections.some((section) => !section.body_markdown?.trim() || !section.summary?.trim());
-  const chunkBySlug = new Map(chunkSections.map((section) => [section.slug ?? section.id ?? "", section]));
-  const repaired = sections.map((section) => {
-    const slug = section.slug ?? section.id ?? "";
-    const chunkMatch = chunkBySlug.get(slug);
-    const hasBody = Boolean(section.body_markdown?.trim());
-    const hasSummary = Boolean(section.summary?.trim());
-
-    if (!chunkMatch || (hasBody && hasSummary)) {
-      return section;
-    }
-
-    return {
-      ...section,
-      summary: hasSummary ? section.summary : chunkMatch.summary,
-      body_markdown: hasBody ? section.body_markdown : chunkMatch.body_markdown,
-    };
+export function mapCanonicalWeekBriefToSurface(input: {
+  weekBrief: WeekBrief;
+  latestReportId?: string | null;
+  sourceStatus?: string | null;
+}): WeekSurfaceModel {
+  return buildWeekSurfaceModel({
+    brief: input.weekBrief,
+    latestReportId: input.latestReportId,
+    sourceStatus: input.sourceStatus,
+    surfaceMode: "canonical",
+    usesCanonicalWeekBrief: true,
   });
+}
 
-  if (!hasDegradedSection) {
-    return repaired;
+export function mapLegacyWeekFallbackToSurface(input: {
+  legacyWeekMap?: LegacyWeekMapPayload | null;
+  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
+  latestReportId?: string | null;
+  sourceStatus?: string | null;
+}): WeekSurfaceModel {
+  const compatibilityBrief = legacyWeekMapToCompatibilityBrief(input.legacyWeekMap, input.chunks);
+  return buildWeekSurfaceModel({
+    brief: compatibilityBrief,
+    latestReportId: input.latestReportId,
+    sourceStatus: input.sourceStatus,
+    surfaceMode: "compatibility",
+    usesCanonicalWeekBrief: false,
+    timezone: input.legacyWeekMap?.timezone ?? null,
+    location: input.legacyWeekMap?.location ?? null,
+    waitMessageFallback: input.legacyWeekMap?.thesis?.trim() || "Неделя собирается, лог уже в работе",
+  });
+}
+
+// FN-CONTRACT: FN-WEEK-MAP-REPORT-TO-BRIEF
+// purpose: Preserve a bounded compatibility wrapper while canonical and degraded week paths stay split.
+export function mapWeekReportToWeekBrief(input: {
+  weekBrief?: WeekBrief | null;
+  legacyWeekMap?: LegacyWeekMapPayload | null;
+  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
+  latestReportId?: string | null;
+  sourceStatus?: string | null;
+}): WeekSurfaceModel {
+  if (input.weekBrief) {
+    return mapCanonicalWeekBriefToSurface({
+      weekBrief: input.weekBrief,
+      latestReportId: input.latestReportId,
+      sourceStatus: input.sourceStatus,
+    });
   }
 
-  const existingSlugs = new Set(repaired.map((section) => section.slug ?? section.id ?? ""));
-  const appended = chunkSections
-    .filter((section) => !existingSlugs.has(section.slug ?? section.id ?? ""))
-    .map((section, index) => ({
-      ...section,
-      is_primary: false,
-      order: repaired.length + index,
-    }));
-
-  return [...repaired, ...appended];
+  return mapLegacyWeekFallbackToSurface({
+    legacyWeekMap: input.legacyWeekMap,
+    chunks: input.chunks,
+    latestReportId: input.latestReportId,
+    sourceStatus: input.sourceStatus,
+  });
 }
 
 function normalizeStatus(value: string | null | undefined): LightStatus {

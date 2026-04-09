@@ -164,6 +164,7 @@ export type TodayViewModel = {
   brief: DayBriefDto;
   premiumActiveUntil: string | null;
   state: "ready" | "fallback";
+  usesCanonicalDayBrief: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object");
@@ -348,6 +349,7 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
       brief: buildLegacyDayBrief(payload, premiumActiveUntil),
       premiumActiveUntil,
       state: "fallback",
+      usesCanonicalDayBrief: false,
     };
   }
 
@@ -422,5 +424,6 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
     brief,
     premiumActiveUntil: brief.premium?.subscription_active_until ?? premiumActiveUntil,
     state: brief.fallback_mode ? "fallback" : "ready",
+    usesCanonicalDayBrief: true,
   };
 }

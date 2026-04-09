@@ -5,6 +5,7 @@ import { WeekDeepSections } from '../../../components/week/week-deep-sections';
 import { type WeekSurfaceModel } from '../../../lib/week-brief';
 
 const baseWeek: WeekSurfaceModel = {
+  surfaceMode: 'canonical',
   headline: 'Неделя собрана',
   subhead: 'Короткая карта',
   weekType: 'balance',
@@ -13,11 +14,13 @@ const baseWeek: WeekSurfaceModel = {
   weekEnd: '2026-04-07',
   status: 'ready',
   fallbackMode: false,
+  usesCanonicalWeekBrief: true,
   dayCards: [],
   domains: [],
   actions: [],
   risks: [],
   factors: [],
+  detailLayers: [],
   deepSections: [],
   explainability: { confidence: 0.7, birth_time_used: true, factor_count: 0, timing_precision: null, top_signal_source: null, explanation_depth: null },
   explainabilityDetailItems: [],
@@ -31,6 +34,7 @@ const baseWeek: WeekSurfaceModel = {
   waitMessage: null,
   location: 'Москва',
   timezone: 'Europe/Moscow',
+  personalizationLevel: null,
 };
 
 describe('WeekDeepSections', () => {

@@ -21,9 +21,12 @@ export type NormalizedDetailItem = {
   timeframe: string | null;
   impact: DetailLayerImpact;
   factors: NormalizedDetailFactor[];
-  source: "today_score" | "today_window" | "today_best_use" | "today_risk" | "week_action" | "week_risk" | "week_domain" | "week_factor";
+  source: "today_score" | "today_window" | "today_best_use" | "today_risk" | "week_day" | "week_action" | "week_risk" | "week_domain" | "week_factor";
   relatedKey: string | null;
 };
+
+export type DetailSupportingFactor = NormalizedDetailFactor;
+export type DetailLayer = NormalizedDetailItem;
 
 const trim = (value: string | null | undefined): string => String(value || "").trim();
 const nullable = (value: string | null | undefined): string | null => {
@@ -32,7 +35,7 @@ const nullable = (value: string | null | undefined): string | null => {
 };
 const impactOf = (value: string | null | undefined): DetailLayerImpact => value === "high" || value === "medium" || value === "low" ? value : null;
 
-function normalizeComparableText(value: string | null | undefined): string {
+export function normalizeComparableText(value: string | null | undefined): string {
   return String(value || "")
     .trim()
     .toLowerCase()
@@ -40,6 +43,21 @@ function normalizeComparableText(value: string | null | undefined): string {
     .replace(/[\s.,!?;:()[\]{}\"'«»—–-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function dedupeSemanticTexts(values: Array<string | null | undefined>): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    const trimmed = trim(value);
+    const normalized = normalizeComparableText(trimmed);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(trimmed);
+  }
+
+  return result;
 }
 
 function isSemanticallyDuplicateText(primary: string | null | undefined, secondary: string | null | undefined): boolean {
@@ -261,7 +279,32 @@ export function normalizeWeekDetailItems(brief: WeekBrief): NormalizedDetailItem
       source: "week_factor" as const,
       relatedKey: normalizedFactor.relatedKey,
     };
-  }).filter((item): item is NormalizedDetailItem => Boolean(item));
+  }).filter(Boolean) as NormalizedDetailItem[];
 
   return [...dayItems, ...domainItems, ...actionItems, ...riskItems, ...factorItems].map((item) => item.source === 'week_factor' ? item : sanitizeDetailLayer(item));
+}
+
+export function findDetailLayer(
+  items: DetailLayer[],
+  options: {
+    source?: DetailLayer["source"] | DetailLayer["source"][];
+    id?: string | null;
+    relatedKey?: string | null;
+  },
+): DetailLayer | null {
+  const sources = Array.isArray(options.source) ? options.source : options.source ? [options.source] : null;
+  const normalizedId = normalizeComparableText(options.id);
+  const normalizedRelatedKey = normalizeComparableText(options.relatedKey);
+
+  for (const item of items) {
+    if (sources && !sources.includes(item.source)) continue;
+    if (normalizedId && normalizeComparableText(item.id) === normalizedId) {
+      return item;
+    }
+    if (normalizedRelatedKey && normalizeComparableText(item.relatedKey) === normalizedRelatedKey) {
+      return item;
+    }
+  }
+
+  return null;
 }

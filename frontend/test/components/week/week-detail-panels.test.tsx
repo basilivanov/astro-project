@@ -7,6 +7,7 @@ import { WeekDomainPanel } from '../../../components/week/week-domain-panel';
 import type { WeekSurfaceModel } from '../../../lib/week-brief';
 
 const baseWeek: WeekSurfaceModel = {
+  surfaceMode: 'canonical',
   headline: 'Неделя',
   subhead: 'Фокус недели',
   theme: 'Тема',
@@ -19,6 +20,7 @@ const baseWeek: WeekSurfaceModel = {
   personalizationLevel: 'personal',
   fallbackMode: false,
   reportId: 'week-1',
+  usesCanonicalWeekBrief: true,
   dayCards: [],
   domains: [
     {
@@ -57,6 +59,38 @@ const baseWeek: WeekSurfaceModel = {
   factors: [
     { id: 'factor-1', label: 'Марс', impact: 'high', category: 'work', explanation_human: 'Драйвит действие', explanation_astro: null, source_models: [], weight: 0.5 },
     { id: 'factor-2', label: 'Нептун', impact: 'medium', category: 'work', explanation_human: 'Нужны границы', explanation_astro: null, source_models: [], weight: 0.2 },
+  ],
+  detailLayers: [
+    {
+      id: 'work',
+      title: 'Работа и деньги',
+      body: 'Неделя лучше работает через один главный фокус.',
+      timeframe: null,
+      impact: null,
+      factors: [{ id: 'work-factor-1', label: 'Солнце', explanationHuman: 'Собирает внимание', explanationAstro: null, value: 'Сильный сигнал', impact: null, source: 'week_supporting_factor', relatedKey: 'work' }],
+      source: 'week_domain',
+      relatedKey: 'work',
+    },
+    {
+      id: 'action-1',
+      title: 'Закрыть один глубокий рабочий цикл',
+      body: 'Импульс лучше удерживается без переключений.',
+      timeframe: 'Начало недели',
+      impact: 'high',
+      factors: [{ id: 'action-1-factor-1', label: 'Марс', explanationHuman: 'Даёт тягу к завершению', explanationAstro: null, value: null, impact: null, source: 'week_supporting_factor', relatedKey: 'factor-1' }],
+      source: 'week_action',
+      relatedKey: 'factor-1',
+    },
+    {
+      id: 'risk-1',
+      title: 'Не обещать больше, чем удержите',
+      body: 'Перегрузка проявится быстро.',
+      timeframe: 'Вся неделя',
+      impact: 'medium',
+      factors: [{ id: 'risk-1-factor-1', label: 'Нептун', explanationHuman: 'Размывает границы', explanationAstro: null, value: null, impact: null, source: 'week_supporting_factor', relatedKey: 'factor-2' }],
+      source: 'week_risk',
+      relatedKey: 'factor-2',
+    },
   ],
   deepSections: [],
   explainability: { confidence: 0.8, birth_time_used: true, factor_count: 2, timing_precision: null, top_signal_source: null, explanation_depth: null },
@@ -102,13 +136,17 @@ describe('Week unified detail panels', () => {
   it('maps astro explanations into domain disclosure factors', () => {
     const week = {
       ...baseWeek,
-      domains: [{
-        ...baseWeek.domains[0],
-        supporting_factors: [{
-          label: 'work:green',
-          explanation_human: null,
-          explanation_astro: 'Солнце в 10 доме — усиливает видимость и рабочий фокус',
+      detailLayers: [{
+        ...baseWeek.detailLayers[0],
+        factors: [{
+          id: 'work-factor-astro',
+          label: 'Солнце в 10 доме',
+          explanationHuman: 'Солнце в 10 доме — усиливает видимость и рабочий фокус',
+          explanationAstro: null,
           value: '74/100',
+          impact: null,
+          source: 'week_supporting_factor',
+          relatedKey: 'work',
         }],
       }],
     };

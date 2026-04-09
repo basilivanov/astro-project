@@ -22,7 +22,13 @@ import { WeekActionsPanel } from "../../components/week/week-actions-panel";
 import { WeekExplainabilityPanel } from "../../components/week/week-explainability-panel";
 import { WeekDeepSections } from "../../components/week/week-deep-sections";
 import ReportStatusPoller from "../../components/report-status-poller";
-import { confidenceBucket, mapWeekReportToWeekBrief, type WeekBrief, type LegacyWeekMapPayload } from "../../lib/week-brief";
+import {
+  confidenceBucket,
+  mapCanonicalWeekBriefToSurface,
+  mapLegacyWeekFallbackToSurface,
+  type WeekBrief,
+  type LegacyWeekMapPayload,
+} from "../../lib/week-brief";
 
 type WeekReportSummary = {
   id?: string;
@@ -90,7 +96,7 @@ function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): 
 // invariants:
 //   - week telemetry uses flow_id=FLOW_FORECAST_CATALOG with surface=week
 //   - page state transitions stay inside explicit semantic blocks
-//   - payload shaping is delegated to `mapWeekReportToWeekBrief`
+//   - payload shaping is delegated to canonical/degraded week mappers
 // failure_policy:
 //   - report lookup and payload fetch failures degrade to recoverable error or empty states without crashing the shell
 // non_goals:
@@ -287,14 +293,27 @@ function WeekPageContent() {
 
   // START_BLOCK: WEEK_SURFACE_MODEL
   const week = useMemo(() => {
-    return mapWeekReportToWeekBrief({
-      weekBrief: payload?.week_brief_envelope?.data ?? payload?.week_brief ?? null,
+    const canonicalWeekBrief = payload?.week_brief_envelope?.data ?? payload?.week_brief ?? null;
+    if (canonicalWeekBrief) {
+      return mapCanonicalWeekBriefToSurface({
+        weekBrief: canonicalWeekBrief,
+        latestReportId,
+        sourceStatus: latestReportStatus,
+      });
+    }
+
+    const hasCompatibilityPayload = Boolean(payload?.week_map) || Boolean(payload?.chunks?.length) || !latestReportMeta || mockRuntime;
+    if (!hasCompatibilityPayload) {
+      return null;
+    }
+
+    return mapLegacyWeekFallbackToSurface({
       legacyWeekMap: payload?.week_map ?? DEFAULT_WEEK_MAP,
       chunks: payload?.chunks ?? null,
       latestReportId,
       sourceStatus: latestReportStatus,
     });
-  }, [payload, latestReportId, latestReportStatus]);
+  }, [latestReportId, latestReportMeta, latestReportStatus, mockRuntime, payload]);
   // END_BLOCK: WEEK_SURFACE_MODEL
 
   useEffect(() => {
@@ -332,16 +351,16 @@ function WeekPageContent() {
           correlation_id: ensureCorrelationId(),
           block: "WEEK_DAY_GRID",
           day,
-          week_type: week.weekType,
+          week_type: week?.weekType ?? "balance",
         },
         { correlationId: ensureCorrelationId(), flowId: FLOW_FORECAST_CATALOG, block: "WEEK_DAY_GRID" },
       );
     },
-    [ensureCorrelationId, week.weekType],
+    [ensureCorrelationId, week?.weekType],
   );
 
-  const primaryHref = week.cta.primary?.href || (week.reportId ? `/read/${week.reportId}` : "/create?type=week_forecast");
-  const primaryLabel = week.cta.primary?.label || (week.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
+  const primaryHref = week?.cta.primary?.href || (week?.reportId ? `/read/${week.reportId}` : "/create?type=week_forecast");
+  const primaryLabel = week?.cta.primary?.label || (week?.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
   const emptyStateCopy = useMemo(() => resolveWeekEmptyStateCopy(latestReportMeta), [latestReportMeta]);
 
   // START_BLOCK: WEEK_RENDER_SWITCH
@@ -381,10 +400,26 @@ function WeekPageContent() {
     );
   }
 
+  if (!week) {
+    return (
+      <ConsumerPageShell testId="week-page">
+        <ConsumerPanel className="p-5">
+          <EmptyState
+            compact
+            title="Карта недели пока не готова"
+            message="Канонический `week_brief_v1` ещё не найден, а совместимый fallback-слой для этой сессии недоступен."
+            actionLabel="К историям отчётов"
+            actionHref="/reports/history"
+          />
+        </ConsumerPanel>
+      </ConsumerPageShell>
+    );
+  }
+
   const hasConcreteWeekReport = Boolean(week.reportId);
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
-  const shouldShowFallbackNote = !week.usesCanonicalWeekBrief;
+  const shouldShowFallbackNote = week.surfaceMode === "compatibility";
 
   return (
     // START_BLOCK: WEEK_READY_SURFACE

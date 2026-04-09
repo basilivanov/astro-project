@@ -516,7 +516,7 @@ function buildTodayExplainabilityCards(brief: DayBriefDto) {
     source: "selected" as const,
   }));
 
-  const deduped = new Map<string, (typeof personalized)[number]>();
+  const deduped = new Map<string, (typeof personalized)[number] | (typeof selected)[number]>();
   const seenExplanationKeys = new Set<string>();
 
   for (const item of [...personalized, ...selected]) {
@@ -782,15 +782,21 @@ function TodayScoreCard({
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
       </button>
       <div id={panelId}>
-        <DetailDisclosureCard
-          testId={`today-score-details-${score.key}`}
-          title={disclosure.title}
-          body={disclosure.body}
-          factors={disclosure.factors}
-          compact
-          isOpen={isOpen}
-          onToggle={() => setIsOpen((current) => !current)}
-        />
+        {hasDetails ? (
+          <DetailDisclosureCard
+            testId={`today-score-details-${score.key}`}
+            title={disclosure.title}
+            body={disclosure.body}
+            factors={disclosure.factors}
+            compact
+            isOpen={isOpen}
+            onToggle={() => setIsOpen((current) => !current)}
+          />
+        ) : (
+          <p className="mt-3 text-xs leading-relaxed text-slate-500" data-testid={`today-score-details-fallback-${score.key}`}>
+            Короткое объяснение для этой сферы пока недоступно.
+          </p>
+        )}
       </div>
     </article>
   );

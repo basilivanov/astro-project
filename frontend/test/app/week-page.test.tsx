@@ -94,7 +94,7 @@ describe('WeekPage', () => {
     jest.clearAllMocks();
     mockUsePathname.mockReturnValue('/week');
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
-    mockUseTelegram.mockReturnValue({ isReady: true, initData: 'tg-auth', mode: 'user' });
+    mockUseTelegram.mockReturnValue({ isReady: true, initData: 'tg-auth', mode: 'telegram' });
     startCatalogCorrelationMock.mockReturnValue('corr-week');
     correlatedFetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
   });
@@ -159,13 +159,13 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('weekly report ещё собирается');
+    expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя собирается');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-42');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Открыть полный отчёт');
     expect(trackCatalogEventMock).toHaveBeenCalledWith(
       'week.brief_view',
-      expect.objectContaining({ status: 'in_progress', sections_count: 1 }),
+      expect.objectContaining({ status: 'in_progress', sections_count: 0 }),
       expect.any(Object),
     );
   });
@@ -224,6 +224,7 @@ describe('WeekPage', () => {
 
   it('uses mock runtime payload without fetching report details', async () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams('mock=1'));
+    mockUseTelegram.mockReturnValue({ isReady: true, initData: '123456789', mode: 'mock' });
     correlatedFetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify([
@@ -236,8 +237,8 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    await waitFor(() => expect(correlatedFetchMock).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-99');
+    expect(correlatedFetchMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/mock-week-report');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 23 мар');
   });
 

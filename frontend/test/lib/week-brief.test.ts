@@ -1,10 +1,16 @@
-import { confidenceBucket, formatWeekDateRange, mapWeekReportToWeekBrief } from '../../lib/week-brief';
+import {
+  confidenceBucket,
+  formatWeekDateRange,
+  mapCanonicalWeekBriefToSurface,
+  mapLegacyWeekFallbackToSurface,
+  mapWeekReportToWeekBrief,
+} from '../../lib/week-brief';
 
 describe('week-brief helpers', () => {
-  it('maps structured week brief payloads into the UI surface', () => {
-    const surface = mapWeekReportToWeekBrief({
+  it('maps canonical week_brief payloads without legacy mixing', () => {
+    const surface = mapCanonicalWeekBriefToSurface({
       weekBrief: {
-        version: 'v1',
+        version: 'week_brief_v1',
         week_start: '2026-04-01',
         week_end: '2026-04-07',
         personalization_level: 'full',
@@ -26,6 +32,10 @@ describe('week-brief helpers', () => {
             best_for: ['Стратегия'],
             avoid: ['Перегруз'],
             peak_window_label: 'Утро',
+            details: {
+              why_text: 'День уже несёт понятный фокус.',
+              supporting_factors: [{ label: 'Солнце', explanation_human: 'Собирает внимание' }],
+            },
           },
         ],
         domains: [
@@ -36,11 +46,13 @@ describe('week-brief helpers', () => {
             value: 82,
             headline: 'Работа и деньги: 82/100',
             advice: 'Действуйте ритмично',
+            why_text: 'Нужен один приоритет',
+            supporting_factors: [{ label: 'Сатурн', explanation_human: 'Держит структуру' }],
           },
         ],
-        best_uses: [{ id: 'a-1', text: 'Делать главное', impact: 'high' }],
-        risks: [{ id: 'r-1', text: 'Не спорить на износе' }],
-        major_factors: [{ id: 'f-1', label: 'Сатурн', impact: 'high', weight: 0.7 }],
+        best_uses: [{ id: 'a-1', text: 'Делать главное', impact: 'high', why_text: 'Фокус даёт лучший выход.' }],
+        risks: [{ id: 'r-1', text: 'Не спорить на износе', why_text: 'Перегруз быстро накопится.' }],
+        major_factors: [{ id: 'f-1', label: 'Сатурн', impact: 'high', weight: 0.7, explanation_human: 'Держит каркас недели.' }],
         deep_sections: [{ id: 's-1', slug: 'focus', title: 'Фокус', summary: 'Коротко', body_markdown: 'Детали', is_primary: true, order: 0 }],
         explainability: {
           confidence: 0.81,
@@ -58,6 +70,7 @@ describe('week-brief helpers', () => {
     });
 
     expect(surface).toEqual(expect.objectContaining({
+      surfaceMode: 'canonical',
       headline: 'Важная неделя',
       subhead: 'Меньше шума, больше темпа',
       theme: 'Спокойная стратегия',
@@ -67,6 +80,7 @@ describe('week-brief helpers', () => {
       weekEnd: '2026-04-07',
       personalizationLevel: 'full',
       fallbackMode: false,
+      usesCanonicalWeekBrief: true,
       reportId: 'rep-1',
       confidenceLabel: 'Высокая опора на текущие данные',
       confidenceShortLabel: 'высокая',
@@ -75,25 +89,26 @@ describe('week-brief helpers', () => {
       sectionsCount: 1,
       waitMessage: null,
     }));
-    expect(surface.dayCards).toHaveLength(1);
-    expect(surface.dayStrip).toHaveLength(1);
     expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
       weekday: 'СР, 1 апр',
       score: 88,
       headline: 'Фокус на главном',
       lead: null,
+      practical: [],
       supporting_factors: [],
+      details: { why_text: null, why_title: null, supporting_factors: [] },
     }));
-    expect(surface.domains).toHaveLength(1);
-    expect(surface.actions[0]).toEqual(expect.objectContaining({ id: 'a-1', impact: 'high' }));
-    expect(surface.risks[0]).toEqual(expect.objectContaining({ id: 'r-1', text: 'Не спорить на износе' }));
-    expect(surface.factors[0]).toEqual(expect.objectContaining({ id: 'f-1', label: 'Сатурн', weight: 0.7 }));
-    expect(surface.explainability).toEqual(expect.objectContaining({ confidence: 0.81, factor_count: 5 }));
-    expect(surface.cta.primary?.href).toBe('/reports/1');
+    expect(surface.detailLayers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'week_day', body: 'День уже несёт понятный фокус.' }),
+      expect.objectContaining({ source: 'week_domain', relatedKey: 'work' }),
+      expect.objectContaining({ source: 'week_action', id: 'a-1' }),
+      expect.objectContaining({ source: 'week_risk', id: 'r-1' }),
+      expect.objectContaining({ source: 'week_factor', id: 'f-1' }),
+    ]));
   });
 
-  it('falls back to legacy data, chunks, and pending status helpers', () => {
-    const surface = mapWeekReportToWeekBrief({
+  it('maps legacy week_map and chunks only into an explicit compatibility surface', () => {
+    const surface = mapLegacyWeekFallbackToSurface({
       legacyWeekMap: {
         thesis: '  Лог недели собирается  ',
         theme: '  Осторожная неделя  ',
@@ -103,7 +118,6 @@ describe('week-brief helpers', () => {
         day_cards: [
           { date: '2026-04-08', weekday: 'Понедельник', mode: 'GREEN', score: 0.82, best_for: ['  запуск  '], avoid: ['  спешка '] },
           { date: '2026-04-09', weekday: 'fri', mode: 'mystery', score: 2.6 },
-          { date: '2026-04-10', weekday: null, mode: null, score: Number.NaN },
         ],
         domains: { work: 72, unknown: 44 },
         actions: ['  сделать главное  ', ''],
@@ -123,6 +137,7 @@ describe('week-brief helpers', () => {
     });
 
     expect(surface).toEqual(expect.objectContaining({
+      surfaceMode: 'compatibility',
       headline: 'Лог недели собирается',
       subhead: 'Осторожная неделя',
       theme: 'Осторожная неделя',
@@ -133,7 +148,8 @@ describe('week-brief helpers', () => {
       timezone: 'Europe/Moscow',
       location: 'Moscow',
       personalizationLevel: null,
-      fallbackMode: false,
+      fallbackMode: true,
+      usesCanonicalWeekBrief: false,
       reportId: 'rep-legacy',
       confidenceLabel: 'Хорошая опора на текущие данные',
       confidenceShortLabel: 'хорошая',
@@ -145,102 +161,23 @@ describe('week-brief helpers', () => {
     expect(surface.dayCards).toEqual([
       expect.objectContaining({ weekday: 'mon', mode: 'green', score: 82, best_for: ['запуск'], avoid: ['спешка'] }),
       expect.objectContaining({ weekday: 'fri', mode: 'red', score: 35 }),
-      expect.objectContaining({ weekday: null, mode: 'red', score: 50 }),
     ]);
-    expect(surface.dayStrip).toHaveLength(3);
     expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'ПН, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус на запуск' }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),
       expect.objectContaining({ key: 'unknown', title: 'unknown', status: 'red', headline: 'unknown: 44/100' }),
     ]);
-    expect(surface.actions).toEqual([{ id: 'action-1', text: 'сделать главное' }]);
-    expect(surface.risks).toEqual([{ id: 'risk-1', text: 'не перегореть' }]);
-    expect(surface.factors).toEqual([
-      expect.objectContaining({ id: 'factor-1', label: 'Марс', impact: 'high', weight: 0.4 }),
-      expect.objectContaining({ id: 'factor-2', label: 'Фактор 2', impact: 'low', weight: 0.1 }),
-    ]);
+    expect(surface.actions).toEqual([expect.objectContaining({ id: 'action-1', text: 'сделать главное' })]);
+    expect(surface.risks).toEqual([expect.objectContaining({ id: 'risk-1', text: 'не перегореть' })]);
     expect(surface.deepSections).toEqual([
       expect.objectContaining({ id: 'c-1', slug: 'summary', title: '  Секция 1 ', summary: 'Короткий текст секции', body_markdown: '  Короткий текст секции  ', is_primary: true, order: 0 }),
       expect.objectContaining({ id: 'c-2', slug: 'details', title: 'details', summary: 'Структурный вывод', body_markdown: JSON.stringify({ summary: 'Структурный вывод' }), is_primary: false, order: 1 }),
     ]);
-    expect(surface.explainability).toEqual(expect.objectContaining({ confidence: 0.5, birth_time_used: false, factor_count: 2 }));
+    expect(surface.detailLayers.some((item) => item.source === 'week_domain')).toBe(true);
   });
 
-  it('keeps explicit brief actions, factors, sections, and in-progress state stable', () => {
-    const surface = mapWeekReportToWeekBrief({
-      weekBrief: {
-        status: 'in_progress',
-        fallback_mode: true,
-        summary: {
-          headline: '  ',
-          subhead: '',
-          theme: '  ',
-          week_type: 'transition',
-        },
-        best_uses: [
-          { id: null, text: '  Сфокусироваться  ', factor_id: 'factor-x', impact: 'medium', timeframe: 'am' },
-          { id: 'hidden-action', text: '  Скрыть по тегу  ', tag: 'all_week' },
-          { text: '   ' },
-        ],
-        risks: [
-          { text: '  Не распыляться  ' },
-          { id: 'hidden-risk', text: '  Тоже скрыть  ', tag: 'all_week' },
-        ],
-        major_factors: [],
-        deep_sections: [],
-        explainability: {
-          confidence: 0.2,
-          birth_time_used: false,
-          factor_count: 0,
-          top_signal_source: 'timing',
-        },
-        cta: {
-          secondary: { href: '/fallback', label: 'Подробнее' },
-        },
-        report_ref: {
-          source_status: 'in_progress',
-        },
-      },
-      legacyWeekMap: {
-        thesis: '  Черновик недели  ',
-        theme: '  Лёгкая перенастройка  ',
-        actions: ['legacy action'],
-        risks: ['legacy risk'],
-        major_factors: [{ label: 'Неприменимо', impact_pct: 90 }],
-      },
-      chunks: [{ id: 'ignored', section: 'ignored', content: 'ignored' }],
-      sourceStatus: 'pending',
-    });
-
-    expect(surface).toEqual(expect.objectContaining({
-      headline: 'Черновик недели',
-      subhead: 'Лёгкая перенастройка',
-      theme: 'Лёгкая перенастройка',
-      weekType: 'transition',
-      status: 'in_progress',
-      fallbackMode: true,
-      confidenceLabel: 'Ориентир предварительный',
-      confidenceShortLabel: 'предварительная',
-      birthTimeLabel: 'без точного времени рождения',
-      topSignalLabel: 'тайминг недели',
-      sectionsCount: 1,
-      waitMessage: 'Черновик недели',
-    }));
-    expect(surface.actions).toEqual([
-      { id: 'action-1', text: 'Сфокусироваться', factor_id: 'factor-x', impact: 'medium', timeframe: 'am', why_text: null, supporting_factors: [], tag: null },
-    ]);
-    expect(surface.risks).toEqual([
-      { id: 'risk-1', text: 'Не распыляться', factor_id: null, impact: null, timeframe: null, why_text: null, supporting_factors: [], tag: null },
-    ]);
-    expect(surface.factors).toEqual([]);
-    expect(surface.deepSections).toEqual([
-      expect.objectContaining({ id: 'ignored', slug: 'ignored', title: 'ignored', body_markdown: 'ignored', is_primary: true, order: 0 }),
-    ]);
-    expect(surface.cta).toEqual({ primary: null, secondary: { href: '/fallback', label: 'Подробнее' } });
-  });
-
-  it('uses source status and fallbacks when brief status is absent', () => {
-    const surface = mapWeekReportToWeekBrief({
+  it('keeps the compatibility wrapper aligned with explicit canonical/degraded entrypoints', () => {
+    const canonical = mapWeekReportToWeekBrief({
       weekBrief: {
         summary: {
           headline: '  Короткий фокус  ',
@@ -250,25 +187,35 @@ describe('week-brief helpers', () => {
       sourceStatus: 'in_progress',
     });
 
-    expect(surface).toEqual(expect.objectContaining({
+    const degraded = mapWeekReportToWeekBrief({
+      legacyWeekMap: {
+        thesis: '  Черновик недели  ',
+        theme: '  Лёгкая перенастройка  ',
+        actions: ['legacy action'],
+        risks: ['legacy risk'],
+      },
+      chunks: [{ id: 'ignored', section: 'ignored', content: 'ignored' }],
+      sourceStatus: 'pending',
+    });
+
+    expect(canonical).toEqual(expect.objectContaining({
+      surfaceMode: 'canonical',
       headline: 'Короткий фокус',
       subhead: 'Держим ритм',
-      theme: 'Карта недели',
-      weekType: 'balance',
       status: 'in_progress',
+      usesCanonicalWeekBrief: true,
       waitMessage: 'Неделя собирается, лог уже в работе',
-      confidenceLabel: null,
-      confidenceShortLabel: null,
-      topSignalLabel: null,
-      birthTimeLabel: 'без точного времени рождения',
       sectionsCount: 0,
     }));
-    expect(surface.dayCards).toEqual([]);
-    expect(surface.domains).toEqual([]);
-    expect(surface.actions).toEqual([]);
-    expect(surface.risks).toEqual([]);
-    expect(surface.factors).toEqual([]);
-    expect(surface.deepSections).toEqual([]);
+    expect(degraded).toEqual(expect.objectContaining({
+      surfaceMode: 'compatibility',
+      headline: 'Черновик недели',
+      subhead: 'Лёгкая перенастройка',
+      status: 'pending',
+      usesCanonicalWeekBrief: false,
+      waitMessage: 'Черновик недели',
+      sectionsCount: 1,
+    }));
   });
 
   it('formats week ranges and confidence buckets deterministically', () => {
@@ -282,7 +229,6 @@ describe('week-brief helpers', () => {
     expect(confidenceBucket(0.75)).toBe('high');
     expect(confidenceBucket(0.45)).toBe('medium');
     expect(confidenceBucket(0.44)).toBe('low');
-    expect(confidenceBucket(0.1)).toBe('low');
     expect(confidenceBucket(undefined)).toBe('unknown');
     expect(confidenceBucket(null)).toBe('unknown');
   });

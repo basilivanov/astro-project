@@ -14,8 +14,8 @@
 
 // START_MODULE_MAP: M-WEEK-DOMAIN-PANEL
 // EXPORTS: WeekDomainPanel.
-// INTERNALS: pickSupportingFactors, resolveDomainFactors, mapDomainFactors.
-// DATA_FLOW: week domains -> per-domain factor normalization -> panel rendering -> disclosure toggles.
+// INTERNALS: normalizeDomainStatus.
+// DATA_FLOW: week domains -> normalized shared detail-layer lookup -> panel rendering -> disclosure toggles.
 // UI_SEAMS: `week-domain-panel`, `week-domain-*`, `week-domain-explainability-*`.
 // END_MODULE_MAP: M-WEEK-DOMAIN-PANEL
 
@@ -24,7 +24,7 @@ import { useState } from "react";
 import { ConsumerPanel } from "../consumer-page-shell";
 import { DetailDisclosureCard } from "../detail/detail-disclosure-card";
 import { DetailEvidenceChips } from "../detail/detail-evidence-chips";
-import type { NormalizedDetailFactor } from "../../lib/detail-layer";
+import { findDetailLayer } from "../../lib/detail-layer";
 import { type LightStatus, type WeekSurfaceModel } from "../../lib/week-brief";
 
 const DOMAIN_STATUS_STYLES: Record<LightStatus, { badge: string; progress: string; track: string; card: string }> = {
@@ -59,105 +59,6 @@ function normalizeDomainStatus(value: string | null | undefined, score: number |
   return "red";
 }
 
-// START_FUNCTION_CONTRACT: pickSupportingFactors
-// INTENT: Resolve bounded fallback factors for a domain when explicit supporting factors are absent.
-// INPUTS: Week surface model and optional domain key.
-// OUTPUTS: Up to two supporting factors aligned to the requested domain.
-// INVARIANTS: Direct category match wins; heuristic label matching stays bounded; no unrelated global factor fallback.
-// END_FUNCTION_CONTRACT: pickSupportingFactors
-function pickSupportingFactors(week: WeekSurfaceModel, domainKey: string | null | undefined) {
-  // START_BLOCK: DOMAIN_FACTOR_FALLBACK_SELECTION
-  const normalizedKey = String(domainKey ?? "").trim().toLowerCase();
-  if (!normalizedKey) {
-    return [];
-  }
-
-  return week.factors.filter((factor) => {
-    if (String(factor.category ?? "").trim().toLowerCase() === normalizedKey) {
-      return true;
-    }
-    const label = String(factor.label ?? "").trim().toLowerCase();
-    return normalizedKey.includes("work")
-      ? label.includes("работ") || label.includes("деньг")
-      : normalizedKey.includes("relation")
-        ? label.includes("отнош") || label.includes("контакт")
-        : normalizedKey.includes("energy")
-          ? label.includes("энерг") || label.includes("ресурс")
-          : normalizedKey.includes("focus")
-            ? label.includes("фокус") || label.includes("ритм") || label.includes("тайм")
-            : false;
-  }).filter((factor) => {
-    const label = String(factor.label ?? "").trim();
-    const human = String(factor.explanation_human ?? "").trim();
-    const astro = String(factor.explanation_astro ?? "").trim();
-    return Boolean(label || human || astro);
-  });
-  // END_BLOCK: DOMAIN_FACTOR_FALLBACK_SELECTION
-}
-
-// START_FUNCTION_CONTRACT: resolveDomainFactors
-// INTENT: Prefer explicit domain factors and otherwise derive fallback factors from the week surface.
-// INPUTS: Week surface model and a single domain card.
-// OUTPUTS: Supporting factors for one domain disclosure.
-// INVARIANTS: Explicit domain factors override heuristics.
-// END_FUNCTION_CONTRACT: resolveDomainFactors
-function resolveDomainFactors(week: WeekSurfaceModel, domain: WeekSurfaceModel["domains"][number]) {
-  // START_BLOCK: DOMAIN_FACTOR_SOURCE_SELECTION
-  if (domain.supporting_factors?.length) {
-    return domain.supporting_factors;
-  }
-  return pickSupportingFactors(week, domain.key);
-  // END_BLOCK: DOMAIN_FACTOR_SOURCE_SELECTION
-}
-
-function pickFactorLabel(factor: ReturnType<typeof resolveDomainFactors>[number]) {
-  const rawLabel = String(factor?.label || "").trim();
-  const explanationAstro = String(factor?.explanation_astro || "").trim();
-  if (rawLabel && !/^[a-z]+:[a-z0-9_-]+$/.test(rawLabel.toLowerCase())) {
-    return rawLabel;
-  }
-  if (explanationAstro) {
-    const astroLead = explanationAstro.split(/[—:.]/)[0]?.trim();
-    if (astroLead) return astroLead;
-  }
-  return rawLabel;
-}
-
-// START_FUNCTION_CONTRACT: mapDomainFactors
-// INTENT: Normalize domain supporting factors for the shared detail disclosure layer.
-// INPUTS: Raw domain factors and domain identifier.
-// OUTPUTS: Filtered normalized detail factors.
-// INVARIANTS: Output ids remain deterministic; empty factor rows are excluded.
-// END_FUNCTION_CONTRACT: mapDomainFactors
-function mapDomainFactors(
-  factors: ReturnType<typeof resolveDomainFactors>,
-  relatedKey: string,
-): NormalizedDetailFactor[] {
-  // START_BLOCK: DOMAIN_FACTOR_NORMALIZATION
-  return factors
-    .map((factor, index) => {
-      const label = pickFactorLabel(factor);
-      const explanationHuman = String(factor?.explanation_human || "").trim();
-      const explanationAstro = String(factor?.explanation_astro || "").trim();
-      const value = String(factor?.value || "").trim();
-      const normalizedValue = value.toLowerCase();
-      if (!label && !explanationHuman && !explanationAstro) return null;
-      if (/^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) && !explanationHuman && !explanationAstro) return null;
-      return {
-        id: `${relatedKey}-factor-${index + 1}`,
-        label: /^[a-z]+:[a-z0-9_-]+$/.test(label.toLowerCase()) ? '' : label,
-        explanationHuman: explanationHuman || explanationAstro,
-        explanationAstro: explanationAstro || null,
-        value: ["green", "yellow", "red", "high", "medium", "background"].includes(normalizedValue) ? null : (value || null),
-        impact: null,
-        source: "week_supporting_factor",
-        relatedKey,
-      } satisfies NormalizedDetailFactor;
-    })
-    .filter((item): item is NormalizedDetailFactor => Boolean(item && (item.label || item.explanationHuman || item.explanationAstro || item.value)));
-  // END_BLOCK: DOMAIN_FACTOR_NORMALIZATION
-}
-
 // START_FUNCTION_CONTRACT: WeekDomainPanel
 // INTENT: Compose weekly domain cards with optional explainability disclosure.
 // INPUTS: Week surface model.
@@ -180,6 +81,11 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
             const domainKey = domain.key ?? `${index}`;
             const domainStatus = normalizeDomainStatus(domain.status, domain.value);
             const statusStyle = DOMAIN_STATUS_STYLES[domainStatus];
+            const detailLayer = findDetailLayer(week.detailLayers, {
+              source: "week_domain",
+              id: String(domain.key ?? `week-domain-${index + 1}`),
+              relatedKey: String(domain.key ?? `week-domain-${index + 1}`),
+            });
             return (
               <div
                 key={`${domain.key ?? index}`}
@@ -207,8 +113,8 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
                 <DetailDisclosureCard
                   testId={`week-domain-explainability-${domain.key ?? index}`}
                   title="Что повлияло"
-                  body={domain.why_text}
-                  factors={mapDomainFactors(resolveDomainFactors(week, domain), String(domain.key ?? `week-domain-${index + 1}`))}
+                  body={detailLayer?.body ?? domain.why_text}
+                  factors={detailLayer?.factors ?? []}
                   compact
                   isOpen={openKey === domainKey}
                   onToggle={() => setOpenKey((current) => (current === domainKey ? null : domainKey))}
