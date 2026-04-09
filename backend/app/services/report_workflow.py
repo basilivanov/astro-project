@@ -8699,6 +8699,10 @@ async def generate_report_sections(
         min_required = 5
     
     total_ok = success_count + fallback_count
+    # Single-section forecast/report lanes remain usable when deterministic fallback content
+    # was applied; natal keeps a stricter threshold because broad fallback-only output is not
+    # sufficient for that surface.
+    usable_count = total_ok if report.report_type != "natal_master" else success_count
     
     # Update Run stats if provided
     if run:
@@ -8723,6 +8727,7 @@ async def generate_report_sections(
         total=total_expected,
         min_required=min_required,
         total_ok=total_ok,
+        usable=usable_count,
     )
     _workflow_log(
         "info",
@@ -8735,15 +8740,16 @@ async def generate_report_sections(
         run_id=str(run.id) if run else None,
         success=success_count,
         fallback=fallback_count,
+        usable=usable_count,
         pending=sum(1 for chunk in chunk_map.values() if chunk.status == "pending"),
         running=sum(1 for chunk in chunk_map.values() if chunk.status == "in_progress"),
         error=sum(1 for chunk in chunk_map.values() if chunk.status in {"failed", "error"}),
     )
 
-    if success_count < min_required and not use_template:
+    if usable_count < min_required and not use_template:
         report.status = "failed"
         report.error_message = (
-            f"Generation failed: only {success_count}/{total_expected} sections usable "
+            f"Generation failed: only {usable_count}/{total_expected} sections usable "
             f"(min {min_required})."
         )
         report.error_at = datetime.now(timezone.utc)
@@ -8757,6 +8763,7 @@ async def generate_report_sections(
             report=report,
             success=success_count,
             fallback=fallback_count,
+            usable=usable_count,
         )
     else:
         report.status = "completed"

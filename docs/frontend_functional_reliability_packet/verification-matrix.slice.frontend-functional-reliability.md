@@ -40,7 +40,7 @@ Use for the smallest reliable proof after a route-specific or interaction-specif
 | Landing/start/core shell | `./scripts/run_e2e.sh e2e/core-ux.spec.ts` | Guest/public landing and start auth gate remain operational; this is not authenticated consumer proof |
 | Landing marketing surface | `./scripts/run_e2e.sh e2e/landing.spec.ts` | Entry page loads and primary entry interactions still work |
 | History CTA and continuation | `./scripts/run_e2e.sh e2e/history-cta.spec.ts` | History route loads and CTA/open behavior remains valid |
-| Profile/edit interactions | `./scripts/run_e2e.sh e2e/profile-edit.spec.ts` | Profile form/edit flows remain actionable |
+| Profile/edit helper interactions | `./scripts/run_e2e.sh e2e/profile-edit.spec.ts` | Mock/helper profile form regression stays actionable, but this is not canonical signed-auth acceptance |
 | Today interaction/read semantics | `./scripts/run_e2e.sh e2e/today-daybrief.spec.ts` | Today screen loads, opens disclosures, and preserves read semantics |
 | Week fallback/live semantics | `./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts` | Week route handles fallback without crash |
 | Week refresh/live regressions | `./scripts/run_e2e.sh e2e/week-home-refresh.regression.spec.ts e2e/week-live.spec.ts` | Week interaction/load regressions stay fixed |
@@ -61,7 +61,7 @@ Use whenever the changed slice affects real product semantics such as create/rea
 | Solar return storefront bridge | `./scripts/run_e2e.sh e2e/solar-return-bridge-storefront.spec.ts` | Solar return storefront path reaches expected continuation |
 | Synastry storefront bridge | `./scripts/run_e2e.sh e2e/synastry-bridge-storefront.spec.ts` | Synastry storefront path reaches expected continuation |
 | Read surfaces | `./scripts/run_e2e.sh e2e/year-forecast-read.spec.ts e2e/ten-year-forecast-read.spec.ts` | Report read pages open into semantically correct read states |
-| Signed Telegram authenticated lane | `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts` | Authenticated consumer path uses real signed initData and sends correct `X-Telegram-Auth` for Today, Week, Profile, and onboarding/profile without mock runtime |
+| Signed Telegram authenticated lane | `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts` | Authenticated consumer path uses real signed initData and sends correct `X-Telegram-Auth` for Today, Week, Profile, `Profile/edit`, and onboarding/profile without mock runtime; command must fail fast if `TELEGRAM_BOT_TOKEN` is absent |
 
 ### 5. Targeted admin reliability gate
 Use when the change affects operator workflows or admin-only screens.

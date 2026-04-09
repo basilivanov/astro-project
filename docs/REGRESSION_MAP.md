@@ -49,7 +49,8 @@ docker exec astro-project-backend-1 python3 scripts/pipeline.py
 Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
 
 This is the canonical authenticated acceptance lane.
-It must cover signed Telegram WebApp initData for Today, Week, Profile, and onboarding/profile without mock runtime.
+It must cover signed Telegram WebApp initData for Today, Week, Profile, `Profile/edit`, and onboarding/profile without mock runtime.
+`TELEGRAM_BOT_TOKEN` is mandatory here; `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts` must fail fast if the token is absent instead of turning the suite green via skip semantics.
 
 ```bash
 ./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts

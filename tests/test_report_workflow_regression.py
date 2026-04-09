@@ -11,6 +11,7 @@ class _GeneratedSection:
         self.usage = usage or {}
 
 from backend.app.models import Report
+from backend.app.llm.orchestrator import LLMContentValidationError
 from backend.app.services.report_workflow import (
     build_report_context,
     build_section_specs,
@@ -149,6 +150,66 @@ def test_generate_report_sections_error_path_marks_failed(workflow_payload, repo
     assert report_entity.status == "failed"
     assert "only 2" in (report_entity.error_message or "")
     assert "min 5" in (report_entity.error_message or "")
+
+
+def test_generate_week_report_sections_keeps_completed_status_on_validation_fallback():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = []
+    workflow_payload = SimpleNamespace(
+        report_type="week_forecast",
+        report_mode="full",
+        sections=None,
+        birth_time_known=True,
+        house_system="placidus",
+        birth_date="1990-01-01T12:00:00",
+        birth_location="Moscow",
+        birth_lat=55.75,
+        birth_lon=37.61,
+        birth_timezone="Europe/Moscow",
+        include_fixed_stars=False,
+        fixed_star_orb=1.0,
+        client_name="Week User",
+        solar_current_lat=None,
+        solar_current_lon=None,
+        solar_current_location=None,
+        solar_current_timezone=None,
+    )
+    report_entity = Report(
+        id=uuid.uuid4(),
+        client_id=uuid.uuid4(),
+        report_type="week_forecast",
+        status="pending",
+    )
+
+    with (
+        patch("backend.app.services.report_workflow.build_chart_data", return_value={"chart": "ok"}),
+        patch("backend.app.services.report_workflow.build_report_context", return_value={"client": {"gender": "female", "name": "Week User"}, "week_forecast_data": {"days": []}}),
+        patch("backend.app.services.report_workflow.initialize_report_chunks", return_value={}),
+        patch("backend.app.services.report_workflow.generate_section_content", side_effect=LLMContentValidationError("Invalid JSON in section week_strategy")),
+        patch(
+            "backend.app.services.report_workflow.build_section_validation_fallback_content",
+            return_value='[{"type":"callout","variant":"error","title":"Ошибка генерации","content":"Неделя собрана через безопасный fallback."}]',
+        ),
+        patch("backend.app.services.report_workflow.render_report_chunks_to_messages", return_value=[]),
+    ):
+        import asyncio
+
+        results, chart = asyncio.run(
+            generate_report_sections(
+                report_entity,
+                workflow_payload,
+                db,
+                llm_client=MagicMock(),
+                llm_mode="openrouter",
+                reset_chunks=True,
+                raise_on_error=False,
+            )
+        )
+
+    assert chart == {"chart": "ok"}
+    assert len(results) == len(get_default_sections("week_forecast", mode="full"))
+    assert report_entity.status == "completed"
+    assert "Partial generation" in (report_entity.error_message or "")
 
 
 def test_build_report_context_week_forecast_exports_week_brief_seed():

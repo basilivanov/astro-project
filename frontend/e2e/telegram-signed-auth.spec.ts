@@ -12,7 +12,6 @@ import { buildCanonicalTodayPersonaPack } from "./fixtures/canonical-personas";
 const canonicalTodayPersona = buildCanonicalTodayPersonaPack("CF-BE-001-baseline-exact-time");
 
 test.describe("telegram signed auth lane", () => {
-  test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
   test("loads Today authenticated content via signed auth without mock mode", async ({ page }) => {
     const hygiene = attachConsoleAndPageErrors(page);
     const runtime = await bootstrapSignedTelegram(page, {
@@ -110,6 +109,137 @@ test.describe("telegram signed auth lane", () => {
     await expect.poll(() => seenHeaders[0]).toBe(runtime.initData);
 
     await expectNoRouteHygieneIssues("/profile", hygiene);
+    hygiene.dispose();
+  });
+
+  test("loads and saves profile edit via real signed X-Telegram-Auth header", async ({ page }) => {
+    const hygiene = attachConsoleAndPageErrors(page);
+    const runtime = await bootstrapSignedTelegram(page, {
+      user: {
+        id: 41414141,
+        first_name: "Signed",
+        last_name: "Editor",
+        username: "signed_editor",
+        language_code: "ru",
+      },
+    });
+
+    const requests: Array<{ method: string; auth: string; body: string | null }> = [];
+    let savedProfile = {
+      full_name: "Signed Editor",
+      birth_date: "1990-05-20",
+      birth_time: "08:45",
+      birth_time_known: true,
+      birth_place: "Moscow, Russia",
+      birth_lat: 55.7558,
+      birth_lon: 37.6173,
+      birth_timezone: "Europe/Moscow",
+      sun_sign: "Taurus",
+      telegram_id: 41414141,
+      days_left: 14,
+      is_partner: false,
+      referral_code: "SIGNED42",
+      subscription_active_until: "2026-05-01T00:00:00.000Z",
+    };
+
+    await page.route("**/api/geo/autocomplete?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "spb",
+            name: "Saint Petersburg",
+            admin1: "Saint Petersburg",
+            country: "Russia",
+            lat: 59.9343,
+            lon: 30.3351,
+            label: "Saint Petersburg, Russia",
+          },
+        ]),
+      });
+    });
+
+    await page.route("**/api/geo/timezone?**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ timezone_id: "Europe/Moscow" }),
+      });
+    });
+
+    await page.route("**/api/users/me", async (route) => {
+      const request = route.request();
+      requests.push({
+        method: request.method(),
+        auth: request.headers()["x-telegram-auth"] ?? "",
+        body: request.postData() ?? null,
+      });
+
+      if (request.method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(savedProfile),
+        });
+        return;
+      }
+
+      if (request.method() === "PUT") {
+        const payload = JSON.parse(request.postData() ?? "{}");
+        savedProfile = {
+          ...savedProfile,
+          ...payload,
+          birth_date: payload.birth_date ?? savedProfile.birth_date,
+          birth_time: payload.birth_time ?? savedProfile.birth_time,
+          birth_time_known: payload.birth_time_known ?? savedProfile.birth_time_known,
+          birth_place: payload.birth_place ?? savedProfile.birth_place,
+          birth_lat: payload.birth_lat ?? savedProfile.birth_lat,
+          birth_lon: payload.birth_lon ?? savedProfile.birth_lon,
+          birth_timezone: payload.birth_timezone ?? savedProfile.birth_timezone,
+          sun_sign: payload.sun_sign ?? savedProfile.sun_sign,
+        };
+
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true }),
+        });
+        return;
+      }
+
+      await route.continue();
+    });
+
+    await page.goto("/profile/edit");
+    await expectNoCrash(page);
+
+    await expect(page.getByRole("heading", { name: "Настройки профиля" })).toBeVisible();
+    await expect.poll(() => requests.find((entry) => entry.method === "GET")?.auth ?? "").toBe(runtime.initData);
+
+    const nameInput = page.locator('label:has-text("Имя") + input');
+    const placeInput = page.getByPlaceholder("Начните вводить город...");
+    const saveButton = page.getByRole("button", { name: "Сохранить изменения" });
+
+    await expect(nameInput).toHaveValue("Signed Editor");
+    await nameInput.fill("Signed Editor Updated");
+    await placeInput.fill("Saint Petersburg");
+    await page.getByRole("button", { name: /Saint Petersburg/i }).click();
+    await expect(placeInput).toHaveValue(/Saint Petersburg/i);
+
+    const saveRequest = page.waitForRequest((request) => request.url().includes("/api/users/me") && request.method() === "PUT");
+    await saveButton.click({ force: true });
+    await saveRequest;
+
+    await expect.poll(() => requests.filter((entry) => entry.method === "PUT").length).toBe(1);
+    const putRequest = requests.find((entry) => entry.method === "PUT");
+    expect(putRequest?.auth).toBe(runtime.initData);
+    expect(JSON.parse(putRequest?.body ?? "{}").full_name).toBe("Signed Editor Updated");
+
+    await expect(page).toHaveURL(/\/profile$/);
+    await expect(page.getByText("Signed Editor Updated")).toBeVisible();
+
+    await expectNoRouteHygieneIssues("/profile/edit", hygiene);
     hygiene.dispose();
   });
 

@@ -44,7 +44,8 @@ The canonical profile definitions live in `docs/REGRESSION_MAP.md`.
 Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
 
 This is the only canonical authenticated proof lane for MVP consumer routes.
-The suite must prove signed Telegram WebApp initData on `Today`, `Week`, `Profile`, and onboarding/profile flows without mock runtime.
+The suite must prove signed Telegram WebApp initData on `Today`, `Week`, `Profile`, `Profile/edit`, and onboarding/profile flows without mock runtime.
+`TELEGRAM_BOT_TOKEN` is a hard precondition for this command; `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts` must fail fast if the token is absent, not pass via skipped tests.
 
 ```bash
 ./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts

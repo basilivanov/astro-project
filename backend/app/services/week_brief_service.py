@@ -1142,6 +1142,23 @@ def _render_chunk_markdown(blocks: list[dict[str, Any]], raw_content: str) -> tu
             if summary is None and items:
                 first = items[0]
                 summary = f"{first.get('key')}: {first.get('value')}"[:240]
+        elif block_type == "traffic_lights":
+            items = block.get("items") or {}
+            if isinstance(items, dict):
+                normalized_items = []
+                for key in ("money", "health", "love"):
+                    value = str(items.get(key) or "").strip()
+                    if value:
+                        normalized_items.append(f"{key}: {value}")
+                if normalized_items:
+                    lines.append("Срезы недели:")
+                    lines.extend(f"- {item}" for item in normalized_items)
+                    if summary is None:
+                        summary = f"Срезы недели: {', '.join(normalized_items)}"[:240]
+                else:
+                    degraded = True
+            else:
+                degraded = True
         else:
             degraded = True
     markdown = "\n\n".join(line for line in lines if line).strip() or raw_content.strip()

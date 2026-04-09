@@ -7,6 +7,8 @@
 
 set -e
 
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
 # Default E2E base URL (pointing to the dev container in the same network)
 export E2E_BASE_URL=${E2E_BASE_URL:-http://astro-project-frontend_dev-1:3000}
 FRONTEND_HEALTH_CONTAINER=${FRONTEND_HEALTH_CONTAINER:-astro-project-frontend_dev-1}
@@ -17,9 +19,9 @@ normalize_playwright_args() {
   local normalized=()
 
   for arg in "$@"; do
-    if [[ "$arg" == frontend/e2e/* ]] && [[ -e "$arg" ]]; then
+    if [[ "$arg" == frontend/e2e/* ]] && [[ -e "$PROJECT_ROOT/$arg" ]]; then
       normalized+=("${arg#frontend/}")
-    elif [[ "$arg" == e2e/* ]] && [[ -e "frontend/$arg" ]]; then
+    elif [[ "$arg" == e2e/* ]] && [[ -e "$PROJECT_ROOT/frontend/$arg" ]]; then
       normalized+=("$arg")
     else
       normalized+=("$arg")
@@ -50,6 +52,18 @@ has_explicit_test_target() {
         continue
         ;;
       *)
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+requires_signed_auth_token() {
+  for arg in "$@"; do
+    case "$arg" in
+      e2e/telegram-signed-auth.spec.ts)
         return 0
         ;;
     esac
@@ -109,6 +123,16 @@ select_frontend_container() {
 
 select_frontend_container
 
+cd "$PROJECT_ROOT"
+
+mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
+
+if requires_signed_auth_token "${PLAYWRIGHT_ARGS[@]}" && [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+  echo "❌ ERROR: TELEGRAM_BOT_TOKEN is required for e2e/telegram-signed-auth.spec.ts."
+  echo "Signed Telegram acceptance must fail fast when the canonical auth token is absent."
+  exit 1
+fi
+
 echo "--- Running E2E Tests in Playwright Container ---"
 echo "Target URL: $E2E_BASE_URL"
 
@@ -139,13 +163,8 @@ fi
 
 echo "✅ All health checks passed (Backend, DB, Frontend, Proxy)."
 
-# Ensure we are in the project root
-cd "$(dirname "$0")/.."
-
 mkdir -p "$HOST_RENDERED_GATE_DIR"
 rm -f "$HOST_RENDERED_GATE_DIR"/*.json
-
-mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
 
 PLAYWRIGHT_LOG=$(mktemp)
 set +e

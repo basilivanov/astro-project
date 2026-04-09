@@ -334,6 +334,41 @@ def test_week_brief_keeps_non_fallback_when_seed_is_complete_but_some_chunks_are
     assert validated["explainability"]["explanation_depth"] in {"full", "standard"}
 
 
+def test_week_brief_does_not_flag_chunk_parse_degraded_for_traffic_lights_blocks():
+    telemetry = []
+    week_strategy_chunk = SimpleNamespace(
+        section="week_strategy",
+        content="""
+        [
+          {"type":"header","level":2,"text":"📅 ПРОГНОЗ НА НЕДЕЛЮ"},
+          {"type":"callout","variant":"warning","title":"СТАТУС НЕДЕЛИ","content":"Неделя требует спокойного темпа и коротких проверок."},
+          {"type":"header","level":2,"text":"Главная тема"},
+          {"type":"paragraph","text":"Главный результат даст одна опорная линия и ясные договоренности."},
+          {"type":"header","level":2,"text":"Резюме по срезам"},
+          {"type":"traffic_lights","items":{"money":"yellow","health":"yellow","love":"green"}}
+        ]
+        """,
+        status="completed",
+        order_index=0,
+    )
+
+    with patch("backend.app.services.week_brief_service.log_grace_event", side_effect=lambda *args, **kwargs: telemetry.append((args, kwargs))):
+        payload = build_week_brief_payload(
+            report=_sample_report(),
+            payload=_sample_payload(),
+            context=_sample_context(),
+            chunks=[week_strategy_chunk],
+            user=None,
+            llm_model="deterministic",
+        )
+
+    validated = validate_week_brief_payload(payload)
+    assert validated["fallback_mode"] is False
+    built_events = [call for call in telemetry if call[0][1] == "week_brief_built"]
+    assert built_events
+    assert built_events[-1][1]["chunk_parse_degraded"] is False
+
+
 def test_week_brief_uses_report_created_window_when_seed_days_are_stale_or_missing():
     report = _sample_report()
 
