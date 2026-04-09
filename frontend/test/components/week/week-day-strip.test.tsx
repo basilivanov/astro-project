@@ -66,6 +66,8 @@ describe('WeekDayStrip', () => {
     expect(card).toHaveTextContent('Фокус на главном');
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
     expect(card).not.toHaveTextContent('Детали дня');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Окно и фокус — без лишней глубины');
+    expect(screen.getByTestId('week-day-strip-section')).not.toHaveTextContent('совместимый');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);
     expect(onDayClick).toHaveBeenCalledWith('2026-04-01');

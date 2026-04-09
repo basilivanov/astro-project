@@ -8,6 +8,7 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
 - `frontend/lib/detail-layer.ts` now uses repo-local imports only; machine-specific filesystem paths are removed from runtime/test code.
 - `Today` canonical happy-path is now limited to `day_brief_v1`; legacy payloads are rendered as explicit compatibility fallback instead of premium reconstruction.
 - `Week` now has split mappers in `frontend/lib/week-brief.ts`: canonical `week_brief` and compatibility `week_map/chunks` are no longer merged in one happy-path adapter.
+- `/week` controller now mirrors `Today` more strictly: canonical screen requires `week_brief`, compatibility screen requires explicit legacy payload, and missing history without payload resolves to empty/create semantics instead of synthesized compatibility.
 - `Week` day strip is intentionally compact-only; canonical mode stays brief, while compatibility mode is explicitly marked as fallback without pseudo-depth.
 
 ## Current State Summary

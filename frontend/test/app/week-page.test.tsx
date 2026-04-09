@@ -170,15 +170,16 @@ describe('WeekPage', () => {
     );
   });
 
-  it('renders honest signed fallback when report history is empty', async () => {
+  it('renders strict empty/create state when report history is empty', async () => {
     correlatedFetchMock.mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
 
     render(<WeekPage />);
 
-    expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('ещё нет сохранённого weekly report в истории');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/create?type=week_forecast');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Собрать персональную неделю');
+    expect(await screen.findByText('Персональной недели пока нет')).toBeInTheDocument();
+    expect(screen.getByText('Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Чтобы увидеть персональную неделю, соберите новый отчёт.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Собрать персональную неделю/i })).toHaveAttribute('href', '/create?type=week_forecast');
+    expect(screen.queryByTestId('week-map-surface')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
   });
 
   it('prefers the freshest eligible week report before fetching details', async () => {
@@ -274,24 +275,44 @@ describe('WeekPage', () => {
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
   });
 
-  it('uses mock runtime payload without fetching report details', async () => {
-    mockUseSearchParams.mockReturnValue(new URLSearchParams('mock=1'));
-    mockUseTelegram.mockReturnValue({ isReady: true, initData: '123456789', mode: 'mock' });
-    correlatedFetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          { id: 'week-99', report_type: 'week_forecast', status: 'completed' },
-        ]),
-        { status: 200 },
-      ),
-    );
+  it('renders compatibility week only when explicit legacy payload exists', async () => {
+    correlatedFetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            { id: 'week-legacy', report_type: 'week_forecast', status: 'completed', created_at: '2026-04-10T08:00:00+00:00' },
+          ]),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            report: { id: 'week-legacy', report_type: 'week_forecast', status: 'completed' },
+            chunks: [{ id: 'legacy-1', section: 'week_strategy', title: 'Стратегия недели', content: 'Legacy narrative' }],
+          }),
+          { status: 200 },
+        ),
+      );
 
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('совместимый fallback-режим');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-legacy');
+  });
+
+  it('keeps mock runtime without explicit weekly payload on strict empty/create state', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('mock=1'));
+    mockUseTelegram.mockReturnValue({ isReady: true, initData: '123456789', mode: 'mock' });
+
+    render(<WeekPage />);
+
+    expect(await screen.findByText('Персональной недели пока нет')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Собрать персональную неделю/i })).toHaveAttribute('href', '/create?type=week_forecast');
+    expect(screen.queryByTestId('week-map-surface')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
     expect(correlatedFetchMock).not.toHaveBeenCalled();
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/mock-week-report');
-    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 23 мар');
   });
 
 });

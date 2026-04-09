@@ -24,6 +24,7 @@ import { WeekDeepSections } from "../../components/week/week-deep-sections";
 import ReportStatusPoller from "../../components/report-status-poller";
 import {
   confidenceBucket,
+  hasExplicitWeekCompatibilityPayload,
   mapCanonicalWeekBriefToSurface,
   mapLegacyWeekFallbackToSurface,
   type WeekBrief,
@@ -69,14 +70,14 @@ function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): 
     return {
       primaryLabel: "Открыть собирающийся отчёт",
       primaryHref: latestReportMeta.id ? `/read/${latestReportMeta.id}` : "/reports/history",
-      note: "Персональный weekly report ещё собирается. Пока показываем короткую карту недели как безопасный ориентир.",
+      note: "Персональный weekly report ещё собирается. Полный экран недели появится после завершения генерации.",
     };
   }
 
   return {
     primaryLabel: "Собрать персональную неделю",
     primaryHref: "/create?type=week_forecast",
-    note: "Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Сейчас показываем базовую карту недели без персонального разбора.",
+    note: "Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Чтобы увидеть персональную неделю, соберите новый отчёт.",
   };
 }
 
@@ -125,7 +126,6 @@ function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): 
 // END_MODULE_MAP: M-WEEK-PAGE
 
 const DEFAULT_WEEK_MAP: LegacyWeekMapPayload = {
-
   thesis: "Неделя просит точного темпа: двигайте главное и сразу фиксируйте результат.",
   theme: "Фокус через короткие циклы и аккуратный контроль деталей.",
   day_cards: [
@@ -237,16 +237,9 @@ function WeekPageContent() {
       const mockWindow = window as MockWeekWindow;
       return {
         report: { id: report?.id ?? "mock-week-report", report_type: "week_forecast", status: "completed" },
-        week_map: mockWindow.MOCK_WEEK_MAP_OVERRIDE ?? DEFAULT_WEEK_MAP,
+        week_map: mockWindow.MOCK_WEEK_MAP_OVERRIDE ?? null,
         week_brief: mockWindow.MOCK_WEEK_BRIEF_OVERRIDE ?? null,
-        chunks: [
-          {
-            id: "week-strategy",
-            section: "week_strategy",
-            title: "Стратегия недели",
-            content: "Неделя лучше проходит через короткие циклы, а не через силовой рывок.",
-          },
-        ],
+        chunks: null,
       } satisfies WeekReportPayload;
     }
 
@@ -302,8 +295,7 @@ function WeekPageContent() {
       });
     }
 
-    const hasCompatibilityPayload = Boolean(payload?.week_map) || Boolean(payload?.chunks?.length) || !latestReportMeta || mockRuntime;
-    if (!hasCompatibilityPayload) {
+    if (!hasExplicitWeekCompatibilityPayload({ legacyWeekMap: payload?.week_map ?? null, chunks: payload?.chunks ?? null })) {
       return null;
     }
 
@@ -313,7 +305,7 @@ function WeekPageContent() {
       latestReportId,
       sourceStatus: latestReportStatus,
     });
-  }, [latestReportId, latestReportMeta, latestReportStatus, mockRuntime, payload]);
+  }, [latestReportId, latestReportStatus, payload]);
   // END_BLOCK: WEEK_SURFACE_MODEL
 
   useEffect(() => {
@@ -406,10 +398,10 @@ function WeekPageContent() {
         <ConsumerPanel className="p-5">
           <EmptyState
             compact
-            title="Карта недели пока не готова"
-            message="Канонический `week_brief_v1` ещё не найден, а совместимый fallback-слой для этой сессии недоступен."
-            actionLabel="К историям отчётов"
-            actionHref="/reports/history"
+            title={latestReportMeta?.status === "in_progress" ? "Персональная неделя ещё собирается" : "Персональной недели пока нет"}
+            message={emptyStateCopy.note}
+            actionLabel={emptyStateCopy.primaryLabel}
+            actionHref={emptyStateCopy.primaryHref}
           />
         </ConsumerPanel>
       </ConsumerPageShell>

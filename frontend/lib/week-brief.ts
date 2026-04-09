@@ -203,6 +203,13 @@ export type LegacyWeekMapPayload = {
   week_start?: string | null;
 };
 
+export function hasExplicitWeekCompatibilityPayload(input: {
+  legacyWeekMap?: LegacyWeekMapPayload | null;
+  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
+}): boolean {
+  return Boolean(input.legacyWeekMap) || Boolean(input.chunks?.length);
+}
+
 export type WeekSurfaceModel = {
   surfaceMode: "canonical" | "compatibility";
   headline: string;

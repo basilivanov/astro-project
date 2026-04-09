@@ -1,6 +1,7 @@
 import {
   confidenceBucket,
   formatWeekDateRange,
+  hasExplicitWeekCompatibilityPayload,
   mapCanonicalWeekBriefToSurface,
   mapLegacyWeekFallbackToSurface,
   mapWeekReportToWeekBrief,
@@ -274,5 +275,12 @@ describe('week-brief helpers', () => {
     expect(confidenceBucket(0.44)).toBe('low');
     expect(confidenceBucket(undefined)).toBe('unknown');
     expect(confidenceBucket(null)).toBe('unknown');
+  });
+
+  it('treats compatibility mode as explicit payload only', () => {
+    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: null, chunks: null })).toBe(false);
+    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: undefined, chunks: [] })).toBe(false);
+    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: { thesis: 'Legacy payload' }, chunks: null })).toBe(true);
+    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: null, chunks: [{ id: 'chunk-1', content: 'legacy chunk' }] })).toBe(true);
   });
 });
