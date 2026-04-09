@@ -471,6 +471,24 @@ function pickExplainabilityLead(cards: Array<{ explanation_human: string }>): st
 
 // FN-CONTRACT: FN-TODAY-BUILD-EXPLAINABILITY-CARDS
 // purpose: Build de-duplicated explainability cards from personalized and selected factors.
+type ExplainabilityLink = { label: string; href: string | null };
+
+function buildExplainabilityLinks(factorId: string, brief: DayBriefDto): ExplainabilityLink[] {
+  const detailItems = normalizeTodayDetailItems(brief);
+  const links = new Map<string, ExplainabilityLink>();
+  for (const item of detailItems) {
+    const relates = item.factors.some((factor) => factor.id === factorId);
+    if (!relates) continue;
+    const label = item.source === "today_score"
+      ? item.title.toLowerCase()
+      : item.source === "today_window"
+        ? `окно ${item.title.toLowerCase()}`
+        : item.title.toLowerCase();
+    links.set(item.id, { label, href: item.source === "today_window" ? `#today-window-details-${item.id.replace(/^today-window-/, "")}` : null });
+  }
+  return Array.from(links.values()).slice(0, 3);
+}
+
 function buildTodayExplainabilityCards(brief: DayBriefDto) {
   // START_BLOCK: TODAY_EXPLAINABILITY_CARD_SELECTION
   const compositionAnchors = collectTodayCompositionAnchors(brief);
@@ -551,22 +569,10 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
     : [];
   const normalizedOwnFactors = mapLegacyFactorsToNormalized(ownFactors, score.key);
   const hasScopedOwnFactors = normalizedOwnFactors.length > 0;
-  const domainScopedSelected = (brief.explainability.selected_factors ?? [])
-    .filter((factor) => looksLikeDomainScopedFactor(factor, score.key))
-    .filter((factor) => !isGenericDomainFactor(factor, brief))
-    .map((factor) => ({
-      label: factor.label,
-      explanation_human: factor.explanation_human,
-      explanation_astro: factor.explanation_astro,
-      value: null,
-    }));
-  const normalizedFallbackFactors = mapLegacyFactorsToNormalized(domainScopedSelected, score.key);
-  const hasMeaningfulFallback = normalizedFallbackFactors.some((factor) => factor.label || factor.explanationHuman || factor.explanationAstro || factor.value);
-
   return {
-    title: hasScopedOwnFactors || hasMeaningfulFallback ? "Что повлияло" : null,
+    title: hasScopedOwnFactors ? "Что повлияло" : null,
     body: null,
-    factors: hasScopedOwnFactors ? normalizedOwnFactors : (hasMeaningfulFallback ? normalizedFallbackFactors : []),
+    factors: hasScopedOwnFactors ? normalizedOwnFactors : [],
   };
 }
 
@@ -897,13 +903,21 @@ export function TodayExplainability({ brief }: { brief: DayBriefDto }) {
         <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">Факторов: {brief.explainability.factor_count}</span>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((factor) => (
-          <article key={factor.id} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-900">{factor.label}</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">{factor.explanation_human}</p>
-            {factor.explanation_astro ? <p className="mt-2 text-xs leading-relaxed text-slate-500">{factor.explanation_astro}</p> : null}
-          </article>
-        ))}
+        {cards.map((factor) => {
+          const links = buildExplainabilityLinks(factor.id, brief);
+          return (
+            <article key={factor.id} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-900">{factor.label}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{factor.explanation_human}</p>
+              {factor.explanation_astro ? <p className="mt-2 text-xs leading-relaxed text-slate-500">{factor.explanation_astro}</p> : null}
+              {links.length ? (
+                <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                  Влияет на: {links.map((link) => link.label).join(' / ')}
+                </p>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </ConsumerPanel>
   );

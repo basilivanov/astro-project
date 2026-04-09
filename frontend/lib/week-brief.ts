@@ -77,6 +77,7 @@ export type WeekBrief = {
     theme?: string | null;
   } | null;
   day_cards?: {
+    id?: string | null;
     date?: string | null;
     weekday?: string | null;
     mode?: LightStatus | null;
@@ -90,6 +91,17 @@ export type WeekBrief = {
       explanation_astro?: string | null;
       value?: string | null;
     }[] | null;
+    details?: {
+      why_text?: string | null;
+      why_title?: string | null;
+      supporting_factors?: {
+        label?: string | null;
+        explanation_human?: string | null;
+        explanation_astro?: string | null;
+        value?: string | null;
+      }[] | null;
+    } | null;
+    factor_ids?: string[] | null;
     best_for?: string[] | null;
     avoid?: string[] | null;
     peak_window_label?: string | null;
@@ -202,6 +214,7 @@ export type WeekSurfaceModel = {
   location: string | null;
   personalizationLevel: string | null;
   fallbackMode: boolean;
+  usesCanonicalWeekBrief: boolean;
   reportId: string | null;
   dayCards: NonNullable<WeekBrief["day_cards"]>;
   dayStrip: NonNullable<WeekBrief["day_cards"]>;
@@ -326,6 +339,7 @@ export function mapWeekReportToWeekBrief(input: {
   const brief = input.weekBrief;
   const legacy = input.legacyWeekMap;
   const chunks = Array.isArray(input.chunks) ? input.chunks : [];
+  const hasCanonicalWeekBrief = Boolean(brief);
 
   const chunkSections = chunks
     .filter((chunk) => typeof chunk?.content !== "undefined")
@@ -345,7 +359,8 @@ export function mapWeekReportToWeekBrief(input: {
 
   const dayCards = brief?.day_cards?.length
     ? brief.day_cards
-    : (legacy?.day_cards ?? []).map((item) => ({
+    : (legacy?.day_cards ?? []).map((item, index) => ({
+        id: item.date ? `week-day-${item.date}` : `week-day-${index + 1}`,
         date: item.date ?? null,
         weekday: normalizeLegacyWeekday(item.weekday),
         mode: normalizeStatus(item.mode),
@@ -354,6 +369,12 @@ export function mapWeekReportToWeekBrief(input: {
         lead: item.headline ?? null,
         practical: normalizeList(item.best_for).slice(0, 2),
         supporting_factors: [],
+        details: {
+          why_text: null,
+          why_title: null,
+          supporting_factors: [],
+        },
+        factor_ids: [],
         best_for: normalizeList(item.best_for),
         avoid: normalizeList(item.avoid),
         peak_window_label: null,
@@ -397,9 +418,11 @@ export function mapWeekReportToWeekBrief(input: {
     location: legacy?.location ?? null,
     personalizationLevel: brief?.personalization_level ?? null,
     fallbackMode: Boolean(brief?.fallback_mode),
+    usesCanonicalWeekBrief: hasCanonicalWeekBrief,
     reportId: brief?.report_ref?.report_id ?? input.latestReportId ?? null,
     dayCards,
     dayStrip: dayCards.map((card) => ({
+      id: card.id ?? null,
       date: card.date ?? null,
       weekday: compactDateLabel(card.date ?? null, card.weekday ?? null),
       mode: card.mode ?? null,
@@ -408,6 +431,8 @@ export function mapWeekReportToWeekBrief(input: {
       lead: null,
       practical: [],
       supporting_factors: [],
+      details: card.details ?? { why_text: null, why_title: null, supporting_factors: [] },
+      factor_ids: Array.isArray(card.factor_ids) ? card.factor_ids : [],
       best_for: normalizeList(card.best_for).slice(0, 1),
       avoid: normalizeList(card.avoid).slice(0, 1),
       peak_window_label: card.peak_window_label ?? null,

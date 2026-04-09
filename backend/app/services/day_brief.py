@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import re
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -401,7 +402,70 @@ def _build_windows(
                 "_slot_label": slot_label,
             }
         )
-    return windows
+    return _dedupe_windows(windows, dominant_domain)
+
+
+def _semantic_fingerprint(*parts: Any) -> str:
+    tokens: list[str] = []
+    for part in parts:
+        text = str(part or "").strip().lower()
+        if not text:
+            continue
+        cleaned = re.sub(r"[^\w\sа-яё]", " ", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        if cleaned:
+            tokens.extend(token for token in cleaned.split(" ") if len(token) > 2)
+    if not tokens:
+        return ""
+    return " ".join(list(dict.fromkeys(tokens))[:12])
+
+
+WINDOW_LABEL_TAXONOMY = {
+    "assembly": "Собрать ядро дня",
+    "negotiation": "Согласовать и договориться",
+    "review": "Проверить и сверить",
+    "recovery": "Снизить темп и восстановиться",
+    "focus": "Удержать глубокий фокус",
+}
+
+
+def _window_taxonomy_key(label: str, advice: str, explanation: str, dominant_domain: str) -> str:
+    text = " ".join(part for part in (label, advice, explanation, dominant_domain) if part).lower()
+    if any(token in text for token in ("соглас", "переговор", "договор", "обсужд", "контакт")):
+        return "negotiation"
+    if any(token in text for token in ("провер", "свер", "цифр", "документ", "пересмотр")):
+        return "review"
+    if any(token in text for token in ("восстанов", "пауза", "отдых", "ресурс", "мягк")):
+        return "recovery"
+    if any(token in text for token in ("фокус", "глуб", "концент", "одна задача")):
+        return "focus"
+    return "assembly"
+
+
+def _dedupe_windows(windows: list[dict[str, Any]], dominant_domain: str) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    for window in windows:
+        taxonomy_key = _window_taxonomy_key(
+            str(window.get("label") or ""),
+            str(window.get("advice") or ""),
+            str(window.get("explanation") or ""),
+            dominant_domain,
+        )
+        window["taxonomy_key"] = taxonomy_key
+        window["label"] = WINDOW_LABEL_TAXONOMY[taxonomy_key]
+        fingerprint = _semantic_fingerprint(taxonomy_key, window.get("advice"), window.get("explanation"))
+        duplicate = next((
+            item for item in deduped
+            if item.get("mode") == window.get("mode")
+            and item.get("start") == window.get("start")
+            and item.get("end") == window.get("end")
+            and _semantic_fingerprint(item.get("taxonomy_key"), item.get("advice"), item.get("explanation")) == fingerprint
+        ), None)
+        if duplicate:
+            duplicate["_factor_ids"] = list(dict.fromkeys([*(duplicate.get("_factor_ids") or []), *(window.get("_factor_ids") or [])]))[:4]
+            continue
+        deduped.append(window)
+    return deduped
 
 
 def _score_lunar_dynamics(facts: dict[str, Any]) -> tuple[dict[str, float], list[dict[str, Any]], list[FactorRecord]]:
@@ -1005,7 +1069,35 @@ def _build_best_and_risks(
                 "supporting_factors": supporting_factors,
             }
         )
-    return best_uses, risk_lines
+    return _dedupe_action_risk_items(best_uses), _dedupe_action_risk_items(risk_lines)
+
+
+def _dedupe_action_risk_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    for item in items:
+        fingerprint = _semantic_fingerprint(item.get("text"), item.get("why_text"), item.get("timeframe"))
+        duplicate = next((
+            existing for existing in deduped
+            if existing.get("timeframe") == item.get("timeframe")
+            and _semantic_fingerprint(existing.get("text"), existing.get("why_text"), existing.get("timeframe")) == fingerprint
+        ), None)
+        if duplicate:
+            merged_factor_ids = [value for value in dict.fromkeys([duplicate.get("factor_id"), item.get("factor_id")]) if value]
+            if merged_factor_ids:
+                duplicate["factor_id"] = merged_factor_ids[0]
+            lookup = {factor.get("id"): factor for factor in [*duplicate.get("supporting_factors", []), *item.get("supporting_factors", [])] if factor.get("id")}
+            merged_supporting_ids = list(dict.fromkeys(lookup.keys()))
+            if len(merged_factor_ids) > 1:
+                duplicate["why_text"] = _clip_text(
+                    f"{duplicate.get('why_text') or duplicate.get('text') or ''} Также здесь пересекаются сигналы по близкой теме.",
+                    fallback=str(duplicate.get("why_text") or duplicate.get("text") or ""),
+                    max_len=280,
+                )
+            if merged_supporting_ids:
+                duplicate["supporting_factors"] = [lookup[factor_id] for factor_id in merged_supporting_ids[:3] if factor_id in lookup]
+            continue
+        deduped.append(item)
+    return deduped
 
 
 def _build_summary(
@@ -1270,25 +1362,31 @@ def _assemble_day_brief_payload(
             explainability_factors=explainability.get("selected_factors"),
             limit=4,
         )
+        supporting_factors = _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4)
+        why_text = item.get("details", {}).get("why_text") or item.get("advice") or "Здесь важна точная дозировка, а не простой напор."
         item["details"] = {
             "why_title": item.get("details", {}).get("why_title") or f"Почему {str(item['title']).lower()} именно такие",
-            "why_text": item.get("details", {}).get("why_text") or item.get("advice") or "Здесь важна точная дозировка, а не простой напор.",
-            "supporting_factors": _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4),
-        }
+            "why_text": why_text,
+            "supporting_factors": supporting_factors,
+            "factor_ids": factor_ids,
+        } if supporting_factors or why_text else None
 
     now_local = _parse_local_dt(facts)
     clean_windows = []
     for window in windows:
         clean_window = {key: value for key, value in window.items() if not key.startswith("_")}
         factor_ids = list(dict.fromkeys((window.get("_factor_ids") or [])[:4]))
+        supporting_factors = _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4)
+        why_text = _clip_text(
+            str(clean_window.get("explanation") or "") or f"{clean_window.get('label', 'Это окно')} лучше использовать там, где важны точная дозировка, ясный темп и одна понятная задача.",
+            fallback="Это окно работает лучше, когда вы не распыляетесь и держите спокойный темп.",
+            max_len=280,
+        )
         clean_window["details"] = {
-            "why_text": _clip_text(
-                str(clean_window.get("explanation") or "") or f"{clean_window.get('label', 'Это окно')} лучше использовать там, где важны точная дозировка, ясный темп и одна понятная задача.",
-                fallback="Это окно работает лучше, когда вы не распыляетесь и держите спокойный темп.",
-                max_len=280,
-            ),
-            "supporting_factors": _build_supporting_factor_entries(factor_ids, detail_factor_lookup, limit=4),
-        }
+            "why_text": why_text,
+            "supporting_factors": supporting_factors,
+            "factor_ids": factor_ids,
+        } if supporting_factors or why_text else None
         clean_windows.append(clean_window)
 
     return {
@@ -1320,10 +1418,13 @@ def build_day_brief_telemetry(
     *,
     generation_mode: str | None = None,
     trace_id: str | None = None,
+    request_id: str | None = None,
 ) -> dict[str, Any]:
     model = validate_day_brief_payload(payload)
+    resolved_trace_id = _resolve_trace_id(trace_id)
     return {
-        "trace_id": _resolve_trace_id(trace_id),
+        "trace_id": resolved_trace_id,
+        "request_id": request_id or resolved_trace_id,
         "generation_mode": generation_mode or "deterministic",
         "birth_time_used": model.explainability.birth_time_used,
         "confidence_bucket": _confidence_bucket(float(model.explainability.confidence)),
@@ -1353,6 +1454,7 @@ def _log_day_brief_event(
         fn=fn,
         block=block,
         trace_id=telemetry["trace_id"],
+        request_id=telemetry["request_id"],
         generation_mode=telemetry["generation_mode"],
         fallback_mode=model.fallback_mode,
         birth_time_used=telemetry["birth_time_used"],

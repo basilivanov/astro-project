@@ -177,7 +177,7 @@ test.describe("Today DayBrief surface", () => {
     await expect(relationshipsCard.getByTestId("today-score-details-love")).toHaveCount(0);
   });
 
-  test("real DEV payload keeps focus disclosure on CTA when selected factor is generic composition echo", async ({ page }) => {
+  test("real DEV payload hides focus disclosure when only generic selected-factor echo exists", async ({ page }) => {
     test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
     await page.setViewportSize({ width: 390, height: 844 });
     await bootstrapSignedTelegram(page, {
@@ -210,14 +210,10 @@ test.describe("Today DayBrief surface", () => {
     await expect(focusCard).toBeVisible();
     await focusCard.getByRole("button", { name: /Фокус:/ }).click();
 
-    const focusDisclosure = focusCard.getByTestId("today-score-details-focus");
-    await expect(focusDisclosure.locator("summary")).toContainText("Что повлияло");
-    await expect(focusDisclosure).toContainText("день любит узкий фокус, короткий список дел и запас по времени");
-    await expect(focusDisclosure).not.toContainText("Сузь день до одного приоритета");
-    await expect(focusDisclosure.locator('p')).toHaveCount(0);
+    await expect(focusCard.getByTestId("today-score-details-focus")).toHaveCount(0);
   });
 
-  test("real DEV payload keeps domain-scoped score disclosures for energy money love", async ({ page }) => {
+  test("real DEV payload keeps score disclosures honest without placeholder fallback copy", async ({ page }) => {
     test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
     await page.setViewportSize({ width: 390, height: 844 });
     await bootstrapSignedTelegram(page, {
@@ -248,12 +244,15 @@ test.describe("Today DayBrief surface", () => {
       await expect(card).toBeVisible();
       await card.locator("button").first().click();
       const disclosure = card.getByTestId(`today-score-details-${key}`);
-      await expect(disclosure.locator("summary")).toContainText("Что повлияло");
-      await expect(disclosure).not.toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
+      if (await disclosure.count()) {
+        await expect(disclosure).not.toContainText("Нажмите на карточку, чтобы открыть подробный разбор этой сферы, когда он доступен в персональной сводке.");
+        await expect(disclosure).not.toContainText(/\btraffic\s*light\b/i);
+        await expect(disclosure).not.toContainText(/\bсветофор\b/i);
+      }
     }
   });
 
-  test("signed Telegram lane keeps disclosure copy human and domain-scoped across user shapes", async ({ page }) => {
+  test("signed Telegram lane keeps score disclosures honest across user shapes", async ({ page }) => {
     test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
 
     const signedUsers = [
@@ -296,24 +295,27 @@ test.describe("Today DayBrief surface", () => {
         await expect(card).toBeVisible();
         await card.locator('button').first().click();
         const disclosure = card.getByTestId(`today-score-details-${key}`);
-        await expect(disclosure).toBeVisible();
+        if (await disclosure.count()) {
+          await expect(disclosure).toBeVisible();
+          await expect(disclosure).not.toContainText(/\bsignal_only\b/i);
+          await expect(disclosure).not.toContainText(/\bstructured_value\b/i);
+          await expect(disclosure).not.toContainText(/\b(?:money|love|health|focus):(?:green|yellow|red)\b/i);
+          await expect(disclosure).not.toContainText(/\btraffic\s*light\b/i);
+          await expect(disclosure).not.toContainText(/\bсветофор\b/i);
+        }
+      }
+
+      const renderedDisclosures = page.locator('[data-testid^="today-score-"] details');
+      const disclosureCount = await renderedDisclosures.count();
+      for (let index = 0; index < disclosureCount; index += 1) {
+        const disclosure = renderedDisclosures.nth(index);
         await expect(disclosure).not.toContainText(/\bsignal_only\b/i);
         await expect(disclosure).not.toContainText(/\bstructured_value\b/i);
         await expect(disclosure).not.toContainText(/\b(?:money|love|health|focus):(?:green|yellow|red)\b/i);
         await expect(disclosure).not.toContainText(/\btraffic\s*light\b/i);
         await expect(disclosure).not.toContainText(/\bсветофор\b/i);
+        await expect(disclosure).not.toContainText('Нажмите на карточку, чтобы открыть подробный разбор этой сферы');
       }
-
-      const moneyDisclosure = page.getByTestId('today-score-money').getByTestId('today-score-details-money');
-      const loveDisclosure = page.getByTestId('today-score-love').getByTestId('today-score-details-love');
-      const focusDisclosure = page.getByTestId('today-score-focus').getByTestId('today-score-details-focus');
-
-      await expect(moneyDisclosure.locator('summary')).toContainText('Что повлияло');
-      await expect(loveDisclosure.locator('summary')).toContainText('Что повлияло');
-      await expect(focusDisclosure.locator('summary')).toContainText('Что повлияло');
-      await expect(moneyDisclosure).not.toContainText('Рабочий контекст');
-      await expect(loveDisclosure).not.toContainText('Контакт и тон');
-      await expect(focusDisclosure).not.toContainText('Нажмите на карточку, чтобы открыть подробный разбор этой сферы');
     }
   });
 

@@ -71,6 +71,7 @@ def test_correlation_scope_restores_previous_context_after_exit():
                 'correlation_id': 'inner-corr',
                 'trace_id': 'inner-trace',
                 'correlation_source': 'scheduler',
+                'request_id': 'inner-trace',
             }
             assert resolve_correlation_context() == context
 
@@ -78,6 +79,69 @@ def test_correlation_scope_restores_previous_context_after_exit():
             'correlation_id': 'outer-corr',
             'trace_id': 'outer-trace',
             'correlation_source': 'outer-source',
+            'request_id': None,
         }
     finally:
         set_correlation_ids(**previous)
+
+
+def test_build_grace_log_payload_accepts_request_id():
+    payload = build_grace_log_payload(
+        module='M-TEST',
+        fn='demo',
+        block='BLOCK',
+        request_id='req-789',
+    )
+
+    assert payload['request_id'] == 'req-789'
+
+
+from backend.app.logging_utils import bind_correlation_ids
+
+
+def test_bind_correlation_ids_defaults_request_id_to_trace_id():
+    previous = set_correlation_ids(correlation_id=None, trace_id=None, correlation_source=None, request_id=None)
+    try:
+        context = bind_correlation_ids('fastapi.middleware')
+        assert context['request_id'] == context['trace_id']
+        assert resolve_correlation_context()['request_id'] == context['request_id']
+    finally:
+        set_correlation_ids(**previous)
+
+from backend.app.logging_utils import build_grace_log_payload, run_with_correlation
+
+
+def test_build_grace_log_payload_uses_context_request_id():
+    previous = set_correlation_ids(correlation_id=None, trace_id=None, correlation_source=None, request_id=None)
+    try:
+        set_correlation_ids(
+            correlation_id='corr-ctx',
+            trace_id='trace-ctx',
+            correlation_source='ctx-source',
+            request_id='req-ctx',
+        )
+        payload = build_grace_log_payload(module='M-TEST', fn='demo', block='BLOCK')
+    finally:
+        set_correlation_ids(**previous)
+
+    assert payload['request_id'] == 'req-ctx'
+
+
+async def _read_correlation_request_id():
+    return resolve_correlation_context()['request_id']
+
+
+def test_run_with_correlation_preserves_request_id():
+    import asyncio
+
+    result = asyncio.run(run_with_correlation(
+        _read_correlation_request_id,
+        {
+            'correlation_id': 'corr-async',
+            'trace_id': 'trace-async',
+            'correlation_source': 'test',
+            'request_id': 'req-async',
+        },
+    ))
+
+    assert result == 'req-async'

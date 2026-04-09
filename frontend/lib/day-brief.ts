@@ -67,11 +67,13 @@ export type DayBriefDto = {
       why_title?: string | null;
       why_text: string;
       supporting_factors: Array<{
+        id?: string | null;
         label: string;
         explanation_human: string;
         explanation_astro?: string | null;
         value?: string | null;
       }>;
+      factor_ids?: string[];
     } | null;
   }>;
   windows: Array<{
@@ -84,17 +86,20 @@ export type DayBriefDto = {
     details?: {
       why_text: string;
       supporting_factors: Array<{
+        id?: string | null;
         label: string;
         explanation_human: string;
         explanation_astro?: string | null;
         value?: string | null;
       }>;
+      factor_ids?: string[];
     } | null;
   }>;
   best_uses: Array<{
     id: string;
     text: string;
     factor_id?: string | null;
+    factor_ids?: string[];
     impact?: DayBriefImpact | null;
     timeframe?: string | null;
   }>;
@@ -102,10 +107,12 @@ export type DayBriefDto = {
     id: string;
     text: string;
     factor_id?: string | null;
+    factor_ids?: string[];
     impact?: DayBriefImpact | null;
     timeframe?: string | null;
     why_text?: string | null;
     supporting_factors?: Array<{
+      id?: string | null;
       label: string;
       explanation_human: string;
       explanation_astro?: string | null;
@@ -172,6 +179,7 @@ const num = (value: unknown, fallback = 0): number => typeof value === "number" 
 function normalizeSupportingFactors(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter(isRecord).map((item) => ({
+    id: typeof item.id === "string" ? item.id : null,
     label: typeof item.label === "string" ? item.label : "",
     explanation_human: typeof item.explanation_human === "string" ? item.explanation_human : "",
     explanation_astro: typeof item.explanation_astro === "string" ? item.explanation_astro : null,
@@ -196,6 +204,7 @@ function normalizeDetails(value: unknown) {
     why_title: typeof value.why_title === "string" ? value.why_title : null,
     why_text: text(value.why_text, "Сегодня здесь лучше идти через спокойную точность, а не через голый напор."),
     supporting_factors: normalizeSupportingFactors(value.supporting_factors),
+    factor_ids: Array.isArray(value.factor_ids) ? value.factor_ids.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [],
   };
 }
 
@@ -221,6 +230,7 @@ function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
     id: text(item.id, `item-${index}`),
     text: text(item.text, "Сфокусируйтесь на одном важном шаге."),
     factor_id: typeof item.factor_id === "string" ? item.factor_id : null,
+    factor_ids: Array.isArray(item.factor_ids) ? item.factor_ids.filter((value): value is string => typeof value === "string" && value.trim().length > 0) : [],
     impact: isImpact(item.impact) ? item.impact : null,
     timeframe: typeof item.timeframe === "string" ? item.timeframe : null,
     why_text: typeof item.why_text === "string" ? item.why_text : null,

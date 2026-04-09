@@ -23,6 +23,8 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
         {week.dayStrip.map((card, index) => {
           const cardKey = card.date ?? `${index}`;
           const primaryHint = card.best_for?.[0] ?? card.avoid?.[0] ?? null;
+          const detailHint = card.details?.why_text ?? null;
+          const detailFactors = Array.isArray(card.details?.supporting_factors) ? card.details.supporting_factors.filter((factor) => factor?.label || factor?.explanation_human) : [];
           return (
             <article
               key={cardKey}
@@ -43,6 +45,12 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
                     {card.peak_window_label ? `Окно ${card.peak_window_label}` : null}
                     {card.peak_window_label && primaryHint ? " · " : null}
                     {primaryHint ? `Фокус ${primaryHint}` : null}
+                  </p>
+                ) : null}
+                {detailHint ? <p className="mt-2 text-[11px] leading-relaxed opacity-80 line-clamp-3">{detailHint}</p> : null}
+                {detailFactors.length ? (
+                  <p className="mt-2 text-[11px] font-medium opacity-80">
+                    {detailFactors.slice(0, 2).map((factor) => factor.label || factor.explanation_human).filter(Boolean).join(' · ')}
                   </p>
                 ) : null}
               </button>

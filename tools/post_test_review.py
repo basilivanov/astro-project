@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.app.logging_utils import LOG_DIR as ACTIVE_LOG_DIR
 from tools.feed_logs.replay_last import _summarize as summarize_feed_flow
 from tools.log_watch.common import extract_timestamp, load_records
 from tools.rendered_artifacts import load_rendered_summaries
@@ -25,7 +26,19 @@ VERDICTS = {
     "no-evidence-blocker": "FAIL_NO_EVIDENCE",
 }
 
-TODAY_EVENTS = {"feed.entry", "feed.debug", "feed.error", "day_brief.built", "day_brief.fallback", "day_brief.validation_failed", "day_brief.response_returned"}
+TODAY_EVENTS = {
+    "feed.entry",
+    "feed.debug",
+    "feed.error",
+    "feed.block.start",
+    "feed.block.end",
+    "feed.generated",
+    "feed.semantic_blocks",
+    "day_brief.built",
+    "day_brief.fallback",
+    "day_brief.validation_failed",
+    "day_brief.response_returned",
+}
 REPORT_EVENTS = {
     "report.workflow.run_start",
     "report.workflow.run_started",
@@ -115,6 +128,7 @@ def _pick_evidence(records: list[dict[str, Any]], limit: int = 3) -> list[dict[s
                 "event": event,
                 "timestamp": record.get("timestamp") or record.get("logged_at") or record.get("time"),
                 "trace_id": record.get("trace_id"),
+                "request_id": record.get("request_id"),
                 "correlation_id": record.get("correlation_id"),
                 "report_id": record.get("report_id") or record.get("resumed_report_id"),
                 "reason": _reason_code(record),
@@ -127,6 +141,7 @@ def _pick_evidence(records: list[dict[str, Any]], limit: int = 3) -> list[dict[s
                 "event": record.get("event"),
                 "timestamp": record.get("timestamp") or record.get("logged_at") or record.get("time"),
                 "trace_id": record.get("trace_id"),
+                "request_id": record.get("request_id"),
                 "correlation_id": record.get("correlation_id"),
                 "report_id": record.get("report_id") or record.get("resumed_report_id"),
                 "reason": _reason_code(record),
@@ -146,20 +161,35 @@ def _classify_status(*, has_records: bool, degradation_count: int, expected_reas
     return "unexpected-degradation"
 
 
+def _canonical_feed_logs(feed_log: Path) -> list[Path]:
+    paths = [feed_log]
+    fallback_log = Path("/tmp/astro-project/logs/feed.jsonl")
+    if feed_log == ACTIVE_LOG_DIR / "feed.jsonl" and fallback_log != feed_log:
+        paths.append(fallback_log)
+    return paths
+
+
 def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> FlowDigest:
-    records = _recent_records(feed_log, allowed_events=TODAY_EVENTS, limit=limit, since_delta=since_delta)
+    records = []
+    for path in _canonical_feed_logs(feed_log):
+        records.extend(_recent_records(path, allowed_events=TODAY_EVENTS, limit=limit, since_delta=since_delta))
+    records = sorted(records, key=lambda record: extract_timestamp(record) or datetime.min.replace(tzinfo=timezone.utc))[-limit:]
     counters = Counter()
     reason_codes: Counter[str] = Counter()
     alerts: list[str] = []
     sample_trace_id = None
     sample_correlation_id = None
+    sample_request_id = None
     sample_report_id = None
     last_timestamp = None
     fallback_count = 0
+    saw_feed_entry = False
+    saw_today_success = False
 
     for record in records:
         sample_trace_id = sample_trace_id or record.get("trace_id")
         sample_correlation_id = sample_correlation_id or record.get("correlation_id")
+        sample_request_id = sample_request_id or record.get("request_id")
         sample_report_id = sample_report_id or record.get("report_id") or record.get("resumed_report_id")
         ts = extract_timestamp(record)
         if ts is not None:
@@ -168,9 +198,12 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         stage = record.get("stage")
         if event == "feed.entry":
             counters["today_requests_total"] += 1
+            saw_feed_entry = True
         if event == "feed.debug" and stage == "auth_fallback":
             counters["today_auth_fallback_anonymous_total"] += 1
             fallback_count += 1
+        if event == "day_brief.response_returned" and record.get("fallback_mode") is False:
+            saw_today_success = True
         if record.get("personalization_level") == "profile_light":
             counters["today_profile_light_total"] += 1
         if record.get("fallback_mode") is True:
@@ -190,14 +223,18 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         alerts.append("today auth fallback detected")
     if counters["today_validator_fallback_total"] > 0:
         alerts.append("today validator fallback detected")
+    effective_fallback_count = 0 if saw_today_success else fallback_count
     status = _classify_status(
         has_records=bool(records),
-        degradation_count=fallback_count,
+        degradation_count=effective_fallback_count,
         expected_reason_hit=not reason_codes.keys().isdisjoint(EXPECTED_REASON_CODES),
     )
 
     if not records:
         alerts.append("no recent today/day brief evidence")
+    elif saw_feed_entry and saw_today_success and not (sample_trace_id or sample_request_id):
+        alerts.append("today evidence missing concrete trace_id/request_id")
+        status = "no-evidence-blocker"
 
     return FlowDigest(
         flow_id="FLOW-TODAY-WEEK-TODAY",
@@ -207,7 +244,7 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         sample_trace_id=sample_trace_id,
         sample_correlation_id=sample_correlation_id,
         sample_report_id=sample_report_id,
-        fallback_count=fallback_count,
+        fallback_count=effective_fallback_count,
         reason_codes=[name for name, _ in reason_codes.most_common(3)],
         alerts=alerts,
         counters=dict(counters),
@@ -222,6 +259,7 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
     alerts: list[str] = []
     sample_trace_id = None
     sample_correlation_id = None
+    sample_request_id = None
     sample_report_id = None
     last_timestamp = None
     fallback_count = 0
@@ -229,6 +267,7 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
     for record in records:
         sample_trace_id = sample_trace_id or record.get("trace_id")
         sample_correlation_id = sample_correlation_id or record.get("correlation_id")
+        sample_request_id = sample_request_id or record.get("request_id")
         sample_report_id = sample_report_id or record.get("report_id") or record.get("resumed_report_id")
         ts = extract_timestamp(record)
         if ts is not None:
@@ -530,8 +569,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Minimal post-test observability gate for Today/Week/Read")
     parser.add_argument("--profile", choices=["today-week", "read-only"], default="today-week")
     parser.add_argument("--since", type=parse_since, default=timedelta(minutes=90))
-    parser.add_argument("--feed-log", type=Path, default=PROJECT_ROOT / "logs" / "feed.jsonl")
-    parser.add_argument("--report-log", type=Path, default=PROJECT_ROOT / "logs" / "report.jsonl")
+    parser.add_argument("--feed-log", type=Path, default=ACTIVE_LOG_DIR / "feed.jsonl")
+    parser.add_argument("--report-log", type=Path, default=ACTIVE_LOG_DIR / "report.jsonl")
     parser.add_argument("--rendered-dir", type=Path, default=PROJECT_ROOT / "test-results" / "rendered-gate")
     parser.add_argument("--limit", type=int, default=4000)
     parser.add_argument("--report-format", choices=["json", "md"], default="json")

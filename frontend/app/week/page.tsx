@@ -16,6 +16,7 @@ import { ConsumerPageShell, ConsumerPanel, ConsumerStatusBadge } from "../../com
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states";
 import { WeekHeroMap } from "../../components/week/week-hero-map";
 import { WeekDayStrip } from "../../components/week/week-day-strip";
+import { WeekDayGrid } from "../../components/week/week-day-grid";
 import { WeekDomainPanel } from "../../components/week/week-domain-panel";
 import { WeekActionsPanel } from "../../components/week/week-actions-panel";
 import { WeekExplainabilityPanel } from "../../components/week/week-explainability-panel";
@@ -373,7 +374,7 @@ function WeekPageContent() {
   const hasConcreteWeekReport = Boolean(week.reportId);
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
-  const shouldShowFallbackNote = week.fallbackMode || !hasConcreteWeekReport;
+  const shouldShowFallbackNote = !week.usesCanonicalWeekBrief;
 
   return (
     // START_BLOCK: WEEK_READY_SURFACE
@@ -411,6 +412,7 @@ function WeekPageContent() {
         />
 
         <WeekDayStrip week={week} onDayClick={trackDayClick} />
+        <WeekDayGrid week={week} onDayClick={trackDayClick} />
         <WeekDomainPanel week={week} />
         <WeekActionsPanel week={week} />
         <WeekExplainabilityPanel week={week} />
@@ -418,7 +420,7 @@ function WeekPageContent() {
 
         {shouldShowFallbackNote ? (
           <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-            {emptyStateCopy.note}
+            {week.reportId ? "Показан совместимый fallback-режим: верхний слой WeekBrief недоступен, поэтому экран собран из legacy week_map." : emptyStateCopy.note}
           </p>
         ) : null}
       </section>

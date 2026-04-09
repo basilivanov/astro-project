@@ -375,6 +375,10 @@ def test_week_brief_suppresses_raw_astro_phrases_in_user_facing_day_and_risk_cop
 
     first_day = payload["day_cards"][0]
     assert "Нептун Квадрат" not in first_day["headline"]
+    assert first_day["id"].startswith("week-day-")
+    assert isinstance(first_day["factor_ids"], list)
+    assert "details" in first_day
+    assert set(first_day["details"].keys()) == {"why_text", "why_title", "supporting_factors"}
     assert all("Нептун Квадрат" not in item for item in first_day["best_for"])
     assert payload["risks"][0]["text"]
     assert "Нептун Квадрат" not in payload["risks"][0]["text"]

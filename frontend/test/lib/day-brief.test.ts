@@ -298,6 +298,48 @@ describe('day-brief helpers', () => {
   expect(scoreWithoutOwnFactors?.details?.supporting_factors).toEqual([]);
 });
 
+  it('keeps factor ids from ready payload details and action items', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
+        context: {},
+        scores: [{
+          key: 'energy',
+          title: 'Энергия',
+          value: 72,
+          status: 'green',
+          advice: 'Берегите темп.',
+          details: { why_text: 'Нужен спокойный ритм.', factor_ids: ['factor-energy-1'], supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'День держится на ровном темпе.' }] },
+        }],
+        windows: [{
+          id: 'window-1',
+          start: '09:00',
+          end: '11:00',
+          label: 'Собрать ядро дня',
+          mode: 'best',
+          advice: 'Закройте один главный блок.',
+          details: { why_text: 'Утро держит концентрацию.', factor_ids: ['factor-energy-1'], supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'Утро лучше для одной линии.' }] },
+        }],
+        best_uses: [{ id: 'best-1', text: 'Соберите главный блок.', factor_id: 'factor-energy-1', factor_ids: ['factor-energy-1'] }],
+        risks: [{ id: 'risk-1', text: 'Не спорьте из импульса.', factor_id: 'factor-energy-1', factor_ids: ['factor-energy-1'], why_text: 'Импульс выше обычного.', supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'Импульсность растёт.' }] }],
+        personalized_factors: [],
+        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 1, selected_factors: [] },
+        premium: null,
+        cta: null,
+        legacy: null,
+      },
+    }, null);
+
+    expect(result?.brief.scores[0].details?.factor_ids).toEqual(['factor-energy-1']);
+    expect(result?.brief.windows[0].details?.factor_ids).toEqual(['factor-energy-1']);
+    expect(result?.brief.best_uses[0].factor_ids).toEqual(['factor-energy-1']);
+    expect(result?.brief.risks[0].factor_ids).toEqual(['factor-energy-1']);
+  });
+
   it('returns null for non-object payloads', () => {
     expect(normalizeDayBriefPayload(null)).toBeNull();
     expect(normalizeDayBriefPayload('bad payload')).toBeNull();

@@ -100,6 +100,7 @@ from .services.day_brief import (
     build_day_brief_payload,
     build_day_brief_fallback,
 )
+from .logging_utils import configure_structlog, correlation_scope, get_correlation_ids
 from .services.day_brief_types import DayBrief as DayBriefDTO
 from .services.week_brief_service import build_week_brief_envelope, build_week_brief_payload
 from .services.personalized_daily import (
@@ -178,7 +179,29 @@ def log_admin_report_event(event: str, *, admin: User | None = None, report: Rep
 # #END_BLOCK_LOGGER
 
 # #START_BLOCK_APP_INIT
+configure_structlog()
 app = FastAPI(title="AstroSaaS API", version="0.1.0")
+
+
+@app.middleware("http")
+async def bind_request_correlation(request: Request, call_next):
+    incoming_request_id = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID")
+    incoming_trace_id = request.headers.get("X-Trace-ID") or request.headers.get("traceparent")
+    with correlation_scope(
+        "fastapi.middleware",
+        correlation_id=incoming_request_id,
+        trace_id=incoming_trace_id,
+        request_id=incoming_request_id,
+    ) as context:
+        request.state.correlation_context = context
+        response = await call_next(request)
+        current = get_correlation_ids()
+        if current.get("request_id"):
+            response.headers.setdefault("X-Request-ID", str(current["request_id"]))
+        if current.get("trace_id"):
+            response.headers.setdefault("X-Trace-ID", str(current["trace_id"]))
+        return response
+
 
 app.include_router(billing.router)
 
@@ -4105,6 +4128,8 @@ async def get_daily_feed(
         day_brief_telemetry = build_day_brief_telemetry(
             day_brief,
             generation_mode=vibe_meta.get("generation_mode"),
+            trace_id=get_correlation_ids().get("trace_id"),
+            request_id=get_correlation_ids().get("request_id"),
         )
 
         logger.info(
@@ -4123,6 +4148,7 @@ async def get_daily_feed(
             fallback_mode=bool(day_brief.get("fallback_mode")),
             generation_mode=day_brief_telemetry.get("generation_mode"),
             trace_id=day_brief_telemetry.get("trace_id"),
+            request_id=day_brief_telemetry.get("request_id"),
             birth_time_used=day_brief_telemetry.get("birth_time_used"),
             confidence_bucket=day_brief_telemetry.get("confidence_bucket"),
             factor_count=day_brief_telemetry.get("factor_count"),
@@ -4283,6 +4309,7 @@ async def get_day_brief(
             fallback_mode=bool(payload.get("fallback_mode")),
             generation_mode=telemetry.get("generation_mode"),
             trace_id=telemetry.get("trace_id"),
+            request_id=telemetry.get("request_id"),
             birth_time_used=telemetry.get("birth_time_used"),
             confidence_bucket=telemetry.get("confidence_bucket"),
             factor_count=telemetry.get("factor_count"),

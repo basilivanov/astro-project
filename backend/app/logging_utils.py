@@ -8,7 +8,7 @@ import logging
 import os
 import hashlib
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,6 +24,10 @@ FEED_EVENTS = {
     "feed.entry",
     "feed.debug",
     "feed.error",
+    "feed.block.start",
+    "feed.block.end",
+    "feed.generated",
+    "feed.semantic_blocks",
     "day_brief.built",
     "day_brief.fallback",
     "day_brief.validation_failed",
@@ -70,12 +74,14 @@ class CorrelationContext(TypedDict):
     correlation_id: Optional[str]
     trace_id: Optional[str]
     correlation_source: Optional[str]
+    request_id: Optional[str]
 
 
 _CORRELATION_ID_VAR: ContextVar[Optional[str]] = ContextVar("astro_correlation_id", default=None)
 _TRACE_ID_VAR: ContextVar[Optional[str]] = ContextVar("astro_trace_id", default=None)
 _CORRELATION_SOURCE_VAR: ContextVar[Optional[str]] = ContextVar("astro_correlation_source", default=None)
-_STRUCTLOG_CORRELATION_KEYS = ("correlation_id", "trace_id", "correlation_source")
+_REQUEST_ID_VAR: ContextVar[Optional[str]] = ContextVar("astro_request_id", default=None)
+_STRUCTLOG_CORRELATION_KEYS = ("correlation_id", "trace_id", "correlation_source", "request_id")
 
 
 def _unbind_structlog_keys() -> None:
@@ -91,6 +97,7 @@ def get_correlation_ids() -> CorrelationContext:
         "correlation_id": _CORRELATION_ID_VAR.get(),
         "trace_id": _TRACE_ID_VAR.get(),
         "correlation_source": _CORRELATION_SOURCE_VAR.get(),
+        "request_id": _REQUEST_ID_VAR.get(),
     }
 
 
@@ -99,15 +106,18 @@ def set_correlation_ids(
     correlation_id: Optional[str],
     trace_id: Optional[str],
     correlation_source: Optional[str],
+    request_id: Optional[str] = None,
 ) -> CorrelationContext:
     context: CorrelationContext = {
         "correlation_id": correlation_id,
         "trace_id": trace_id,
         "correlation_source": correlation_source,
+        "request_id": request_id,
     }
     _CORRELATION_ID_VAR.set(context["correlation_id"])
     _TRACE_ID_VAR.set(context["trace_id"])
     _CORRELATION_SOURCE_VAR.set(context["correlation_source"])
+    _REQUEST_ID_VAR.set(context["request_id"])
     _unbind_structlog_keys()
     bind_values = {key: value for key, value in context.items() if value is not None}
     if bind_values:
@@ -120,12 +130,14 @@ def resolve_correlation_context(
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     correlation_source: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> CorrelationContext:
     current = get_correlation_ids()
     return {
         "correlation_id": correlation_id or current["correlation_id"],
         "trace_id": trace_id or current["trace_id"],
         "correlation_source": correlation_source or current["correlation_source"],
+        "request_id": request_id or current["request_id"],
     }
 
 
@@ -135,11 +147,13 @@ def _attach_correlation_fields(
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     correlation_source: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> dict[str, Any]:
     context = resolve_correlation_context(
         correlation_id=correlation_id,
         trace_id=trace_id,
         correlation_source=correlation_source,
+        request_id=request_id,
     )
     for key, value in context.items():
         if value is not None and key not in payload:
@@ -153,12 +167,14 @@ def with_correlation_context(
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     correlation_source: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> Iterator[CorrelationContext]:
     previous = get_correlation_ids()
     next_context = resolve_correlation_context(
         correlation_id=correlation_id,
         trace_id=trace_id,
         correlation_source=correlation_source,
+        request_id=request_id,
     )
     set_correlation_ids(**next_context)
     try:
@@ -172,13 +188,16 @@ def bind_correlation_ids(
     *,
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> CorrelationContext:
     correlation_id = correlation_id or str(uuid.uuid4())
     trace_id = trace_id or str(uuid.uuid4())
+    request_id = request_id or trace_id
     return set_correlation_ids(
         correlation_id=correlation_id,
         trace_id=trace_id,
         correlation_source=source,
+        request_id=request_id,
     )
 
 
@@ -188,9 +207,10 @@ def correlation_scope(
     *,
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> Iterator[CorrelationContext]:
     previous = get_correlation_ids()
-    context = bind_correlation_ids(source, correlation_id=correlation_id, trace_id=trace_id)
+    context = bind_correlation_ids(source, correlation_id=correlation_id, trace_id=trace_id, request_id=request_id)
     try:
         yield context
     finally:
@@ -198,6 +218,7 @@ def correlation_scope(
             correlation_id=previous["correlation_id"],
             trace_id=previous["trace_id"],
             correlation_source=previous["correlation_source"],
+            request_id=previous["request_id"],
         )
 
 
@@ -215,12 +236,13 @@ async def run_with_correlation(
         return result
 
 
-@contextmanager
-def _async_correlation_context(context: CorrelationContext):
+@asynccontextmanager
+async def _async_correlation_context(context: CorrelationContext):
     with with_correlation_context(
         correlation_id=context.get("correlation_id"),
         trace_id=context.get("trace_id"),
         correlation_source=context.get("correlation_source"),
+        request_id=context.get("request_id"),
     ):
         yield
 
@@ -262,6 +284,7 @@ def build_grace_log_payload(
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     correlation_source: Optional[str] = None,
+    request_id: Optional[str] = None,
     **fields: Any,
 ) -> dict[str, Any]:
     payload = {
@@ -275,6 +298,7 @@ def build_grace_log_payload(
         correlation_id=correlation_id,
         trace_id=trace_id,
         correlation_source=correlation_source,
+        request_id=request_id,
     )
     return build_catalog_event_payload(**payload)
 
@@ -289,6 +313,7 @@ def log_grace_event(
     correlation_id: Optional[str] = None,
     trace_id: Optional[str] = None,
     correlation_source: Optional[str] = None,
+    request_id: Optional[str] = None,
     **fields: Any,
 ) -> None:
     log_fn = getattr(structlog.get_logger(), level)
@@ -301,6 +326,7 @@ def log_grace_event(
             correlation_id=correlation_id,
             trace_id=trace_id,
             correlation_source=correlation_source,
+            request_id=request_id,
             **fields,
         ),
     )
@@ -414,8 +440,16 @@ def _json_default(value: Any) -> Any:
 
 
 def _append_event(filename: str, event_dict: dict[str, Any]) -> None:
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    path = LOG_DIR / filename
+    log_dir = LOG_DIR
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        if not os.access(log_dir, os.W_OK):
+            raise PermissionError(f"log dir is not writable: {log_dir}")
+    except OSError:
+        fallback_dir = Path("/tmp/astro-project/logs")
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        log_dir = fallback_dir
+    path = log_dir / filename
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event_dict, ensure_ascii=False, default=_json_default) + "\n")
 
@@ -424,6 +458,7 @@ def feed_admin_sink(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, An
     event = event_dict.get("event")
     if not event:
         return event_dict
+    event_dict = _attach_correlation_fields(event_dict)
     try:
         for filename, event_set, prefixes in JSONL_ROUTES:
             if event_set and event in event_set:
@@ -446,16 +481,19 @@ def configure_structlog() -> None:
         return
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    shared_processors = [
+        structlog.processors.TimeStamper(fmt="iso", key="timestamp", utc=True),
+        structlog.processors.add_log_level,
+        merge_contextvars,
+        feed_admin_sink,
+    ]
     structlog.configure(
         processors=[
-            structlog.processors.TimeStamper(fmt="iso", key="timestamp", utc=True),
-            structlog.processors.add_log_level,
-            merge_contextvars,
-            feed_admin_sink,
+            *shared_processors,
             structlog.processors.KeyValueRenderer(key_order=["timestamp", "event"]),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-        logger_factory=structlog.PrintLoggerFactory(),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
     _CONFIGURED = True

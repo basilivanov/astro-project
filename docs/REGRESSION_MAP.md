@@ -44,6 +44,28 @@ docker exec astro-project-backend-1 python3 scripts/pipeline.py
 ./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/core-ux.spec.ts e2e/report-create.spec.ts e2e/quality.spec.ts
 ```
 
+### `frontend:signed-auth`
+
+Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
+
+```bash
+./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts
+```
+
+### `frontend:guest-lane`
+
+Use when a change touches landing/start/public entry semantics.
+
+```bash
+./scripts/run_e2e.sh e2e/core-ux.spec.ts
+```
+
+### `frontend:mock-harness`
+
+Use only for deterministic fixture regressions and fallback harness checks.
+
+This profile does not prove production-authenticated behavior.
+
 ### `full-regression`
 
 Use before release, deploy, or large merge.
@@ -66,6 +88,7 @@ X_TELEGRAM_AUTH=... python3 tests/grace_report_matrix.py
 - Pick the smallest honest profile that covers the changed surface.
 - Escalate to smoke/full only when scope, risk, or handoff requires it.
 - If a failure is a crash/500/build break, add or update a reproducing test first.
+- If a route is auth-sensitive, green mock-lane evidence is insufficient without signed-lane proof.
 
 ## Durable regression surfaces
 

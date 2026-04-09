@@ -148,7 +148,14 @@ class WeekDayMode(str, Enum):
     red = "red"
 
 
+class WeekDayDetails(StrictModel):
+    why_text: str | None = Field(default=None, max_length=280)
+    why_title: str | None = Field(default=None, max_length=80)
+    supporting_factors: list[FactorEntry] = Field(default_factory=list, max_length=4)
+
+
 class WeekDayCard(StrictModel):
+    id: str = Field(..., min_length=1, max_length=64)
     date: date
     weekday: Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     mode: WeekDayMode
@@ -157,6 +164,8 @@ class WeekDayCard(StrictModel):
     lead: str | None = Field(default=None, max_length=180)
     practical: list[str] = Field(default_factory=list, max_length=3)
     supporting_factors: list[FactorEntry] = Field(default_factory=list, max_length=3)
+    details: WeekDayDetails | None = None
+    factor_ids: list[str] = Field(default_factory=list, max_length=4)
     best_for: list[str] = Field(default_factory=list, max_length=4)
     avoid: list[str] = Field(default_factory=list, max_length=4)
     peak_window_label: str | None = Field(default=None, max_length=64)

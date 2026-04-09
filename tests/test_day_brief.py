@@ -58,6 +58,7 @@ if "yookassa" not in sys.modules:
 if "backend.app.services.week_brief_service" not in sys.modules:
     week_brief_service = types.ModuleType("backend.app.services.week_brief_service")
     week_brief_service.build_week_brief_payload = lambda *args, **kwargs: {}
+    week_brief_service.build_week_brief_envelope = lambda *args, **kwargs: {}
     sys.modules["backend.app.services.week_brief_service"] = week_brief_service
 
 from fastapi.testclient import TestClient
@@ -194,6 +195,7 @@ def test_build_day_brief_fallback_is_safe_and_approximate() -> None:
     assert payload["explainability"]["confidence"] <= 0.65
     assert len(payload["personalized_factors"]) <= 3
     assert telemetry["generation_mode"] == "fallback"
+    assert telemetry["request_id"] == telemetry["trace_id"]
     assert telemetry["birth_time_used"] is False
     assert telemetry["confidence_bucket"] in {"low", "medium"}
 
@@ -374,3 +376,48 @@ def test_build_day_brief_payload_populates_score_supporting_factors_from_selecte
     assert any('Солнце Тригон (120°) Марс' in (factor.get('label') or '') for factor in scores['energy']['details']['supporting_factors'])
     assert any('money:green' in (factor.get('label') or '') for factor in scores['money']['details']['supporting_factors'])
     assert any('love:green' in (factor.get('label') or '') for factor in scores['love']['details']['supporting_factors'])
+
+
+def test_build_day_brief_payload_keeps_score_disclosure_honest_without_local_factors() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(
+            birth_time="07:05",
+            birth_time_known=True,
+            subscription_active_until=datetime(2026, 4, 3, tzinfo=timezone.utc),
+        ),
+        general_vibe="Главный акцент дня: действуй точечно и без лишнего шума.",
+    )
+
+    focus_score = next(item for item in payload["scores"] if item["key"] == "focus")
+    assert focus_score.get("details") is None or focus_score["details"].get("supporting_factors") == []
+
+
+def test_build_day_brief_payload_dedupes_windows_and_risks_and_links_factors() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(
+            birth_time="07:05",
+            birth_time_known=True,
+            subscription_active_until=datetime(2026, 4, 3, tzinfo=timezone.utc),
+        ),
+        general_vibe="Главный акцент дня: действуй точечно и без лишнего шума.",
+    )
+
+    assert payload["windows"]
+    assert len({(item["start"], item["end"], item["label"]) for item in payload["windows"]}) == len(payload["windows"])
+    assert all(item["label"] in {"Собрать ядро дня", "Согласовать и договориться", "Проверить и сверить", "Снизить темп и восстановиться", "Удержать глубокий фокус"} for item in payload["windows"])
+    assert any(item.get("details", {}).get("factor_ids") for item in payload["windows"] if item.get("details"))
+
+    risks = payload["risks"]
+    assert len({(item["text"], item.get("timeframe")) for item in risks}) == len(risks)
+    assert any(item.get("factor_ids") for item in risks)
+
+
+def test_semantic_fingerprint_handles_punctuation_without_name_error() -> None:
+    from backend.app.services.day_brief import _semantic_fingerprint
+
+    fingerprint = _semantic_fingerprint("Марс: квадрат Солнце!", "Фокус, проверка; договоренности")
+
+    assert "марс" in fingerprint
+    assert "солнце" in fingerprint

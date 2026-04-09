@@ -61,6 +61,7 @@ Use whenever the changed slice affects real product semantics such as create/rea
 | Solar return storefront bridge | `./scripts/run_e2e.sh e2e/solar-return-bridge-storefront.spec.ts` | Solar return storefront path reaches expected continuation |
 | Synastry storefront bridge | `./scripts/run_e2e.sh e2e/synastry-bridge-storefront.spec.ts` | Synastry storefront path reaches expected continuation |
 | Read surfaces | `./scripts/run_e2e.sh e2e/year-forecast-read.spec.ts e2e/ten-year-forecast-read.spec.ts` | Report read pages open into semantically correct read states |
+| Signed Telegram authenticated lane | `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts` | Authenticated consumer path uses real signed initData and sends correct `X-Telegram-Auth` without mock runtime |
 
 ### 5. Targeted admin reliability gate
 Use when the change affects operator workflows or admin-only screens.
@@ -85,6 +86,8 @@ Use when the change affects operator workflows or admin-only screens.
   - the change touches admin shell/common operator affordances
 - Include `e2e/route-console.spec.ts` when a change could produce runtime errors while leaving the page visually present.
 - Use business-path suites, not only smoke, when the route depends on billing, entitlement, create/read, fallback, or continuation semantics.
+- For auth-sensitive consumer routes, run a signed-lane proof; mock-lane-only evidence is invalid.
+- Fallback specs prove degraded-state safety only; they do not prove canonical authenticated behavior.
 
 ## Local adaptation: authoring guidance
 - Keep this guidance controller-owned and lightweight: it supports verification clarity, not a new mandatory test style layer.
@@ -104,6 +107,7 @@ A frontend slice is green only when all applicable statements are true:
 - The asserted content/state is semantically correct for the product contract; placeholder or fallback text does not count unless that fallback is the correct contracted result.
 - No required signal-hygiene guard for that slice is failing.
 - If the bug was a crash/500/regression, a reproduction test exists and passes.
+- If the touched route is an authenticated consumer route, the asserted success state is proven in the signed Telegram lane.
 
 ## Required escalation for severe regressions
 If the changed route produces a 500, render crash, broken hydration/runtime path, or blocked critical interaction:

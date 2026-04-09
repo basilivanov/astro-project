@@ -87,7 +87,9 @@ test.describe("VM-WEEK-FALLBACK", () => {
     await expect(page.getByTestId("week-deep-sections")).toContainText(
       "Неделя требует спокойного темпа и аккуратной расстановки приоритетов.",
     );
-    await expect(page.getByTestId("week-fallback-note")).not.toBeVisible();
+    await expect(page.getByTestId("week-fallback-note")).toBeVisible();
+    await expect(page.getByTestId("week-fallback-note")).toContainText("совместимый fallback-режим");
+    await expect(page.getByTestId("week-fallback-note")).toContainText("WeekBrief недоступен");
 
     const briefView = await waitForTelemetry(telemetry, "week.brief_view");
 

@@ -29,9 +29,36 @@ The canonical profile definitions live in `docs/REGRESSION_MAP.md`.
 - `backend:quick` — required for meaningful backend changes
 - `frontend:quick` — required for meaningful frontend changes
 - `frontend:targeted` — use for scoped Playwright verification
+- `frontend:signed-auth` — prove authenticated consumer behavior in canonical Telegram lane
+- `frontend:guest-lane` — prove public entry semantics without authenticated guarantees
+- `frontend:mock-harness` — deterministic fallback/harness checks only, not canonical auth proof
 - `smoke` — use before high-confidence handoff
 - `full-regression` — use before release/deploy/large merge
 - `llm-matrix` — expensive benchmark path, not routine task verification
+
+## Auth lane profiles
+
+### `frontend:signed-auth`
+
+Use when a change touches authenticated consumer behavior, Telegram runtime detection, auth headers, or personalized Today/Week/Profile surfaces.
+
+```bash
+./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts
+```
+
+### `frontend:guest-lane`
+
+Use when a change touches landing/start/public entry semantics.
+
+```bash
+./scripts/run_e2e.sh e2e/core-ux.spec.ts
+```
+
+### `frontend:mock-harness`
+
+Use only for deterministic fixture regressions and fallback harness checks.
+
+This profile does not prove production-authenticated behavior.
 
 ## Where details live
 

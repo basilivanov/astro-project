@@ -231,6 +231,8 @@ describe('Week day card detail layer', () => {
         lead: 'День лучше держать через один главный приоритет.',
         practical: ['Закрыть одно главное дело', 'Проверить дедлайны'],
         supporting_factors: [{ label: 'Марс', explanation_human: 'Помогает дожимать задачи', value: '88/100' }],
+        details: { why_text: 'День лучше держать через один главный приоритет.', why_title: 'Почему день так звучит', supporting_factors: [{ label: 'Марс', explanation_human: 'Помогает дожимать задачи', value: '88/100' }] },
+        factor_ids: ['week:theme_anchor'],
         best_for: ['Стратегия'],
         avoid: ['Суета'],
         peak_window_label: 'Утро',

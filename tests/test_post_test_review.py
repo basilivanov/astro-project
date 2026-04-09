@@ -18,15 +18,15 @@ def test_post_test_review_clean_today_and_week(tmp_path: Path) -> None:
     _write_jsonl(
         feed,
         [
-            {"timestamp": "2026-04-01T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-01T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1"},
         ],
     )
     _write_jsonl(
         report,
         [
-            {"timestamp": "2026-04-01T10:05:00+00:00", "event": "week_brief.response_returned", "factor_count": 5, "trace_id": "trace-2", "correlation_id": "corr-2"},
-            {"timestamp": "2026-04-01T10:05:10+00:00", "event": "week_brief_built", "week_brief_fallback_mode": False, "factor_count": 5, "trace_id": "trace-2", "correlation_id": "corr-2"},
+            {"timestamp": "2026-04-09T10:05:00+00:00", "event": "week_brief.response_returned", "factor_count": 5, "trace_id": "trace-2", "correlation_id": "corr-2"},
+            {"timestamp": "2026-04-09T10:05:10+00:00", "event": "week_brief_built", "week_brief_fallback_mode": False, "factor_count": 5, "trace_id": "trace-2", "correlation_id": "corr-2"},
         ],
     )
 
@@ -45,15 +45,15 @@ def test_post_test_review_flags_unexpected_degradation(tmp_path: Path) -> None:
     _write_jsonl(
         feed,
         [
-            {"timestamp": "2026-04-01T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-01T10:00:10+00:00", "event": "feed.debug", "stage": "auth_fallback", "reason": "telegram_auth_invalid", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-01T10:00:20+00:00", "event": "day_brief.validation_failed", "fallback_mode": True, "factor_count": 1, "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "feed.debug", "stage": "auth_fallback", "reason": "telegram_auth_invalid", "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:20+00:00", "event": "day_brief.validation_failed", "fallback_mode": True, "factor_count": 1, "trace_id": "trace-1", "correlation_id": "corr-1"},
         ],
     )
     _write_jsonl(
         report,
         [
-            {"timestamp": "2026-04-01T10:05:00+00:00", "event": "week_brief_validation_failed", "trace_id": "trace-2", "correlation_id": "corr-2"},
+            {"timestamp": "2026-04-09T10:05:00+00:00", "event": "week_brief_validation_failed", "trace_id": "trace-2", "correlation_id": "corr-2"},
         ],
     )
 
@@ -70,7 +70,7 @@ def test_post_test_review_marks_expected_degradation_and_report_id(tmp_path: Pat
         report,
         [
             {
-                "timestamp": "2026-04-01T10:05:00+00:00",
+                "timestamp": "2026-04-09T10:05:00+00:00",
                 "event": "week_brief_fallback_triggered",
                 "trace_id": "trace-2",
                 "correlation_id": "corr-2",
@@ -78,7 +78,7 @@ def test_post_test_review_marks_expected_degradation_and_report_id(tmp_path: Pat
                 "reason_codes": ["expected_degradation"],
             },
             {
-                "timestamp": "2026-04-01T10:05:10+00:00",
+                "timestamp": "2026-04-09T10:05:10+00:00",
                 "event": "week_brief_built",
                 "week_brief_fallback_mode": True,
                 "trace_id": "trace-2",
@@ -190,8 +190,8 @@ def test_post_test_review_exposes_rendered_presence_and_verdict_notes(tmp_path: 
     _write_jsonl(
         feed_log,
         [
-            {"timestamp": "2026-04-01T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-01T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1"},
         ],
     )
     report_log.write_text("", encoding="utf-8")
@@ -262,3 +262,42 @@ def test_post_test_review_exposes_rendered_presence_and_verdict_notes(tmp_path: 
     assert "canonical evidence clean; rendered evidence attached as supporting slice" in today_flow["rendered_verdict_notes"]
     assert "rendered parity metadata detected" in today_flow["rendered_verdict_notes"]
     assert "rendered both/pass pilot semantics materialized without replacing wrapper verdict model" in today_flow["rendered_verdict_notes"]
+
+
+def test_post_test_review_marks_no_evidence_when_today_ids_missing(tmp_path: Path) -> None:
+    feed = tmp_path / "feed.jsonl"
+    _write_jsonl(
+        feed,
+        [
+            {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "correlation_id": "corr-1"},
+        ],
+    )
+
+    today = analyze_today(feed, since_delta=__import__("datetime").timedelta(days=7), limit=100)
+
+    assert today.status == "no-evidence-blocker"
+    assert "today evidence missing concrete trace_id/request_id" in today.alerts
+
+
+def test_post_test_review_accepts_recent_today_success_without_feed_entry(tmp_path: Path) -> None:
+    feed = tmp_path / "feed.jsonl"
+    _write_jsonl(
+        feed,
+        [
+            {
+                "timestamp": "2026-04-09T10:00:10+00:00",
+                "event": "day_brief.response_returned",
+                "fallback_mode": False,
+                "factor_count": 4,
+                "trace_id": "trace-1",
+                "request_id": "req-1",
+                "correlation_id": "corr-1",
+            },
+        ],
+    )
+
+    today = analyze_today(feed, since_delta=__import__("datetime").timedelta(days=7), limit=100)
+
+    assert today.status == "clean"
+    assert "today evidence missing concrete trace_id/request_id" not in today.alerts

@@ -27,6 +27,8 @@ const week: WeekSurfaceModel = {
       lead: null,
       practical: [],
       supporting_factors: [],
+      details: { why_text: 'День лучше держать через один ритм.', why_title: 'Почему день так звучит', supporting_factors: [{ label: 'Солнце', explanation_human: 'Собирает фокус' }] },
+      factor_ids: ['week:theme_anchor'],
       best_for: ['Стратегия'],
       avoid: ['Суета'],
       peak_window_label: 'Утро',
@@ -60,6 +62,8 @@ describe('WeekDayStrip', () => {
     expect(card).toHaveTextContent('88/100');
     expect(card).toHaveTextContent('Фокус на главном');
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
+    expect(card).toHaveTextContent('День лучше держать через один ритм.');
+    expect(card).toHaveTextContent('Солнце');
     expect(card).not.toHaveTextContent('Детали дня');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);

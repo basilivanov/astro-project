@@ -231,3 +231,13 @@ git push origin master
 - перед prod push обязателен smoke;
 - публикация в GitHub = push соответствующей ветки в `origin`;
 - для внешнего deploy источником должна быть production-ветка, а не случайное локальное состояние.
+
+
+## Auth runtime lanes
+
+- Production consumer auth lane: signed Telegram WebApp initData only.
+- Mock Telegram lane: local development and deterministic Playwright harness only.
+- Guest/no-Telegram lane: public entry only, without premium authenticated guarantees.
+- Dev/test bypasses in backend are non-production helpers and must not redefine the MVP product contract.
+
+A release-ready MVP handoff cannot rely only on mock Telegram proofs for authenticated consumer routes.

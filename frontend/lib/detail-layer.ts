@@ -195,7 +195,7 @@ export function normalizeTodayDetailItems(brief: DayBriefDto): NormalizedDetailI
     impact: impactOf(item.impact),
     factors: [],
     source: "today_best_use" as const,
-    relatedKey: nullable(item.factor_id),
+    relatedKey: nullable(item.factor_id) ?? (Array.isArray(item.factor_ids) && item.factor_ids.length ? item.factor_ids[0] : null),
   })).filter((item) => item.title);
 
   const riskItems = brief.risks.map((item, index) => ({
@@ -204,15 +204,25 @@ export function normalizeTodayDetailItems(brief: DayBriefDto): NormalizedDetailI
     body: nullable(item.why_text),
     timeframe: nullable(item.timeframe),
     impact: impactOf(item.impact),
-    factors: supportingFactorsToNormalized(item.supporting_factors, "today_supporting_factor", item.factor_id || `today-risk-${index + 1}`, item.id || `today-risk-${index + 1}`),
+    factors: supportingFactorsToNormalized(item.supporting_factors, "today_supporting_factor", item.factor_id || (Array.isArray(item.factor_ids) && item.factor_ids.length ? item.factor_ids[0] : null) || `today-risk-${index + 1}`, item.id || `today-risk-${index + 1}`),
     source: "today_risk" as const,
-    relatedKey: nullable(item.factor_id),
+    relatedKey: nullable(item.factor_id) ?? (Array.isArray(item.factor_ids) && item.factor_ids.length ? item.factor_ids[0] : null),
   })).filter((item) => item.title);
 
   return [...scoreItems, ...windowItems, ...bestUseItems, ...riskItems].map((item) => sanitizeDetailLayer(item));
 }
 
 export function normalizeWeekDetailItems(brief: WeekBrief): NormalizedDetailItem[] {
+  const dayItems = (brief.day_cards || []).map((card, index) => ({
+    id: trim(card?.id) || `week-day-${index + 1}`,
+    title: trim(card?.details?.why_title) || trim(card?.headline) || `День ${index + 1}`,
+    body: nullable(card?.details?.why_text) ?? nullable(card?.lead),
+    timeframe: nullable(card?.peak_window_label),
+    impact: impactOf(card?.mode === 'green' ? 'high' : card?.mode === 'yellow' ? 'medium' : 'low'),
+    factors: supportingFactorsToNormalized(card?.details?.supporting_factors, 'week_supporting_factor', Array.isArray(card?.factor_ids) && card.factor_ids.length ? card.factor_ids[0] : trim(card?.id) || `week-day-${index + 1}`, trim(card?.id) || `week-day-${index + 1}`),
+    source: 'week_day' as const,
+    relatedKey: Array.isArray(card?.factor_ids) && card.factor_ids.length ? card.factor_ids[0] : nullable(card?.id),
+  })).filter((item) => item.body || item.factors.length);
   const actionItems = (brief.best_uses || []).map((item, index) => mapActionRiskItem(item, index, "week_action")).filter((item): item is NormalizedDetailItem => Boolean(item));
   const riskItems = (brief.risks || []).map((item, index) => mapActionRiskItem(item, index, "week_risk")).filter((item): item is NormalizedDetailItem => Boolean(item));
   const domainItems = (brief.domains || []).map((domain, index) => {
@@ -253,5 +263,5 @@ export function normalizeWeekDetailItems(brief: WeekBrief): NormalizedDetailItem
     };
   }).filter((item): item is NormalizedDetailItem => Boolean(item));
 
-  return [...domainItems, ...actionItems, ...riskItems, ...factorItems].map((item) => item.source === 'week_factor' ? item : sanitizeDetailLayer(item));
+  return [...dayItems, ...domainItems, ...actionItems, ...riskItems, ...factorItems].map((item) => item.source === 'week_factor' ? item : sanitizeDetailLayer(item));
 }

@@ -1251,6 +1251,8 @@ def _merge_seed_with_chunk_sections(
 
 def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
     semantic_layer = seed.get("semantic_layer") or {}
+    factor_records = [record for record in (seed.get("factor_records") or []) if getattr(record, "id", None)]
+    indexed_records = {str(record.id): record for record in factor_records if getattr(record, "id", None)}
     focus_key = str(semantic_layer.get("focus_key") or "money_admin")
     start, _end = _week_window(seed)
     cards: list[dict[str, Any]] = []
@@ -1262,6 +1264,16 @@ def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
         headline = _build_day_headline(normalized, focus_key)[:100]
         lead = ". ".join(part for part in [headline, f"Опора дня — {best_for[0]}" if best_for else None] if part)[:180] or None
         practical = best_for[:2] if best_for else avoid[:1]
+        factor_ids = [record.id for record in factor_records[index:index + 2] if getattr(record, "id", None)][:4]
+        ordered_records = [indexed_records[factor_id] for factor_id in factor_ids if factor_id in indexed_records]
+        detail_supporting_factors = _build_supporting_factor_entries(ordered_records, factor_ids, limit=3)
+        why_title = "Почему день так звучит" if detail_supporting_factors else None
+        why_parts = [lead]
+        if best_for:
+            why_parts.append(f"Лучше ставить на {best_for[0].lower()}.")
+        if avoid:
+            why_parts.append(f"Снижайте риск через режим без {avoid[0].lower()}.")
+        why_text = " ".join(part.strip() for part in why_parts if part and str(part).strip())[:280] or None
         supporting_factors = [
             {
                 "label": "Лучше направить в",
@@ -1276,6 +1288,7 @@ def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
         ]
         cards.append(
             {
+                "id": f"week-day-{current_date.isoformat()}",
                 "date": _safe_date(normalized.get("date"), default=current_date).isoformat(),
                 "weekday": _weekday_code(normalized, current_date),
                 "mode": str(normalized.get("traffic_light") or "YELLOW").lower(),
@@ -1284,6 +1297,12 @@ def _build_day_cards(seed: dict[str, Any]) -> list[dict[str, Any]]:
                 "lead": lead,
                 "practical": practical[:3],
                 "supporting_factors": supporting_factors[:3],
+                "details": {
+                    "why_text": why_text,
+                    "why_title": why_title,
+                    "supporting_factors": detail_supporting_factors,
+                },
+                "factor_ids": factor_ids,
                 "best_for": best_for[:4],
                 "avoid": avoid[:4],
                 "peak_window_label": None if (normalized.get("moon") or {}).get("void_of_course") else "до 14:00",
