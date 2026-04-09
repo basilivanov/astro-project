@@ -1,5 +1,5 @@
-import type { DayBriefDto } from "/opt/astro-project/frontend/lib/day-brief";
-import type { ActionRiskItem, WeekBrief } from "/opt/astro-project/frontend/lib/week-brief";
+import type { DayBriefDto } from "./day-brief";
+import type { ActionRiskItem, WeekBrief } from "./week-brief";
 
 export type DetailLayerImpact = "high" | "medium" | "low" | null;
 

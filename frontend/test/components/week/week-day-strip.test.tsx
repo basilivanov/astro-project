@@ -70,4 +70,16 @@ describe('WeekDayStrip', () => {
     fireEvent.click(card.querySelector('button') as HTMLElement);
     expect(onDayClick).toHaveBeenCalledWith('2026-04-01');
   });
+
+  it('marks compatibility strips as compact fallback instead of pseudo-depth', () => {
+    render(
+      <WeekDayStrip
+        week={{ ...week, surfaceMode: 'compatibility', fallbackMode: true, usesCanonicalWeekBrief: false }}
+        onDayClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Дни как совместимый обзор');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Совместимый fallback без псевдо-детализации');
+  });
 });

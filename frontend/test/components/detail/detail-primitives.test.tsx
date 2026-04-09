@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { DetailDisclosureCard } from '../../../components/detail/detail-disclosure-card';
 import { DetailEvidenceChips } from '../../../components/detail/detail-evidence-chips';
+import { DetailFactorsList } from '../../../components/detail/detail-factors-list';
 
 describe('detail primitives', () => {
   it('renders disclosure body and normalized factors', () => {
@@ -39,5 +40,29 @@ describe('detail primitives', () => {
     render(React.createElement(DetailEvidenceChips, { timeframe: 'week:green', values: ['green', 'all_day', 'Проверить план'] }));
     expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('Проверить план');
     expect(screen.getByTestId('detail-evidence-chips')).not.toHaveTextContent(/week:green|green|all_day/i);
+  });
+
+  it('renders focused factor rows via shared factors list', () => {
+    render(
+      React.createElement(DetailFactorsList, {
+        testId: 'detail-factors',
+        compact: true,
+        factors: [{
+          id: 'f-1',
+          label: 'Сатурн',
+          explanationHuman: 'Собирает структуру недели',
+          explanationAstro: 'Опора на дисциплину',
+          value: '74/100',
+          impact: null,
+          source: 'week_supporting_factor',
+          relatedKey: 'work',
+        }],
+      }),
+    );
+
+    expect(screen.getByTestId('detail-factors')).toHaveTextContent('Сатурн');
+    expect(screen.getByTestId('detail-factors')).toHaveTextContent('Собирает структуру недели');
+    expect(screen.getByTestId('detail-factors')).toHaveTextContent('Опора на дисциплину');
+    expect(screen.getByTestId('detail-factors')).toHaveTextContent('74/100');
   });
 });

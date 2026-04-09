@@ -218,6 +218,49 @@ describe('week-brief helpers', () => {
     }));
   });
 
+  it('ignores legacy compatibility inputs when canonical week_brief is present', () => {
+    const surface = mapWeekReportToWeekBrief({
+      weekBrief: {
+        version: 'week_brief_v1',
+        summary: {
+          headline: 'Каноническая неделя',
+          subhead: 'Только week_brief формирует happy-path',
+          week_type: 'push',
+        },
+        day_cards: [
+          {
+            date: '2026-04-10',
+            weekday: 'fri',
+            mode: 'green',
+            score: 91,
+            headline: 'Работать по главному приоритету',
+          },
+        ],
+      },
+      legacyWeekMap: {
+        thesis: 'Legacy не должен перетереть canonical path',
+        theme: 'compatibility only',
+        day_cards: [{ weekday: 'Понедельник', headline: 'Legacy headline' }],
+        actions: ['legacy action'],
+        risks: ['legacy risk'],
+      },
+      chunks: [{ id: 'legacy-chunk', section: 'legacy', content: 'legacy deep section' }],
+      sourceStatus: 'ready',
+    });
+
+    expect(surface.surfaceMode).toBe('canonical');
+    expect(surface.usesCanonicalWeekBrief).toBe(true);
+    expect(surface.headline).toBe('Каноническая неделя');
+    expect(surface.subhead).toBe('Только week_brief формирует happy-path');
+    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
+      weekday: 'ПТ, 10 апр',
+      headline: 'Работать по главному приоритету',
+    }));
+    expect(surface.actions).toEqual([]);
+    expect(surface.risks).toEqual([]);
+    expect(surface.deepSections).toEqual([]);
+  });
+
   it('formats week ranges and confidence buckets deterministically', () => {
     expect(formatWeekDateRange('2026-04-01', '2026-04-07')).toBe('1 апр. — 7 апр.');
     expect(formatWeekDateRange('2026-04-01', null)).toBe('1 апр.');

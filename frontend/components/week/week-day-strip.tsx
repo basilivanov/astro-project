@@ -10,14 +10,22 @@ const MODE_CLASSES: Record<string, string> = {
 };
 
 export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onDayClick: (day: string) => void }) {
+  const isCompatibilityStrip = week.surfaceMode === "compatibility";
+
   return (
     <section className="space-y-3" data-testid="week-day-strip-section">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Ритм недели</p>
-          <h2 className="mt-1 text-lg font-black text-slate-950">Дни как краткий обзор</h2>
+          <h2 className="mt-1 text-lg font-black text-slate-950">
+            {isCompatibilityStrip ? "Дни как совместимый обзор" : "Дни как краткий обзор"}
+          </h2>
         </div>
-        <p className="text-xs text-slate-500">Окно и фокус — без лишней глубины</p>
+        <p className="text-xs text-slate-500" data-testid="week-day-strip-caption">
+          {isCompatibilityStrip
+            ? "Совместимый fallback без псевдо-детализации"
+            : "Окно и фокус — без лишней глубины"}
+        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" data-testid="week-day-strip">
         {week.dayStrip.map((card, index) => {

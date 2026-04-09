@@ -9,8 +9,8 @@
 // dependencies:
 //   - local date and text normalization helpers
 // invariants:
-//   - legacy and modern week sources reconcile into a single surface model
-//   - degraded deep sections can be repaired from chunk payloads before rendering
+//   - canonical `week_brief` and compatibility `week_map/chunks` stay on separate mapping paths
+//   - degraded deep sections are rendered only inside the explicit compatibility branch
 // failure_policy:
 //   - missing or partial payloads degrade into stable defaults rather than undefined state
 // non_goals:

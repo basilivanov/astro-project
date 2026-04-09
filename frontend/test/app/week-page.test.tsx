@@ -222,6 +222,58 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-new');
   });
 
+  it('keeps canonical week rendering independent from legacy week_map and chunks', async () => {
+    correlatedFetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            { id: 'week-canonical', report_type: 'week_forecast', status: 'completed', created_at: '2026-04-10T08:00:00+00:00' },
+          ]),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            report: { id: 'week-canonical', report_type: 'week_forecast', status: 'completed' },
+            week_brief: {
+              status: 'ready',
+              fallback_mode: false,
+              summary: {
+                headline: 'Каноническая неделя',
+                subhead: 'Только week_brief формирует экран',
+                week_type: 'balance',
+                theme: 'Canonical',
+              },
+              day_cards: [
+                { weekday: 'fri', date: '2026-04-10', headline: 'Работать по главному приоритету' },
+              ],
+              best_uses: [],
+              risks: [],
+              domains: [],
+              deep_sections: [],
+              report_ref: { report_id: 'week-canonical', source_status: 'completed' },
+            },
+            week_map: {
+              thesis: 'Legacy тезис не должен попасть в canonical render',
+              actions: ['legacy action'],
+              risks: ['legacy risk'],
+            },
+            chunks: [{ id: 'legacy', title: 'Legacy chunk', content: 'legacy content' }],
+          }),
+          { status: 200 },
+        ),
+      );
+
+    render(<WeekPage />);
+
+    expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Каноническая неделя');
+    expect(screen.getByTestId('week-hero-map')).not.toHaveTextContent('Legacy тезис не должен попасть в canonical render');
+    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПТ, 10 апр');
+    expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
+  });
+
   it('uses mock runtime payload without fetching report details', async () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams('mock=1'));
     mockUseTelegram.mockReturnValue({ isReady: true, initData: '123456789', mode: 'mock' });
