@@ -405,14 +405,14 @@ export default function FeedPage() {
         <ConsumerPanel className="p-5" data-testid="today-degraded-state">
           <EmptyState
             compact
-            title="Сводка дня в совместимом режиме"
-            message="Канонический day_brief_v1 для этого дня недоступен, поэтому не показываем premium-карточки, собранные из legacy feed."
+            title="Сегодня доступен только короткий обзор"
+            message="Для этого дня пока нет полной персональной сводки, поэтому показываем только спокойный безопасный слой без детальных карточек."
             actionLabel="Открыть неделю"
             actionHref="/week"
             actionTestId="today-degraded-cta"
           />
           <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-degraded-note">
-            Сейчас доступен только совместимый fallback-слой. Для канонического Today нужен payload `day_brief_v1`.
+            Полная персональная карта дня появится, когда сводка будет доступна целиком.
           </p>
         </ConsumerPanel>
       </FeedLayout>

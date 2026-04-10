@@ -137,7 +137,7 @@ describe('WeekPage', () => {
     });
   });
 
-  it('renders safe fallback note and in-progress poller from fetched payload state', async () => {
+  it('keeps in-progress week on a calm top-layer state without the full content stack', async () => {
     correlatedFetchMock
       .mockResolvedValueOnce(
         new Response(
@@ -175,6 +175,11 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя собирается');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-42');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Открыть полный отчёт');
+    expect(screen.getByTestId('week-in-progress-state')).toHaveTextContent('Показываем только спокойный верхний слой');
+    expect(screen.queryByTestId('week-domain-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-day-strip')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-day-drawer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-actions-panel')).not.toBeInTheDocument();
     expect(trackCatalogEventMock).toHaveBeenCalledWith(
       'week.brief_view',
       expect.objectContaining({ status: 'in_progress', sections_count: 0 }),
@@ -188,7 +193,7 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByText('Персональной недели пока нет')).toBeInTheDocument();
-    expect(screen.getByText('Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Чтобы увидеть персональную неделю, соберите новый отчёт.')).toBeInTheDocument();
+    expect(screen.getByText('Для этого Telegram-профиля пока нет сохранённой персональной недели. Чтобы увидеть её целиком, соберите новый недельный разбор.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Собрать персональную неделю/i })).toHaveAttribute('href', '/create?type=week_forecast');
     expect(screen.queryByTestId('week-map-surface')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
@@ -318,7 +323,7 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('compatibility:ПН, 23 мар:Хороший день, чтобы собрать договорённости.');
     expect(screen.getByTestId('week-day-grid')).toBeInTheDocument();
     expect(screen.getByTestId('week-compatibility-section')).toBeInTheDocument();
-    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('совместимый fallback-режим');
+    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('сокращённая версия недели');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-legacy');
   });
 

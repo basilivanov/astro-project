@@ -283,6 +283,15 @@ const LEGACY_STATUS_BY_SCORE = (value: number): LightStatus => {
 const normalizeList = (value: string[] | null | undefined): string[] =>
   Array.isArray(value) ? dedupeSemanticTexts(value) : [];
 
+function normalizeComparableText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -371,6 +380,36 @@ const normalizeStripHeadline = (headline?: string | null, bestFor?: string[] | n
 
   return "Спокойный обзор дня";
 };
+
+function compactRhythmFallbackHeadline(card: NonNullable<WeekBrief["day_cards"]>[number], index: number): string {
+  const best = normalizeList(card.best_for)[0] ?? null;
+  const avoid = normalizeList(card.avoid)[0] ?? null;
+  if (best) return `Фокус: ${best}`;
+  if (avoid) return `Без ${avoid.toLowerCase()}`;
+  if (card.mode === "red") return "Сбавьте нажим";
+  if (card.mode === "yellow") return "Проверьте ход";
+  if (card.mode === "green") return index === 0 ? "Соберите старт" : "Держите главное";
+  return "Спокойный ритм";
+}
+
+function dedupeRhythmCards(cards: NonNullable<WeekBrief["day_cards"]>) {
+  const seen = new Map<string, number>();
+
+  return cards.map((card, index) => {
+    const normalizedHeadline = normalizeComparableText(card.headline);
+    if (!normalizedHeadline) return card;
+
+    const seenCount = seen.get(normalizedHeadline) ?? 0;
+    seen.set(normalizedHeadline, seenCount + 1);
+
+    if (seenCount === 0) return card;
+
+    return {
+      ...card,
+      headline: compactRhythmFallbackHeadline(card, index),
+    };
+  });
+}
 
 const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallback: string[] | null | undefined, prefix: string) => {
   if (Array.isArray(items) && items.length > 0) {
@@ -523,7 +562,7 @@ function buildWeekSurfaceModel(input: {
 
   const stripByDate = new Map(dayCards.filter((card) => Boolean(card.date)).map((card) => [card.date as string, card]));
   const stripByWeekday = new Map(dayCards.map((card) => [normalizeLegacyWeekday(card.weekday), card] as const).filter((entry): entry is [string, NonNullable<WeekBrief["day_cards"]>[number]] => Boolean(entry[0])));
-  const dayStrip: NonNullable<WeekBrief["day_cards"]> = calendarBounds.weekStart
+  const dayStripBase: NonNullable<WeekBrief["day_cards"]> = calendarBounds.weekStart
     ? WEEKDAY_ORDER.map((weekday, index) => {
         const date = toIsoDate(addUtcDays(parseIsoDate(calendarBounds.weekStart)!, index));
         const card = stripByDate.get(date) ?? stripByWeekday.get(weekday) ?? null;
@@ -560,6 +599,7 @@ function buildWeekSurfaceModel(input: {
         avoid: normalizeList(card.avoid).slice(0, 1),
         peak_window_label: card.peak_window_label ?? null,
       }));
+  const dayStrip = dedupeRhythmCards(dayStripBase);
 
   return {
     surfaceMode: input.surfaceMode,

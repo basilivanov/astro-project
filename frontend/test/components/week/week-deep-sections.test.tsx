@@ -42,7 +42,8 @@ describe('WeekDeepSections', () => {
     render(<WeekDeepSections week={baseWeek} />);
 
     expect(screen.getByTestId('week-deep-sections-empty')).toBeInTheDocument();
-    expect(screen.getByTestId('week-deep-sections-empty-copy')).toHaveTextContent('Пока показываем короткую карту недели.');
+    expect(screen.getByTestId('week-deep-sections-empty')).toHaveTextContent('Длинное чтение');
+    expect(screen.getByTestId('week-deep-sections-empty-copy')).toHaveTextContent('Пока здесь остаётся только короткая недельная карта.');
   });
 
   it('does not leak raw slug-like titles or fallback summary in deep fallback path', () => {
@@ -94,6 +95,7 @@ describe('WeekDeepSections', () => {
     );
 
     expect(screen.getByTestId('report-fallback-card')).toHaveTextContent(fallbackPhrase);
+    expect(screen.getByText('Короткая версия раздела')).toBeInTheDocument();
     expect(screen.getAllByText(fallbackPhrase).length).toBeGreaterThanOrEqual(1);
   });
 });

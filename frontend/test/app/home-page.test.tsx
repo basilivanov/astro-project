@@ -98,7 +98,8 @@ describe('FeedPage', () => {
 
     expect(await screen.findByTestId('today-degraded-state')).toBeInTheDocument();
     expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'degraded');
-    expect(screen.getByTestId('today-degraded-note')).toHaveTextContent('day_brief_v1');
+    expect(screen.getByText('Сегодня доступен только короткий обзор')).toBeInTheDocument();
+    expect(screen.getByTestId('today-degraded-note')).toHaveTextContent('Полная персональная карта дня появится');
     expect(screen.getByTestId('today-degraded-cta')).toHaveAttribute('href', '/week');
     expect(screen.queryByTestId('today-verdict')).not.toBeInTheDocument();
     expect(screen.queryByTestId('today-scores')).not.toBeInTheDocument();

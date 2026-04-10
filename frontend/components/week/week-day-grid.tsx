@@ -109,7 +109,7 @@ export function WeekDayGrid({ week, onDayClick }: { week: WeekSurfaceModel; onDa
             {card.practical?.length && !isCompatibilityGrid ? <p className="mt-3 text-xs">Лучше: {card.practical.join(" · ")}</p> : null}
             {card.avoid?.length ? <p className="mt-1 text-xs">Избегать: {card.avoid.join(" · ")}</p> : null}
             {isCompatibilityGrid ? (
-              <p className="mt-3 text-[11px] font-medium text-slate-500">Совместимый fallback-обзор без глубокой детализации.</p>
+              <p className="mt-3 text-[11px] font-medium text-slate-500">Короткий обзор дня без подробного разбора.</p>
             ) : (
               <DetailDisclosureCard
                 testId={`week-day-detail-${index + 1}`}

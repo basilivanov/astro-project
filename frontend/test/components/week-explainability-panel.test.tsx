@@ -76,7 +76,7 @@ describe('WeekExplainabilityPanel', () => {
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Надёжность сигнала');
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Контекст рождения');
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Главный слой влияния');
-    expect(screen.getByTestId('week-explainability-footnote')).toHaveTextContent('Ключевые причины уже встроены в домены недели');
+    expect(screen.getByTestId('week-explainability-footnote')).toHaveTextContent('короткая опора к чтению');
 
     fireEvent.click(screen.getByTestId('week-explainability-toggle'));
 

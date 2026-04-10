@@ -2,6 +2,7 @@
 
 - Date: 2026-04-10
 - Commit baseline: d479771
+- Refresh source: worktree above `e9adea5` with `VISUAL-FINISH-DAY-WEEK-01` applied
 - App build: local dev bundle from current worktree above the recorded baseline commit
 - Viewport: 390x844 (Telegram WebApp representative mobile viewport)
 - Primary capture lane: mock-helper for deterministic visual review
@@ -41,3 +42,8 @@
 
 - `signed` lane screenshots are not included here because deterministic repository-safe capture is done through mock-helper. Runtime correctness for signed Telegram lane is covered by Playwright signed-auth specs.
 - Compatibility screenshots are intentionally lighter than canonical ones and must not be used as premium-reference images.
+- This refresh specifically proves four visual changes for this wave:
+  - canonical Today keeps calm daily wording and never falls back to apology-style explanation copy;
+  - canonical Week is still domain-led, while the day rhythm stays compact and secondary;
+  - day drawer copy varies by selected day and no longer leaks internal drill-down wording;
+  - compatibility and deep layers use product-language labels instead of internal implementation terms.

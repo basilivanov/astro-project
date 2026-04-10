@@ -312,6 +312,32 @@ describe('Week day card detail layer', () => {
     expect(screen.getByTestId('week-day-drawer-detail')).toHaveTextContent('День лучше держать через один главный приоритет.');
   });
 
+  it('keeps compatibility drawer short and without internal implementation terms', () => {
+    render(
+      <WeekDayDrawer
+        surfaceMode="compatibility"
+        card={{
+          date: '2026-04-02',
+          weekday: 'ЧТ, 2 апр',
+          mode: 'yellow',
+          score: 55,
+          headline: 'Проверяйте стыки',
+          lead: null,
+          practical: [],
+          supporting_factors: [],
+          details: { why_text: null, why_title: null, supporting_factors: [] },
+          factor_ids: [],
+          best_for: ['Уточнения'],
+          avoid: ['Спешка'],
+          peak_window_label: 'День',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('week-day-drawer-detail')).toHaveTextContent('уточнения');
+    expect(screen.getByTestId('week-day-drawer')).not.toHaveTextContent(/fallback|drill-down/i);
+  });
+
   it('renders day detail disclosure with practical and supporting factors', () => {
     const { WeekDayGrid } = require('../../../components/week/week-day-grid');
     const week = {

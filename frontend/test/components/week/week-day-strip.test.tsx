@@ -66,7 +66,7 @@ describe('WeekDayStrip', () => {
     expect(card).toHaveTextContent('Фокус на главном');
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
     expect(card).not.toHaveTextContent('Детали дня');
-    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Календарный ритм недели без лишней глубины');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Календарный ритм недели в коротком виде');
     expect(screen.getByTestId('week-day-strip-section')).not.toHaveTextContent('совместимый');
     expect(card.querySelector('button')).toHaveAttribute('aria-pressed', 'true');
 
@@ -74,7 +74,7 @@ describe('WeekDayStrip', () => {
     expect(onDayClick).toHaveBeenCalledWith('2026-04-01');
   });
 
-  it('marks compatibility strips as compact fallback instead of pseudo-depth', () => {
+  it('keeps compatibility strips short and non-technical', () => {
     render(
       <WeekDayStrip
         week={{ ...week, surfaceMode: 'compatibility', fallbackMode: true, usesCanonicalWeekBrief: false }}
@@ -82,7 +82,7 @@ describe('WeekDayStrip', () => {
       />,
     );
 
-    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Дни как совместимый обзор');
-    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Fallback-обзор по календарной неделе');
+    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Короткий ритм по дням');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Лёгкий обзор по дням без полного разбора');
   });
 });

@@ -58,10 +58,10 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
     return (
       <ConsumerPanel className="p-5" data-testid="week-deep-sections-empty">
         <div className="space-y-2">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Deep report layer</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Длинное чтение</p>
           <h2 className="text-lg font-black text-slate-950">Развёрнутый разбор недели появится здесь</h2>
           <p className="text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-empty-copy">
-            Пока показываем короткую карту недели. Полный разбор откроется, когда персональный weekly report будет готов.
+            Пока здесь остаётся только короткая недельная карта. Полный разбор откроется, когда длинное чтение будет готово.
           </p>
         </div>
       </ConsumerPanel>
@@ -73,9 +73,9 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Deep report layer</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Длинное чтение</p>
             <h2 className="mt-2 text-lg font-black text-slate-950">Развёрнутый разбор недели</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-summary">Этот слой нужен только для длинного чтения: стратегия, narrative и markdown-блоки полного weekly report.</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-summary">Этот слой нужен только для спокойного длинного чтения, когда хочется пройти неделю глубже после основной картины.</p>
           </div>
           <button
             type="button"
@@ -98,7 +98,7 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
                 <p className="text-sm font-black text-slate-900">{sectionTitle}</p>
                 {isReadableDeepText(section.summary) ? <p className="mt-1 text-xs leading-relaxed text-slate-500">{section.summary.trim()}</p> : null}
               </div>
-              <ReportRenderer blocks={blocks as never} fallbackText={fallbackText} />
+              <ReportRenderer blocks={blocks as never} fallbackText={fallbackText} fallbackTitle="Короткая версия раздела" />
             </article>
           );
         })}

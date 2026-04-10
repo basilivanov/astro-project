@@ -171,7 +171,7 @@ describe('week-brief helpers', () => {
     ]);
     expect(surface.dayStrip).toHaveLength(7);
     expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'ПН, 6 апр', score: 82 }));
-    expect(surface.dayStrip[2]).toEqual(expect.objectContaining({ weekday: 'СР, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус на запуск' }));
+    expect(surface.dayStrip[2]).toEqual(expect.objectContaining({ weekday: 'СР, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус: запуск' }));
     expect(surface.dayStrip[6]).toEqual(expect.objectContaining({ weekday: 'ВС, 12 апр', score: null }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),

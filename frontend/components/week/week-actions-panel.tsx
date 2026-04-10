@@ -38,7 +38,7 @@ function ActionRiskList({ items, testId, week, kind }: { items: WeekSurfaceModel
   const visibleItems = items.filter((item) => item.tag !== "all_week").slice(0, 2);
 
   if (!visibleItems.length) {
-    return <p className="text-sm leading-relaxed text-slate-500">Здесь пока нет отдельного weekly-акцента.</p>;
+    return <p className="text-sm leading-relaxed text-slate-500">Здесь пока нет отдельного акцента.</p>;
   }
 
   return (
@@ -85,7 +85,7 @@ export function WeekActionsPanel({ week }: { week: WeekSurfaceModel }) {
 
   return (
     // START_BLOCK: WEEK_ACTIONS_PANEL_LAYOUT
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-3 lg:grid-cols-2" data-testid="week-actions-shell">
       <ConsumerPanel className="p-5" data-testid="week-actions-panel">
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Действия</p>
         <h2 className="mt-2 text-lg font-black text-slate-950">Лучшее применение недели</h2>

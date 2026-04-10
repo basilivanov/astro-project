@@ -332,6 +332,30 @@ describe('daybrief sections', () => {
     expect(screen.getByTestId('today-score-details-focus')).not.toHaveTextContent(/объяснение недоступно/i);
   });
 
+  it('keeps generic score explanations in daily wording without weekly leakage', () => {
+    const brief = buildBrief();
+    brief.scores = [
+      {
+        key: 'money',
+        title: 'Работа и деньги',
+        value: 64,
+        status: 'yellow',
+        advice: 'Проверьте цифры и не разгоняйте обещания.',
+        details: null,
+      },
+    ];
+    brief.explainability.selected_factors = [];
+    brief.personalized_factors = [];
+
+    render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Работа и деньги: 64/i }));
+    const disclosure = screen.getByTestId('today-score-details-money');
+    expect(disclosure).toHaveTextContent(/сегодня/i);
+    expect(disclosure).not.toHaveTextContent(/недел/i);
+    expect(disclosure).not.toHaveTextContent(/объяснение недоступно/i);
+  });
+
 
   it.skip('falls back to domain-scoped selected factor when score details only repeat card advice', () => {
     const brief = buildBrief();

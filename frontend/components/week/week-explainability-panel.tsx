@@ -62,7 +62,7 @@ export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
               ))}
             </div>
             <p className="text-xs leading-relaxed text-slate-500" data-testid="week-explainability-footnote">
-              Ключевые причины уже встроены в домены недели через «Что повлияло». Здесь оставляем только слой доверия к интерпретации.
+              Ключевые причины уже встроены в домены недели через «Что повлияло». Здесь остаётся только короткая опора к чтению.
             </p>
           </div>
         ) : null}

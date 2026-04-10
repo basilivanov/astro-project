@@ -26,16 +26,16 @@ export function WeekDayStrip({
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Ритм недели</p>
           <h2 className="mt-1 text-lg font-black text-slate-950">
-            {isCompatibilityStrip ? "Дни как совместимый обзор" : "Понедельник — воскресенье"}
+            {isCompatibilityStrip ? "Короткий ритм по дням" : "Понедельник — воскресенье"}
           </h2>
         </div>
         <p className="text-xs text-slate-500" data-testid="week-day-strip-caption">
           {isCompatibilityStrip
-            ? "Fallback-обзор по календарной неделе"
-            : "Календарный ритм недели без лишней глубины"}
+            ? "Лёгкий обзор по дням без полного разбора"
+            : "Календарный ритм недели в коротком виде"}
         </p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7" data-testid="week-day-strip">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7" data-testid="week-day-strip">
         {week.dayStrip.map((card, index) => {
           const cardKey = card.date ?? `${index}`;
           const primaryHint = card.best_for?.[0] ?? card.avoid?.[0] ?? null;
@@ -45,7 +45,7 @@ export function WeekDayStrip({
             <article
               key={cardKey}
               className={cn(
-                "rounded-3xl border p-4 text-left shadow-sm transition",
+                "rounded-[26px] border p-3 text-left shadow-sm transition",
                 isSkeleton ? "border-slate-200 bg-slate-50/80 text-slate-700" : MODE_CLASSES[card.mode ?? "red"] ?? MODE_CLASSES.red,
                 isSelected ? "ring-2 ring-slate-900/10 shadow-md" : null,
               )}
@@ -53,17 +53,17 @@ export function WeekDayStrip({
             >
               <button type="button" onClick={() => onDayClick(cardKey)} aria-pressed={isSelected} className="w-full text-left">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-black uppercase tracking-[0.12em]">{card.weekday ?? "День"}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.12em]">{card.weekday ?? "День"}</p>
                   {typeof card.score === "number" ? <p className="text-xs font-semibold">{card.score}/100</p> : null}
                 </div>
-                <p className="mt-3 text-sm font-bold leading-snug">{card.headline || "Без отдельного акцента"}</p>
+                <p className="mt-2.5 text-[13px] font-bold leading-snug">{card.headline || "Без отдельного акцента"}</p>
                 {card.peak_window_label || primaryHint ? (
-                  <p className="mt-2 text-[11px] leading-relaxed opacity-85">
+                  <p className="mt-1.5 text-[11px] leading-relaxed opacity-85">
                     {card.peak_window_label ? `Окно ${card.peak_window_label}` : null}
                     {card.peak_window_label && primaryHint ? " · " : null}
                     {primaryHint ? `Фокус ${primaryHint}` : null}
                   </p>
-                ) : <p className="mt-2 text-[11px] leading-relaxed opacity-75">День остаётся в общем недельном ритме.</p>}
+                ) : <p className="mt-1.5 text-[11px] leading-relaxed opacity-75">Спокойный день в общем ритме недели.</p>}
               </button>
             </article>
           );

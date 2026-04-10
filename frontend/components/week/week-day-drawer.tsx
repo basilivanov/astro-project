@@ -2,26 +2,70 @@
 
 import { ConsumerPanel } from "../consumer-page-shell";
 import { DetailEvidenceChips } from "../detail/detail-evidence-chips";
-import { type WeekSurfaceModel } from "../../lib/week-brief";
 
-type WeekDayDrawerCard = WeekSurfaceModel["dayCards"][number];
+type WeekDayDrawerCard = {
+  id?: string | null;
+  date?: string | null;
+  weekday?: string | null;
+  headline?: string | null;
+  score?: number | null;
+  mode?: string | null;
+  lead?: string | null;
+  best_for?: string[] | null;
+  avoid?: string[] | null;
+  peak_window_label?: string | null;
+  details?: {
+    why_text?: string | null;
+  } | null;
+};
+type WeekDayDrawerProps = {
+  card: WeekDayDrawerCard | null;
+  surfaceMode: "canonical" | "compatibility";
+};
 
-function resolveDrawerCopy(card: WeekDayDrawerCard, surfaceMode: WeekSurfaceModel["surfaceMode"]) {
-  const detailLine = String(card.details?.why_text || card.lead || "").trim() || null;
-  if (detailLine) return detailLine;
+function buildGenericDrawerLine(card: WeekDayDrawerCard, surfaceMode: WeekDayDrawerProps["surfaceMode"]) {
+  const best = (card.best_for ?? []).filter(Boolean)[0] ?? null;
+  const avoid = (card.avoid ?? []).filter(Boolean)[0] ?? null;
+  const headline = String(card.headline || "").trim() || null;
+
   if (surfaceMode === "compatibility") {
-    return "Совместимый обзор дня без глубокой детализации: держите только лучший ход и главный риск.";
+    if (best && avoid) {
+      return `День лучше отдавать под ${best.toLowerCase()}, а от ${avoid.toLowerCase()} лучше держать дистанцию.`;
+    }
+    if (best) {
+      return `День лучше проживается через ${best.toLowerCase()} без лишнего расширения планов.`;
+    }
+    if (avoid) {
+      return `Лучше держать день простым и не уходить в ${avoid.toLowerCase()}.`;
+    }
+    if (headline) {
+      return `${headline} Держите день коротким и не перегружайте его лишними ожиданиями.`;
+    }
+    return "Смотрите на этот день как на короткий ориентир: один лучший ход и один риск под контролем.";
   }
-  return "Этот день держится в общем ритме недели: используйте его как короткий drill-down, а не как отдельный дневной отчёт.";
+
+  if (best && avoid) {
+    return `Лучше всего день раскрывается через ${best.toLowerCase()}, если не уводить его в ${avoid.toLowerCase()}.`;
+  }
+  if (best) {
+    return `Главная польза дня раскрывается через ${best.toLowerCase()} и спокойную точную подачу.`;
+  }
+  if (avoid) {
+    return `День лучше звучит, если не уводить его в ${avoid.toLowerCase()} и не перегружать темп.`;
+  }
+  if (headline) {
+    return `${headline} Смотрите на день как на короткое уточнение к общей картине недели.`;
+  }
+  return "Этот день лучше читать как короткое уточнение к общей картине недели, а не как отдельный большой прогноз.";
 }
 
-export function WeekDayDrawer({
-  card,
-  surfaceMode,
-}: {
-  card: WeekDayDrawerCard | null;
-  surfaceMode: WeekSurfaceModel["surfaceMode"];
-}) {
+function resolveDrawerCopy(card: WeekDayDrawerCard, surfaceMode: WeekDayDrawerProps["surfaceMode"]) {
+  const detailLine = String(card.details?.why_text || card.lead || "").trim() || null;
+  if (detailLine) return detailLine;
+  return buildGenericDrawerLine(card, surfaceMode);
+}
+
+export function WeekDayDrawer({ card, surfaceMode }: WeekDayDrawerProps) {
   if (!card) return null;
 
   const headline = String(card.headline || "").trim() || "День без отдельного акцента";
@@ -43,7 +87,7 @@ export function WeekDayDrawer({
           {scoreLabel ? <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-700">{scoreLabel}</span> : null}
         </div>
 
-        <DetailEvidenceChips timeframe={card.peak_window_label} values={[isCompatibility ? "Лёгкий fallback-обзор" : "Короткий drill-down дня"]} />
+        <DetailEvidenceChips timeframe={card.peak_window_label} values={[isCompatibility ? "Короткий обзор дня" : "Деталь к общей картине"]} />
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4" data-testid="week-day-drawer-best-for">
@@ -52,7 +96,7 @@ export function WeekDayDrawer({
           </div>
           <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4" data-testid="week-day-drawer-avoid">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-700">Избегать</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-700">{avoid.length ? avoid.join(" · ") : "Не превращайте день в отдельный большой прогноз."}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{avoid.length ? avoid.join(" · ") : "Не перегружайте день лишними ожиданиями."}</p>
           </div>
         </div>
 

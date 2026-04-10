@@ -71,14 +71,14 @@ function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): 
     return {
       primaryLabel: "Открыть собирающийся отчёт",
       primaryHref: latestReportMeta.id ? `/read/${latestReportMeta.id}` : "/reports/history",
-      note: "Персональный weekly report ещё собирается. Полный экран недели появится после завершения генерации.",
+      note: "Персональная неделя ещё собирается. Полная картина появится после завершения расчёта.",
     };
   }
 
   return {
     primaryLabel: "Собрать персональную неделю",
     primaryHref: "/create?type=week_forecast",
-    note: "Для этого Telegram-профиля ещё нет сохранённого weekly report в истории. Чтобы увидеть персональную неделю, соберите новый отчёт.",
+    note: "Для этого Telegram-профиля пока нет сохранённой персональной недели. Чтобы увидеть её целиком, соберите новый недельный разбор.",
   };
 }
 
@@ -434,6 +434,7 @@ function WeekPageContent() {
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
   const shouldShowFallbackNote = week.surfaceMode === "compatibility";
+  const isWeekStillAssembling = week.status === "in_progress" || week.status === "pending";
   const shouldShowActionsPanel = Boolean(week.actions.length) || Boolean(week.risks.length);
   const shouldShowExplainabilityPanel =
     typeof week.explainability.confidence === "number"
@@ -477,29 +478,43 @@ function WeekPageContent() {
           }}
         />
 
-        <WeekDomainPanel week={week} />
-        <WeekDayStrip week={week} selectedDayKey={selectedDayCard?.date ?? selectedDayCard?.id ?? null} onDayClick={trackDayClick} />
-        <WeekDayDrawer card={selectedDayCard} surfaceMode={week.surfaceMode} />
-        {shouldShowActionsPanel ? <WeekActionsPanel week={week} /> : null}
-
-        {shouldShowExplainabilityPanel || shouldShowDeepSections ? (
-          <section className="space-y-4 border-t border-slate-200/80 pt-2" data-testid="week-secondary-reading">
-            <div className="px-1">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Второй слой</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Сначала держите общую картину недели. Ниже — supporting explainability и развёрнутый weekly report, если он нужен.
+        {isWeekStillAssembling ? (
+          <ConsumerPanel className="p-5" data-testid="week-in-progress-state">
+            <div className="space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Неделя собирается</p>
+              <h2 className="text-lg font-black text-slate-950">Показываем только спокойный верхний слой</h2>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Пока расчёт не завершён, не раскрываем домены, ритм и длинное чтение как финальную недельную картину.
               </p>
             </div>
-            {shouldShowExplainabilityPanel ? <WeekExplainabilityPanel week={week} /> : null}
-            {shouldShowDeepSections ? <WeekDeepSections week={week} /> : null}
-          </section>
-        ) : null}
+          </ConsumerPanel>
+        ) : (
+          <>
+            <WeekDomainPanel week={week} />
+            <WeekDayStrip week={week} selectedDayKey={selectedDayCard?.date ?? selectedDayCard?.id ?? null} onDayClick={trackDayClick} />
+            <WeekDayDrawer card={selectedDayCard} surfaceMode={week.surfaceMode} />
+            {shouldShowActionsPanel ? <WeekActionsPanel week={week} /> : null}
 
-        {week.surfaceMode === "compatibility" ? (
+            {shouldShowExplainabilityPanel || shouldShowDeepSections ? (
+              <section className="space-y-3 border-t border-slate-200/80 pt-2" data-testid="week-secondary-reading">
+                <div className="px-1">
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Дополнительный слой</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                    Основная картина недели уже собрана в доменах. Ниже остаются только опора к чтению и длинный разбор.
+                  </p>
+                </div>
+                {shouldShowExplainabilityPanel ? <WeekExplainabilityPanel week={week} /> : null}
+                {shouldShowDeepSections ? <WeekDeepSections week={week} /> : null}
+              </section>
+            ) : null}
+          </>
+        )}
+
+        {week.surfaceMode === "compatibility" && !isWeekStillAssembling ? (
           <section className="space-y-3" data-testid="week-compatibility-section">
             {shouldShowFallbackNote ? (
               <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-                {week.reportId ? "Показан совместимый fallback-режим: верхний слой WeekBrief недоступен, поэтому экран собран из legacy week_map." : emptyStateCopy.note}
+                {week.reportId ? "Сейчас доступна сокращённая версия недели: короткие ориентиры по дням и базовая общая картина." : emptyStateCopy.note}
               </p>
             ) : null}
             <WeekDayGrid week={week} onDayClick={trackDayClick} />
