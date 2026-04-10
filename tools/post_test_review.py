@@ -185,6 +185,9 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
     fallback_count = 0
     saw_feed_entry = False
     saw_today_success = False
+    auth_fallback_detected = False
+    fallback_record_detected = False
+    validator_fallback_detected = False
 
     for record in records:
         sample_trace_id = sample_trace_id or record.get("trace_id")
@@ -202,6 +205,7 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         if event == "feed.debug" and stage == "auth_fallback":
             counters["today_auth_fallback_anonymous_total"] += 1
             fallback_count += 1
+            auth_fallback_detected = True
         if event == "day_brief.response_returned" and record.get("fallback_mode") is False:
             saw_today_success = True
         if record.get("personalization_level") == "profile_light":
@@ -209,9 +213,11 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         if record.get("fallback_mode") is True:
             counters["today_fallback_total"] += 1
             fallback_count += 1
+            fallback_record_detected = True
         if event == "day_brief.validation_failed":
             counters["today_validator_fallback_total"] += 1
             fallback_count += 1
+            validator_fallback_detected = True
         factor_count = record.get("factor_count")
         if isinstance(factor_count, int) and factor_count < 3:
             counters["today_low_factor_count_total"] += 1
@@ -235,6 +241,12 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
     elif saw_feed_entry and saw_today_success and not (sample_trace_id or sample_request_id):
         alerts.append("today evidence missing concrete trace_id/request_id")
         status = "no-evidence-blocker"
+
+    # Strict clean semantics: if the same analyzed window still contains
+    # auth-fallback / fallback / validator-fallback signals, Today must not
+    # be labeled clean without an explicit explanatory model.
+    if status == "clean" and (auth_fallback_detected or fallback_record_detected or validator_fallback_detected):
+        status = "unexpected-degradation"
 
     return FlowDigest(
         flow_id="FLOW-TODAY-WEEK-TODAY",
