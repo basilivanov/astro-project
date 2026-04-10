@@ -76,3 +76,17 @@
   "location": "London, UK",
   "timezone": "Europe/London"
 }
+
+## Public Ref Parity — PASS
+- public_ref_verified_at: `2026-04-10T22:20:35Z`
+- public_ref_verdict: `pass`
+- branch: `prod-release-20260327`
+- branch_head: `8e63ec5ababefab53eccdc54e211fac411f3384c`
+- published_from_commit: `936d0a4`
+- dimensions:
+  - commit_history: `branch_head_after_published_commit`
+  - raw_readme_closeout: `pass`
+  - blob_raw_closeout: `pass`
+  - proof_lane: `pass`
+  - raw_spec: `pass`
+  - blob_spec: `pass`
