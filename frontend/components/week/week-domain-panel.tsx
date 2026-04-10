@@ -58,6 +58,36 @@ function normalizeDomainStatus(value: string | null | undefined, score: number |
   return "red";
 }
 
+function normalizeHeadlineText(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveVisibleDomainHeadline(domain: WeekSurfaceModel["domains"][number]): string | null {
+  const headline = String(domain.headline || "").trim();
+  if (!headline) return null;
+
+  const normalizedHeadline = normalizeHeadlineText(headline);
+  const normalizedTitle = normalizeHeadlineText(domain.title);
+  const normalizedScore = typeof domain.value === "number" ? normalizeHeadlineText(`${domain.value}/100`) : "";
+
+  if (!normalizedHeadline) return null;
+  if (normalizedTitle && normalizedHeadline === normalizedTitle) return null;
+  if (normalizedTitle && normalizedScore && normalizedHeadline.includes(normalizedTitle) && normalizedHeadline.includes(normalizedScore)) {
+    return null;
+  }
+  if (/^(focus|energy|work|money|relationships|love)$/i.test(headline)) {
+    return null;
+  }
+
+  return headline;
+}
+
 // START_FUNCTION_CONTRACT: WeekDomainPanel
 // INTENT: Compose weekly domain cards with optional explainability disclosure.
 // INPUTS: Week surface model.
@@ -80,6 +110,7 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
             const domainKey = domain.key ?? `${index}`;
             const domainStatus = normalizeDomainStatus(domain.status, domain.value);
             const statusStyle = DOMAIN_STATUS_STYLES[domainStatus];
+            const visibleHeadline = resolveVisibleDomainHeadline(domain);
             const detailLayer = findDetailLayer(week.detailLayers, {
               source: "week_domain",
               id: String(domain.key ?? `week-domain-${index + 1}`),
@@ -96,7 +127,7 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">{domain.title}</p>
-                    {domain.headline ? <p className="text-xs text-slate-500">{domain.headline}</p> : null}
+                    {visibleHeadline ? <p className="text-xs text-slate-500">{visibleHeadline}</p> : null}
                   </div>
                   <div className={`rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.18em] ${statusStyle.badge}`} data-testid={`week-domain-status-${domain.key ?? index}`}>
                     {domain.value ?? 0}/100

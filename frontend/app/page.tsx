@@ -67,6 +67,7 @@ type FeedLayoutProps = {
   state: FeedSurfaceState;
   dateLabel?: string;
   today?: TodayViewModel | null;
+  renderPath?: "canonical" | "compatibility" | "degraded" | "empty";
 };
 
 const HOME_CONTRACTS = {
@@ -149,7 +150,7 @@ function formatSubscriptionLabel(dateValue?: string | null) {
   return `Активна до ${parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" })}`;
 }
 
-function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutProps) {
+function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
   const heroLabel = today?.brief.summary.headline ?? "Сегодня";
   const shouldRenderLegacyHero = state !== "ready";
   return (
@@ -164,6 +165,11 @@ function FeedLayout({ children, profile, state, dateLabel, today }: FeedLayoutPr
         },
       }}
     >
+      {process.env.NODE_ENV !== "production" ? (
+        <div hidden data-testid="today-render-path" data-render-path={renderPath ?? "empty"}>
+          {renderPath ?? "empty"}
+        </div>
+      ) : null}
       {shouldRenderLegacyHero ? (
         <ConsumerHero
           eyebrow={dateLabel ?? "Сегодня"}
@@ -354,7 +360,7 @@ export default function FeedPage() {
 
   if (!isReady || loading) {
     return (
-      <FeedLayout state="loading" profile={profile} today={today}>
+      <FeedLayout state="loading" profile={profile} today={today} renderPath="empty">
         <ConsumerPanel className="p-5">
           <LoadingState compact message="Собираем сводку дня" />
           
@@ -369,7 +375,7 @@ export default function FeedPage() {
 
   if (error) {
     return (
-      <FeedLayout state="error" profile={profile} today={today}>
+      <FeedLayout state="error" profile={profile} today={today} renderPath="degraded">
         <ConsumerPanel className="p-5">
           <ErrorState compact error={error} />
         </ConsumerPanel>
@@ -379,7 +385,7 @@ export default function FeedPage() {
 
   if (!today) {
     return (
-      <FeedLayout state={feedState} profile={profile} today={today}>
+      <FeedLayout state={feedState} profile={profile} today={today} renderPath="empty">
         <ConsumerPanel className="p-5">
           <EmptyState
             compact
@@ -395,7 +401,7 @@ export default function FeedPage() {
 
   if (!today.usesCanonicalDayBrief) {
     return (
-      <FeedLayout state="fallback" profile={profile} dateLabel={today.brief.date} today={today}>
+      <FeedLayout state="fallback" profile={profile} dateLabel={today.brief.date} today={today} renderPath="degraded">
         <ConsumerPanel className="p-5" data-testid="today-degraded-state">
           <EmptyState
             compact
@@ -414,7 +420,13 @@ export default function FeedPage() {
   }
 
   return (
-    <FeedLayout state={feedState} profile={profile} dateLabel={today.brief.date} today={today}>
+    <FeedLayout
+      state={feedState}
+      profile={profile}
+      dateLabel={today.brief.date}
+      today={today}
+      renderPath={today.brief.fallback_mode ? "compatibility" : "canonical"}
+    >
       <div className="space-y-4">
         <TodayVerdict brief={today.brief} />
         <TodayScores brief={today.brief} onScoreTap={handleScoreTap} />

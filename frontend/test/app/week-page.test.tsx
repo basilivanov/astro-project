@@ -55,6 +55,12 @@ jest.mock('../../components/week/week-day-strip', () => ({
   ),
 }));
 
+jest.mock('../../components/week/week-day-grid', () => ({
+  WeekDayGrid: ({ week }: { week: { dayCards: Array<{ headline?: string | null }> } }) => (
+    <div data-testid="week-day-grid">{week.dayCards.map((day) => day.headline).filter(Boolean).join(', ')}</div>
+  ),
+}));
+
 jest.mock('../../components/week/week-domain-panel', () => ({
   WeekDomainPanel: ({ week }: { week: { domains: Array<{ title?: string | null }> } }) => (
     <div data-testid="week-domain-panel">{week.domains.map((domain) => domain.title).filter(Boolean).join(', ')}</div>
@@ -274,6 +280,7 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 6 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПТ, 10 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ВС, 12 апр');
+    expect(screen.queryByTestId('week-day-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
   });
 
@@ -300,6 +307,7 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    expect(screen.getByTestId('week-day-grid')).toBeInTheDocument();
     expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('совместимый fallback-режим');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-legacy');
   });

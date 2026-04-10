@@ -205,6 +205,7 @@ describe('daybrief sections', () => {
     expect(disclosure).not.toHaveAttribute('open');
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('Ресурс тела выше среднего.')).toBeInTheDocument();
+    expect(disclosure).not.toHaveTextContent(/объяснение недоступно/i);
     fireEvent.keyDown(summary, { key: 'Enter' });
     expect(disclosure).toHaveAttribute('open');
     fireEvent.click(disclosure);
@@ -328,6 +329,7 @@ describe('daybrief sections', () => {
     fireEvent.click(screen.getByRole('button', { name: /Фокус: 61/i }));
     expect(screen.getByTestId('today-score-details-focus')).toHaveTextContent('Эта сфера сегодня держится на одном приоритете');
     expect(screen.queryByTestId('today-score-details-fallback-focus')).toBeNull();
+    expect(screen.getByTestId('today-score-details-focus')).not.toHaveTextContent(/объяснение недоступно/i);
   });
 
 

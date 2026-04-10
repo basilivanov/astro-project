@@ -90,10 +90,12 @@ test.describe("Today DayBrief surface", () => {
     await expect(page.getByTestId("today-moon-context")).toContainText("Импульсный лунный фон для коротких и точных решений.");
     await expect(page.getByTestId("today-score-energy")).toContainText("Энергия");
     await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
-    await expect(page.getByTestId("today-windows")).toContainText("Собрать ядро дня");
+    await expect(page.getByTestId("today-windows")).toContainText("Рабочий импульс");
+    await expect(page.getByTestId("today-windows")).toContainText("Закройте главную задачу до обеда.");
     await expect(page.getByTestId("today-actions")).toContainText("Закрыть один глубокий рабочий блок");
     await expect(page.getByTestId("today-risks")).toContainText("Не разгоняйте разговоры в конфликтный тон");
     await expect(page.getByTestId("today-explainability")).toContainText("Почему такой день");
+    await expect(page.getByTestId("home-feed-page")).not.toContainText(/объяснение недоступно/i);
     await expect(page.getByTestId("today-cta-week")).toContainText("Открыть неделю");
     await expect(page.getByTestId("today-cta-premium")).toContainText("История разборов");
     await expect(page.getByTestId("home-feed-page")).not.toContainText(/\bsignal_only\b/i);
@@ -105,7 +107,7 @@ test.describe("Today DayBrief surface", () => {
     hygiene.dispose();
   });
 
-  test("score disclosure stays hidden when canonical persona has no scoped aspects", async ({ page }) => {
+  test("score disclosure stays non-empty when canonical persona has no scoped aspects", async ({ page }) => {
     await bootstrapTelegramMobile(page);
     await page.goto("/");
 
@@ -113,10 +115,13 @@ test.describe("Today DayBrief surface", () => {
     await expect(scoreCard).toContainText("72");
     await scoreCard.getByRole("button", { name: /Энергия: 72/ }).click();
 
-    await expect(scoreCard.getByTestId("today-score-details-energy")).toHaveCount(0);
+    const disclosure = scoreCard.getByTestId("today-score-details-energy");
+    await expect(disclosure).toBeVisible();
+    await expect(disclosure).toContainText("Что повлияло");
+    await expect(disclosure).not.toContainText(/объяснение недоступно/i);
   });
 
-  test("score disclosure stays hidden when why_text is reused across domains", async ({ page }) => {
+  test("score disclosure stays honest when why_text is reused across domains", async ({ page }) => {
     await bootstrapTelegramMobile(page, {
       feedState: "ready",
       profileOverride: canonicalPersona.profile,
@@ -170,14 +175,16 @@ test.describe("Today DayBrief surface", () => {
 
     const workCard = page.getByTestId("today-score-money");
     await workCard.getByRole("button", { name: /Работа и деньги: 58/ }).click();
-    await expect(workCard.getByTestId("today-score-details-money")).toHaveCount(0);
+    await expect(workCard.getByTestId("today-score-details-money")).toBeVisible();
+    await expect(workCard.getByTestId("today-score-details-money")).not.toContainText(/объяснение недоступно/i);
 
     const relationshipsCard = page.getByTestId("today-score-love");
     await relationshipsCard.getByRole("button", { name: /Чувства: 55/ }).click();
-    await expect(relationshipsCard.getByTestId("today-score-details-love")).toHaveCount(0);
+    await expect(relationshipsCard.getByTestId("today-score-details-love")).toBeVisible();
+    await expect(relationshipsCard.getByTestId("today-score-details-love")).not.toContainText(/объяснение недоступно/i);
   });
 
-  test("real DEV payload hides focus disclosure when only generic selected-factor echo exists", async ({ page }) => {
+  test("real DEV payload keeps focus disclosure non-empty when only generic selected-factor echo exists", async ({ page }) => {
     test.skip(!process.env.TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN is required for signed Telegram E2E lane");
     await page.setViewportSize({ width: 390, height: 844 });
     await bootstrapSignedTelegram(page, {
@@ -210,7 +217,9 @@ test.describe("Today DayBrief surface", () => {
     await expect(focusCard).toBeVisible();
     await focusCard.getByRole("button", { name: /Фокус:/ }).click();
 
-    await expect(focusCard.getByTestId("today-score-details-focus")).toHaveCount(0);
+    const disclosure = focusCard.getByTestId("today-score-details-focus");
+    await expect(disclosure).toBeVisible();
+    await expect(disclosure).not.toContainText(/объяснение недоступно/i);
   });
 
   test("real DEV payload keeps score disclosures honest without placeholder fallback copy", async ({ page }) => {

@@ -9,6 +9,7 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
 - `Today` canonical happy-path is now limited to `day_brief_v1`; legacy payloads are rendered as explicit compatibility fallback instead of premium reconstruction.
 - `Today` scored cards no longer allow score-without-explanation: if scoped evidence is thin, the renderer derives a bounded domain-safe explanation path instead of falling back to `объяснение недоступно`.
 - `Today` timing windows now pass through a post-normalization step that merges adjacent identical windows and collapses labels into a finite product taxonomy instead of generator-looking duplicates.
+- `Today` diagnostics now expose canonical / compatibility / degraded render-path markers in non-production builds, so screenshots from stale device bundles can be separated from real DTO/render regressions.
 - `Week` now has split mappers in `frontend/lib/week-brief.ts`: canonical `week_brief` and compatibility `week_map/chunks` are no longer merged in one happy-path adapter.
 - `/week` controller now mirrors `Today` more strictly: canonical screen requires `week_brief`, compatibility screen requires explicit legacy payload, and missing history without payload resolves to empty/create semantics instead of synthesized compatibility.
 - `Week` day strip is intentionally compact-only; canonical mode stays brief, while compatibility mode is explicitly marked as fallback without pseudo-depth.
@@ -45,6 +46,7 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
   - Monday→Sunday strip is secondary drill-down
   - actions/risks stay compact support
   - deep sections remain optional long-form reading, not a competing main screen
+  - compatibility fallback must stay visually lighter than canonical week and must never reuse giant day-feed semantics as the premium main surface
 
 ## Target Architecture
 

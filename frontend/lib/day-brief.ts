@@ -372,7 +372,7 @@ function normalizeWindows(value: unknown): DayBriefDto["windows"] {
     mode: isWindowMode(item.mode) ? item.mode : "soft",
     advice: text(item.advice, "Держите спокойный темп и проверяйте детали."),
     details: normalizeDetails(item.details),
-  })));
+  }))).slice(0, 3);
 }
 
 function normalizeFactors(value: unknown): DayBriefDto["personalized_factors"] {

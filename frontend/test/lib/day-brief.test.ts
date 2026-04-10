@@ -546,4 +546,39 @@ describe('day-brief helpers', () => {
     }));
     expect(result?.brief.windows[0].details?.factor_ids).toEqual(['factor-1']);
   });
+
+  it('caps normalized windows to the minimum useful visible set after merge', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
+        context: {},
+        scores: [],
+        windows: [
+          { id: 'window-1', start: '08:00', end: '09:00', label: 'Лучшее окно', mode: 'best', advice: 'Закройте главное.' },
+          { id: 'window-2', start: '09:00', end: '10:00', label: 'Лучшее окно', mode: 'best', advice: 'Закройте главное.' },
+          { id: 'window-3', start: '11:00', end: '12:00', label: 'Мягкое окно', mode: 'soft', advice: 'Держите темп.' },
+          { id: 'window-4', start: '13:00', end: '14:00', label: 'Окно проверки', mode: 'caution', advice: 'Перепроверьте стыки.' },
+          { id: 'window-5', start: '17:00', end: '18:00', label: 'Окно переговоров', mode: 'soft', advice: 'Берите мягкие разговоры.' },
+        ],
+        best_uses: [],
+        risks: [],
+        personalized_factors: [],
+        explainability: { confidence: 0.72, birth_time_used: true, factor_count: 0, selected_factors: [] },
+        premium: null,
+        cta: null,
+        legacy: null,
+      },
+    });
+
+    expect(result?.brief.windows).toHaveLength(3);
+    expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
+      start: '08:00',
+      end: '10:00',
+      label: 'Рабочий импульс',
+    }));
+  });
 });

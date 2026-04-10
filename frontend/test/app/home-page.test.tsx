@@ -97,6 +97,7 @@ describe('FeedPage', () => {
     render(<FeedPage />);
 
     expect(await screen.findByTestId('today-degraded-state')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'degraded');
     expect(screen.getByTestId('today-degraded-note')).toHaveTextContent('day_brief_v1');
     expect(screen.getByTestId('today-degraded-cta')).toHaveAttribute('href', '/week');
     expect(screen.queryByTestId('today-verdict')).not.toBeInTheDocument();
@@ -141,6 +142,7 @@ describe('FeedPage', () => {
     render(<FeedPage />);
 
     expect(await screen.findByTestId('today-verdict')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'canonical');
     expect(screen.getByTestId('today-scores')).toBeInTheDocument();
     expect(screen.getByTestId('today-windows')).toBeInTheDocument();
     expect(screen.getByTestId('today-actions')).toBeInTheDocument();
@@ -150,5 +152,43 @@ describe('FeedPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('today-degraded-state')).not.toBeInTheDocument();
     });
+  });
+
+  it('marks canonical fallback_mode day_brief as compatibility for parity diagnostics', async () => {
+    homeFetchMock.mockImplementation(async (url: string) => {
+      if (url === '/api/users/me') {
+        return new Response(JSON.stringify({ full_name: 'Compatibility User', subscription_active_until: null }), { status: 200 });
+      }
+
+      if (url === '/api/feed/today') {
+        return new Response(JSON.stringify({
+          day_brief: {
+            version: 'day_brief_v1',
+            date: '2026-04-10',
+            personalization_level: 'personalized_v2',
+            fallback_mode: true,
+            summary: {
+              headline: 'Совместимый день',
+              subhead: 'Канонический transport, но fallback semantics',
+              day_type: 'balance',
+            },
+            context: {},
+            scores: [],
+            windows: [],
+            best_uses: [],
+            risks: [],
+            personalized_factors: [],
+            explainability: { confidence: 0.4, birth_time_used: false, factor_count: 1 },
+          },
+        }), { status: 200 });
+      }
+
+      throw new Error(`Unexpected url ${url}`);
+    });
+
+    render(<FeedPage />);
+
+    expect(await screen.findByTestId('today-verdict')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'compatibility');
   });
 });

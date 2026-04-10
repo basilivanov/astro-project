@@ -604,7 +604,7 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
     || (factors.length ? null : buildGenericScoreExplanation(score, brief));
 
   return {
-    title: factors.length ? "Что повлияло" : "Почему сфера звучит так",
+    title: "Что повлияло",
     body,
     factors,
   };
