@@ -15,9 +15,9 @@
 | File | Lane | Notes |
 | --- | --- | --- |
 | today-canonical-top.png | mock-helper | strict canonical Day top: hero + 4 domains only |
-| today-canonical-domain-energy-expanded.png | mock-helper | canonical Today, energy card expanded |
-| today-canonical-domain-money-expanded.png | mock-helper | canonical Today, work/money card expanded |
-| today-canonical-domain-love-expanded.png | mock-helper | canonical Today, love card expanded |
+| today-canonical-domain-energy-expanded.png | mock-helper | canonical Today, Тонус expanded |
+| today-canonical-domain-money-expanded.png | mock-helper | canonical Today, Работа и деньги expanded |
+| today-canonical-domain-love-expanded.png | mock-helper | canonical Today, Чувства expanded |
 | today-canonical-domain-focus-expanded.png | mock-helper | canonical Today, focus card expanded |
 | today-no-data.png | mock-helper | explicit canonical no-data state without fallback prose |
 | today-error.png | mock-helper | explicit canonical error state without fallback substitution |
@@ -44,10 +44,10 @@
 - Day publication proof now lists only current strict Day artifacts; stale Day windows/risks/bottom/degraded references are removed.
 - Compatibility screenshots are intentionally lighter than canonical ones and must not be used as premium-reference images.
 - What changed in this wave:
-  - Today is reset to strict Day canon: hero + exactly four domain cards, without windows, best-use, risks, factor cards, or signal badges;
-  - canonical Day cards now expose only score, status, description, and one continuous `Что повлияло`;
-  - explicit no-data and domain-failed states were verified in fresh Playwright capture runs for this packet;
-  - legacy/non-canonical Day payloads no longer masquerade as premium Today content.
+  - Day domain titles are locked to `Тонус / Работа и деньги / Чувства / Фокус`;
+  - adapter now accepts only `day_brief_canon_v1` and rejects bridge `day_brief_v2`;
+  - partial-ready semantics remain intentionally allowed only when at least one complete domain exists; otherwise the route collapses to `no_data`;
+  - explicit no-data, error, and domain-failed states were re-captured after the label lock.
 - Forbidden-token and fallback-copy pass completed for visible Day surfaces:
   - checked canonical, no-data, and domain-failed captures for internal/fallback leakage;
   - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.

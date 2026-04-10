@@ -6,6 +6,7 @@ describe('day-brief helpers', () => {
     expect(normalizeDayBriefPayload('bad payload')).toBeNull();
     expect(normalizeDayBriefPayload({ general_vibe: 'legacy' })).toBeNull();
     expect(normalizeDayBriefPayload({ day_brief: { version: 'day_brief_v1' } })).toBeNull();
+    expect(normalizeDayBriefPayload({ day_brief: { version: 'day_brief_v2' } })).toBeNull();
   });
 
   it('normalizes strict canonical payload into hero plus four domains only', () => {
@@ -24,7 +25,7 @@ describe('day-brief helpers', () => {
         domains: {
           energy: {
             key: 'energy',
-            title: 'Энергия',
+            title: 'Тонус',
             score_status: 'complete',
             score: 78,
             status: 'green',
@@ -36,7 +37,7 @@ describe('day-brief helpers', () => {
           },
           money: {
             key: 'money',
-            title: 'Деньги',
+            title: 'Работа и деньги',
             score_status: 'complete',
             score: 64,
             status: 'yellow',
@@ -48,7 +49,7 @@ describe('day-brief helpers', () => {
           },
           love: {
             key: 'love',
-            title: 'Любовь',
+            title: 'Чувства',
             score_status: 'missing',
             score: null,
             status: null,
@@ -103,9 +104,9 @@ describe('day-brief helpers', () => {
       personalization_level: 'personalized_v2',
       hero: { title: 'День без полного слоя', subtitle: 'Часть полей отсутствует', day_type: 'balance' },
       domains: {
-        energy: { key: 'energy', title: 'Энергия', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
-        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
-        love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        energy: { key: 'energy', title: 'Тонус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Работа и деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Чувства', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
         focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
       },
     });
@@ -122,9 +123,9 @@ describe('day-brief helpers', () => {
       personalization_level: 'personalized_v2',
       hero: { title: 'Ошибка', subtitle: 'Расчёт не завершён', day_type: 'balance' },
       domains: {
-        energy: { key: 'energy', title: 'Энергия', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
-        money: { key: 'money', title: 'Деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
-        love: { key: 'love', title: 'Любовь', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        energy: { key: 'energy', title: 'Тонус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Работа и деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Чувства', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
         focus: { key: 'focus', title: 'Фокус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
       },
     });
@@ -134,15 +135,15 @@ describe('day-brief helpers', () => {
 
   it('tracks complete domain status precisely', () => {
     const result = normalizeDayBriefPayload({
-      version: 'day_brief_v2',
+      version: 'day_brief_canon_v1',
       status: 'partial',
       date: '2026-04-10',
       personalization_level: 'personalized_v2',
       hero: { title: 'Частичный день', subtitle: 'Одна сфера готова', day_type: 'balance' },
       domains: {
-        energy: { key: 'energy', title: 'Энергия', score_status: 'complete', score: 80, status: 'green', description_status: 'complete', description: 'Есть ресурс.', why_status: 'complete', why_astro_text: 'Твой Марс собран.', evidence_refs: [] },
-        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
-        love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        energy: { key: 'energy', title: 'Тонус', score_status: 'complete', score: 80, status: 'green', description_status: 'complete', description: 'Есть ресурс.', why_status: 'complete', why_astro_text: 'Твой Марс собран.', evidence_refs: [] },
+        money: { key: 'money', title: 'Работа и деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Чувства', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
         focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
       },
     });

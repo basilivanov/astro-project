@@ -37,7 +37,7 @@ export type DayDomainCard = {
 };
 
 export type DayBriefDto = {
-  version: "day_brief_canon_v1" | "day_brief_v2";
+  version: "day_brief_canon_v1";
   status: "complete" | "partial" | "failed";
   date: string;
   personalization_level: string;
@@ -71,9 +71,9 @@ export type TodayViewModel = {
 const DAY_KEYS: DayBriefScoreKey[] = ["energy", "money", "love", "focus"];
 
 const DAY_TITLES: Record<DayBriefScoreKey, string> = {
-  energy: "Энергия",
-  money: "Деньги",
-  love: "Любовь",
+  energy: "Тонус",
+  money: "Работа и деньги",
+  love: "Чувства",
   focus: "Фокус",
 };
 
@@ -149,7 +149,7 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
   if (!isRecord(source)) return null;
 
   const version = text(source.version);
-  if (version !== "day_brief_canon_v1" && version !== "day_brief_v2") {
+  if (version !== "day_brief_canon_v1") {
     return null;
   }
 

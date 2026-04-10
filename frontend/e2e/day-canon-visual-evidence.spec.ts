@@ -31,7 +31,7 @@ function canonicalDomains(): Record<'energy' | 'money' | 'love' | 'focus', DayBr
   return {
     energy: {
       key: 'energy',
-      title: 'Энергия',
+      title: 'Тонус',
       score_status: 'complete',
       score: 74,
       status: 'green',
@@ -43,7 +43,7 @@ function canonicalDomains(): Record<'energy' | 'money' | 'love' | 'focus', DayBr
     },
     money: {
       key: 'money',
-      title: 'Деньги',
+      title: 'Работа и деньги',
       score_status: 'complete',
       score: 63,
       status: 'yellow',
@@ -55,7 +55,7 @@ function canonicalDomains(): Record<'energy' | 'money' | 'love' | 'focus', DayBr
     },
     love: {
       key: 'love',
-      title: 'Отношения',
+      title: 'Чувства',
       score_status: 'complete',
       score: 58,
       status: 'yellow',
@@ -143,9 +143,9 @@ test.describe('day canon branch-visible visual evidence', () => {
         day_type: 'balance',
       },
       domains: {
-        energy: { key: 'energy', title: 'Энергия', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
-        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
-        love: { key: 'love', title: 'Отношения', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        energy: { key: 'energy', title: 'Тонус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Работа и деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Чувства', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
         focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
       },
       cta: { primary: { type: 'open_week', label: 'Открыть неделю', href: '/week' } },
@@ -170,9 +170,9 @@ test.describe('day canon branch-visible visual evidence', () => {
         day_type: 'caution',
       },
       domains: {
-        energy: { key: 'energy', title: 'Энергия', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
-        money: { key: 'money', title: 'Деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
-        love: { key: 'love', title: 'Отношения', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        energy: { key: 'energy', title: 'Тонус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Работа и деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Чувства', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
         focus: { key: 'focus', title: 'Фокус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
       },
       cta: { primary: { type: 'open_week', label: 'Открыть неделю', href: '/week' } },

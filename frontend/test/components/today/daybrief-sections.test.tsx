@@ -25,7 +25,7 @@ const buildBrief = (): DayBriefDto => ({
   domains: {
     energy: {
       key: 'energy',
-      title: 'Энергия',
+      title: 'Тонус',
       score_status: 'complete',
       score: 82,
       status: 'green',
@@ -37,7 +37,7 @@ const buildBrief = (): DayBriefDto => ({
     },
     money: {
       key: 'money',
-      title: 'Деньги',
+      title: 'Работа и деньги',
       score_status: 'complete',
       score: 68,
       status: 'yellow',
@@ -49,7 +49,7 @@ const buildBrief = (): DayBriefDto => ({
     },
     love: {
       key: 'love',
-      title: 'Любовь',
+      title: 'Чувства',
       score_status: 'missing',
       score: null,
       status: null,
@@ -118,6 +118,11 @@ describe('daybrief sections', () => {
   it('renders honest no-data and error states inside domain cards', () => {
     render(React.createElement(TodayScores, { brief: buildBrief(), onScoreTap: jest.fn() }));
 
+    expect(screen.getByText('Тонус')).toBeInTheDocument();
+    expect(screen.getByText('Работа и деньги')).toBeInTheDocument();
+    expect(screen.getByText('Чувства')).toBeInTheDocument();
+    expect(screen.getByText('Фокус')).toBeInTheDocument();
+
     expect(screen.getByTestId('today-score-love')).toHaveTextContent('Нет данных');
     expect(screen.getByTestId('today-score-love')).toHaveTextContent('Нет данных по этой сфере.');
     expect(screen.getByTestId('today-score-love')).toHaveTextContent('Для этой сферы пока нет персонального астрологического объяснения.');
@@ -131,7 +136,7 @@ describe('daybrief sections', () => {
     const onScoreTap = jest.fn();
     render(React.createElement(TodayScores, { brief: buildBrief(), onScoreTap }));
 
-    fireEvent.click(screen.getByLabelText('Энергия: 82'));
+    fireEvent.click(screen.getByLabelText('Тонус: 82'));
     expect(onScoreTap).toHaveBeenCalledWith('energy', 82);
     expect(screen.queryByLabelText('Любовь: 0')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Фокус: 0')).not.toBeInTheDocument();
