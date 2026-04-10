@@ -91,7 +91,7 @@ test.describe("Week Page Fallback Parsing", () => {
     await expect(page.getByTestId('week-day-strip')).not.toContainText(/explanation_astro|transit|natal|aspect/i);
     await expect(page.getByTestId('week-deep-sections')).toBeVisible();
     await expect(page.getByTestId('week-deep-sections')).toContainText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.');
-    await expect(page.getByTestId('week-deep-sections-summary')).toContainText('narrative layer');
+    await expect(page.getByTestId('week-deep-sections-summary')).toContainText('длинного чтения');
     await expect(page.getByText('Текстовый fallback')).toBeVisible();
     await expect(page.getByTestId('week-deep-sections')).not.toContainText('{"text"');
     await expect(page.getByTestId('week-fallback-note')).toBeVisible();

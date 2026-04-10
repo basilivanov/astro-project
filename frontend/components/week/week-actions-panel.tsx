@@ -35,7 +35,11 @@ import { type WeekSurfaceModel } from "../../lib/week-brief";
 // END_FUNCTION_CONTRACT: ActionRiskList
 function ActionRiskList({ items, testId, week, kind }: { items: WeekSurfaceModel["actions"]; testId: string; week: WeekSurfaceModel; kind: "action" | "risk" }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const visibleItems = items.filter((item) => item.tag !== "all_week");
+  const visibleItems = items.filter((item) => item.tag !== "all_week").slice(0, 2);
+
+  if (!visibleItems.length) {
+    return <p className="text-sm leading-relaxed text-slate-500">Здесь пока нет отдельного weekly-акцента.</p>;
+  }
 
   return (
     // START_BLOCK: ACTION_RISK_LIST_RENDER
@@ -75,12 +79,16 @@ function ActionRiskList({ items, testId, week, kind }: { items: WeekSurfaceModel
 // INVARIANTS: Panel copy and list namespaces remain stable for tests and analytics.
 // END_FUNCTION_CONTRACT: WeekActionsPanel
 export function WeekActionsPanel({ week }: { week: WeekSurfaceModel }) {
+  if (!week.actions.length && !week.risks.length) {
+    return null;
+  }
+
   return (
     // START_BLOCK: WEEK_ACTIONS_PANEL_LAYOUT
     <div className="grid gap-4 lg:grid-cols-2">
       <ConsumerPanel className="p-5" data-testid="week-actions-panel">
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Действия</p>
-        <h2 className="mt-2 text-lg font-black text-slate-950">Что делать на этой неделе</h2>
+        <h2 className="mt-2 text-lg font-black text-slate-950">Лучшее применение недели</h2>
         <div className="mt-4"><ActionRiskList items={week.actions} testId="week-actions-list" week={week} kind="action" /></div>
       </ConsumerPanel>
       <ConsumerPanel className="p-5" data-testid="week-risks-panel">

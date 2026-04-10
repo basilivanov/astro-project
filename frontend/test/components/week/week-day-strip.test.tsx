@@ -57,7 +57,7 @@ const week: WeekSurfaceModel = {
 describe('WeekDayStrip', () => {
   it('renders compact overview cards without detail disclosure', () => {
     const onDayClick = jest.fn();
-    render(<WeekDayStrip week={week} onDayClick={onDayClick} />);
+    render(<WeekDayStrip week={week} selectedDayKey="2026-04-01" onDayClick={onDayClick} />);
 
     const card = screen.getByTestId('week-day-strip-card-1');
     expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Понедельник — воскресенье');
@@ -68,6 +68,7 @@ describe('WeekDayStrip', () => {
     expect(card).not.toHaveTextContent('Детали дня');
     expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Календарный ритм недели без лишней глубины');
     expect(screen.getByTestId('week-day-strip-section')).not.toHaveTextContent('совместимый');
+    expect(card.querySelector('button')).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);
     expect(onDayClick).toHaveBeenCalledWith('2026-04-01');

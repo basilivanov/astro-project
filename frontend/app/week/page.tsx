@@ -17,6 +17,7 @@ import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states
 import { WeekHeroMap } from "../../components/week/week-hero-map";
 import { WeekDayStrip } from "../../components/week/week-day-strip";
 import { WeekDayGrid } from "../../components/week/week-day-grid";
+import { WeekDayDrawer } from "../../components/week/week-day-drawer";
 import { WeekDomainPanel } from "../../components/week/week-domain-panel";
 import { WeekActionsPanel } from "../../components/week/week-actions-panel";
 import { WeekExplainabilityPanel } from "../../components/week/week-explainability-panel";
@@ -170,6 +171,7 @@ function WeekPageContent() {
   const [latestReportStatus, setLatestReportStatus] = useState<string | null>(null);
   const [latestReportMeta, setLatestReportMeta] = useState<WeekReportSummary | null>(null);
   const [payload, setPayload] = useState<WeekReportPayload | null>(null);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   // FN-CONTRACT: FN-WEEK-ENSURE-CORRELATION
   // purpose: Ensure a stable correlation id for every week flow branch within one page lifecycle.
@@ -335,6 +337,7 @@ function WeekPageContent() {
   // purpose: Emit correlated analytics for week day-card interaction without mutating domain state.
   const trackDayClick = useCallback(
     (day: string) => {
+      setSelectedDayKey(day);
       void trackCatalogEvent(
         "week.day_card_click",
         {
@@ -354,6 +357,25 @@ function WeekPageContent() {
   const primaryHref = week?.cta.primary?.href || (week?.reportId ? `/read/${week.reportId}` : "/create?type=week_forecast");
   const primaryLabel = week?.cta.primary?.label || (week?.reportId ? "Открыть полный отчёт" : "Получить полный отчёт");
   const emptyStateCopy = useMemo(() => resolveWeekEmptyStateCopy(latestReportMeta), [latestReportMeta]);
+  const selectedDayCard = useMemo(() => {
+    if (!week) return null;
+    const preferredStripCard = week.dayStrip.find((card) => (card.date ?? card.id) === selectedDayKey) ?? null;
+    const preferredDayCard = week.dayCards.find((card) => (card.date ?? card.id) === selectedDayKey) ?? null;
+    const fallbackDayCard = week.dayCards.find((card) => Boolean(card?.date || card?.headline || card?.score != null)) ?? null;
+    const fallbackStripCard = fallbackDayCard
+      ? week.dayStrip.find((card) => (card.date ?? card.id) === (fallbackDayCard.date ?? fallbackDayCard.id)) ?? null
+      : week.dayStrip.find((card) => Boolean(card?.date || card?.headline || card?.score != null)) ?? null;
+    const stripCard = preferredStripCard ?? fallbackStripCard;
+    const dayCard = preferredDayCard ?? fallbackDayCard;
+
+    if (!stripCard && !dayCard) return null;
+
+    return {
+      ...(stripCard ?? dayCard),
+      ...(dayCard ?? stripCard),
+      weekday: stripCard?.weekday ?? dayCard?.weekday ?? null,
+    };
+  }, [selectedDayKey, week]);
 
   // START_BLOCK: WEEK_RENDER_SWITCH
   if (!isReady || loading) {
@@ -412,7 +434,12 @@ function WeekPageContent() {
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
   const shouldShowFallbackNote = week.surfaceMode === "compatibility";
-  const shouldShowExplainabilityPanel = Boolean(week.factors.length) || Boolean(week.explainabilityDetailItems.length);
+  const shouldShowActionsPanel = Boolean(week.actions.length) || Boolean(week.risks.length);
+  const shouldShowExplainabilityPanel =
+    typeof week.explainability.confidence === "number"
+    || Boolean(week.topSignalLabel)
+    || Boolean(week.factors.length)
+    || Boolean((week.explainability.factor_count ?? 0) > 0);
   const shouldShowDeepSections = Boolean(week.deepSections.length);
 
   return (
@@ -451,16 +478,32 @@ function WeekPageContent() {
         />
 
         <WeekDomainPanel week={week} />
-        <WeekDayStrip week={week} onDayClick={trackDayClick} />
-        {week.surfaceMode === "compatibility" ? <WeekDayGrid week={week} onDayClick={trackDayClick} /> : null}
-        <WeekActionsPanel week={week} />
-        {shouldShowExplainabilityPanel ? <WeekExplainabilityPanel week={week} /> : null}
-        {shouldShowDeepSections ? <WeekDeepSections week={week} /> : null}
+        <WeekDayStrip week={week} selectedDayKey={selectedDayCard?.date ?? selectedDayCard?.id ?? null} onDayClick={trackDayClick} />
+        <WeekDayDrawer card={selectedDayCard} surfaceMode={week.surfaceMode} />
+        {shouldShowActionsPanel ? <WeekActionsPanel week={week} /> : null}
 
-        {shouldShowFallbackNote ? (
-          <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-            {week.reportId ? "Показан совместимый fallback-режим: верхний слой WeekBrief недоступен, поэтому экран собран из legacy week_map." : emptyStateCopy.note}
-          </p>
+        {shouldShowExplainabilityPanel || shouldShowDeepSections ? (
+          <section className="space-y-4 border-t border-slate-200/80 pt-2" data-testid="week-secondary-reading">
+            <div className="px-1">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Второй слой</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Сначала держите общую картину недели. Ниже — supporting explainability и развёрнутый weekly report, если он нужен.
+              </p>
+            </div>
+            {shouldShowExplainabilityPanel ? <WeekExplainabilityPanel week={week} /> : null}
+            {shouldShowDeepSections ? <WeekDeepSections week={week} /> : null}
+          </section>
+        ) : null}
+
+        {week.surfaceMode === "compatibility" ? (
+          <section className="space-y-3" data-testid="week-compatibility-section">
+            {shouldShowFallbackNote ? (
+              <p className="text-xs text-slate-500" data-testid="week-fallback-note">
+                {week.reportId ? "Показан совместимый fallback-режим: верхний слой WeekBrief недоступен, поэтому экран собран из legacy week_map." : emptyStateCopy.note}
+              </p>
+            ) : null}
+            <WeekDayGrid week={week} onDayClick={trackDayClick} />
+          </section>
         ) : null}
       </section>
     </ConsumerPageShell>

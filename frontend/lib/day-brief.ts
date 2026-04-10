@@ -355,6 +355,28 @@ function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
   }));
 }
 
+function dedupeRiskItems(items: DayBriefDto["risks"]): DayBriefDto["risks"] {
+  const byText = new Map<string, DayBriefDto["risks"][number]>();
+
+  for (const item of items) {
+    const key = normalizeComparableText(item.text);
+    if (!key) continue;
+    const existing = byText.get(key);
+    if (!existing) {
+      byText.set(key, item);
+      continue;
+    }
+
+    const existingScore = Number(Boolean(existing.why_text)) + (existing.supporting_factors?.length ?? 0);
+    const candidateScore = Number(Boolean(item.why_text)) + (item.supporting_factors?.length ?? 0);
+    if (candidateScore > existingScore) {
+      byText.set(key, item);
+    }
+  }
+
+  return Array.from(byText.values()).slice(0, 2);
+}
+
 // FN-CONTRACT: FN-DAY-NORMALIZE-WINDOWS
 // purpose: Convert raw timing-window payloads into stable today window cards.
 function normalizeWindows(value: unknown): DayBriefDto["windows"] {
@@ -495,7 +517,7 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
     scores: normalizeScores(candidate.scores),
     windows: normalizeWindows(candidate.windows),
     best_uses: normalizeItems(candidate.best_uses),
-    risks: normalizeItems(candidate.risks),
+    risks: dedupeRiskItems(normalizeItems(candidate.risks)),
     personalized_factors: normalizeFactors(candidate.personalized_factors),
     explainability: {
       confidence: isRecord(candidate.explainability) ? num(candidate.explainability.confidence, 0) : 0,

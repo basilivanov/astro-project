@@ -73,9 +73,9 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Deep report layer</p>
-          <h2 className="mt-2 text-lg font-black text-slate-950">Развёрнутый разбор недели</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-summary">Это вторичный narrative layer: стратегия, интерпретация и markdown-блоки полного weekly report.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Deep report layer</p>
+            <h2 className="mt-2 text-lg font-black text-slate-950">Развёрнутый разбор недели</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-deep-sections-summary">Этот слой нужен только для длинного чтения: стратегия, narrative и markdown-блоки полного weekly report.</p>
           </div>
           <button
             type="button"

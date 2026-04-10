@@ -50,14 +50,20 @@ jest.mock('../../components/week/week-hero-map', () => ({
 }));
 
 jest.mock('../../components/week/week-day-strip', () => ({
-  WeekDayStrip: ({ week }: { week: { dayStrip: Array<{ weekday?: string | null }> } }) => (
-    <div data-testid="week-day-strip">{week.dayStrip.map((day) => day.weekday).filter(Boolean).join(', ')}</div>
+  WeekDayStrip: ({ week, selectedDayKey }: { week: { dayStrip: Array<{ weekday?: string | null; date?: string | null }> }; selectedDayKey?: string | null }) => (
+    <div data-testid="week-day-strip" data-selected-day={selectedDayKey ?? ''}>{week.dayStrip.map((day) => day.weekday).filter(Boolean).join(', ')}</div>
   ),
 }));
 
 jest.mock('../../components/week/week-day-grid', () => ({
   WeekDayGrid: ({ week }: { week: { dayCards: Array<{ headline?: string | null }> } }) => (
     <div data-testid="week-day-grid">{week.dayCards.map((day) => day.headline).filter(Boolean).join(', ')}</div>
+  ),
+}));
+
+jest.mock('../../components/week/week-day-drawer', () => ({
+  WeekDayDrawer: ({ card, surfaceMode }: { card: { weekday?: string | null; headline?: string | null } | null; surfaceMode: string }) => (
+    <div data-testid="week-day-drawer">{`${surfaceMode}:${card?.weekday ?? 'none'}:${card?.headline ?? 'none'}`}</div>
   ),
 }));
 
@@ -280,8 +286,10 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 6 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПТ, 10 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ВС, 12 апр');
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('canonical:ПТ, 10 апр:Работать по главному приоритету');
     expect(screen.queryByTestId('week-day-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-secondary-reading')).not.toBeInTheDocument();
   });
 
   it('renders compatibility week only when explicit legacy payload exists', async () => {
@@ -307,7 +315,9 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('compatibility:ПН, 23 мар:Хороший день, чтобы собрать договорённости.');
     expect(screen.getByTestId('week-day-grid')).toBeInTheDocument();
+    expect(screen.getByTestId('week-compatibility-section')).toBeInTheDocument();
     expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('совместимый fallback-режим');
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-legacy');
   });

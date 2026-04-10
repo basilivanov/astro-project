@@ -581,4 +581,35 @@ describe('day-brief helpers', () => {
       label: 'Рабочий импульс',
     }));
   });
+
+  it('dedupes and caps risks to a compact main-flow set', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
+        context: {},
+        scores: [],
+        windows: [],
+        best_uses: [],
+        risks: [
+          { id: 'risk-1', text: 'Не разгоняйте конфликты', why_text: 'Тон быстро становится жёстче.' },
+          { id: 'risk-2', text: 'Не разгоняйте конфликты', why_text: null },
+          { id: 'risk-3', text: 'Не дробите внимание', why_text: 'Потеряется главный приоритет.' },
+          { id: 'risk-4', text: 'Лишний третий риск не должен попасть в main flow', why_text: 'Слишком много для одного дня.' },
+        ],
+        personalized_factors: [],
+        explainability: { confidence: 0.72, birth_time_used: true, factor_count: 0, selected_factors: [] },
+        premium: null,
+        cta: null,
+        legacy: null,
+      },
+    });
+
+    expect(result?.brief.risks).toHaveLength(2);
+    expect(result?.brief.risks[0]).toEqual(expect.objectContaining({ text: 'Не разгоняйте конфликты', why_text: 'Тон быстро становится жёстче.' }));
+    expect(result?.brief.risks[1]).toEqual(expect.objectContaining({ text: 'Не дробите внимание' }));
+  });
 });

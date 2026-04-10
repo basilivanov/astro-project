@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { WeekActionsPanel } from '../../../components/week/week-actions-panel';
+import { WeekDayDrawer } from '../../../components/week/week-day-drawer';
 import { WeekDayGrid } from '../../../components/week/week-day-grid';
 import { WeekDomainPanel } from '../../../components/week/week-domain-panel';
 import type { WeekSurfaceModel } from '../../../lib/week-brief';
@@ -201,7 +202,31 @@ describe('Week unified detail panels', () => {
     expect(screen.getByTestId('week-risks-list')).not.toHaveTextContent('Скрытый глобальный risk');
   });
 
-  it('does not inject global week factors into domain without domain match', () => {
+  it('caps actions and risks to a compact weekly set', () => {
+    const week = {
+      ...baseWeek,
+      actions: [
+        ...baseWeek.actions,
+        { id: 'action-2', text: 'Сузить встречи' },
+        { id: 'action-3', text: 'Не должен попасть в компактный блок' },
+      ],
+      risks: [
+        ...baseWeek.risks,
+        { id: 'risk-2', text: 'Не дробить внимание' },
+        { id: 'risk-3', text: 'Лишний риск вне лимита' },
+      ],
+    };
+
+    render(<WeekActionsPanel week={week} />);
+    expect(screen.getByTestId('week-actions-list')).toHaveTextContent('Закрыть один глубокий рабочий цикл');
+    expect(screen.getByTestId('week-actions-list')).toHaveTextContent('Сузить встречи');
+    expect(screen.getByTestId('week-actions-list')).not.toHaveTextContent('Не должен попасть в компактный блок');
+    expect(screen.getByTestId('week-risks-list')).toHaveTextContent('Не обещать больше, чем удержите');
+    expect(screen.getByTestId('week-risks-list')).toHaveTextContent('Не дробить внимание');
+    expect(screen.getByTestId('week-risks-list')).not.toHaveTextContent('Лишний риск вне лимита');
+  });
+
+  it('keeps weekly domain disclosure available even without exact factor match', () => {
     const week = {
       ...baseWeek,
       domains: [{
@@ -218,7 +243,9 @@ describe('Week unified detail panels', () => {
     };
 
     render(<WeekDomainPanel week={week} />);
-    expect(screen.queryByRole('button', { name: 'Что повлияло' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Что повлияло' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Что повлияло' }));
+    expect(screen.getByTestId('week-domain-explainability-focus')).toHaveTextContent('Неделя лучше всего складывается через один главный приоритет');
   });
 
   it('renders weekly day cards with user-facing semantics instead of raw enum-like status', () => {
@@ -256,6 +283,35 @@ describe('Week unified detail panels', () => {
 
 
 describe('Week day card detail layer', () => {
+  it('renders compact day drawer for canonical drill-down', () => {
+    render(
+      <WeekDayDrawer
+        surfaceMode="canonical"
+        card={{
+          date: '2026-04-01',
+          weekday: 'СР, 1 апр',
+          mode: 'green',
+          score: 88,
+          headline: 'Фокус на главном',
+          lead: 'День лучше держать через один главный приоритет.',
+          practical: [],
+          supporting_factors: [],
+          details: { why_text: 'День лучше держать через один главный приоритет.', why_title: null, supporting_factors: [] },
+          factor_ids: [],
+          best_for: ['Стратегия'],
+          avoid: ['Суета'],
+          peak_window_label: 'Утро',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('СР, 1 апр');
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('Фокус на главном');
+    expect(screen.getByTestId('week-day-drawer-best-for')).toHaveTextContent('Стратегия');
+    expect(screen.getByTestId('week-day-drawer-avoid')).toHaveTextContent('Суета');
+    expect(screen.getByTestId('week-day-drawer-detail')).toHaveTextContent('День лучше держать через один главный приоритет.');
+  });
+
   it('renders day detail disclosure with practical and supporting factors', () => {
     const { WeekDayGrid } = require('../../../components/week/week-day-grid');
     const week = {

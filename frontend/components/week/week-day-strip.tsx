@@ -9,7 +9,15 @@ const MODE_CLASSES: Record<string, string> = {
   red: "border-rose-100 bg-rose-50/80 text-rose-900",
 };
 
-export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onDayClick: (day: string) => void }) {
+export function WeekDayStrip({
+  week,
+  onDayClick,
+  selectedDayKey,
+}: {
+  week: WeekSurfaceModel;
+  onDayClick: (day: string) => void;
+  selectedDayKey?: string | null;
+}) {
   const isCompatibilityStrip = week.surfaceMode === "compatibility";
 
   return (
@@ -32,16 +40,18 @@ export function WeekDayStrip({ week, onDayClick }: { week: WeekSurfaceModel; onD
           const cardKey = card.date ?? `${index}`;
           const primaryHint = card.best_for?.[0] ?? card.avoid?.[0] ?? null;
           const isSkeleton = card.score == null && !card.headline && !card.peak_window_label && !primaryHint;
+          const isSelected = selectedDayKey === cardKey;
           return (
             <article
               key={cardKey}
               className={cn(
-                "rounded-3xl border p-4 text-left shadow-sm",
+                "rounded-3xl border p-4 text-left shadow-sm transition",
                 isSkeleton ? "border-slate-200 bg-slate-50/80 text-slate-700" : MODE_CLASSES[card.mode ?? "red"] ?? MODE_CLASSES.red,
+                isSelected ? "ring-2 ring-slate-900/10 shadow-md" : null,
               )}
               data-testid={`week-day-strip-card-${index + 1}`}
             >
-              <button type="button" onClick={() => onDayClick(cardKey)} className="w-full text-left">
+              <button type="button" onClick={() => onDayClick(cardKey)} aria-pressed={isSelected} className="w-full text-left">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-black uppercase tracking-[0.12em]">{card.weekday ?? "День"}</p>
                   {typeof card.score === "number" ? <p className="text-xs font-semibold">{card.score}/100</p> : null}

@@ -3,9 +3,7 @@
 import { useId, useState } from "react";
 
 import { ConsumerPanel } from "../consumer-page-shell";
-import { DetailDisclosureCard } from "../detail/detail-disclosure-card";
 import { type WeekSurfaceModel } from "../../lib/week-brief";
-import { type NormalizedDetailFactor } from "../../lib/detail-layer";
 
 export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,24 +15,13 @@ export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
     Boolean(week.confidenceLabel) ||
     Boolean(week.birthTimeLabel) ||
     Boolean(week.topSignalLabel);
-  const explainabilityFactors: NormalizedDetailFactor[] = (week.factors ?? []).map((factor, index) => ({
-    id: factor.id?.trim() || `week-factor-${index + 1}`,
-    label: factor.label?.trim() || `Фактор ${index + 1}`,
-    explanationHuman: factor.explanation_human?.trim() || factor.explanation_astro?.trim() || "",
-    explanationAstro: factor.explanation_astro?.trim() || null,
-    value: null,
-    impact: factor.impact === "high" || factor.impact === "medium" || factor.impact === "low" ? factor.impact : null,
-    source: "week_major_factor",
-    relatedKey: factor.id?.trim() || null,
-  }));
-
   return (
     <ConsumerPanel className="p-5" data-testid="week-explainability-panel">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Поддерживающий слой</p>
-            <h2 className="mt-2 text-lg font-black text-slate-950">Основа недели</h2>
+            <h2 className="mt-2 text-lg font-black text-slate-950">Почему неделя держится именно так</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-explainability-summary">
               {week.explainabilitySummary ?? [week.confidenceLabel, week.birthTimeLabel ? week.birthTimeLabel.charAt(0).toUpperCase() + week.birthTimeLabel.slice(1) : null, week.topSignalLabel ? `Главный слой влияния: ${week.topSignalLabel}` : null].filter(Boolean).join(". ") + "."}
             </p>
@@ -55,7 +42,7 @@ export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
         <div className="flex flex-wrap gap-2" data-testid="week-explainability-chips">
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">Уверенность: {confidencePercent}</span>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">Опора: {week.confidenceShortLabel ?? "—"}</span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">Факторов: {week.explainability.factor_count ?? week.factors.length}</span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">Факторов в модели: {week.explainability.factor_count ?? week.factors.length}</span>
         </div>
         {hasExplainabilityDetails ? (
           <div
@@ -74,28 +61,9 @@ export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
                 </div>
               ))}
             </div>
-            {explainabilityFactors.length ? (
-              <div className="grid gap-3">
-                <div>
-                  <DetailDisclosureCard
-                    title="Факторы недели"
-                    summary="Какие сигналы сильнее всего собрали эту weekly summary."
-                    body={null}
-                    factors={explainabilityFactors}
-                    chips={[
-                      `Факторов: ${week.explainability.factor_count ?? week.factors.length}`,
-                      week.topSignalLabel ? `Основа: ${week.topSignalLabel}` : null,
-                    ]}
-                    testId="week-explainability-factors"
-                  />
-                  <div className="sr-only" aria-hidden="true">
-                    {week.factors.map((factor, index) => (
-                      <span key={factor.id ?? index} data-testid={`week-factor-${index + 1}`}>{factor.label}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            <p className="text-xs leading-relaxed text-slate-500" data-testid="week-explainability-footnote">
+              Ключевые причины уже встроены в домены недели через «Что повлияло». Здесь оставляем только слой доверия к интерпретации.
+            </p>
           </div>
         ) : null}
       </div>

@@ -23,7 +23,7 @@ import { useState } from "react";
 
 import { ConsumerPanel } from "../consumer-page-shell";
 import { DetailDisclosureCard } from "../detail/detail-disclosure-card";
-import { findDetailLayer } from "../../lib/detail-layer";
+import { findDetailLayer, type NormalizedDetailFactor } from "../../lib/detail-layer";
 import { type LightStatus, type WeekSurfaceModel } from "../../lib/week-brief";
 
 const DOMAIN_STATUS_STYLES: Record<LightStatus, { badge: string; progress: string; track: string; card: string }> = {
@@ -88,6 +88,58 @@ function resolveVisibleDomainHeadline(domain: WeekSurfaceModel["domains"][number
   return headline;
 }
 
+function normalizeComparableText(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildGenericWeekDomainExplanation(domain: WeekSurfaceModel["domains"][number]): string {
+  const key = normalizeComparableText(domain.key);
+  const domainCopy: Record<string, string> = {
+    work: "Неделя просит держать работу и деньги в одном проверяемом контуре: без лишних обещаний и со ставкой на фиксируемый результат.",
+    relationships: "Неделя просит меньше достраивать за другого и больше держаться за спокойный тон, ясные ожидания и короткие разговоры по делу.",
+    love: "Неделя лучше проживается через ясные сигналы и мягкий тон, а не через эмоциональное давление и угадывание мотивов.",
+    energy: "Неделя держится на темпе, буфере ресурса и способности не превращать каждый день в спринт.",
+    focus: "Неделя лучше всего складывается через один главный приоритет, короткие циклы и защиту внимания от распыления.",
+  };
+  return domainCopy[key] ?? "Неделя лучше всего складывается через один короткий приоритет и спокойный управляемый ритм.";
+}
+
+function factorMatchesDomain(factor: WeekSurfaceModel["factors"][number], domainKey: string | null | undefined): boolean {
+  const key = normalizeComparableText(domainKey);
+  const category = normalizeComparableText(factor.category);
+  const label = normalizeComparableText(factor.label);
+  const aliases: Record<string, string[]> = {
+    work: ["work", "money", "career", "работ", "деньг", "финанс"],
+    relationships: ["relationships", "love", "relation", "отнош", "любов", "контакт"],
+    love: ["love", "relationships", "relation", "отнош", "любов", "контакт"],
+    energy: ["energy", "ресурс", "энерг", "ритм", "тонус"],
+    focus: ["focus", "фокус", "вниман", "структур", "концентрац"],
+  };
+  return (aliases[key] ?? [key]).some((needle) => category.includes(needle) || label.includes(needle));
+}
+
+function deriveFallbackFactors(week: WeekSurfaceModel, domain: WeekSurfaceModel["domains"][number], index: number): NormalizedDetailFactor[] {
+  return (week.factors ?? [])
+    .filter((factor) => factorMatchesDomain(factor, domain.key))
+    .slice(0, 2)
+    .map((factor, factorIndex) => ({
+      id: factor.id?.trim() || `week-domain-${index + 1}-fallback-factor-${factorIndex + 1}`,
+      label: factor.label?.trim() || `Фактор ${factorIndex + 1}`,
+      explanationHuman: factor.explanation_human?.trim() || factor.explanation_astro?.trim() || "",
+      explanationAstro: factor.explanation_astro?.trim() || null,
+      value: null,
+      impact: factor.impact === "high" || factor.impact === "medium" || factor.impact === "low" ? factor.impact : null,
+      source: "week_major_factor",
+      relatedKey: domain.key ?? null,
+    }));
+}
+
 // START_FUNCTION_CONTRACT: WeekDomainPanel
 // INTENT: Compose weekly domain cards with optional explainability disclosure.
 // INPUTS: Week surface model.
@@ -116,6 +168,8 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
               id: String(domain.key ?? `week-domain-${index + 1}`),
               relatedKey: String(domain.key ?? `week-domain-${index + 1}`),
             });
+            const fallbackFactors = detailLayer?.factors?.length ? [] : deriveFallbackFactors(week, domain, index);
+            const disclosureBody = detailLayer?.body ?? domain.why_text ?? buildGenericWeekDomainExplanation(domain);
             return (
               <div
                 key={`${domain.key ?? index}`}
@@ -133,17 +187,14 @@ export function WeekDomainPanel({ week }: { week: WeekSurfaceModel }) {
                     {domain.value ?? 0}/100
                   </div>
                 </div>
-                <div className={`h-2 rounded-full ${statusStyle.track}`}>
-                  <div className={`h-2 rounded-full ${statusStyle.progress}`} style={{ width: `${Math.max(0, Math.min(100, domain.value ?? 0))}%` }} />
-                </div>
                 <p className="text-xs leading-relaxed text-slate-600" data-testid={`week-domain-guidance-${domain.key ?? index}`}>
                   {domain.advice?.trim() || "Держите решения в этой зоне простыми и проверяемыми."}
                 </p>
                 <DetailDisclosureCard
                   testId={`week-domain-explainability-${domain.key ?? index}`}
                   title="Что повлияло"
-                  body={detailLayer?.body ?? domain.why_text}
-                  factors={detailLayer?.factors ?? []}
+                  body={disclosureBody}
+                  factors={detailLayer?.factors?.length ? detailLayer.factors : fallbackFactors}
                   compact
                   isOpen={openKey === domainKey}
                   onToggle={() => setOpenKey((current) => (current === domainKey ? null : domainKey))}

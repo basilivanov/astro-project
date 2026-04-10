@@ -68,7 +68,6 @@ describe('WeekExplainabilityPanel', () => {
     expect(screen.getByTestId('week-explainability-chips')).toHaveTextContent('Уверенность: 81%');
     expect(screen.getByTestId('week-explainability-toggle')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByTestId('week-explainability-details')).not.toBeVisible();
-    expect(screen.getByTestId('week-explainability-factors-factors')).not.toBeVisible();
 
     fireEvent.click(screen.getByTestId('week-explainability-toggle'));
 
@@ -77,9 +76,7 @@ describe('WeekExplainabilityPanel', () => {
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Надёжность сигнала');
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Контекст рождения');
     expect(screen.getByTestId('week-explainability-top-layer')).toHaveTextContent('Главный слой влияния');
-    expect(screen.getByTestId('week-explainability-factors')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Факторы недели' }));
-    expect(screen.getByTestId('week-explainability-factors-factors')).toHaveTextContent('Фон недели');
+    expect(screen.getByTestId('week-explainability-footnote')).toHaveTextContent('Ключевые причины уже встроены в домены недели');
 
     fireEvent.click(screen.getByTestId('week-explainability-toggle'));
 

@@ -10,10 +10,14 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
 - `Today` scored cards no longer allow score-without-explanation: if scoped evidence is thin, the renderer derives a bounded domain-safe explanation path instead of falling back to `объяснение недоступно`.
 - `Today` timing windows now pass through a post-normalization step that merges adjacent identical windows and collapses labels into a finite product taxonomy instead of generator-looking duplicates.
 - `Today` diagnostics now expose canonical / compatibility / degraded render-path markers in non-production builds, so screenshots from stale device bundles can be separated from real DTO/render regressions.
+- Visual review is now repo-owned: any visible `Today`/`Week` push must commit screenshot evidence under `docs/review_evidence/front/day-week/<YYYY-MM-DD>-<shortsha>/` with lane/build metadata, otherwise the review verdict is explicitly `visual verdict incomplete`.
 - `Week` now has split mappers in `frontend/lib/week-brief.ts`: canonical `week_brief` and compatibility `week_map/chunks` are no longer merged in one happy-path adapter.
 - `/week` controller now mirrors `Today` more strictly: canonical screen requires `week_brief`, compatibility screen requires explicit legacy payload, and missing history without payload resolves to empty/create semantics instead of synthesized compatibility.
 - `Week` day strip is intentionally compact-only; canonical mode stays brief, while compatibility mode is explicitly marked as fallback without pseudo-depth.
 - `Week` main information architecture is now domain-led: hero -> weekly domains -> compact rhythm strip -> compact actions/risks -> optional supporting explainability -> optional deep reading.
+- `Week` now treats day detail as drill-down instead of main scroll: the visible shell stays Monday→Sunday and opens a compact day drawer rather than a giant seven-card feed.
+- Weekly domain cards now mirror the `Today` pattern more closely: score, one short summary, and a truthful `Что повлияло` path even when the mapper has to fall back to bounded weekly generic reasoning.
+- `WeekExplainabilityPanel` is now a compact trust layer. Key reasons belong inside weekly domains first; explainability no longer competes with domains as a second factor feed.
 - `Week` visible calendar shell is now hard Monday→Sunday. Canonical and compatibility modes share the same stable calendar order; if fewer than seven explicit day payloads exist, the strip keeps an honest empty skeleton instead of fabricating depth.
 
 ## Current State Summary
