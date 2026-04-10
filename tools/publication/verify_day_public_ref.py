@@ -67,6 +67,10 @@ def raw_url(repo: str, ref: str, path: str) -> str:
     return f"https://raw.githubusercontent.com/{repo}/{ref}/{path}"
 
 
+def raw_cdn_url(repo: str, ref: str, path: str) -> str:
+    return f"https://cdn.jsdelivr.net/gh/{repo}@{ref}/{path}"
+
+
 def blob_url(repo: str, ref: str, path: str) -> str:
     return f"https://github.com/{repo}/blob/{ref}/{path}"
 
@@ -169,6 +173,8 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
         "blob_readme": blob_url(repo, branch, f"{evidence_dir}/{README_NAME}"),
         "blob_closeout": blob_url(repo, branch, f"{evidence_dir}/{CLOSEOUT_NAME}"),
         "blob_spec": blob_url(repo, branch, SPEC_PATH),
+        "raw_cdn_readme": raw_cdn_url(repo, branch, f"{evidence_dir}/{README_NAME}"),
+        "raw_cdn_closeout": raw_cdn_url(repo, branch, f"{evidence_dir}/{CLOSEOUT_NAME}"),
     }
     result = PublicRefResult(
         verdict=FAIL_VERDICT,
@@ -186,6 +192,14 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
         branch_history_page = visible_blob_text(fetch_text(paths["branch_history"]))
         raw_readme = fetch_text(paths["raw_readme"])
         raw_closeout = fetch_text(paths["raw_closeout"])
+        if expected_head and raw_url(repo, expected_head, f"{evidence_dir}/{README_NAME}") != paths["raw_readme"]:
+            expected_raw_readme = fetch_text(raw_url(repo, expected_head, f"{evidence_dir}/{README_NAME}"))
+            if extract_metadata(raw_readme) != extract_metadata(expected_raw_readme):
+                raw_readme = fetch_text(paths["raw_cdn_readme"])
+        if expected_head and raw_url(repo, expected_head, f"{evidence_dir}/{CLOSEOUT_NAME}") != paths["raw_closeout"]:
+            expected_raw_closeout = fetch_text(raw_url(repo, expected_head, f"{evidence_dir}/{CLOSEOUT_NAME}"))
+            if extract_metadata(raw_closeout) != extract_metadata(expected_raw_closeout):
+                raw_closeout = fetch_text(paths["raw_cdn_closeout"])
         raw_spec = fetch_text(paths["raw_spec"])
         blob_readme = visible_blob_text(fetch_text(paths["blob_readme"]))
         blob_closeout = visible_blob_text(fetch_text(paths["blob_closeout"]))
