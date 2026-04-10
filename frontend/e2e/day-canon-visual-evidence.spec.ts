@@ -17,7 +17,7 @@ type DayBriefDomain = {
   evidence_refs: Array<Record<string, unknown>>;
 };
 
-const OUT_DIR = '/opt/astro-project/docs/review_evidence/front/day-week/2026-04-10-d479771';
+const OUT_DIR = '/app/docs/review_evidence/front/day-week/2026-04-10-d479771';
 
 async function ensureOutDir() {
   await fs.mkdir(OUT_DIR, { recursive: true });
@@ -155,6 +155,33 @@ test.describe('day canon branch-visible visual evidence', () => {
     await expectNoCrash(page);
     await expect(page.getByTestId('today-no-data-state')).toBeVisible();
     await writeShot(page, 'today-no-data.png');
+  });
+
+  test('refreshes explicit error screenshot', async ({ page }) => {
+    await ensureOutDir();
+    await mountMock(page, {
+      version: 'day_brief_canon_v1',
+      status: 'failed',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: {
+        title: 'Расчёт дня не завершён.',
+        subtitle: 'Канонический слой вернул честную ошибку без fallback-подмены.',
+        day_type: 'caution',
+      },
+      domains: {
+        energy: { key: 'energy', title: 'Энергия', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Отношения', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        focus: { key: 'focus', title: 'Фокус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+      },
+      cta: { primary: { type: 'open_week', label: 'Открыть неделю', href: '/week' } },
+    });
+
+    await page.goto('/?mock=1', { waitUntil: 'networkidle' });
+    await expectNoCrash(page);
+    await expect(page.getByTestId('today-error-state')).toBeVisible();
+    await writeShot(page, 'today-error.png');
   });
 
   test('refreshes explicit domain-failed screenshot', async ({ page }) => {
