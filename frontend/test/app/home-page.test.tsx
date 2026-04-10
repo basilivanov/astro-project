@@ -48,10 +48,6 @@ jest.mock('../../components/ui-states', () => ({
 jest.mock('../../components/today/daybrief-sections', () => ({
   TodayVerdict: () => <div data-testid="today-verdict">verdict</div>,
   TodayScores: () => <div data-testid="today-scores">scores</div>,
-  TodayWindows: () => <div data-testid="today-windows">windows</div>,
-  TodayActions: () => <div data-testid="today-actions">actions</div>,
-  TodayRisks: () => <div data-testid="today-risks">risks</div>,
-  TodayExplainability: () => <div data-testid="today-explainability">explainability</div>,
   TodayCtaPanel: () => <div data-testid="today-cta-panel">cta</div>,
 }));
 
@@ -77,18 +73,14 @@ describe('FeedPage', () => {
     makeHomeTraceMock.mockReturnValue({ trace_id: 'trace-home' });
   });
 
-  it('renders explicit degraded Today state for legacy payloads instead of premium sections', async () => {
+  it('renders explicit empty Today state for non-canonical payloads', async () => {
     homeFetchMock.mockImplementation(async (url: string) => {
       if (url === '/api/users/me') {
         return new Response(JSON.stringify({ full_name: 'Legacy User', subscription_active_until: null }), { status: 200 });
       }
 
       if (url === '/api/feed/today') {
-        return new Response(JSON.stringify({
-          general_vibe: 'Legacy fallback headline',
-          traffic_lights: { health: 'green', money: 'yellow' },
-          fast_hits: [{ summary: 'Утренний импульс' }],
-        }), { status: 200 });
+        return new Response(JSON.stringify({ general_vibe: 'Legacy fallback headline' }), { status: 200 });
       }
 
       throw new Error(`Unexpected url ${url}`);
@@ -96,21 +88,14 @@ describe('FeedPage', () => {
 
     render(<FeedPage />);
 
-    expect(await screen.findByTestId('today-degraded-state')).toBeInTheDocument();
-    expect(screen.getByTestId('consumer-hero')).toHaveTextContent('Сегодня: короткий обзор');
-    expect(screen.getByTestId('consumer-hero')).not.toHaveTextContent(/legacy|fallback|headline|compatibility|week_map|weekbrief|markdown|weekly report/i);
-    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'degraded');
-    expect(screen.getByText('Сегодня доступен только короткий обзор')).toBeInTheDocument();
-    expect(screen.getByTestId('today-degraded-note')).toHaveTextContent('Полная персональная карта дня появится');
-    expect(screen.getByTestId('today-degraded-cta')).toHaveAttribute('href', '/week');
+    expect(await screen.findByTestId('empty-state')).toBeInTheDocument();
+    expect(screen.getByText('Нет данных на сегодня')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'empty');
     expect(screen.queryByTestId('today-verdict')).not.toBeInTheDocument();
     expect(screen.queryByTestId('today-scores')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('today-windows')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('today-actions')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('today-risks')).not.toBeInTheDocument();
   });
 
-  it('renders canonical Today sections only for day_brief_v1 payloads', async () => {
+  it('renders canonical Today sections only for strict canonical payloads', async () => {
     homeFetchMock.mockImplementation(async (url: string) => {
       if (url === '/api/users/me') {
         return new Response(JSON.stringify({ full_name: 'Canonical User', subscription_active_until: '2026-05-01T00:00:00.000Z' }), { status: 200 });
@@ -119,22 +104,21 @@ describe('FeedPage', () => {
       if (url === '/api/feed/today') {
         return new Response(JSON.stringify({
           day_brief: {
-            version: 'day_brief_v1',
+            version: 'day_brief_canon_v1',
+            status: 'complete',
             date: '2026-04-10',
             personalization_level: 'personalized_v2',
-            fallback_mode: false,
-            summary: {
-              headline: 'Канонический день',
-              subhead: 'Работаем только через day_brief_v1',
+            hero: {
+              title: 'Канонический день',
+              subtitle: 'Работаем только через строгий day canon',
               day_type: 'balance',
             },
-            context: {},
-            scores: [],
-            windows: [],
-            best_uses: [],
-            risks: [],
-            personalized_factors: [],
-            explainability: { confidence: 0.8, birth_time_used: true, factor_count: 2 },
+            domains: {
+              energy: { key: 'energy', title: 'Энергия', score_status: 'complete', score: 71, status: 'green', description_status: 'complete', description: 'Есть рабочий ресурс на главное.', why_status: 'complete', why_astro_text: 'Твой Марс собран и не распыляется.', evidence_refs: [] },
+              money: { key: 'money', title: 'Деньги', score_status: 'complete', score: 64, status: 'yellow', description_status: 'complete', description: 'Нужны точные цифры и один приоритет.', why_status: 'complete', why_astro_text: 'Твой 2-й дом денег сегодня требует внимательности.', evidence_refs: [] },
+              love: { key: 'love', title: 'Любовь', score_status: 'complete', score: 59, status: 'yellow', description_status: 'complete', description: 'Контакт требует мягкого тона.', why_status: 'complete', why_astro_text: 'Твоя Венера просит бережной подачи.', evidence_refs: [] },
+              focus: { key: 'focus', title: 'Фокус', score_status: 'complete', score: 77, status: 'green', description_status: 'complete', description: 'Один главный ход даёт лучший результат.', why_status: 'complete', why_astro_text: 'Твой Меркурий сегодня лучше работает в одной линии.', evidence_refs: [] },
+            },
           },
         }), { status: 200 });
       }
@@ -147,17 +131,13 @@ describe('FeedPage', () => {
     expect(await screen.findByTestId('today-verdict')).toBeInTheDocument();
     expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'canonical');
     expect(screen.getByTestId('today-scores')).toBeInTheDocument();
-    expect(screen.getByTestId('today-windows')).toBeInTheDocument();
-    expect(screen.getByTestId('today-actions')).toBeInTheDocument();
-    expect(screen.getByTestId('today-risks')).toBeInTheDocument();
-    expect(screen.getByTestId('today-explainability')).toBeInTheDocument();
     expect(screen.getByTestId('today-cta-panel')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.queryByTestId('today-degraded-state')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
     });
   });
 
-  it('marks canonical fallback_mode day_brief as compatibility for parity diagnostics', async () => {
+  it('renders explicit no-data state for partial canonical payload without complete domains', async () => {
     homeFetchMock.mockImplementation(async (url: string) => {
       if (url === '/api/users/me') {
         return new Response(JSON.stringify({ full_name: 'Compatibility User', subscription_active_until: null }), { status: 200 });
@@ -166,22 +146,17 @@ describe('FeedPage', () => {
       if (url === '/api/feed/today') {
         return new Response(JSON.stringify({
           day_brief: {
-            version: 'day_brief_v1',
+            version: 'day_brief_canon_v1',
+            status: 'partial',
             date: '2026-04-10',
             personalization_level: 'personalized_v2',
-            fallback_mode: true,
-            summary: {
-              headline: 'Совместимый день',
-              subhead: 'Канонический transport, но fallback semantics',
-              day_type: 'balance',
+            hero: { title: 'День без полного слоя', subtitle: 'Часть полей отсутствует', day_type: 'balance' },
+            domains: {
+              energy: { key: 'energy', title: 'Энергия', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+              money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+              love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+              focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
             },
-            context: {},
-            scores: [],
-            windows: [],
-            best_uses: [],
-            risks: [],
-            personalized_factors: [],
-            explainability: { confidence: 0.4, birth_time_used: false, factor_count: 1 },
           },
         }), { status: 200 });
       }
@@ -191,7 +166,7 @@ describe('FeedPage', () => {
 
     render(<FeedPage />);
 
-    expect(await screen.findByTestId('today-verdict')).toBeInTheDocument();
-    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'compatibility');
+    expect(await screen.findByTestId('today-no-data-state')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'no_data');
   });
 });

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-from backend.app.services.day_brief import build_day_brief_fallback, build_day_brief_payload
+from backend.app.services.day_brief import build_day_brief_payload
 from backend.app.services.day_brief_types import DayBrief
 from backend.app.services.day_brief_validators import validate_day_brief_payload
 
@@ -15,8 +15,7 @@ def _sample_facts() -> dict:
         "moon_sign": "Рыбы",
         "moon_emoji": "🌔",
         "aspects_count": 2,
-        "traffic_lights": {"health": "yellow", "money": "green", "love": "yellow"},
-        "week_data": {"days": [{"moon": {"sign": "Рыбы", "phase": "Растущая", "void_of_course": False}}]},
+        "traffic_lights": {"health": "red", "money": "green", "love": "yellow"},
         "semantic_layer": {
             "headline": "День про короткий фокус, ясные формулировки и аккуратные решения.",
             "pacing": "Лучше держать день короткими циклами и с запасом по времени.",
@@ -27,9 +26,7 @@ def _sample_facts() -> dict:
             "focus_key": "money_admin",
         },
         "personalization_level": "personalized_v2",
-        "meta": {"fallback_mode": False},
-        "month_data": {"status": "GREEN"},
-        "year_data": {"profection": {"house": 10}, "months": [{"month": 3, "status": "GREEN"}]},
+        "year_data": {"profection": {"house": 10}},
         "fast_hits": [
             {
                 "transit": "Venus",
@@ -42,34 +39,19 @@ def _sample_facts() -> dict:
     }
 
 
-def test_day_brief_schema_exposes_contract_keys() -> None:
-    schema = DayBrief.model_json_schema()
-
+def test_day_brief_schema_exposes_strict_contract_keys() -> None:
+    schema = DayBrief.schema()
     assert set(schema["properties"].keys()) == {
         "version",
+        "status",
         "date",
         "personalization_level",
-        "fallback_mode",
-        "summary",
-        "context",
-        "scores",
-        "windows",
-        "best_uses",
-        "risks",
-        "personalized_factors",
-        "explainability",
+        "hero",
+        "domains",
         "premium",
         "cta",
-        "legacy",
     }
-    assert set(schema["required"]) == {
-        "date",
-        "personalization_level",
-        "summary",
-        "context",
-        "scores",
-        "explainability",
-    }
+    assert set(schema["required"]) == {"date", "personalization_level", "hero", "domains"}
 
 
 def test_day_brief_payload_validates_against_pydantic_schema() -> None:
@@ -79,91 +61,55 @@ def test_day_brief_payload_validates_against_pydantic_schema() -> None:
         general_vibe="День просит коротких циклов и ясной фиксации главного.",
         generation_mode="llm",
     )
-
-    model = DayBrief.model_validate(payload)
-    assert model.version == "day_brief_v1"
-
-
-def test_day_brief_fallback_validates_against_pydantic_schema() -> None:
-    payload = build_day_brief_fallback(
-        datetime(2026, 3, 27, 6, 0, tzinfo=timezone.utc),
-        general_vibe="Сегодня лучше держать короткий фокус и один главный шаг.",
-        generation_mode="fallback",
-        reason="schema-test",
-    )
-
-    model = DayBrief.model_validate(payload)
-    assert model.fallback_mode is True
-
-import json
-from pathlib import Path
+    model = DayBrief.parse_obj(payload)
+    assert model.version in {"day_brief_canon_v1", "day_brief_v2"}
+    assert set(model.domains.keys()) == {"energy", "money", "love", "focus"}
 
 
-def test_day_brief_json_schema_matches_contract_artifact() -> None:
-    schema_path = Path("tmp/day_brief.schema.json")
-    contract = json.loads(schema_path.read_text())
-
-    assert contract["title"] == "DayBrief"
-    assert contract["properties"]["summary"]["$ref"] == "#/$defs/DaySummary"
-    assert contract["properties"]["scores"]["items"]["$ref"] == "#/$defs/DayScore"
-    assert contract["properties"]["explainability"]["$ref"] == "#/$defs/Explainability"
+def test_day_brief_json_schema_matches_runtime_shape() -> None:
+    schema = DayBrief.schema()
+    assert schema["title"] == "DayBrief"
+    assert "hero" in schema["properties"]
+    assert "domains" in schema["properties"]
 
 
 def test_day_brief_validator_rejects_partial_required_contract() -> None:
-    payload = build_day_brief_fallback(
-        datetime(2026, 3, 27, 6, 0, tzinfo=timezone.utc),
-        general_vibe="Сегодня лучше держать короткий фокус и один главный шаг.",
-        generation_mode="fallback",
-        reason="partial-contract",
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        generation_mode="deterministic",
     )
-
-    del payload["summary"]["headline"]
-
+    del payload["hero"]["title"]
     try:
         validate_day_brief_payload(payload)
     except Exception as exc:
-        assert "headline" in str(exc)
+        assert "title" in str(exc)
     else:
-        raise AssertionError("validator must fail when required summary fields are missing")
+        raise AssertionError("validator must fail when required hero fields are missing")
 
 
 def test_day_brief_validator_repairs_unknown_nested_keys_without_contract_drift() -> None:
     payload = build_day_brief_payload(
         _sample_facts(),
         user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
-        general_vibe="День просит коротких циклов и ясной фиксации главного.",
-        generation_mode="llm",
+        generation_mode="deterministic",
     )
     payload["unexpected"] = {"debug": True}
-    payload["summary"]["extra_copy"] = "noise"
-    payload["context"]["shadow"] = "noise"
-    payload["explainability"]["llm_notes"] = ["noise"]
-    payload["legacy"]["extra"] = "noise"
-
-    model = validate_day_brief_payload(payload)
-
-    dumped = model.model_dump(mode="json", exclude_none=True)
+    payload["hero"]["extra_copy"] = "noise"
+    payload["domains"]["energy"]["shadow"] = "noise"
+    dumped = validate_day_brief_payload(payload).dict(exclude_none=True)
     assert "unexpected" not in dumped
-    assert "extra_copy" not in dumped["summary"]
-    assert "shadow" not in dumped["context"]
-    assert "llm_notes" not in dumped["explainability"]
-    assert "extra" not in dumped["legacy"]
-    assert dumped["summary"]["headline"]
-    assert dumped["version"] == "day_brief_v1"
+    assert "extra_copy" not in dumped["hero"]
+    assert "shadow" not in dumped["domains"]["energy"]
+    assert dumped["version"] in {"day_brief_canon_v1", "day_brief_v2"}
 
 
-def test_day_brief_validator_preserves_score_and_window_details() -> None:
+def test_day_brief_validator_preserves_domain_texts() -> None:
     payload = build_day_brief_payload(
         _sample_facts(),
         user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
-        general_vibe="День просит коротких циклов и ясной фиксации главного.",
-        generation_mode="llm",
+        generation_mode="deterministic",
     )
-
-    model = validate_day_brief_payload(payload)
-    dumped = model.model_dump(mode="json", exclude_none=True)
-
-    assert dumped["scores"][0]["details"]["why_text"]
-    assert "supporting_factors" in dumped["scores"][0]["details"]
-    assert dumped["windows"][0]["details"]["why_text"]
-    assert "supporting_factors" in dumped["windows"][0]["details"]
+    dumped = validate_day_brief_payload(payload).dict(exclude_none=True)
+    assert dumped["domains"]["money"]["description"]
+    assert dumped["domains"]["money"]["why_astro_text"]

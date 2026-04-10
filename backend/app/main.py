@@ -98,7 +98,6 @@ from .services.feed_service import (
 from .services.day_brief import (
     build_day_brief_telemetry,
     build_day_brief_payload,
-    build_day_brief_fallback,
 )
 from .logging_utils import configure_structlog, correlation_scope, get_correlation_ids
 from .services.day_brief_types import DayBrief as DayBriefDTO
@@ -3940,54 +3939,6 @@ class WeekMapOut(BaseModel):
     week_start: Optional[str] = None
 
 
-class DayBriefSummaryOut(BaseModel):
-    headline: str
-    subhead: str
-    day_type: str
-
-
-class DayBriefScoresOut(BaseModel):
-    energy: int
-    work: int
-    relationships: int
-    focus: int
-
-
-class DayBriefWindowOut(BaseModel):
-    label: str
-    start: str
-    end: str
-    type: str
-    focus: str
-    explanation: str
-
-
-class DayBriefFactorOut(BaseModel):
-    id: str
-    label: str
-    explanation: str
-    domain: str
-    impact: float
-    polarity: str
-    source: str
-
-
-class DayBriefExplainabilityOut(BaseModel):
-    confidence: float
-    uses_precise_birth_time: bool
-    factors_considered: int
-    personalization_level: str
-
-
-class DayBriefOut(BaseModel):
-    summary: DayBriefSummaryOut
-    scores: DayBriefScoresOut
-    windows: list[DayBriefWindowOut]
-    best_uses: list[str]
-    risks: list[str]
-    personalized_factors: list[DayBriefFactorOut]
-    explainability: DayBriefExplainabilityOut
-
 def get_moon_phase_emoji(phase_angle: float) -> str:
     # 0=New, 90=First Quarter, 180=Full, 270=Last Quarter
     if phase_angle < 45: return "🌑" # New
@@ -4081,7 +4032,7 @@ async def get_daily_feed(
             user = authenticate_telegram_user(x_telegram_auth, db)
             auth_mode = "telegram"
         except HTTPException as exc:
-            auth_mode = "fallback_anonymous"
+            auth_mode = "anonymous"
             logger.info(
                 "feed.debug",
                 stage="auth_fallback",
@@ -4140,12 +4091,11 @@ async def get_daily_feed(
             cache_scope=facts.get("cache_scope"),
             debug=debug_enabled,
             path=str(request.url.path),
-            fallback_mode=bool((facts.get("meta") or {}).get("fallback_mode")),
         )
         logger.info(
             "day_brief.response_returned",
             path=str(request.url.path),
-            fallback_mode=bool(day_brief.get("fallback_mode")),
+            status=day_brief.get("status"),
             generation_mode=day_brief_telemetry.get("generation_mode"),
             trace_id=day_brief_telemetry.get("trace_id"),
             request_id=day_brief_telemetry.get("request_id"),
@@ -4187,32 +4137,12 @@ async def get_daily_feed(
     except Exception as exc:
         logger.error(
             "feed.error",
-            stage="fallback_path",
+            stage="endpoint_error",
             error=str(exc),
             auth_mode=auth_mode,
             debug=debug_enabled,
             path=str(request.url.path),
-            fallback_reason="endpoint_error",
-        )
-        fallback_day_brief = build_day_brief_fallback(
-            now,
-            general_vibe=fallback_vibe,
-            generation_mode="fallback",
             reason="endpoint_error",
-        )
-        fallback_telemetry = build_day_brief_telemetry(
-            fallback_day_brief,
-            generation_mode="fallback",
-        )
-        logger.info(
-            "day_brief.response_returned",
-            path=str(request.url.path),
-            fallback_mode=True,
-            generation_mode=fallback_telemetry.get("generation_mode"),
-            trace_id=fallback_telemetry.get("trace_id"),
-            birth_time_used=fallback_telemetry.get("birth_time_used"),
-            confidence_bucket=fallback_telemetry.get("confidence_bucket"),
-            factor_count=fallback_telemetry.get("factor_count"),
         )
         return _build_feed_payload(
             now,
@@ -4229,13 +4159,13 @@ async def get_daily_feed(
             moon={"sign": fallback_sign, "phase": fallback_phase, "emoji": "🌙"},
             fast_hits=[],
             personalization_level="anonymous",
-            meta=({"fallback": True, "reason": "endpoint_error"} if debug_enabled and bool(x_telegram_auth) else None),
-            day_brief=fallback_day_brief,
-            trace_id=fallback_telemetry.get("trace_id"),
-            generation_mode=fallback_telemetry.get("generation_mode"),
-            birth_time_used=fallback_telemetry.get("birth_time_used"),
-            confidence_bucket=fallback_telemetry.get("confidence_bucket"),
-            factor_count=fallback_telemetry.get("factor_count"),
+            meta=({"reason": "endpoint_error"} if debug_enabled and bool(x_telegram_auth) else None),
+            day_brief=None,
+            trace_id=get_correlation_ids().get("trace_id"),
+            generation_mode="fallback",
+            birth_time_used=None,
+            confidence_bucket=None,
+            factor_count=None,
         )
 # #END_BLOCK_FEED_ENDPOINT
 
@@ -4264,7 +4194,7 @@ async def get_day_brief(
     """
     # PURPOSE: Provide aggregated personalized day brief.
     # INPUT: Optional Telegram auth header for personalization.
-    # OUTPUT: DayBriefOut object.
+    # OUTPUT: strict canonical DayBrief DTO.
     """
     now = datetime.now(timezone.utc)
     user = None
@@ -4281,7 +4211,7 @@ async def get_day_brief(
             user = authenticate_telegram_user(x_telegram_auth, db)
             auth_mode = "telegram"
         except HTTPException as exc:
-            auth_mode = "fallback_anonymous"
+            auth_mode = "anonymous"
             logger.info(
                 "day_brief.debug",
                 stage="auth_fallback",
@@ -4306,7 +4236,7 @@ async def get_day_brief(
         logger.info(
             "day_brief.response_returned",
             path=str(request.url.path),
-            fallback_mode=bool(payload.get("fallback_mode")),
+            status=payload.get("status"),
             generation_mode=telemetry.get("generation_mode"),
             trace_id=telemetry.get("trace_id"),
             request_id=telemetry.get("request_id"),
@@ -4323,7 +4253,7 @@ async def get_day_brief(
             auth_mode=auth_mode,
             path=str(request.url.path),
         )
-        return build_day_brief_fallback(now)
+        raise HTTPException(status_code=503, detail="Day brief unavailable")
 
 
 class B2CReportCreateRequest(BaseModel):

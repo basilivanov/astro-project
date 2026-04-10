@@ -3,6 +3,7 @@
 - Date: 2026-04-10
 - Commit baseline: d479771
 - Current committed base: 2491165
+- Day canon packet: PKT-DAY-CANON-NO-FALLBACK-2026-04-10
 - App build: local dev bundle from current worktree for `VISUAL-FINAL-FINISH-DAY-WEEK-02`
 - Viewport: 390x844 (Telegram WebApp representative mobile viewport)
 - Primary capture lane: mock-helper for deterministic visual review
@@ -13,7 +14,7 @@
 
 | File | Lane | Notes |
 | --- | --- | --- |
-| today-canonical-top.png | mock-helper | canonical `day_brief_v1` top of Today |
+| today-canonical-top.png | mock-helper | strict canonical Day top: hero + 4 domains only |
 | today-canonical-domain-energy-expanded.png | mock-helper | canonical Today, energy card expanded |
 | today-canonical-domain-money-expanded.png | mock-helper | canonical Today, work/money card expanded |
 | today-canonical-domain-love-expanded.png | mock-helper | canonical Today, love card expanded |
@@ -43,10 +44,10 @@
 - `signed` lane screenshots are not included here because deterministic repository-safe capture is done through mock-helper. Runtime correctness for signed Telegram lane is covered by Playwright signed-auth specs.
 - Compatibility screenshots are intentionally lighter than canonical ones and must not be used as premium-reference images.
 - What changed in this wave:
-  - degraded Today hero no longer surfaces raw payload headlines and stays in product-language copy;
-  - compatibility/in-progress Week hero and meta chips are sanitized away from internal or placeholder-like wording;
-  - mobile `Ритм недели` is lighter and visually secondary to the domain cards;
-  - deep sections now prefer quiet prose rendering over visible fallback-scaffolding treatment.
-- Forbidden-token pass completed for visible degraded/compatibility surfaces:
-  - checked against `legacy`, `fallback`, `week_map`, `weekbrief`, `headline`, `markdown`, `weekly report`, `compatibility`;
-  - guardrails are covered by refreshed component/app/e2e assertions for Today degraded, Week compatibility, Week in-progress, and deep-section fallback paths.
+  - Today is reset to strict Day canon: hero + exactly four domain cards, without windows, best-use, risks, factor cards, or signal badges;
+  - canonical Day cards now expose only score, status, description, and one continuous `Что повлияло`;
+  - explicit no-data and domain-failed states were verified in fresh Playwright capture runs for this packet;
+  - legacy/non-canonical Day payloads no longer masquerade as premium Today content.
+- Forbidden-token and fallback-copy pass completed for visible Day surfaces:
+  - checked canonical, no-data, and domain-failed captures for internal/fallback leakage;
+  - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.

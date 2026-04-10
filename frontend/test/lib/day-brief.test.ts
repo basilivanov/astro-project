@@ -1,615 +1,154 @@
-import { buildLegacyDayBrief, normalizeDayBriefPayload } from '../../lib/day-brief';
+import { hasAnyCompleteDayDomain, hasCompleteDayDomain, normalizeDayBriefPayload } from '../../lib/day-brief';
 
 describe('day-brief helpers', () => {
-  it('builds a deterministic legacy fallback brief from legacy payload', () => {
-    const brief = buildLegacyDayBrief({
-      general_vibe: '  Спокойный фокус на одном главном деле.  ',
-      personalization_level: 'personal',
-      traffic_lights: {
-        health: 'green',
-        work: 'red',
-        love: 'yellow',
-      },
-      moon: {
-        sign: 'Рак',
-        phase: 'waxing',
-        emoji: '🌔',
-      },
-      favorable_time_windows: [
-        { start: '08:00', end: '10:00', label: 'Ранний старт', advice: 'Лови инерцию.' },
-      ],
-      fast_hits: [
-        { text: 'Закрыть короткий, но важный вопрос', impact: 'high' },
-        { text: 'Не распыляться на второстепенное' },
-      ],
-      advice: [
-        'Двигать один приоритет',
-        'Проверять договорённости',
-      ],
-      risks: ['Не спорить на эмоциях'],
-      factors: [
-        { label: 'Луна', impact: 'high', explanation: 'Эмоциональный фон усиливает интуицию.' },
-      ],
-    }, '2026-04-10');
-
-    expect(brief.version).toBe('day_brief_v1');
-    expect(brief.fallback_mode).toBe(true);
-    expect(brief.personalization_level).toBe('personal');
-    expect(brief.summary.headline).toContain('Спокойный фокус');
-    expect(brief.context).toEqual(expect.objectContaining({
-      moon_sign: 'Рак',
-      moon_phase: 'waxing',
-      moon_emoji: '🌔',
-    }));
-    expect(brief.scores).toEqual([
-      expect.objectContaining({ key: 'energy', value: 78, status: 'green' }),
-      expect.objectContaining({ key: 'money', value: 57, status: 'yellow' }),
-      expect.objectContaining({ key: 'love', value: 56, status: 'yellow' }),
-      expect.objectContaining({ key: 'focus', value: 72, status: 'yellow' }),
-    ]);
-    expect(brief.windows[0]).toEqual(expect.objectContaining({
-      id: 'window-0',
-      start: '09:00',
-      end: '11:00',
-      label: 'Окно дня',
-      mode: 'soft',
-    }));
-    expect(brief.best_uses).toEqual([
-      expect.objectContaining({ id: 'energy-best', text: 'Соберите ритм тела и не перегружайте себя.', impact: 'medium', timeframe: 'all_day' }),
-    ]);
-    expect(brief.risks).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'money-risk', text: 'Перепроверьте цифры и договорённости.' }),
-      expect.objectContaining({ id: 'love-risk', text: 'Говорите мягче и уточняйте ожидания.' }),
-      expect.objectContaining({ id: 'focus-risk', text: '  Спокойный фокус на одном главном деле.  ' }),
-    ]));
-    expect(brief.personalized_factors[0]).toEqual(expect.objectContaining({
-      id: 'legacy-factor-0',
-      label: 'Фактор 1',
-      impact: 'medium',
-      category: 'legacy_fast_hit',
-      source_models: ['mixed'],
-    }));
-    expect(brief.personalized_factors[0].explanation_human).toContain('Спокойный фокус');
-    expect(brief.explainability).toEqual(expect.objectContaining({
-      confidence: 0.72,
-      factor_count: 2,
-      timing_precision: 'approximate',
-      top_signal_source: 'mixed',
-      explanation_depth: 'standard',
-    }));
-    expect(brief.premium).toEqual(expect.objectContaining({
-      subscription_active: true,
-      subscription_active_until: '2026-04-10',
-      show_upgrade_cta: false,
-    }));
-    expect(brief.cta).toEqual(expect.objectContaining({
-      primary: expect.objectContaining({ type: 'open_week', href: '/week' }),
-      secondary: expect.objectContaining({ type: 'open_history', href: '/reports/history' }),
-    }));
-    expect(brief.legacy).toEqual(expect.objectContaining({ general_vibe: '  Спокойный фокус на одном главном деле.  ' }));
+  it('returns null for non-canonical payloads', () => {
+    expect(normalizeDayBriefPayload(null)).toBeNull();
+    expect(normalizeDayBriefPayload('bad payload')).toBeNull();
+    expect(normalizeDayBriefPayload({ general_vibe: 'legacy' })).toBeNull();
+    expect(normalizeDayBriefPayload({ day_brief: { version: 'day_brief_v1' } })).toBeNull();
   });
 
-  it('normalizes v1 payload data and clamps invalid values', () => {
+  it('normalizes strict canonical payload into hero plus four domains only', () => {
     const result = normalizeDayBriefPayload({
       day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-01',
-        personalization_level: 'full',
-        fallback_mode: true,
-        summary: {
-          headline: 'Точный день',
-          subhead: 'Сначала структура',
-          day_type: 'invalid',
-          tone: 'calm',
+        version: 'day_brief_canon_v1',
+        status: 'complete',
+        date: '2026-04-10',
+        personalization_level: 'personalized_v2',
+        hero: {
+          title: 'Канонический день',
+          subtitle: 'Только hero и четыре сферы',
+          day_type: 'balance',
+          tone: 'steady',
         },
-        context: {
-          moon_sign: 'Телец',
-          moon_phase: 'full',
-          aspects_count: 'bad',
-        },
-        scores: [
-          {
-            key: 'invalid',
-            value: 150,
-            status: 'invalid',
-            details: { supporting_factors: [{ label: 'A', explanation_human: 'B', value: 10 }] },
+        domains: {
+          energy: {
+            key: 'energy',
+            title: 'Энергия',
+            score_status: 'complete',
+            score: 78,
+            status: 'green',
+            description_status: 'complete',
+            description: 'Есть ресурс на главный блок дня.',
+            why_status: 'complete',
+            why_astro_text: 'Твой Марс сегодня держит собранный темп.',
+            evidence_refs: [{ id: 'factor-1' }],
           },
-        ],
-        windows: [
-          {
-            mode: 'bad',
-            details: { why_title: 'Почему', supporting_factors: [{}] },
+          money: {
+            key: 'money',
+            title: 'Деньги',
+            score_status: 'complete',
+            score: 64,
+            status: 'yellow',
+            description_status: 'complete',
+            description: 'Нужны точные цифры и одна рабочая линия.',
+            why_status: 'complete',
+            why_astro_text: 'Твой 2-й дом денег просит внимательной проверки условий.',
+            evidence_refs: [],
           },
-        ],
-        best_uses: [{ text: 'Сделать главное', impact: 'medium', supporting_factors: [{}] }],
-        risks: [{ text: 'Избегать шума', impact: 'bad', why_text: 'Падает концентрация' }],
-        personalized_factors: [{ impact: 'bad', source_models: ['m1', 2, 'm2'], weight: 0.4 }],
-        explainability: {
-          confidence: 0.61,
-          birth_time_used: true,
-          factor_count: 4,
-          timing_precision: 'wrong',
-          top_signal_source: 'transits',
-          explanation_depth: 'full',
+          love: {
+            key: 'love',
+            title: 'Любовь',
+            score_status: 'missing',
+            score: null,
+            status: null,
+            description_status: 'missing',
+            description: null,
+            why_status: 'missing',
+            why_astro_text: null,
+            evidence_refs: [],
+          },
+          focus: {
+            key: 'focus',
+            title: 'Фокус',
+            score_status: 'failed',
+            score: null,
+            status: null,
+            description_status: 'failed',
+            description: null,
+            why_status: 'failed',
+            why_astro_text: null,
+            evidence_refs: [],
+          },
         },
         premium: {
           subscription_active: false,
           show_upgrade_cta: true,
         },
-        cta: {
-          primary: { type: 'open_today', label: 'Сегодня', href: '/today' },
-          secondary: { type: 'mystery', label: 'Дальше', href: '/next' },
-        },
-        legacy: { source: 'api' },
       },
     }, { subscription_active_until: '2026-05-01' });
 
     expect(result).not.toBeNull();
-    expect(result?.state).toBe('fallback');
-    expect(result?.usesCanonicalDayBrief).toBe(true);
-    expect(result?.premiumActiveUntil).toBe('2026-05-01');
-    expect(result?.brief.summary).toEqual(expect.objectContaining({
-      headline: 'Точный день',
-      subhead: 'Сначала структура',
-      day_type: 'balance',
-      tone: 'calm',
-    }));
-    expect(result?.brief.context).toEqual(expect.objectContaining({
-      moon_sign: 'Телец',
-      moon_phase: 'full',
-      moon_emoji: '🌙',
-      aspects_count: null,
-    }));
-    expect(result?.brief.scores[0]).toEqual(expect.objectContaining({
-      key: 'energy',
-      title: 'Фокус',
-      value: 100,
-      status: 'yellow',
-      advice: 'Действуйте спокойно и без резких перегрузок.',
-      details: expect.objectContaining({
-        why_title: null,
-        why_text: 'Сегодня здесь лучше идти через спокойную точность, а не через голый напор.',
-        supporting_factors: [expect.objectContaining({ label: 'A', explanation_human: 'B', value: '10' })],
-      }),
-    }));
-    expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
-      id: 'window-0',
-      start: '09:00',
-      end: '11:00',
-      label: 'Окно проверки',
-      mode: 'soft',
-      advice: 'Держите спокойный темп и проверяйте детали.',
-    }));
-    expect(result?.brief.best_uses[0]).toEqual(expect.objectContaining({
-      id: 'item-0',
-      impact: 'medium',
-      supporting_factors: [],
-    }));
-    expect(result?.brief.risks[0]).toEqual(expect.objectContaining({
-      impact: null,
-      why_text: 'Падает концентрация',
-    }));
-    expect(result?.brief.personalized_factors[0]).toEqual(expect.objectContaining({
-      id: 'factor-0',
-      label: 'Фактор 1',
-      impact: 'medium',
-      source_models: ['m1', 'm2'],
-      weight: 0.4,
-    }));
-    expect(result?.brief.explainability).toEqual(expect.objectContaining({
-      confidence: 0.61,
-      birth_time_used: true,
-      factor_count: 4,
-      timing_precision: null,
-      top_signal_source: 'transits',
-      explanation_depth: 'full',
-    }));
-    expect(result?.brief.premium).toEqual(expect.objectContaining({
-      subscription_active: false,
-      subscription_active_until: '2026-05-01',
-      show_upgrade_cta: true,
-      show_resume_banner: false,
-    }));
-    expect(result?.brief.cta).toEqual(expect.objectContaining({
-      primary: expect.objectContaining({ type: 'open_today', href: '/today' }),
-      secondary: expect.objectContaining({ type: 'mystery', href: '/next' }),
-    }));
-    expect(result?.brief.legacy).toEqual({ source: 'api' });
-  });
-
-  it('falls back to legacy mapping when payload is missing v1 brief', () => {
-    const result = normalizeDayBriefPayload(
-      { general_vibe: 'Legacy fallback headline', traffic_lights: { work: 'green' } },
-      { subscription_active_until: null },
-    );
-
-    expect(result).not.toBeNull();
-    expect(result?.state).toBe('fallback');
-    expect(result?.brief.fallback_mode).toBe(true);
-    expect(result?.usesCanonicalDayBrief).toBe(false);
-    expect(result?.brief.summary.headline).toContain('Legacy fallback headline');
-    expect(result?.brief.scores[1]).toEqual(expect.objectContaining({ key: 'money', status: 'yellow', value: 57 }));
-  });
-
-  it('does not inject explainability factors into unrelated score disclosures', () => {
-    const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
-        context: {},
-        scores: [
-          {
-            key: 'energy',
-            title: 'Энергия',
-            value: 72,
-            status: 'green',
-            advice: 'Берегите темп.',
-            details: { why_text: 'Нужен спокойный ритм.', supporting_factors: [] },
-          },
-          {
-            key: 'money',
-            title: 'Деньги',
-            value: 68,
-            status: 'green',
-            advice: 'Проверьте договорённости.',
-            details: { why_text: 'Важны точные цифры.', supporting_factors: [{ label: 'Венера усиливает Venus', explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.' }] },
-          },
-        ],
-        windows: [],
-        best_uses: [],
-        risks: [],
-        personalized_factors: [
-          {
-            id: 'rare_booster_1',
-            label: 'Венера усиливает Venus',
-            impact: 'high',
-            explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.',
-            explanation_astro: 'Транзитный фактор «Венера усиливает Venus» формирует один из главных дневных сигналов.',
-            source_models: ['transit_natal'],
-          },
-        ],
-        explainability: {
-          confidence: 0.74,
-          birth_time_used: true,
-          factor_count: 1,
-          timing_precision: 'exact',
-          top_signal_source: 'transit_natal',
-          explanation_depth: 'standard',
-          selected_factors: [
-            {
-              id: 'rare_booster_1',
-              label: 'Венера усиливает Venus',
-              explanation_human: 'Редкий поддерживающий фактор даёт зелёный свет для точного и подготовленного шага.',
-              domain: 'money',
-              signal: 0.82,
-            },
-          ],
-        },
-      },
-    });
-
-  expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
-  expect(result?.brief.scores[1].details?.supporting_factors).toEqual([
-      expect.objectContaining({ label: 'Венера усиливает Venus' }),
-  ]);
-
-  const scoreWithoutOwnFactors = result?.brief.scores.find((score) => score.key === 'energy');
-  expect(scoreWithoutOwnFactors?.details?.supporting_factors).toEqual([]);
-});
-
-  it('keeps factor ids from ready payload details and action items', () => {
-    const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
-        context: {},
-        scores: [{
-          key: 'energy',
-          title: 'Энергия',
-          value: 72,
-          status: 'green',
-          advice: 'Берегите темп.',
-          details: { why_text: 'Нужен спокойный ритм.', factor_ids: ['factor-energy-1'], supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'День держится на ровном темпе.' }] },
-        }],
-        windows: [{
-          id: 'window-1',
-          start: '09:00',
-          end: '11:00',
-          label: 'Собрать ядро дня',
-          mode: 'best',
-          advice: 'Закройте один главный блок.',
-          details: { why_text: 'Утро держит концентрацию.', factor_ids: ['factor-energy-1'], supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'Утро лучше для одной линии.' }] },
-        }],
-        best_uses: [{ id: 'best-1', text: 'Соберите главный блок.', factor_id: 'factor-energy-1', factor_ids: ['factor-energy-1'] }],
-        risks: [{ id: 'risk-1', text: 'Не спорьте из импульса.', factor_id: 'factor-energy-1', factor_ids: ['factor-energy-1'], why_text: 'Импульс выше обычного.', supporting_factors: [{ id: 'factor-energy-1', label: 'Ритм', explanation_human: 'Импульсность растёт.' }] }],
-        personalized_factors: [],
-        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 1, selected_factors: [] },
-        premium: null,
-        cta: null,
-        legacy: null,
-      },
-    }, null);
-
-    expect(result?.brief.scores[0].details?.factor_ids).toEqual(['factor-energy-1']);
-    expect(result?.brief.windows[0].details?.factor_ids).toEqual(['factor-energy-1']);
-    expect(result?.brief.best_uses[0].factor_ids).toEqual(['factor-energy-1']);
-    expect(result?.brief.risks[0].factor_ids).toEqual(['factor-energy-1']);
-  });
-
-  it('returns null for non-object payloads', () => {
-    expect(normalizeDayBriefPayload(null)).toBeNull();
-    expect(normalizeDayBriefPayload('bad payload')).toBeNull();
-  });
-
-  it('keeps empty supporting factor arrays when detail payload contains only placeholder-generic material', () => {
-    const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Точный день', subhead: 'Сначала структура', day_type: 'balance' },
-        context: {},
-        scores: [{
-          key: 'focus',
-          title: 'Фокус',
-          value: 60,
-          status: 'yellow',
-          advice: 'Сузьте контекст.',
-          details: { why_text: 'Сузьте контекст.', supporting_factors: [{ label: 'factor', explanation_human: '', value: 'green' }] },
-        }],
-        windows: [],
-        best_uses: [],
-        risks: [],
-        personalized_factors: [],
-        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 0, selected_factors: [{ id: 'sf1', label: 'factor', explanation_human: '', domain: 'focus' }] },
-        premium: null,
-        cta: null,
-        legacy: null,
-      },
-    }, null);
-
-    expect(result?.brief.scores[0].details?.supporting_factors).toEqual([]);
-  });
-
-  it('builds legacy defaults when optional legacy sections are absent', () => {
-    const brief = buildLegacyDayBrief({}, null);
-
-    expect(brief.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(brief.summary).toEqual(expect.objectContaining({
-      headline: 'День требует аккуратного темпа и собранности.',
-      subhead: 'Legacy feed адаптирован во временный DayBrief до полного отключения старого формата.',
-      day_type: 'balance',
-      tone: null,
-    }));
-    expect(brief.context).toEqual(expect.objectContaining({
-      moon_sign: null,
-      moon_phase: null,
-      moon_emoji: '🌙',
-      aspects_count: 0,
-      label: null,
-    }));
-    expect(brief.windows).toEqual([]);
-    expect(brief.best_uses).toEqual([
-      expect.objectContaining({ id: 'legacy-best', text: 'День лучше прожить в спокойном темпе.', impact: 'medium' }),
-    ]);
-    expect(brief.risks).toEqual([
-      expect.objectContaining({ id: 'energy-risk', text: 'Соберите ритм тела и не перегружайте себя.', impact: 'medium' }),
-      expect.objectContaining({ id: 'money-risk', text: 'Перепроверьте цифры и договорённости.', impact: 'medium' }),
-      expect.objectContaining({ id: 'love-risk', text: 'Говорите мягче и уточняйте ожидания.', impact: 'medium' }),
-    ]);
-    expect(brief.personalized_factors).toEqual([]);
-    expect(brief.explainability).toEqual(expect.objectContaining({
-      confidence: 0.48,
-      factor_count: 0,
-      timing_precision: null,
-      top_signal_source: null,
-      explanation_depth: 'minimal',
-    }));
-    expect(brief.premium).toEqual(expect.objectContaining({
-      subscription_active: false,
-      subscription_active_until: null,
-      show_upgrade_cta: true,
-      show_resume_banner: false,
-    }));
-    expect(brief.cta).toEqual(expect.objectContaining({
-      primary: expect.objectContaining({ type: 'open_week', href: '/week' }),
-      secondary: expect.objectContaining({ type: 'open_premium', href: '/reports' }),
-    }));
-    expect(brief.legacy).toEqual({});
-  });
-
-  it('normalizes ready v1 payload with default premium and cta fallbacks', () => {
-    const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'light',
-        summary: {
-          headline: 'Ровный день',
-          subhead: 'Без лишнего шума',
-          day_type: 'push',
-        },
-        context: {
-          moon_sign: '',
-          moon_phase: '',
-          label: '',
-        },
-        scores: 'bad',
-        windows: 'bad',
-        best_uses: 'bad',
-        risks: 'bad',
-        personalized_factors: 'bad',
-        explainability: {
-          confidence: 'bad',
-          birth_time_used: 'bad',
-          factor_count: 'bad',
-          explanation_depth: 'bad',
-        },
-      },
-    });
-
-    expect(result).not.toBeNull();
     expect(result?.state).toBe('ready');
     expect(result?.usesCanonicalDayBrief).toBe(true);
-    expect(result?.premiumActiveUntil).toBeNull();
-    expect(result?.brief.context).toEqual(expect.objectContaining({
-      moon_sign: null,
-      moon_phase: null,
-      moon_emoji: '🌙',
-      label: null,
+    expect(result?.brief.version).toBe('day_brief_canon_v1');
+    expect(result?.brief.status).toBe('complete');
+    expect(result?.brief.hero).toEqual(expect.objectContaining({
+      title: 'Канонический день',
+      subtitle: 'Только hero и четыре сферы',
+      day_type: 'balance',
     }));
-    expect(result?.brief.scores).toEqual([]);
-    expect(result?.brief.windows).toEqual([]);
-    expect(result?.brief.best_uses).toEqual([]);
-    expect(result?.brief.risks).toEqual([]);
-    expect(result?.brief.personalized_factors).toEqual([]);
-    expect(result?.brief.explainability).toEqual(expect.objectContaining({
-      confidence: 0,
-      birth_time_used: false,
-      factor_count: 0,
-      timing_precision: null,
-      top_signal_source: null,
-      explanation_depth: null,
-    }));
-    expect(result?.brief.premium).toEqual(expect.objectContaining({
-      subscription_active: false,
-      subscription_active_until: null,
-      show_upgrade_cta: true,
-      show_resume_banner: false,
-    }));
-    expect(result?.brief.cta).toEqual(expect.objectContaining({
-      primary: expect.objectContaining({ type: 'open_week', href: '/week' }),
-      secondary: expect.objectContaining({ type: 'open_premium', href: '/reports' }),
-    }));
-    expect(result?.brief.legacy).toBeNull();
+    expect(Object.keys(result?.brief.domains || {})).toEqual(['energy', 'money', 'love', 'focus']);
+    expect((result?.brief as any).windows).toBeUndefined();
+    expect((result?.brief as any).best_uses).toBeUndefined();
+    expect((result?.brief as any).risks).toBeUndefined();
+    expect((result?.brief as any).legacy).toBeUndefined();
   });
 
-  it('merges adjacent semantically identical windows into one longer interval', () => {
+  it('derives no_data surface when canonical payload has no complete domains', () => {
     const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
-        context: {},
-        scores: [],
-        windows: [
-          {
-            id: 'window-1',
-            start: '09:00',
-            end: '10:30',
-            label: 'Собрать ядро дня',
-            mode: 'best',
-            advice: 'Закройте один главный блок.',
-            details: {
-              why_text: 'Утро лучше держит одну линию внимания.',
-              factor_ids: ['factor-1'],
-              supporting_factors: [{ id: 'factor-1', label: 'Ритм', explanation_human: 'С утра проще не распыляться.' }],
-            },
-          },
-          {
-            id: 'window-2',
-            start: '10:30',
-            end: '12:00',
-            label: 'Рабочий слот',
-            mode: 'best',
-            advice: 'Закройте один главный блок.',
-            details: {
-              why_text: 'Утро лучше держит одну линию внимания.',
-              factor_ids: ['factor-1'],
-              supporting_factors: [{ id: 'factor-1', label: 'Ритм', explanation_human: 'С утра проще не распыляться.' }],
-            },
-          },
-        ],
-        best_uses: [],
-        risks: [],
-        personalized_factors: [],
-        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 1, selected_factors: [] },
+      version: 'day_brief_canon_v1',
+      status: 'partial',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: { title: 'День без полного слоя', subtitle: 'Часть полей отсутствует', day_type: 'balance' },
+      domains: {
+        energy: { key: 'energy', title: 'Энергия', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
       },
     });
 
-    expect(result?.brief.windows).toHaveLength(1);
-    expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
-      start: '09:00',
-      end: '12:00',
-      label: 'Рабочий импульс',
-      mode: 'best',
-      advice: 'Закройте один главный блок.',
-    }));
-    expect(result?.brief.windows[0].details?.factor_ids).toEqual(['factor-1']);
+    expect(result?.state).toBe('no_data');
+    expect(hasAnyCompleteDayDomain(result!.brief)).toBe(false);
   });
 
-  it('caps normalized windows to the minimum useful visible set after merge', () => {
+  it('derives error surface when canonical payload is failed', () => {
     const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
-        context: {},
-        scores: [],
-        windows: [
-          { id: 'window-1', start: '08:00', end: '09:00', label: 'Лучшее окно', mode: 'best', advice: 'Закройте главное.' },
-          { id: 'window-2', start: '09:00', end: '10:00', label: 'Лучшее окно', mode: 'best', advice: 'Закройте главное.' },
-          { id: 'window-3', start: '11:00', end: '12:00', label: 'Мягкое окно', mode: 'soft', advice: 'Держите темп.' },
-          { id: 'window-4', start: '13:00', end: '14:00', label: 'Окно проверки', mode: 'caution', advice: 'Перепроверьте стыки.' },
-          { id: 'window-5', start: '17:00', end: '18:00', label: 'Окно переговоров', mode: 'soft', advice: 'Берите мягкие разговоры.' },
-        ],
-        best_uses: [],
-        risks: [],
-        personalized_factors: [],
-        explainability: { confidence: 0.72, birth_time_used: true, factor_count: 0, selected_factors: [] },
-        premium: null,
-        cta: null,
-        legacy: null,
+      version: 'day_brief_canon_v1',
+      status: 'failed',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: { title: 'Ошибка', subtitle: 'Расчёт не завершён', day_type: 'balance' },
+      domains: {
+        energy: { key: 'energy', title: 'Энергия', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Любовь', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+        focus: { key: 'focus', title: 'Фокус', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
       },
     });
 
-    expect(result?.brief.windows).toHaveLength(3);
-    expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
-      start: '08:00',
-      end: '10:00',
-      label: 'Рабочий импульс',
-    }));
+    expect(result?.state).toBe('error');
   });
 
-  it('dedupes and caps risks to a compact main-flow set', () => {
+  it('tracks complete domain status precisely', () => {
     const result = normalizeDayBriefPayload({
-      day_brief: {
-        version: 'day_brief_v1',
-        date: '2026-04-02',
-        personalization_level: 'personalized_v2',
-        fallback_mode: false,
-        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
-        context: {},
-        scores: [],
-        windows: [],
-        best_uses: [],
-        risks: [
-          { id: 'risk-1', text: 'Не разгоняйте конфликты', why_text: 'Тон быстро становится жёстче.' },
-          { id: 'risk-2', text: 'Не разгоняйте конфликты', why_text: null },
-          { id: 'risk-3', text: 'Не дробите внимание', why_text: 'Потеряется главный приоритет.' },
-          { id: 'risk-4', text: 'Лишний третий риск не должен попасть в main flow', why_text: 'Слишком много для одного дня.' },
-        ],
-        personalized_factors: [],
-        explainability: { confidence: 0.72, birth_time_used: true, factor_count: 0, selected_factors: [] },
-        premium: null,
-        cta: null,
-        legacy: null,
+      version: 'day_brief_v2',
+      status: 'partial',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: { title: 'Частичный день', subtitle: 'Одна сфера готова', day_type: 'balance' },
+      domains: {
+        energy: { key: 'energy', title: 'Энергия', score_status: 'complete', score: 80, status: 'green', description_status: 'complete', description: 'Есть ресурс.', why_status: 'complete', why_astro_text: 'Твой Марс собран.', evidence_refs: [] },
+        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
       },
     });
 
-    expect(result?.brief.risks).toHaveLength(2);
-    expect(result?.brief.risks[0]).toEqual(expect.objectContaining({ text: 'Не разгоняйте конфликты', why_text: 'Тон быстро становится жёстче.' }));
-    expect(result?.brief.risks[1]).toEqual(expect.objectContaining({ text: 'Не дробите внимание' }));
+    expect(hasCompleteDayDomain(result!.brief, 'energy')).toBe(true);
+    expect(hasCompleteDayDomain(result!.brief, 'money')).toBe(false);
+    expect(hasAnyCompleteDayDomain(result!.brief)).toBe(true);
   });
 });

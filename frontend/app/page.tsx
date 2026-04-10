@@ -15,13 +15,9 @@ import {
 import { HOME_FLOW_ID, ensureHomeCorrelation, homeFetch, makeHomeTrace, trackHomeEvent } from "../lib/home-analytics";
 import { normalizeDayBriefPayload, type TodayViewModel } from "../lib/day-brief";
 import {
-  TodayActions,
   TodayCtaPanel,
-  TodayExplainability,
-  TodayRisks,
   TodayScores,
   TodayVerdict,
-  TodayWindows,
 } from "../components/today/daybrief-sections";
 
 // START_MODULE_CONTRACT: M-HOME-FEED
@@ -44,9 +40,9 @@ import {
 //   - week/catalog business logic beyond navigation and telemetry handoff
 // END_MODULE_CONTRACT: M-HOME-FEED
 
-type FeedState = "ready" | "fallback" | "empty";
+type FeedState = "ready" | "empty" | "error" | "no_data";
 type FeedSurfaceState = FeedState | "loading" | "error";
-type MockFeedStateOverride = FeedState | "error" | undefined;
+type MockFeedStateOverride = FeedState | undefined;
 
 type ProfileViewModel = {
   full_name?: string | null;
@@ -67,10 +63,8 @@ type FeedLayoutProps = {
   state: FeedSurfaceState;
   dateLabel?: string;
   today?: TodayViewModel | null;
-  renderPath?: "canonical" | "compatibility" | "degraded" | "empty";
+  renderPath?: "canonical" | "error" | "no_data" | "empty";
 };
-
-const HOME_FORBIDDEN_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|week_?map|weekbrief|compatibility|headline|markdown|weekly report)\b/i;
 
 const HOME_CONTRACTS = {
   bootstrap: "FN-BOOTSTRAP-HOME-FEED",
@@ -111,13 +105,13 @@ function resolveMockToday(mockState: MockFeedStateOverride, mockFeed: unknown, p
     case "empty":
       return { nextToday: null, nextFeedState: "empty", nextError: null };
     case "error":
-      return { nextToday: null, nextFeedState: "empty", nextError: "Не удалось загрузить астросводку" };
-    case "fallback": {
-      const fallback = normalizeDayBriefPayload(mockFeed ?? {}, profile) ?? normalizeDayBriefPayload({}, profile);
-      return { nextToday: fallback, nextFeedState: "fallback", nextError: null };
+      return { nextToday: null, nextFeedState: "error", nextError: "Не удалось загрузить астросводку" };
+    case "no_data": {
+      const nextToday = normalizeDayBriefPayload(mockFeed ?? {}, profile);
+      return { nextToday, nextFeedState: nextToday?.state ?? "no_data", nextError: null };
     }
     default: {
-      const nextToday = normalizeDayBriefPayload(mockFeed ?? {}, profile) ?? normalizeDayBriefPayload({}, profile);
+      const nextToday = normalizeDayBriefPayload(mockFeed ?? {}, profile);
       return { nextToday, nextFeedState: nextToday?.state ?? "empty", nextError: null };
     }
   }
@@ -152,24 +146,8 @@ function formatSubscriptionLabel(dateValue?: string | null) {
   return `Активна до ${parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" })}`;
 }
 
-function sanitizeDegradedTodayHeroTitle(today?: TodayViewModel | null): string {
-  const raw = String(today?.brief.summary.headline || "").trim();
-  if (!raw) {
-    return "Сегодня: короткий обзор";
-  }
-  if (HOME_FORBIDDEN_VISIBLE_TOKEN_PATTERN.test(raw)) {
-    return "Сегодня: короткий обзор";
-  }
-  if (/^[a-z][a-z\s-]{2,}$/i.test(raw) && !/[А-Яа-яЁё]/.test(raw)) {
-    return "Сегодня: короткий обзор";
-  }
-  return raw;
-}
-
 function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
-  const heroLabel = state === "fallback" && today && !today.usesCanonicalDayBrief
-    ? sanitizeDegradedTodayHeroTitle(today)
-    : today?.brief.summary.headline ?? "Сегодня";
+  const heroLabel = today?.brief.hero.title ?? "Сегодня";
   const shouldRenderLegacyHero = state !== "ready";
   return (
     <ConsumerPageShell
@@ -255,7 +233,6 @@ export default function FeedPage() {
             contract: HOME_CONTRACTS.load,
             status: nextToday.state,
             entry_point: "home-feed-api",
-            fallback_mode: nextToday.brief.fallback_mode,
             personalization_level: nextToday.brief.personalization_level,
             premium_active: nextToday.brief.premium?.subscription_active ?? false,
           });
@@ -393,7 +370,7 @@ export default function FeedPage() {
 
   if (error) {
     return (
-      <FeedLayout state="error" profile={profile} today={today} renderPath="degraded">
+      <FeedLayout state="error" profile={profile} today={today} renderPath="error">
         <ConsumerPanel className="p-5">
           <ErrorState compact error={error} />
         </ConsumerPanel>
@@ -407,8 +384,8 @@ export default function FeedPage() {
         <ConsumerPanel className="p-5">
           <EmptyState
             compact
-            title="Сводка дня ещё не готова"
-            message="Скоро покажем главный вердикт, сферы и ключевые окна для действий."
+            title="Нет данных на сегодня"
+            message="Для сегодняшней карты пока нет канонических данных по четырём сферам."
             actionLabel="Открыть неделю"
             actionHref="/week"
           />
@@ -417,20 +394,40 @@ export default function FeedPage() {
     );
   }
 
-  if (!today.usesCanonicalDayBrief) {
+  if (today.state === "error") {
     return (
-      <FeedLayout state="fallback" profile={profile} dateLabel={today.brief.date} today={today} renderPath="degraded">
-        <ConsumerPanel className="p-5" data-testid="today-degraded-state">
+      <FeedLayout state="error" profile={profile} dateLabel={today.brief.date} today={today} renderPath="error">
+        <ConsumerPanel className="p-5" data-testid="today-error-state">
           <EmptyState
             compact
-            title="Сегодня доступен только короткий обзор"
-            message="Для этого дня пока нет полной персональной сводки, поэтому показываем только спокойный безопасный слой без детальных карточек."
+            title="Ошибка расчёта дня"
+            message="Каноническая карта дня не собрана. Доступна только неделя или история разборов."
             actionLabel="Открыть неделю"
             actionHref="/week"
-            actionTestId="today-degraded-cta"
+            actionTestId="today-error-cta"
           />
-          <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-degraded-note">
-            Полная персональная карта дня появится, когда сводка будет доступна целиком.
+          <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-error-note">
+            Экран не подменяется fallback-текстом и ждёт новый расчёт.
+          </p>
+        </ConsumerPanel>
+      </FeedLayout>
+    );
+  }
+
+  if (today.state === "no_data") {
+    return (
+      <FeedLayout state="empty" profile={profile} dateLabel={today.brief.date} today={today} renderPath="no_data">
+        <ConsumerPanel className="p-5" data-testid="today-no-data-state">
+          <EmptyState
+            compact
+            title="Нет данных на сегодня"
+            message="По одной или нескольким сферам нет канонических текстов и оценок."
+            actionLabel="Открыть неделю"
+            actionHref="/week"
+            actionTestId="today-no-data-cta"
+          />
+          <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-no-data-note">
+            Экран остаётся честно пустым, пока не появится полный дневной расчёт.
           </p>
         </ConsumerPanel>
       </FeedLayout>
@@ -443,15 +440,11 @@ export default function FeedPage() {
       profile={profile}
       dateLabel={today.brief.date}
       today={today}
-      renderPath={today.brief.fallback_mode ? "compatibility" : "canonical"}
+      renderPath="canonical"
     >
       <div className="space-y-4">
         <TodayVerdict brief={today.brief} />
         <TodayScores brief={today.brief} onScoreTap={handleScoreTap} />
-        <TodayWindows brief={today.brief} />
-        <TodayActions brief={today.brief} />
-        <TodayRisks brief={today.brief} />
-        <TodayExplainability brief={today.brief} />
         <TodayCtaPanel brief={today.brief} onCta={handleHomeCta} />
       </div>
       {showPremiumBlock ? (
