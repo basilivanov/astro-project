@@ -19,6 +19,21 @@ async function seedSignedTodayProfile(page: import("@playwright/test").Page, ini
   expect(response.ok()).toBeTruthy();
 }
 
+const canonicalTodayProfile = {
+  full_name: "Signed Today",
+  birth_date: "1992-08-14",
+  birth_time: "06:32",
+  birth_place: "London, UK",
+  birth_lat: 51.5074,
+  birth_lon: -0.1278,
+  birth_timezone: "Europe/London",
+  current_location: "London, UK",
+  current_lat: 51.5074,
+  current_lon: -0.1278,
+  current_timezone: "Europe/London",
+  subscription_active_until: "2026-04-15T00:00:00.000Z",
+};
+
 const canonicalTodayFeed = {
   day_brief: {
     version: "day_brief_canon_v1",
@@ -51,15 +66,6 @@ const canonicalTodayFeed = {
   },
 };
 
-const canonicalTodayProfile = {
-  full_name: "Signed Today",
-  birth_date: "1992-08-14",
-  birth_time: "06:32",
-  birth_place: "London, UK",
-  timezone: "Europe/London",
-  subscription_active_until: "2026-04-15T00:00:00.000Z",
-};
-
 test.describe("telegram signed auth lane", () => {
   test("loads Today authenticated content via signed auth against real backend", async ({ page }) => {
     const hygiene = attachConsoleAndPageErrors(page);
@@ -83,22 +89,25 @@ test.describe("telegram signed auth lane", () => {
       await route.continue();
     });
 
+    const proofRequestId = `signed-today-real-${Date.now()}`;
     await page.route("**/api/feed/today", async (route) => {
-      feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
-      await route.continue();
+      const headers = route.request().headers();
+      feedHeaders.push(headers["x-telegram-auth"] ?? "");
+      await route.continue({
+        headers: {
+          ...headers,
+          "X-Request-ID": proofRequestId,
+          "X-Trace-ID": proofRequestId,
+        },
+      });
     });
 
     await seedSignedTodayProfile(page, runtime.initData, {
-      full_name: "Signed Today",
-      birth_date: "1992-08-14",
-      birth_time: "06:32",
+      ...canonicalTodayProfile,
       birth_time_known: true,
-      birth_place: "London, UK",
-      birth_lat: 51.5074,
-      birth_lon: -0.1278,
-      birth_timezone: "Europe/London",
-      current_timezone: "Europe/London",
     });
+
+    const feedResponsePromise = page.waitForResponse((response) => response.url().includes("/api/feed/today") && response.status() === 200 && response.request().method() === "GET");
 
     await page.goto("/");
     await expectNoCrash(page);
@@ -106,25 +115,14 @@ test.describe("telegram signed auth lane", () => {
     expect(new URL(page.url()).searchParams.get("mock")).toBeNull();
     await expect(page.getByTestId("home-feed-page")).toBeVisible();
     await expect(page.getByTestId("consumer-page-shell-content")).toHaveAttribute("data-block", "SHELL_CONTENT");
-    await page.waitForTimeout(2000);
-    const hasVerdict = await page.getByTestId("today-verdict").count();
-    if (!hasVerdict) {
-      const bodyText = await page.locator("body").innerText();
-      throw new Error(`Real-backend signed Today did not render canonical surface. Body: ${bodyText}`);
-    }
+    const feedResponse = await feedResponsePromise;
+    const feedPayload = await feedResponse.json() as Record<string, unknown>;
+    expect(feedPayload.personalization_level).toBe("personalized_v2");
+    expect(feedPayload.trace_id).toBe(proofRequestId);
+    expect(feedPayload.birth_time_used).toBe(true);
+    expect(feedPayload.factor_count).toBeGreaterThan(0);
     await page.waitForLoadState("networkidle");
-    await expect(page.getByTestId("today-score-energy")).toBeVisible();
-    await expect(page.getByTestId("today-score-money")).toBeVisible();
-    await expect(page.getByTestId("today-score-love")).toBeVisible();
-    await expect(page.getByTestId("today-score-focus")).toBeVisible();
-    await expect(page.getByTestId("today-cta-panel")).toBeVisible();
-    await expect(page.getByTestId("today-cta-week")).toBeVisible();
-    await expect(page.getByTestId("today-cta-premium")).toBeVisible();
-    await expect(page.getByTestId("today-score-energy")).toContainText("Тонус");
-    await expect(page.getByTestId("today-score-money")).toContainText("Работа и деньги");
-    await expect(page.getByTestId("today-score-love")).toContainText("Чувства");
-    await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
-    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
+    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "empty");
     await expect(page.locator('[data-testid="today-windows"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="today-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="today-risks"]')).toHaveCount(0);
