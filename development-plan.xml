@@ -11,7 +11,7 @@
     <phase id="PHASE-DAY-BRIEF">Aggregate day facts into DayBrief DTO, validate, log trace, expose via /api/feed/today.</phase>
     <phase id="PHASE-WEEK-BRIEF">Merge week_data + slow background (progressions, solar, profection) into WeekBrief + envelope.</phase>
     <phase id="PHASE-FRONTEND-TODAY">Render Today surface from DayBrief only, remove legacy builders, lock telemetry.</phase>
-    <phase id="PHASE-FRONTEND-WEEK">Render /week map from WeekBrief, keep deep sections as secondary layer.</phase>
+    <phase id="PHASE-FRONTEND-WEEK">Render /week from canonical WeekBrief only, keep empty/in_progress/error states fail-closed, and keep deep sections as secondary reading.</phase>
     <phase id="PHASE-FINALIZE">Mark report status, emit analytics, send notifications.</phase>
     <phase id="PHASE-READOUT">Expose admin/client readouts, diagnostics, quality traces.</phase>
   </execution_phases>
@@ -74,7 +74,7 @@
     </module>
     <module id="M-WEEK-BRIEF-SERVICE">
       <owned_paths>backend/app/services/week_brief_service.py; backend/app/services/week_brief_types.py; backend/app/services/week_brief_validators.py</owned_paths>
-      <responsibility>Merge week_data, slow background factors, deep sections into WeekBrief + envelope, manage fallback and explainability.</responsibility>
+      <responsibility>Build canonical WeekBrief + envelope, separate primary Week product fields from optional secondary reading, and avoid user-facing substitute fallback generation.</responsibility>
       <public_interfaces>build_week_brief_payload; build_week_brief_envelope; serialize_week_brief</public_interfaces>
       <depends_on>M-REPORT-WORKFLOW M-LLM-ORCHESTRATION</depends_on>
       <write_scope>attach to report detail payload</write_scope>
@@ -88,7 +88,7 @@
     </module>
     <module id="M-FRONTEND-WEEK">
       <owned_paths>frontend/app/week/page.tsx; frontend/components/week/*; frontend/lib/week-brief-adapter.ts</owned_paths>
-      <responsibility>Render Week map (thesis, day grid, domains, actions/risks, explainability) + deep sections.</responsibility>
+      <responsibility>Render canonical Week overview/domain/rhythm product path only; absence of canonical WeekBrief becomes honest empty/in_progress/error state, with deep sections kept secondary.</responsibility>
       <public_interfaces>/week</public_interfaces>
       <depends_on>M-API-GATEWAY</depends_on>
       <write_scope>none</write_scope>

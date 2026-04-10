@@ -4,7 +4,7 @@
     <in_scope>
       <item ref="UC-WEEK-SURFACE-STRUCTURE">Week top-layer structure for `frontend/app/week/page.tsx` driven by `WeekBrief` / `WeekBriefEnvelope` via `frontend/lib/week-brief.ts`.</item>
       <item ref="UC-WEEK-EXPLAINABILITY">Explainability exposure for summary/theme, day cards, domains, major factors, premium/report CTA, and fallback transparency.</item>
-      <item ref="UC-WEEK-DTO-UI-MAPPING">Stable semantic mapping from backend `week_brief` and legacy `week_map` fallback into user-visible Week/UI blocks.</item>
+      <item ref="UC-WEEK-DTO-UI-MAPPING">Stable semantic mapping from canonical backend `week_brief` into user-visible Week/UI blocks; legacy `week_map` is not a user-facing substitute for `/week`.</item>
       <item ref="UC-WEEK-EXECUTION-BOUNDARY">Execution packet guidance for write scope, frozen scope, acceptance criteria, verification, and wave ordering.</item>
     </in_scope>
     <out_of_scope>
@@ -32,7 +32,7 @@
     <use_case id="UC-WEEK-DTO-UI-MAPPING" actor="coder_worker">
       <summary>Worker can implement or refine Week UI against frozen semantic coordinates and adapter responsibilities without guessing DTO ownership.</summary>
       <scenario id="SCN-WEEK-ENVELOPE-READY">If backend returns `week_brief_envelope.data`, adapter uses it as source of truth and keeps envelope/report status semantics stable.</scenario>
-      <scenario id="SCN-WEEK-LEGACY-FALLBACK">If `week_brief` is absent, adapter may derive bounded Week UI from `week_map` fallback without inventing new business logic.</scenario>
+      <scenario id="SCN-WEEK-LEGACY-FALLBACK">If `week_brief` is absent, `/week` renders an honest empty/in_progress/error state instead of deriving a substitute Week UI from `week_map`.</scenario>
       <scenario id="SCN-WEEK-STATUS-STATES">Loading, error, in-progress, ready, premium/report CTA, and fallback note states are explicitly mapped to visible UI coordinates.</scenario>
     </use_case>
   </use_cases>
@@ -44,14 +44,14 @@
     <invariant>Execution packet MUST freeze semantic coordinates so multiple coder workers can implement without DTO/UI drift.</invariant>
   </business_invariants>
   <expected_failure_handling>
-    <item>If report lookup returns no `week_forecast`, UI may still render fallback-safe week content from mock/default or `week_map` adapter path without crashing.</item>
+    <item>If report lookup returns no canonical `week_forecast` WeekBrief, UI renders empty/create or in-progress state without crashing and without mock/default substitute content.</item>
     <item>If `week_brief_envelope.status` is not `ready`, top layer still preserves loading/in-progress/error semantics instead of mislabeling the screen as complete.</item>
     <item>If explainability subfields are partially absent, UI omits unavailable detail blocks and preserves the concise first layer.</item>
     <item>If full report linkage is absent, CTA gracefully routes to create/premium flow and telemetry surface names stay stable.</item>
   </expected_failure_handling>
   <known_defects>
     <defect id="DEFECT-WEEK-DTO-UI-DRIFT-RISK">Week strict DTO is present, but packet-level execution guidance for future refinements is not yet frozen like Today packet.</defect>
-    <defect id="DEFECT-WEEK-FALLBACK-AMBIGUITY">Week has both `week_brief` and `week_map` paths; without explicit packet guidance, workers may blur adapter vs business-logic ownership.</defect>
+    <defect id="DEFECT-WEEK-FALLBACK-AMBIGUITY">Week legacy `week_map` is migration/internal baggage only; workers must not reattach it to the primary `/week` product path.</defect>
     <defect id="DEFECT-WEEK-STATE-BOUNDARY-IMPLICIT">Loading/error/in-progress/fallback/CTA semantics exist in code, but are not yet assembled into one execution-ready docs packet.</defect>
     <defect id="DEFECT-WEEK-EXPLAINABILITY-COORDS-MISSING">Major factors/confidence/fallback transparency are implemented, but semantic UI coordinates are not documented for coder handoff.</defect>
   </known_defects>

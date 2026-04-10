@@ -1,9 +1,9 @@
 import {
   confidenceBucket,
   formatWeekDateRange,
-  hasExplicitWeekCompatibilityPayload,
+  hasExplicitWeekMigrationPayload,
   mapCanonicalWeekBriefToSurface,
-  mapLegacyWeekFallbackToSurface,
+  mapLegacyWeekMigrationToSurface,
   mapWeekReportToWeekBrief,
 } from '../../lib/week-brief';
 
@@ -115,7 +115,7 @@ describe('week-brief helpers', () => {
   });
 
   it('maps legacy week_map and chunks only into an explicit compatibility surface', () => {
-    const surface = mapLegacyWeekFallbackToSurface({
+    const surface = mapLegacyWeekMigrationToSurface({
       legacyWeekMap: {
         thesis: '  Лог недели собирается  ',
         theme: '  Осторожная неделя  ',
@@ -186,7 +186,7 @@ describe('week-brief helpers', () => {
     expect(surface.detailLayers.some((item) => item.source === 'week_domain')).toBe(true);
   });
 
-  it('keeps the compatibility wrapper aligned with explicit canonical/degraded entrypoints', () => {
+  it('fails closed instead of mapping legacy payload through the product entrypoint', () => {
     const canonical = mapWeekReportToWeekBrief({
       weekBrief: {
         summary: {
@@ -217,15 +217,7 @@ describe('week-brief helpers', () => {
       waitMessage: 'Персональная неделя собирается и скоро станет доступна целиком.',
       sectionsCount: 0,
     }));
-    expect(degraded).toEqual(expect.objectContaining({
-      surfaceMode: 'compatibility',
-      headline: 'Черновик недели',
-      subhead: 'Лёгкая перенастройка',
-      status: 'pending',
-      usesCanonicalWeekBrief: false,
-      waitMessage: 'Черновик недели',
-      sectionsCount: 1,
-    }));
+    expect(degraded).toBeNull();
   });
 
   it('ignores legacy compatibility inputs when canonical week_brief is present', () => {
@@ -286,10 +278,10 @@ describe('week-brief helpers', () => {
     expect(confidenceBucket(null)).toBe('unknown');
   });
 
-  it('treats compatibility mode as explicit payload only', () => {
-    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: null, chunks: null })).toBe(false);
-    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: undefined, chunks: [] })).toBe(false);
-    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: { thesis: 'Legacy payload' }, chunks: null })).toBe(true);
-    expect(hasExplicitWeekCompatibilityPayload({ legacyWeekMap: null, chunks: [{ id: 'chunk-1', content: 'legacy chunk' }] })).toBe(true);
+  it('keeps migration payload detection out of the product route', () => {
+    expect(hasExplicitWeekMigrationPayload({ legacyWeekMap: null, chunks: null })).toBe(false);
+    expect(hasExplicitWeekMigrationPayload({ legacyWeekMap: undefined, chunks: [] })).toBe(false);
+    expect(hasExplicitWeekMigrationPayload({ legacyWeekMap: { thesis: 'Legacy payload' }, chunks: null })).toBe(true);
+    expect(hasExplicitWeekMigrationPayload({ legacyWeekMap: null, chunks: [{ id: 'chunk-1', content: 'legacy chunk' }] })).toBe(true);
   });
 });

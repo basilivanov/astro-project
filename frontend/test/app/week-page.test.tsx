@@ -59,12 +59,6 @@ jest.mock('../../components/week/week-day-strip', () => ({
   ),
 }));
 
-jest.mock('../../components/week/week-day-grid', () => ({
-  WeekDayGrid: ({ week }: { week: { dayCards: Array<{ headline?: string | null }> } }) => (
-    <div data-testid="week-day-grid">{week.dayCards.map((day) => day.headline).filter(Boolean).join(', ')}</div>
-  ),
-}));
-
 jest.mock('../../components/week/week-day-drawer', () => ({
   WeekDayDrawer: ({ card, surfaceMode }: { card: { weekday?: string | null; headline?: string | null } | null; surfaceMode: string }) => (
     <div data-testid="week-day-drawer">{`${surfaceMode === 'compatibility' ? 'Короткий обзор дня' : 'Деталь дня'}:${card?.weekday ?? 'none'}:${card?.headline ?? 'none'}`}</div>
@@ -304,7 +298,7 @@ describe('WeekPage', () => {
     expect(screen.queryByTestId('week-secondary-reading')).not.toBeInTheDocument();
   });
 
-  it('renders compatibility week only when explicit legacy payload exists', async () => {
+  it('renders empty/create state instead of compatibility substitute when only legacy payload exists', async () => {
     correlatedFetchMock
       .mockResolvedValueOnce(
         new Response(
@@ -321,19 +315,7 @@ describe('WeekPage', () => {
             week_map: {
               thesis: 'Legacy fallback headline',
               theme: 'weekly report',
-              timezone: 'headline',
-              location: 'compatibility',
-              day_cards: [
-                {
-                  weekday: 'Понедельник',
-                  date: '2026-03-23',
-                  headline: 'Хороший день, чтобы собрать договорённости.',
-                  mode: 'GREEN',
-                  score: 0.2,
-                  best_for: ['Планирование'],
-                  avoid: ['Поспешные обещания'],
-                },
-              ],
+              day_cards: [{ weekday: 'Понедельник', date: '2026-03-23', headline: 'Legacy substitute' }],
             },
             chunks: [{ id: 'legacy-1', section: 'week_strategy', title: 'Стратегия недели', content: 'Legacy narrative' }],
           }),
@@ -343,15 +325,13 @@ describe('WeekPage', () => {
 
     render(<WeekPage />);
 
-    expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('Короткий обзор дня:ПН, 23 мар:Хороший день, чтобы собрать договорённости.');
-    expect(screen.getByTestId('week-day-grid')).toBeInTheDocument();
-    expect(screen.getByTestId('week-compatibility-section')).toBeInTheDocument();
-    expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('сокращённая версия недели');
-    expect(screen.getByTestId('week-map-surface')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя в коротком обзоре');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Короткий ориентир');
-    expect(screen.getByTestId('week-hero-map')).toHaveAttribute('data-primary-href', '/read/week-legacy');
+    expect(await screen.findByText('Персональной недели пока нет')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Собрать персональную неделю/i })).toHaveAttribute('href', '/create?type=week_forecast');
+    expect(screen.queryByTestId('week-map-surface')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-day-grid')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-compatibility-section')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Legacy|fallback|week_map|weekly report|compatibility/i)).not.toBeInTheDocument();
   });
 
   it('keeps mock runtime without explicit weekly payload on strict empty/create state', async () => {

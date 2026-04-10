@@ -16,7 +16,6 @@ import { ConsumerPageShell, ConsumerPanel } from "../../components/consumer-page
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states";
 import { WeekHeroMap } from "../../components/week/week-hero-map";
 import { WeekDayStrip } from "../../components/week/week-day-strip";
-import { WeekDayGrid } from "../../components/week/week-day-grid";
 import { WeekDayDrawer } from "../../components/week/week-day-drawer";
 import { WeekDomainPanel } from "../../components/week/week-domain-panel";
 import { WeekActionsPanel } from "../../components/week/week-actions-panel";
@@ -25,11 +24,8 @@ import { WeekDeepSections } from "../../components/week/week-deep-sections";
 import ReportStatusPoller from "../../components/report-status-poller";
 import {
   confidenceBucket,
-  hasExplicitWeekCompatibilityPayload,
   mapCanonicalWeekBriefToSurface,
-  mapLegacyWeekFallbackToSurface,
   type WeekBrief,
-  type LegacyWeekMapPayload,
 } from "../../lib/week-brief";
 
 type WeekReportSummary = {
@@ -43,8 +39,6 @@ type WeekReportPayload = {
   report?: { id?: string; report_type?: string; status?: string } | null;
   week_brief?: WeekBrief | null;
   week_brief_envelope?: { status?: string; data?: WeekBrief | null; message?: string | null } | null;
-  week_map?: LegacyWeekMapPayload | null;
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
   timezone?: string | null;
   location?: string | null;
 };
@@ -56,7 +50,6 @@ type WeekEmptyStateCopy = {
 };
 
 type MockWeekWindow = Window & {
-  MOCK_WEEK_MAP_OVERRIDE?: LegacyWeekMapPayload;
   MOCK_WEEK_BRIEF_OVERRIDE?: WeekBrief;
 };
 
@@ -127,32 +120,6 @@ function resolveWeekEmptyStateCopy(latestReportMeta: WeekReportSummary | null): 
 //   - frontend/components/week/week-hero-map.tsx
 //   - frontend/components/catalog/catalog-checkout-resume.tsx
 // END_MODULE_MAP: M-WEEK-PAGE
-
-const DEFAULT_WEEK_MAP: LegacyWeekMapPayload = {
-  thesis: "Неделя просит точного темпа: двигайте главное и сразу фиксируйте результат.",
-  theme: "Фокус через короткие циклы и аккуратный контроль деталей.",
-  day_cards: [
-    { weekday: "Понедельник", date: "2026-03-23", mode: "GREEN", headline: "Хороший день, чтобы собрать договорённости.", best_for: ["Планирование", "Переговоры"], avoid: ["Поспешные обещания"], score: 0.2 },
-    { weekday: "Вторник", date: "2026-03-24", mode: "YELLOW", headline: "Темп рывками, проверяйте стыки.", best_for: ["Редактура", "Короткие встречи"], avoid: ["Конфликты"], score: 0.9 },
-    { weekday: "Среда", date: "2026-03-25", mode: "RED", headline: "Не давите силой, оставьте буфер.", best_for: ["Рутина"], avoid: ["Срочные сделки"], score: 2.1 },
-    { weekday: "Четверг", date: "2026-03-26", mode: "YELLOW", headline: "Возвращайтесь ко второму проходу.", best_for: ["Уточнения"], avoid: ["Споры"], score: 1.1 },
-    { weekday: "Пятница", date: "2026-03-27", mode: "GREEN", headline: "Хорошо закреплять результат.", best_for: ["Презентации"], avoid: ["Избыточный контроль"], score: 0.3 },
-    { weekday: "Суббота", date: "2026-03-28", mode: "YELLOW", headline: "Снижайте ритм и не распыляйтесь.", best_for: ["Быт", "Восстановление"], avoid: ["Перегруз"], score: 1.2 },
-    { weekday: "Воскресенье", date: "2026-03-29", mode: "GREEN", headline: "Спокойно соберите следующую неделю.", best_for: ["План", "Отдых"], avoid: ["Суета"], score: 0.4 },
-  ],
-  domains: { work: 70, relationships: 60, energy: 58, focus: 65 },
-  major_factors: [
-    { label: "Тема недели", category: "period_theme", impact_pct: 42.5, explanation: "Фон удерживает курс на рабочие договорённости.", confidence: 0.81 },
-    { label: "Окно результата", category: "timing", impact_pct: 24, explanation: "Лучше всего работают повторные проходы и точные договорённости.", confidence: 0.74 },
-  ],
-  actions: ["Закрывайте по одному важному решению за раз.", "Возвращайтесь ко второму проходу вместо силового рывка.", "Сверяйте ожидания в переговорах заранее."],
-  risks: ["Не форсируйте то, что должно дозреть.", "Не распыляйтесь на параллельные обещания."],
-  deep_sections: ["strategy", "domains", "timeline"],
-  explainability: { confidence: 0.78, used_exact_birth_time: true },
-  timezone: "Europe/Moscow",
-  location: "Moscow",
-  week_start: "2026-03-23",
-};
 
 // FN-CONTRACT: FN-WEEK-PAGE-CONTENT
 // purpose: Coordinate week page loading, telemetry, and semantic rendering states.
@@ -241,9 +208,7 @@ function WeekPageContent() {
       const mockWindow = window as MockWeekWindow;
       return {
         report: { id: report?.id ?? "mock-week-report", report_type: "week_forecast", status: "completed" },
-        week_map: mockWindow.MOCK_WEEK_MAP_OVERRIDE ?? null,
         week_brief: mockWindow.MOCK_WEEK_BRIEF_OVERRIDE ?? null,
-        chunks: null,
       } satisfies WeekReportPayload;
     }
 
@@ -299,16 +264,7 @@ function WeekPageContent() {
       });
     }
 
-    if (!hasExplicitWeekCompatibilityPayload({ legacyWeekMap: payload?.week_map ?? null, chunks: payload?.chunks ?? null })) {
-      return null;
-    }
-
-    return mapLegacyWeekFallbackToSurface({
-      legacyWeekMap: payload?.week_map ?? DEFAULT_WEEK_MAP,
-      chunks: payload?.chunks ?? null,
-      latestReportId,
-      sourceStatus: latestReportStatus,
-    });
+    return null;
   }, [latestReportId, latestReportStatus, payload]);
   // END_BLOCK: WEEK_SURFACE_MODEL
 
@@ -435,7 +391,6 @@ function WeekPageContent() {
   const hasConcreteWeekReport = Boolean(week.reportId);
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
-  const shouldShowFallbackNote = week.surfaceMode === "compatibility";
   const isWeekStillAssembling = week.status === "in_progress" || week.status === "pending";
   const shouldShowActionsPanel = Boolean(week.actions.length) || Boolean(week.risks.length);
   const shouldShowExplainabilityPanel =
@@ -531,17 +486,6 @@ function WeekPageContent() {
             ) : null}
           </>
         )}
-
-        {week.surfaceMode === "compatibility" && !isWeekStillAssembling ? (
-          <section className="space-y-3" data-testid="week-compatibility-section">
-            {shouldShowFallbackNote ? (
-              <p className="text-xs text-slate-500" data-testid="week-fallback-note">
-                {week.reportId ? "Сейчас доступна сокращённая версия недели: короткие ориентиры по дням и базовая общая картина." : emptyStateCopy.note}
-              </p>
-            ) : null}
-            <WeekDayGrid week={week} onDayClick={trackDayClick} />
-          </section>
-        ) : null}
       </section>
     </ConsumerPageShell>
   );

@@ -40,7 +40,7 @@
       <entrypoints>POST /api/workflows/report/async; POST /api/workflows/report; POST /api/admin/reports/{id}/regenerate/async; POST /api/admin/reports/{id}/sections/{section}/regenerate/async; GET /api/reports/{id}; GET /api/admin/reports/{id}</entrypoints>
       <scenario id="SCN-ASYNC-REPORT-GENERATE">Workflow initializes run and chunks, computes chart data, generates sections, and marks report completed or failed with evidence.</scenario>
       <scenario id="SCN-ASYNC-SECTION-REGENERATE">Admin or user retries a failed report or one section without breaking report ownership and chunk ordering.</scenario>
-      <scenario id="SCN-WEEK-BRIEF-DETAIL">Completed `week_forecast` detail payloads expose a WeekBrief aggregate (thesis, day map, domains, actions/risks, explainability, premium CTA) plus envelope metadata alongside deep-read chunks.</scenario>
+      <scenario id="SCN-WEEK-BRIEF-DETAIL">Completed `week_forecast` detail payloads expose a canonical WeekBrief product surface; `/week` renders honest empty/in_progress/error states when canonical Week data is absent, while deep-read chunks remain a secondary report-reading layer rather than a substitute overview.</scenario>
     </use_case>
     <use_case id="UC-BILLING-ACCESS" actor="paying_user">
       <summary>Initiate payment, persist checkout session when enabled, receive webhook confirmation, and mutate subscriptions, horary credits, or one-off report unlocks exactly once.</summary>

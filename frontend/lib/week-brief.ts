@@ -1,32 +1,30 @@
 // START_MODULE_CONTRACT: M-WEEK-BRIEF-ADAPTER
-// purpose: Normalize week report payloads into the stable week surface model consumed by route and presentation modules.
+// purpose: Normalize canonical week report payloads into the stable week surface model consumed by route and presentation modules.
 // owns:
 //   - frontend/lib/week-brief.ts
 // inputs:
-//   - week brief DTO, legacy week map payload, deep-section chunks, report metadata
+//   - canonical week brief DTO and report metadata
 // outputs:
 //   - `WeekSurfaceModel` with normalized dates, sections, CTA, and explainability labels
 // dependencies:
 //   - local date and text normalization helpers
 // invariants:
-//   - canonical `week_brief` and compatibility `week_map/chunks` stay on separate mapping paths
-//   - degraded deep sections are rendered only inside the explicit compatibility branch
+//   - primary exports accept canonical `week_brief` only
+//   - legacy week_map/chunks remain migration helpers and are not part of the /week product path
 // failure_policy:
-//   - missing or partial payloads degrade into stable defaults rather than undefined state
+//   - malformed or missing canonical payloads return null at the route boundary
 // non_goals:
 //   - network access or route-level telemetry
 // END_MODULE_CONTRACT: M-WEEK-BRIEF-ADAPTER
 
 // START_MODULE_MAP: M-WEEK-BRIEF-ADAPTER
 // entrypoints:
+//   - mapCanonicalWeekBriefToSurface
 //   - mapWeekReportToWeekBrief
 //   - formatWeekDateRange
 //   - confidenceBucket
 // helpers:
-//   - legacyWeekMapToCompatibilityBrief
 //   - normalizeStatus
-//   - normalizeLegacyScore
-//   - normalizeLegacyWeekday
 // owned_tests:
 //   - frontend/test/lib/week-brief.test.ts
 // adjacent_modules:
@@ -203,7 +201,7 @@ export type LegacyWeekMapPayload = {
   week_start?: string | null;
 };
 
-export function hasExplicitWeekCompatibilityPayload(input: {
+export function hasExplicitWeekMigrationPayload(input: {
   legacyWeekMap?: LegacyWeekMapPayload | null;
   chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
 }): boolean {
@@ -734,7 +732,7 @@ export function mapCanonicalWeekBriefToSurface(input: {
   });
 }
 
-export function mapLegacyWeekFallbackToSurface(input: {
+export function mapLegacyWeekMigrationToSurface(input: {
   legacyWeekMap?: LegacyWeekMapPayload | null;
   chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
   latestReportId?: string | null;
@@ -754,14 +752,14 @@ export function mapLegacyWeekFallbackToSurface(input: {
 }
 
 // FN-CONTRACT: FN-WEEK-MAP-REPORT-TO-BRIEF
-// purpose: Preserve a bounded compatibility wrapper while canonical and degraded week paths stay split.
+// purpose: Map only canonical WeekBrief for the /week product path; non-canonical inputs fail closed at the route boundary.
 export function mapWeekReportToWeekBrief(input: {
   weekBrief?: WeekBrief | null;
   legacyWeekMap?: LegacyWeekMapPayload | null;
   chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
   latestReportId?: string | null;
   sourceStatus?: string | null;
-}): WeekSurfaceModel {
+}): WeekSurfaceModel | null {
   if (input.weekBrief) {
     return mapCanonicalWeekBriefToSurface({
       weekBrief: input.weekBrief,
@@ -770,12 +768,7 @@ export function mapWeekReportToWeekBrief(input: {
     });
   }
 
-  return mapLegacyWeekFallbackToSurface({
-    legacyWeekMap: input.legacyWeekMap,
-    chunks: input.chunks,
-    latestReportId: input.latestReportId,
-    sourceStatus: input.sourceStatus,
-  });
+  return null;
 }
 
 function normalizeStatus(value: string | null | undefined): LightStatus {
