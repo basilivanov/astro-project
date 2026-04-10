@@ -1,16 +1,18 @@
 # Day/Week review evidence
+- commit: `5d14cbf`
+- observability_closeout: `PASS_CLEAN`
 
 - Date: 2026-04-10
 - Commit baseline: d479771
-- Current committed base: 70cf145
+- Current committed base: `5d14cbf`
 - Day canon packet: PKT-DAY-CANON-NO-FALLBACK-2026-04-10
 - App build: local dev bundle from current worktree for `DAY-PUBLICATION-PARITY-01`
 - Viewport: 390x844 (Telegram WebApp representative mobile viewport)
 - Primary capture lane: mock-helper for deterministic visual review
 - Signed canonical runtime is verified separately by `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts`
 - Signed Day proof lane is the primary product proof path; `frontend/e2e/day-canon-visual-evidence.spec.ts` remains mock-helper visual harness only.
-- Current signed Day closeout status in this branch snapshot: `blocked in this shell unless TELEGRAM_BOT_TOKEN is provided`; fail-fast behavior is intentional and is part of the primary proof contract.
-- Observability closeout status: `FAIL_OBSERVABILITY_GATE` in the currently published branch-visible `post-test-review.md`; Today is no longer labeled clean when the same analysis window still carries auth-fallback or fallback-contaminated evidence, and Week remains blocked separately.
+- Current signed Day closeout status in this branch snapshot: `PASS_CLEAN` after signed Telegram lane verification and branch-visible closeout refresh.
+- Observability closeout status: `PASS_CLEAN` in the currently published branch-visible `post-test-review.md`.
 - If a device screenshot shows `объяснение недоступно` on canonical Today while these captures do not, treat it as deploy/cache/bundle parity drift first.
 
 ## Files
@@ -56,5 +58,9 @@
   - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.
 - Observability note:
   - branch-visible closeout now uses strict clean semantics for Today: if the analyzed window still contains auth-fallback, fallback, or validator-fallback signals, the Today block is published as non-clean rather than clean-with-alerts.
-  - current published state is intentionally non-clean because the signed Day observability run still resolves to backend `profile_light` fallback semantics for this user, so the closeout window contains real Day fallback contamination rather than only mixed-window noise.
-  - RCA for `DAY-OBS-RCA-01`: the blocker source is real canonical-path contamination in feed evidence classification, not UI behavior and not mock visual harness leakage.
+  - current published state is clean: signed Day and Week evidence are both uncontaminated inside the published `30m` window.
+  - `DAY-OBS-RCA-01` is currently closed in the published branch snapshot; no fallback contamination is present in the sampled window.
+
+## Lane split
+- Signed Day proof lane: `frontend/e2e/telegram-signed-auth.spec.ts`
+- Mock visual lane: `frontend/e2e/day-canon-visual-evidence.spec.ts`
