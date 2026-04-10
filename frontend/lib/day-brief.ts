@@ -184,6 +184,22 @@ function normalizeComparableText(value: string | null | undefined): string {
     .trim();
 }
 
+const INTERNAL_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|headline|week_?map|weekbrief|compatibility|markdown|weekly report)\b/i;
+
+function sanitizeLegacyDayHeadline(value: unknown): string {
+  const raw = text(value).trim();
+  if (!raw) {
+    return "Сегодня: короткий обзор";
+  }
+  if (INTERNAL_VISIBLE_TOKEN_PATTERN.test(raw)) {
+    return "Сегодня: короткий обзор";
+  }
+  if (/^[a-z][a-z\s-]{2,}$/i.test(raw) && !/[А-Яа-яЁё]/.test(raw)) {
+    return "Сегодня: короткий обзор";
+  }
+  return raw;
+}
+
 // FN-CONTRACT: FN-DAY-NORMALIZE-SUPPORTING-FACTORS
 // purpose: Coerce supporting-factor payloads into a stable array of human-readable factor records.
 function normalizeSupportingFactors(value: unknown) {
@@ -441,8 +457,8 @@ export function buildLegacyDayBrief(source: unknown, premiumActiveUntil?: string
     personalization_level: personalizationLevel,
     fallback_mode: true,
     summary: {
-      headline: text(data.general_vibe, "День требует аккуратного темпа и собранности."),
-      subhead: "Legacy feed адаптирован во временный DayBrief до полного отключения старого формата.",
+      headline: sanitizeLegacyDayHeadline(data.general_vibe),
+      subhead: "Сейчас показываем только спокойный короткий слой без полной персональной раскладки по сферам.",
       day_type: legacyTraffic.health === "red" ? "recovery" : legacyTraffic.love === "red" || legacyTraffic.money === "red" ? "caution" : legacyTraffic.health === "green" && legacyTraffic.money === "green" ? "push" : "balance",
       tone: null,
     },

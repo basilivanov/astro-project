@@ -153,7 +153,7 @@ describe('week-brief helpers', () => {
       weekStart: '2026-04-06',
       weekEnd: '2026-04-12',
       timezone: 'Europe/Moscow',
-      location: 'Moscow',
+      location: null,
       personalizationLevel: null,
       fallbackMode: true,
       usesCanonicalWeekBrief: false,
@@ -175,13 +175,13 @@ describe('week-brief helpers', () => {
     expect(surface.dayStrip[6]).toEqual(expect.objectContaining({ weekday: 'ВС, 12 апр', score: null }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),
-      expect.objectContaining({ key: 'unknown', title: 'unknown', status: 'red', headline: 'unknown: 44/100' }),
+      expect.objectContaining({ key: 'unknown', title: 'Общий фокус', status: 'red', headline: 'Общий фокус: 44/100' }),
     ]);
     expect(surface.actions).toEqual([expect.objectContaining({ id: 'action-1', text: 'сделать главное' })]);
     expect(surface.risks).toEqual([expect.objectContaining({ id: 'risk-1', text: 'не перегореть' })]);
     expect(surface.deepSections).toEqual([
-      expect.objectContaining({ id: 'c-1', slug: 'summary', title: '  Секция 1 ', summary: 'Короткий текст секции', body_markdown: '  Короткий текст секции  ', is_primary: true, order: 0 }),
-      expect.objectContaining({ id: 'c-2', slug: 'details', title: 'details', summary: 'Структурный вывод', body_markdown: JSON.stringify({ summary: 'Структурный вывод' }), is_primary: false, order: 1 }),
+      expect.objectContaining({ id: 'c-1', slug: 'summary', title: 'Секция 1', summary: 'Короткий текст секции', body_markdown: '  Короткий текст секции  ', is_primary: true, order: 0 }),
+      expect.objectContaining({ id: 'c-2', slug: 'details', title: 'Раздел 2', summary: 'Структурный вывод', body_markdown: JSON.stringify({ summary: 'Структурный вывод' }), is_primary: false, order: 1 }),
     ]);
     expect(surface.detailLayers.some((item) => item.source === 'week_domain')).toBe(true);
   });
@@ -214,7 +214,7 @@ describe('week-brief helpers', () => {
       subhead: 'Держим ритм',
       status: 'in_progress',
       usesCanonicalWeekBrief: true,
-      waitMessage: 'Неделя собирается, лог уже в работе',
+      waitMessage: 'Персональная неделя собирается и скоро станет доступна целиком.',
       sectionsCount: 0,
     }));
     expect(degraded).toEqual(expect.objectContaining({
@@ -276,7 +276,7 @@ describe('week-brief helpers', () => {
     expect(formatWeekDateRange('2026-04-01', null)).toBe('1 апр.');
     expect(formatWeekDateRange(null, '2026-04-07')).toBe('7 апр.');
     expect(formatWeekDateRange('not-a-date', null)).toBe('not-a-date');
-    expect(formatWeekDateRange(null, null)).toBe('Неделя без даты');
+    expect(formatWeekDateRange(null, null)).toBe('Диапазон уточняется');
 
     expect(confidenceBucket(0.9)).toBe('high');
     expect(confidenceBucket(0.75)).toBe('high');

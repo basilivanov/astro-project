@@ -67,6 +67,7 @@ describe('WeekDayStrip', () => {
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
     expect(card).not.toHaveTextContent('Детали дня');
     expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Календарный ритм недели в коротком виде');
+    expect(screen.getByTestId('week-day-strip')).toHaveClass('overflow-x-auto');
     expect(screen.getByTestId('week-day-strip-section')).not.toHaveTextContent('совместимый');
     expect(card.querySelector('button')).toHaveAttribute('aria-pressed', 'true');
 

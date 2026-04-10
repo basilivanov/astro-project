@@ -92,11 +92,12 @@ test.describe("Week Page Fallback Parsing", () => {
     await expect(page.getByTestId('week-deep-sections')).toBeVisible();
     await expect(page.getByTestId('week-deep-sections')).toContainText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.');
     await expect(page.getByTestId('week-deep-sections-summary')).toContainText('длинного чтения');
-    await expect(page.getByText('Короткая версия раздела')).toBeVisible();
+    await expect(page.getByTestId('week-deep-sections')).not.toContainText('Короткая версия раздела');
     await expect(page.getByTestId('week-deep-sections')).not.toContainText('{"text"');
     await expect(page.getByTestId('week-fallback-note')).toBeVisible();
     await expect(page.getByTestId('week-fallback-note')).toContainText('сокращённая версия недели');
     await expect(page.getByTestId('week-fallback-note')).not.toContainText(/fallback|weekbrief|legacy|week_map/i);
+    await expect(page.getByTestId('week-map-surface')).not.toContainText(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
 
     expect(logs, `Found console or page errors on /week fallback path: ${logs.join(', ')}`).toHaveLength(0);
     await context.close();

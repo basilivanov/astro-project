@@ -60,6 +60,8 @@ type MockWeekWindow = Window & {
   MOCK_WEEK_BRIEF_OVERRIDE?: WeekBrief;
 };
 
+const WEEK_FORBIDDEN_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|week_?map|weekbrief|compatibility|headline|markdown|weekly report)\b/i;
+
 function parseReportCreatedAt(value?: string): number {
   if (!value) return Number.NEGATIVE_INFINITY;
   const timestamp = Date.parse(value);
@@ -442,6 +444,26 @@ function WeekPageContent() {
     || Boolean(week.factors.length)
     || Boolean((week.explainability.factor_count ?? 0) > 0);
   const shouldShowDeepSections = Boolean(week.deepSections.length);
+  const heroWeek = week
+    ? {
+        ...week,
+        theme: (() => {
+          const safeTheme = String(week.theme || "").trim();
+          if (safeTheme && !WEEK_FORBIDDEN_VISIBLE_TOKEN_PATTERN.test(safeTheme)) {
+            return safeTheme;
+          }
+          if (isWeekStillAssembling) return "Тема уточняется";
+          return week.surfaceMode === "compatibility" ? "Короткий ориентир" : "Карта недели";
+        })(),
+        location: (() => {
+          const safeLocation = String(week.location || "").trim();
+          if (safeLocation && !WEEK_FORBIDDEN_VISIBLE_TOKEN_PATTERN.test(safeLocation)) {
+            return safeLocation;
+          }
+          return isWeekStillAssembling ? "Локация уточняется" : null;
+        })(),
+      }
+    : null;
 
   return (
     // START_BLOCK: WEEK_READY_SURFACE
@@ -459,7 +481,7 @@ function WeekPageContent() {
         />
 
         <WeekHeroMap
-          week={week}
+          week={heroWeek ?? week}
           primaryHref={resolvedPrimaryHref}
           primaryLabel={resolvedPrimaryLabel}
           onPrimaryClick={() => {

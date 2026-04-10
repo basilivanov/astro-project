@@ -70,6 +70,8 @@ type FeedLayoutProps = {
   renderPath?: "canonical" | "compatibility" | "degraded" | "empty";
 };
 
+const HOME_FORBIDDEN_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|week_?map|weekbrief|compatibility|headline|markdown|weekly report)\b/i;
+
 const HOME_CONTRACTS = {
   bootstrap: "FN-BOOTSTRAP-HOME-FEED",
   load: "FN-LOAD-HOME-FEED",
@@ -150,8 +152,24 @@ function formatSubscriptionLabel(dateValue?: string | null) {
   return `Активна до ${parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" })}`;
 }
 
+function sanitizeDegradedTodayHeroTitle(today?: TodayViewModel | null): string {
+  const raw = String(today?.brief.summary.headline || "").trim();
+  if (!raw) {
+    return "Сегодня: короткий обзор";
+  }
+  if (HOME_FORBIDDEN_VISIBLE_TOKEN_PATTERN.test(raw)) {
+    return "Сегодня: короткий обзор";
+  }
+  if (/^[a-z][a-z\s-]{2,}$/i.test(raw) && !/[А-Яа-яЁё]/.test(raw)) {
+    return "Сегодня: короткий обзор";
+  }
+  return raw;
+}
+
 function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
-  const heroLabel = today?.brief.summary.headline ?? "Сегодня";
+  const heroLabel = state === "fallback" && today && !today.usesCanonicalDayBrief
+    ? sanitizeDegradedTodayHeroTitle(today)
+    : today?.brief.summary.headline ?? "Сегодня";
   const shouldRenderLegacyHero = state !== "ready";
   return (
     <ConsumerPageShell

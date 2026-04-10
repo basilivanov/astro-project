@@ -292,6 +292,35 @@ function normalizeComparableText(value: string | null | undefined): string {
     .trim();
 }
 
+const INTERNAL_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|week_?map|weekbrief|compatibility|headline|markdown|weekly report)\b/i;
+const RAW_SLUG_VISIBLE_PATTERN = /^[a-z0-9]+(?:[_:-][a-z0-9]+)+$/i;
+
+function sanitizeVisibleWeekText(
+  value: string | null | undefined,
+  fallback: string,
+  options?: { allowAscii?: boolean },
+): string {
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+  if (INTERNAL_VISIBLE_TOKEN_PATTERN.test(raw)) return fallback;
+  if (RAW_SLUG_VISIBLE_PATTERN.test(raw)) return fallback;
+  if (!options?.allowAscii && /^[a-z][a-z0-9\s-]{2,}$/i.test(raw) && !/[А-Яа-яЁё]/.test(raw)) {
+    return fallback;
+  }
+  return raw;
+}
+
+function sanitizeVisibleWeekMetaValue(value: string | null | undefined): string | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (INTERNAL_VISIBLE_TOKEN_PATTERN.test(raw)) return null;
+  if (RAW_SLUG_VISIBLE_PATTERN.test(raw)) return null;
+  if (/^[a-z][a-z0-9\s._-]{2,}$/i.test(raw) && !/[А-Яа-яЁё]/.test(raw) && !raw.includes("/")) {
+    return null;
+  }
+  return raw;
+}
+
 function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -414,27 +443,30 @@ function dedupeRhythmCards(cards: NonNullable<WeekBrief["day_cards"]>) {
 const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallback: string[] | null | undefined, prefix: string) => {
   if (Array.isArray(items) && items.length > 0) {
     return items
-      .filter((item) => item?.text?.trim())
+      .filter((item) => sanitizeVisibleWeekMetaValue(item?.text) || item?.why_text?.trim())
       .map((item, index) => ({
       id: item.id ?? `${prefix}-${index + 1}`,
-      text: item.text?.trim() ?? "",
+      text: sanitizeVisibleWeekMetaValue(item.text) ?? "Короткий ориентир",
       tag: item.tag?.trim() ?? null,
       factor_id: item.factor_id ?? null,
       impact: item.impact ?? null,
       timeframe: item.timeframe ?? null,
-      why_text: item.why_text?.trim() ?? null,
+      why_text: sanitizeVisibleWeekMetaValue(item.why_text) ?? null,
       supporting_factors: Array.isArray(item.supporting_factors)
         ? item.supporting_factors.filter(Boolean).map((factor) => ({
-            label: factor?.label?.trim() ?? null,
-            explanation_human: factor?.explanation_human?.trim() ?? null,
-            explanation_astro: factor?.explanation_astro?.trim() ?? null,
-            value: factor?.value?.trim() ?? null,
+            label: sanitizeVisibleWeekMetaValue(factor?.label) ?? null,
+            explanation_human: sanitizeVisibleWeekMetaValue(factor?.explanation_human) ?? null,
+            explanation_astro: sanitizeVisibleWeekMetaValue(factor?.explanation_astro) ?? null,
+            value: sanitizeVisibleWeekMetaValue(factor?.value) ?? null,
           }))
         : [],
       }))
       .filter((item) => item.tag !== "all_week");
   }
-  return dedupeSemanticTexts(fallback ?? []).map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
+  return dedupeSemanticTexts(fallback ?? [])
+    .map((text) => sanitizeVisibleWeekMetaValue(text))
+    .filter((text): text is string => Boolean(text))
+    .map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
 };
 
 function normalizeChunkSections(
@@ -445,8 +477,8 @@ function normalizeChunkSections(
     .map((chunk, index) => ({
       id: chunk.id ?? `chunk-${index + 1}`,
       slug: chunk.section ?? chunk.id ?? `section-${index + 1}`,
-      title: chunk.title ?? chunk.section ?? `Секция ${index + 1}`,
-      summary: extractReportFallbackText(chunk.content) ?? null,
+      title: sanitizeVisibleWeekText(chunk.title ?? chunk.section ?? null, `Раздел ${index + 1}`),
+      summary: sanitizeVisibleWeekMetaValue(extractReportFallbackText(chunk.content)) ?? null,
       body_markdown: typeof chunk.content === "string" ? chunk.content : JSON.stringify(chunk.content),
       is_primary: index === 0,
       order: index,
@@ -465,10 +497,10 @@ function legacyWeekMapToCompatibilityBrief(
     fallback_mode: true,
     week_start: legacy?.week_start ?? null,
     summary: {
-      headline: legacy?.thesis?.trim() || "Неделя держится на спокойном темпе и точных решениях",
-      subhead: legacy?.theme?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
+      headline: sanitizeVisibleWeekText(legacy?.thesis, "Неделя в коротком обзоре"),
+      subhead: sanitizeVisibleWeekText(legacy?.theme, "Сейчас доступна спокойная короткая карта по дням и главным акцентам."),
       week_type: "balance",
-      theme: legacy?.theme?.trim() || "Карта недели",
+      theme: sanitizeVisibleWeekText(legacy?.theme, "Короткий ориентир"),
     },
     day_cards: (legacy?.day_cards ?? []).map((item, index) => ({
       id: item.date ? `week-day-${item.date}` : `week-day-${index + 1}`,
@@ -476,7 +508,7 @@ function legacyWeekMapToCompatibilityBrief(
       weekday: normalizeLegacyWeekday(item.weekday),
       mode: normalizeStatus(item.mode),
       score: normalizeLegacyScore(item.score),
-      headline: item.headline ?? null,
+      headline: sanitizeVisibleWeekMetaValue(item.headline) ?? null,
       lead: null,
       practical: [],
       supporting_factors: [],
@@ -492,10 +524,10 @@ function legacyWeekMapToCompatibilityBrief(
     })),
     domains: Object.entries(legacy?.domains ?? {}).map(([key, value]) => ({
       key,
-      title: LEGACY_DOMAIN_TITLES[key] ?? key,
+      title: LEGACY_DOMAIN_TITLES[key] ?? "Общий фокус",
       status: LEGACY_STATUS_BY_SCORE(Number(value ?? 0)),
       value: Number(value ?? 0),
-      headline: `${LEGACY_DOMAIN_TITLES[key] ?? key}: ${Number(value ?? 0)}/100`,
+      headline: `${LEGACY_DOMAIN_TITLES[key] ?? "Общий фокус"}: ${Number(value ?? 0)}/100`,
       advice: null,
       why_text: null,
       supporting_factors: [],
@@ -603,15 +635,30 @@ function buildWeekSurfaceModel(input: {
 
   return {
     surfaceMode: input.surfaceMode,
-    headline: brief.summary?.headline?.trim() || "Неделя держится на спокойном темпе и точных решениях",
-    subhead: brief.summary?.subhead?.trim() || "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
-    theme: brief.summary?.theme?.trim() || "Карта недели",
+    headline: sanitizeVisibleWeekText(
+      brief.summary?.headline,
+      input.surfaceMode === "compatibility" ? "Неделя в коротком обзоре" : "Неделя держится на спокойном темпе и точных решениях",
+    ),
+    subhead: sanitizeVisibleWeekText(
+      brief.summary?.subhead,
+      input.surfaceMode === "compatibility"
+        ? "Сейчас доступна спокойная короткая карта по дням и главным акцентам."
+        : "Двигайте главное в коротких циклах и оставляйте буфер для корректировок.",
+    ),
+    theme: sanitizeVisibleWeekText(
+      brief.summary?.theme,
+      brief.status === "in_progress" || brief.status === "pending" || input.sourceStatus === "in_progress" || input.sourceStatus === "pending"
+        ? "Тема уточняется"
+        : input.surfaceMode === "compatibility"
+          ? "Короткий ориентир"
+          : "Карта недели",
+    ),
     weekType: brief.summary?.week_type ?? "balance",
     status: brief.status ?? (input.sourceStatus === "in_progress" ? "in_progress" : input.sourceStatus === "pending" ? "pending" : "ready"),
     weekStart: calendarBounds.weekStart,
     weekEnd: calendarBounds.weekEnd,
-    timezone: input.timezone ?? null,
-    location: input.location ?? null,
+    timezone: sanitizeVisibleWeekMetaValue(input.timezone) ?? null,
+    location: sanitizeVisibleWeekMetaValue(input.location) ?? null,
     personalizationLevel: brief.personalization_level ?? null,
     fallbackMode: input.surfaceMode === "compatibility" || Boolean(brief.fallback_mode),
     usesCanonicalWeekBrief: input.usesCanonicalWeekBrief,
@@ -644,7 +691,7 @@ function buildWeekSurfaceModel(input: {
         id: "week-explainability-top-signal",
         title: "Главный слой влияния",
         body: topSignalLabel
-          ? "Именно этот слой сильнее всего формирует краткую weekly summary и рекомендации."
+          ? "Именно этот слой сильнее всего формирует краткий недельный вывод и рекомендации."
           : "Сигнал распределён между несколькими факторами без одного доминирующего слоя.",
         value: topSignalLabel,
       },
@@ -668,7 +715,7 @@ function buildWeekSurfaceModel(input: {
     sectionsCount: (brief.deep_sections ?? []).length,
     waitMessage:
       brief.status === "in_progress" || brief.status === "pending" || input.sourceStatus === "in_progress" || input.sourceStatus === "pending"
-        ? input.waitMessageFallback ?? "Неделя собирается, лог уже в работе"
+        ? sanitizeVisibleWeekText(input.waitMessageFallback, "Персональная неделя собирается и скоро станет доступна целиком.")
         : null,
   };
 }
@@ -702,7 +749,7 @@ export function mapLegacyWeekFallbackToSurface(input: {
     usesCanonicalWeekBrief: false,
     timezone: input.legacyWeekMap?.timezone ?? null,
     location: input.legacyWeekMap?.location ?? null,
-    waitMessageFallback: input.legacyWeekMap?.thesis?.trim() || "Неделя собирается, лог уже в работе",
+    waitMessageFallback: sanitizeVisibleWeekText(input.legacyWeekMap?.thesis, "Персональная неделя собирается и скоро станет доступна целиком."),
   });
 }
 
@@ -770,7 +817,7 @@ function normalizeLegacyWeekday(value: string | null | undefined): string | null
 // FN-CONTRACT: FN-WEEK-FORMAT-DATE-RANGE
 // purpose: Format normalized week date boundaries into compact Russian UI copy.
 export function formatWeekDateRange(start?: string | null, end?: string | null): string {
-  if (!start && !end) return "Неделя без даты";
+  if (!start && !end) return "Диапазон уточняется";
   const startDate = parseIsoDate(start);
   const endDate = parseIsoDate(end);
   if (startDate && endDate) {
@@ -778,7 +825,7 @@ export function formatWeekDateRange(start?: string | null, end?: string | null):
   }
   if (startDate) return formatShortDate(startDate);
   if (endDate) return formatShortDate(endDate);
-  return start ?? end ?? "Неделя без даты";
+  return start ?? end ?? "Диапазон уточняется";
 }
 
 // FN-CONTRACT: FN-WEEK-CONFIDENCE-BUCKET

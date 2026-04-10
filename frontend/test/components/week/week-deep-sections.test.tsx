@@ -70,6 +70,7 @@ describe('WeekDeepSections', () => {
     expect(screen.getByText('Раздел 1')).toBeInTheDocument();
     expect(screen.queryByText('week_strategy')).not.toBeInTheDocument();
     expect(screen.queryByTestId('report-fallback-card')).not.toBeInTheDocument();
+    expect(screen.getByTestId('week-deep-sections')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
   });
 
   it('preserves readable user-facing fallback copy for deep sections', () => {
@@ -94,8 +95,8 @@ describe('WeekDeepSections', () => {
       />,
     );
 
-    expect(screen.getByTestId('report-fallback-card')).toHaveTextContent(fallbackPhrase);
-    expect(screen.getByText('Короткая версия раздела')).toBeInTheDocument();
-    expect(screen.getAllByText(fallbackPhrase).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByTestId('week-deep-section-prose-1')).toHaveTextContent(fallbackPhrase);
+    expect(screen.queryByText('Короткая версия раздела')).not.toBeInTheDocument();
+    expect(screen.getByTestId('week-deep-sections')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
   });
 });

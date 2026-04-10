@@ -41,7 +41,7 @@ const makeWeek = (): WeekSurfaceModel => ({
   explainabilityDetailItems: [
     { id: 'week-explainability-confidence', title: 'Надёжность сигнала', body: 'Высокая опора на текущие данные', value: '81%' },
     { id: 'week-explainability-birth-time', title: 'Контекст рождения', body: 'Точная карта рождения добавляет больше персональной опоры в недельную интерпретацию.', value: 'Точное время учтено' },
-    { id: 'week-explainability-top-signal', title: 'Главный слой влияния', body: 'Именно этот слой сильнее всего формирует краткую weekly summary и рекомендации.', value: 'личная натальная опора и текущие транзиты' },
+    { id: 'week-explainability-top-signal', title: 'Главный слой влияния', body: 'Именно этот слой сильнее всего формирует краткий недельный вывод и рекомендации.', value: 'личная натальная опора и текущие транзиты' },
   ],
   explainability: {
     confidence: 0.81,

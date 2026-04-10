@@ -279,6 +279,31 @@ describe('Week unified detail panels', () => {
     fireEvent.click(card.querySelector('button') as HTMLElement);
     expect(onDayClick).toHaveBeenCalledWith('2026-04-01');
   });
+
+  it('keeps compatibility day grid free from internal implementation tokens', () => {
+    const week: WeekSurfaceModel = {
+      ...baseWeek,
+      surfaceMode: 'compatibility',
+      fallbackMode: true,
+      usesCanonicalWeekBrief: false,
+      dayCards: [
+        {
+          date: '2026-04-01',
+          weekday: 'wed',
+          mode: 'yellow',
+          score: 55,
+          headline: 'Проверяйте стыки',
+          best_for: ['Уточнения'],
+          avoid: ['Спешка'],
+        },
+      ],
+    };
+
+    render(<WeekDayGrid week={week} onDayClick={() => {}} />);
+
+    expect(screen.getByTestId('week-day-grid')).toHaveTextContent('Проверяйте стыки');
+    expect(screen.getByTestId('week-day-grid')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
+  });
 });
 
 

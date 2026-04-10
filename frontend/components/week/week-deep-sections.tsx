@@ -8,18 +8,40 @@ import { type WeekSurfaceModel } from "../../lib/week-brief";
 import { formatSectionTitle } from "../../lib/forecast-ui";
 
 const RAW_SLUG_PATTERN = /^[a-z0-9]+(?:[_:-][a-z0-9]+)+$/i;
+const INTERNAL_VISIBLE_TOKEN_PATTERN = /\b(?:legacy|fallback|week_?map|weekbrief|compatibility|headline|markdown|weekly report)\b/i;
+
+function sanitizeDeepReadingText(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleaned = value
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/`{1,3}/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  if (INTERNAL_VISIBLE_TOKEN_PATTERN.test(cleaned)) {
+    return null;
+  }
+
+  if (RAW_SLUG_PATTERN.test(cleaned)) {
+    return null;
+  }
+
+  return cleaned;
+}
 
 function isReadableDeepText(value: string | null | undefined): value is string {
-  if (typeof value !== "string") {
-    return false;
-  }
-
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (!normalized) {
-    return false;
-  }
-
-  if (RAW_SLUG_PATTERN.test(normalized)) {
+  const normalized = sanitizeDeepReadingText(value);
+  if (typeof normalized !== "string") {
     return false;
   }
 
@@ -28,11 +50,11 @@ function isReadableDeepText(value: string | null | undefined): value is string {
 
 function getSafeSectionTitle(section: WeekSurfaceModel["deepSections"][number], index: number) {
   if (isReadableDeepText(section.title)) {
-    return section.title.trim();
+    return sanitizeDeepReadingText(section.title);
   }
 
   if (isReadableDeepText(section.summary)) {
-    return section.summary.trim();
+    return sanitizeDeepReadingText(section.summary);
   }
 
   return `Раздел ${index + 1}`;
@@ -41,11 +63,11 @@ function getSafeSectionTitle(section: WeekSurfaceModel["deepSections"][number], 
 function getSafeFallbackText(section: WeekSurfaceModel["deepSections"][number]) {
   const extracted = extractReportFallbackText(section.body_markdown);
   if (isReadableDeepText(extracted)) {
-    return extracted;
+    return sanitizeDeepReadingText(extracted);
   }
 
   if (isReadableDeepText(section.summary)) {
-    return section.summary.trim();
+    return sanitizeDeepReadingText(section.summary);
   }
 
   return null;
@@ -92,13 +114,24 @@ export function WeekDeepSections({ week }: { week: WeekSurfaceModel }) {
           const blocks = parseReportBlocks(section.body_markdown);
           const fallbackText = getSafeFallbackText(section) ?? undefined;
           const sectionTitle = getSafeSectionTitle(section, index);
+          const sectionSummary = sanitizeDeepReadingText(section.summary) ?? null;
           return (
             <article key={section.id ?? index} className="space-y-3 rounded-3xl border border-slate-100 bg-white/80 p-4" data-testid={`week-deep-section-${index + 1}`}>
               <div>
                 <p className="text-sm font-black text-slate-900">{sectionTitle}</p>
-                {isReadableDeepText(section.summary) ? <p className="mt-1 text-xs leading-relaxed text-slate-500">{section.summary.trim()}</p> : null}
+                {sectionSummary ? <p className="mt-1 text-xs leading-relaxed text-slate-500">{sectionSummary}</p> : null}
               </div>
-              <ReportRenderer blocks={blocks as never} fallbackText={fallbackText} fallbackTitle="Короткая версия раздела" />
+              {blocks.length ? (
+                <ReportRenderer blocks={blocks as never} fallbackText={undefined} />
+              ) : fallbackText ? (
+                <div className="rounded-2xl bg-slate-50/80 px-4 py-3 text-sm leading-relaxed text-slate-700" data-testid={`week-deep-section-prose-${index + 1}`}>
+                  {fallbackText}
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-slate-50/70 px-4 py-3 text-sm leading-relaxed text-slate-500" data-testid={`week-deep-section-waiting-${index + 1}`}>
+                  Полный текст этого раздела появится, когда длинное чтение будет готово целиком.
+                </div>
+              )}
             </article>
           );
         })}

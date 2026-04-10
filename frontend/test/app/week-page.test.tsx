@@ -40,11 +40,15 @@ jest.mock('../../lib/correlation', () => ({
 }));
 
 jest.mock('../../components/week/week-hero-map', () => ({
-  WeekHeroMap: ({ week, primaryHref, primaryLabel }: { week: { headline: string }; primaryHref: string; primaryLabel: string }) => (
-    <div data-testid="week-hero-map">
+  WeekHeroMap: ({ week, primaryHref, primaryLabel }: { week: { headline: string; subhead?: string; theme?: string; location?: string | null; timezone?: string | null; weekStart?: string | null; weekEnd?: string | null }; primaryHref: string; primaryLabel: string }) => (
+    <div data-testid="week-hero-map" data-primary-href={primaryHref} data-primary-label={primaryLabel}>
       <span>{week.headline}</span>
-      <span>{primaryHref}</span>
-      <span>{primaryLabel}</span>
+      <span>{week.subhead ?? ''}</span>
+      <span>{week.theme ?? ''}</span>
+      <span>{week.location ?? ''}</span>
+      <span>{week.timezone ?? ''}</span>
+      <span>{week.weekStart ?? ''}</span>
+      <span>{week.weekEnd ?? ''}</span>
     </div>
   ),
 }));
@@ -63,7 +67,7 @@ jest.mock('../../components/week/week-day-grid', () => ({
 
 jest.mock('../../components/week/week-day-drawer', () => ({
   WeekDayDrawer: ({ card, surfaceMode }: { card: { weekday?: string | null; headline?: string | null } | null; surfaceMode: string }) => (
-    <div data-testid="week-day-drawer">{`${surfaceMode}:${card?.weekday ?? 'none'}:${card?.headline ?? 'none'}`}</div>
+    <div data-testid="week-day-drawer">{`${surfaceMode === 'compatibility' ? 'Короткий обзор дня' : 'Деталь дня'}:${card?.weekday ?? 'none'}:${card?.headline ?? 'none'}`}</div>
   ),
 }));
 
@@ -158,7 +162,7 @@ describe('WeekPage', () => {
                 headline: 'Неделя собирается',
                 subhead: 'Показываем устойчивый безопасный слой',
                 week_type: 'balance',
-                theme: 'Контролируемая неделя',
+                theme: 'weekly report',
               },
               report_ref: { report_id: 'week-42', source_status: 'in_progress' },
             },
@@ -173,8 +177,11 @@ describe('WeekPage', () => {
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя собирается');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-42');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Открыть полный отчёт');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Тема уточняется');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Локация уточняется');
+    expect(screen.getByTestId('week-hero-map')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
+    expect(screen.getByTestId('week-hero-map')).toHaveAttribute('data-primary-href', '/read/week-42');
+    expect(screen.getByTestId('week-hero-map')).toHaveAttribute('data-primary-label', 'Открыть полный отчёт');
     expect(screen.getByTestId('week-in-progress-state')).toHaveTextContent('Показываем только спокойный верхний слой');
     expect(screen.queryByTestId('week-domain-panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-day-strip')).not.toBeInTheDocument();
@@ -237,7 +244,7 @@ describe('WeekPage', () => {
     await waitFor(() => {
       expect(correlatedFetchMock).toHaveBeenNthCalledWith(2, '/api/reports/week-new', expect.any(Object));
     });
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-new');
+    expect(screen.getByTestId('week-hero-map')).toHaveAttribute('data-primary-href', '/read/week-new');
   });
 
   it('keeps canonical week rendering independent from legacy week_map and chunks', async () => {
@@ -291,7 +298,7 @@ describe('WeekPage', () => {
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 6 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПТ, 10 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ВС, 12 апр');
-    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('canonical:ПТ, 10 апр:Работать по главному приоритету');
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('Деталь дня:ПТ, 10 апр:Работать по главному приоритету');
     expect(screen.queryByTestId('week-day-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
     expect(screen.queryByTestId('week-secondary-reading')).not.toBeInTheDocument();
@@ -311,6 +318,23 @@ describe('WeekPage', () => {
         new Response(
           JSON.stringify({
             report: { id: 'week-legacy', report_type: 'week_forecast', status: 'completed' },
+            week_map: {
+              thesis: 'Legacy fallback headline',
+              theme: 'weekly report',
+              timezone: 'headline',
+              location: 'compatibility',
+              day_cards: [
+                {
+                  weekday: 'Понедельник',
+                  date: '2026-03-23',
+                  headline: 'Хороший день, чтобы собрать договорённости.',
+                  mode: 'GREEN',
+                  score: 0.2,
+                  best_for: ['Планирование'],
+                  avoid: ['Поспешные обещания'],
+                },
+              ],
+            },
             chunks: [{ id: 'legacy-1', section: 'week_strategy', title: 'Стратегия недели', content: 'Legacy narrative' }],
           }),
           { status: 200 },
@@ -320,11 +344,14 @@ describe('WeekPage', () => {
     render(<WeekPage />);
 
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
-    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('compatibility:ПН, 23 мар:Хороший день, чтобы собрать договорённости.');
+    expect(screen.getByTestId('week-day-drawer')).toHaveTextContent('Короткий обзор дня:ПН, 23 мар:Хороший день, чтобы собрать договорённости.');
     expect(screen.getByTestId('week-day-grid')).toBeInTheDocument();
     expect(screen.getByTestId('week-compatibility-section')).toBeInTheDocument();
     expect(screen.getByTestId('week-fallback-note')).toHaveTextContent('сокращённая версия недели');
-    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('/read/week-legacy');
+    expect(screen.getByTestId('week-map-surface')).not.toHaveTextContent(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Неделя в коротком обзоре');
+    expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Короткий ориентир');
+    expect(screen.getByTestId('week-hero-map')).toHaveAttribute('data-primary-href', '/read/week-legacy');
   });
 
   it('keeps mock runtime without explicit weekly payload on strict empty/create state', async () => {

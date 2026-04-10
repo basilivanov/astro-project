@@ -97,6 +97,8 @@ describe('FeedPage', () => {
     render(<FeedPage />);
 
     expect(await screen.findByTestId('today-degraded-state')).toBeInTheDocument();
+    expect(screen.getByTestId('consumer-hero')).toHaveTextContent('Сегодня: короткий обзор');
+    expect(screen.getByTestId('consumer-hero')).not.toHaveTextContent(/legacy|fallback|headline|compatibility|week_map|weekbrief|markdown|weekly report/i);
     expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'degraded');
     expect(screen.getByText('Сегодня доступен только короткий обзор')).toBeInTheDocument();
     expect(screen.getByTestId('today-degraded-note')).toHaveTextContent('Полная персональная карта дня появится');
