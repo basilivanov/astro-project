@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -52,6 +52,17 @@ class FactorRecord:
     explanation: str
     domain: str
     signal: float
+
+
+@dataclass
+class DomainTextLayerResult:
+    description_status: str
+    description: str | None
+    why_status: str
+    why_astro_text: str | None
+    evidence_refs: list[dict[str, Any]] = field(default_factory=list)
+    reason_codes: list[str] = field(default_factory=list)
+    composition_mode: str = "deterministic"
 
 
 def _clip_text(value: str, *, fallback: str, max_len: int) -> str:
@@ -195,6 +206,11 @@ def _human_house_label(value: int | None) -> str | None:
     return labels.get(value)
 
 
+DESCRIPTION_FORBIDDEN_RE = ("дом", "аспект", "квадрат", "секстиль", "трин", "оппози", "соедин", "марс", "венер", "меркур", "луна", "солнц", "мс", "mc", "твой", "твоя", "твоё")
+WHY_ANCHOR_RE = ("твой", "твоя", "твоё", "твоём", "луна", "марс", "венер", "меркур", "солнц", "мс", "mc", "дом")
+WHY_CAUSAL_RE = ("поэтому", "потому", "из-за", "задаёт", "акцент", "включ", "проходит", "цепляет", "считывается", "идёт")
+
+
 def _domain_description(key: str, semantic: dict[str, Any]) -> str | None:
     candidates = {
         "energy": [semantic.get("rest"), semantic.get("headline")],
@@ -204,9 +220,26 @@ def _domain_description(key: str, semantic: dict[str, Any]) -> str | None:
     }.get(key, [])
     text = _dedupe_sentences(*[str(item or "") for item in candidates])
     text = _clip_text(text, fallback="", max_len=300)
-    if "недел" in text.lower() or "weekly" in text.lower():
-        return None
     return text or None
+
+
+def _domain_text_forbidden_description_reason(text: str | None) -> str | None:
+    lowered = str(text or "").lower()
+    if not lowered.strip():
+        return "description_missing"
+    if "недел" in lowered or "weekly" in lowered:
+        return "description_weekly_leak"
+    if any(token in lowered for token in DESCRIPTION_FORBIDDEN_RE):
+        return "description_too_technical"
+    return None
+
+
+def _text_similarity(left: str | None, right: str | None) -> float:
+    left_words = {word for word in str(left or "").lower().split() if len(word) > 3}
+    right_words = {word for word in str(right or "").lower().split() if len(word) > 3}
+    if not left_words or not right_words:
+        return 0.0
+    return len(left_words & right_words) / max(1, min(len(left_words), len(right_words)))
 
 
 def _factor_personal_clause(record: dict[str, Any]) -> str | None:
@@ -226,23 +259,47 @@ def _factor_personal_clause(record: dict[str, Any]) -> str | None:
         return f"Сейчас заметно включается твоё Солнце: {label}."
     if "mc" in lowered or "мс" in lowered:
         return f"Это отражается на твоём МС и теме решений: {label}."
-    return f"Один из ключевых астрологических акцентов дня — {label}."
+    return None
 
 
-def _domain_why_text(key: str, semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> str | None:
+def _collect_domain_text_inputs(key: str, semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
     domain_refs = [
         item for item in factor_refs
         if str(item.get("domain") or "").strip().lower() in DOMAIN_ALIASES.get(key, {key})
     ]
+    personal_refs = [item for item in domain_refs if _factor_personal_clause(item)]
+    if personal_refs:
+        domain_refs = personal_refs + [item for item in domain_refs if item not in personal_refs]
+    return {
+        "key": key,
+        "semantic": semantic,
+        "domain_refs": domain_refs,
+        "facts": facts,
+        "profection_house": ((facts.get("year_data") or {}).get("profection") or {}).get("house"),
+        "moon_phase": str(facts.get("moon_phase") or "").strip(),
+        "moon_sign": str(facts.get("moon_sign") or "").strip(),
+    }
+
+
+def _compose_domain_description(inputs: dict[str, Any]) -> tuple[str | None, list[str]]:
+    description = _domain_description(str(inputs["key"]), inputs["semantic"])
+    reason = _domain_text_forbidden_description_reason(description)
+    return (None if reason else description), ([reason] if reason else [])
+
+
+def _compose_domain_why_text(inputs: dict[str, Any]) -> tuple[str | None, list[str]]:
+    key = str(inputs["key"])
+    semantic = inputs["semantic"]
+    domain_refs = inputs["domain_refs"]
     first_factor = domain_refs[0] if domain_refs else None
-    phase = str(facts.get("moon_phase") or "").strip()
-    moon_sign = str(facts.get("moon_sign") or "").strip()
+    phase = str(inputs.get("moon_phase") or "").strip()
+    moon_sign = str(inputs.get("moon_sign") or "").strip()
     lunar_clause = None
     if phase or moon_sign:
         lunar_bits = [bit for bit in [f"Луна в {moon_sign}" if moon_sign else "", phase] if bit]
         if lunar_bits:
             lunar_clause = f"Фон дня задают {' '.join(lunar_bits)}, поэтому сфера реагирует заметнее обычного."
-    profection_house = ((facts.get("year_data") or {}).get("profection") or {}).get("house")
+    profection_house = inputs.get("profection_house")
     house_clause = None
     if isinstance(profection_house, int):
         human_house = _human_house_label(profection_house)
@@ -258,25 +315,51 @@ def _domain_why_text(key: str, semantic: dict[str, Any], factor_refs: list[dict[
     sanitized_semantic_clause = semantic_clause if "недел" not in semantic_clause.lower() and "weekly" not in semantic_clause.lower() else ""
     text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", sanitized_semantic_clause)
     text = _clip_text(text, fallback="", max_len=400)
-    return text or None
+    reasons: list[str] = []
+    lowered = text.lower()
+    if not text:
+        reasons.append("why_missing")
+    if domain_refs and not any(_factor_personal_clause(item) for item in domain_refs) and not house_clause and not lunar_clause:
+        reasons.append("why_not_personalized")
+    if text and not any(token in lowered for token in WHY_CAUSAL_RE):
+        reasons.append("why_missing_causal_link")
+    return (None if reasons else text), reasons
 
+
+def _build_domain_text_layers(key: str, semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> DomainTextLayerResult:
+    inputs = _collect_domain_text_inputs(key, semantic, factor_refs, facts)
+    description, description_reasons = _compose_domain_description(inputs)
+    why_astro_text, why_reasons = _compose_domain_why_text(inputs)
+    reason_codes = [*description_reasons, *why_reasons]
+    if description and why_astro_text and _text_similarity(description, why_astro_text) >= 0.82:
+        why_astro_text = None
+        reason_codes.append("why_duplicates_description")
+    return DomainTextLayerResult(
+        description_status="complete" if description else "failed" if description_reasons else "missing",
+        description=description,
+        why_status="complete" if why_astro_text else "failed" if why_reasons or "why_duplicates_description" in reason_codes else "missing",
+        why_astro_text=why_astro_text,
+        evidence_refs=inputs["domain_refs"][:4],
+        reason_codes=reason_codes,
+        composition_mode="deterministic",
+    )
 
 def _build_day_domain(key: str, scores: dict[str, int], semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
-    description = _domain_description(key, semantic)
-    why_astro_text = _domain_why_text(key, semantic, factor_refs, facts)
+    text_layers = _build_domain_text_layers(key, semantic, factor_refs, facts)
     score = scores.get(key)
-    domain_refs = [item for item in factor_refs if str(item.get("domain") or "").strip().lower() in DOMAIN_ALIASES.get(key, {key})]
     return {
         "key": key,
         "title": SCORE_TITLES[key],
         "score_status": "complete" if isinstance(score, int) else "missing",
         "score": score if isinstance(score, int) else None,
         "status": _score_status(score) if isinstance(score, int) else None,
-        "description_status": "complete" if description else "missing",
-        "description": description,
-        "why_status": "complete" if why_astro_text else "missing",
-        "why_astro_text": why_astro_text,
-        "evidence_refs": domain_refs[:4],
+        "description_status": text_layers.description_status,
+        "description": text_layers.description,
+        "why_status": text_layers.why_status,
+        "why_astro_text": text_layers.why_astro_text,
+        "evidence_refs": text_layers.evidence_refs,
+        "text_reason_codes": text_layers.reason_codes,
+        "text_composition_mode": text_layers.composition_mode,
     }
 
 
@@ -426,6 +509,16 @@ def _log_day_brief_event(
         birth_time_used=telemetry["birth_time_used"],
         confidence_bucket=telemetry["confidence_bucket"],
         factor_count=telemetry["factor_count"],
+        text_layer_status={
+            key: {"description": domain.description_status, "why": domain.why_status}
+            for key, domain in model.domains.items()
+        },
+        text_layer_reason_codes={
+            key: getattr(domain, "text_reason_codes", [])
+            for key, domain in model.domains.items()
+            if getattr(domain, "text_reason_codes", [])
+        },
+        text_composition_mode="deterministic",
         personalization_level=model.personalization_level,
         reason=reason,
         error=error,

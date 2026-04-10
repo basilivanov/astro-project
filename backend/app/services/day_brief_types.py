@@ -96,6 +96,8 @@ class DayDomain(StrictModel):
     why_status: DayFieldStatus
     why_astro_text: str | None = Field(default=None, max_length=420)
     evidence_refs: list[dict[str, Any]] = Field(default_factory=list)
+    text_reason_codes: list[str] = Field(default_factory=list)
+    text_composition_mode: str | None = Field(default=None, max_length=32)
 
 
 class PremiumState(StrictModel):

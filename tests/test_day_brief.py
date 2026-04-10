@@ -63,7 +63,7 @@ if "backend.app.services.week_brief_service" not in sys.modules:
 
 from fastapi import HTTPException
 
-from backend.app.services.day_brief import build_day_brief_payload, build_day_brief_telemetry
+from backend.app.services.day_brief import build_day_brief_payload, build_day_brief_telemetry, _build_domain_text_layers
 from backend.app.services.day_brief_validators import validate_day_brief_payload
 
 
@@ -138,6 +138,35 @@ def test_build_day_brief_payload_populates_domain_texts() -> None:
     assert money["why_astro_text"]
     assert isinstance(money["evidence_refs"], list)
 
+
+
+def test_day_text_layers_keep_description_human_and_why_personalized() -> None:
+    payload = build_day_brief_payload(_sample_facts(), user=None, generation_mode="deterministic")
+    money = payload["domains"]["money"]
+
+    assert money["description_status"] == "complete"
+    assert money["why_status"] == "complete"
+    assert money["description"] != money["why_astro_text"]
+    assert not any(token in money["description"].lower() for token in ["марс", "венер", "дом", "мс", "твой", "твоя"])
+    assert any(token in money["why_astro_text"].lower() for token in ["твой", "твоя", "мс", "дом", "марс", "венер", "луна"])
+    assert money["text_composition_mode"] == "deterministic"
+
+
+def test_day_text_layer_policy_fails_technical_description_and_duplicate_why() -> None:
+    result = _build_domain_text_layers(
+        "money",
+        {
+            "money_admin_focus": "Твой Марс в 10-й дом квадрат Солнце задаёт рабочую тему.",
+            "practical_move": "Твой Марс в 10-й дом квадрат Солнце задаёт рабочую тему.",
+        },
+        [{"id": "f1", "label": "рабочий сигнал", "domain": "money", "explanation": "", "signal": 1}],
+        {"year_data": {}, "moon_phase": "", "moon_sign": ""},
+    )
+
+    assert result.description_status == "failed"
+    assert "description_too_technical" in result.reason_codes
+    assert result.why_status == "failed"
+    assert "why_not_personalized" in result.reason_codes
 
 def test_build_day_brief_payload_uses_explicit_domain_statuses_without_fallback_copy() -> None:
     payload = build_day_brief_payload(
