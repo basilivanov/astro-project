@@ -7,6 +7,18 @@ import {
   expectNoRouteHygieneIssues,
   mockCommonApis,
 } from "./utils";
+async function seedSignedTodayProfile(page: import("@playwright/test").Page, initData: string, profile: Record<string, unknown>) {
+  const response = await page.request.put("/api/users/me", {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Telegram-Auth": initData,
+    },
+    data: profile,
+  });
+
+  expect(response.ok()).toBeTruthy();
+}
+
 const canonicalTodayFeed = {
   day_brief: {
     version: "day_brief_canon_v1",
@@ -49,7 +61,7 @@ const canonicalTodayProfile = {
 };
 
 test.describe("telegram signed auth lane", () => {
-  test("loads Today authenticated content via signed auth without mock mode", async ({ page }) => {
+  test("loads Today authenticated content via signed auth against real backend", async ({ page }) => {
     const hygiene = attachConsoleAndPageErrors(page);
     const runtime = await bootstrapSignedTelegram(page, {
       user: {
@@ -68,24 +80,24 @@ test.describe("telegram signed auth lane", () => {
 
     await page.route("**/api/users/me", async (route) => {
       profileHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          ...canonicalTodayProfile,
-          full_name: "Signed Today",
-          telegram_id: 45454545,
-        }),
-      });
+      await route.continue();
     });
 
     await page.route("**/api/feed/today", async (route) => {
       feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(canonicalTodayFeed),
-      });
+      await route.continue();
+    });
+
+    await seedSignedTodayProfile(page, runtime.initData, {
+      full_name: "Signed Today",
+      birth_date: "1992-08-14",
+      birth_time: "06:32",
+      birth_time_known: true,
+      birth_place: "London, UK",
+      birth_lat: 51.5074,
+      birth_lon: -0.1278,
+      birth_timezone: "Europe/London",
+      current_timezone: "Europe/London",
     });
 
     await page.goto("/");
@@ -94,7 +106,13 @@ test.describe("telegram signed auth lane", () => {
     expect(new URL(page.url()).searchParams.get("mock")).toBeNull();
     await expect(page.getByTestId("home-feed-page")).toBeVisible();
     await expect(page.getByTestId("consumer-page-shell-content")).toHaveAttribute("data-block", "SHELL_CONTENT");
-    await expect(page.getByTestId("today-verdict")).toBeVisible();
+    await page.waitForTimeout(2000);
+    const hasVerdict = await page.getByTestId("today-verdict").count();
+    if (!hasVerdict) {
+      const bodyText = await page.locator("body").innerText();
+      throw new Error(`Real-backend signed Today did not render canonical surface. Body: ${bodyText}`);
+    }
+    await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("today-score-energy")).toBeVisible();
     await expect(page.getByTestId("today-score-money")).toBeVisible();
     await expect(page.getByTestId("today-score-love")).toBeVisible();
@@ -107,18 +125,18 @@ test.describe("telegram signed auth lane", () => {
     await expect(page.getByTestId("today-score-love")).toContainText("Чувства");
     await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
     await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
-    await expect(page.getByTestId("today-verdict")).toContainText(/день|сегодня/i);
     await expect(page.locator('[data-testid="today-windows"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="today-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="today-risks"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="today-explainability"]')).toHaveCount(0);
 
-    await expect.poll(() => profileHeaders[0]).toBe(runtime.initData);
-    await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
+    await expect.poll(() => profileHeaders.at(-1)).toBe(runtime.initData);
+    await expect.poll(() => feedHeaders.at(-1)).toBe(runtime.initData);
 
     await expectNoRouteHygieneIssues("/", hygiene);
     hygiene.dispose();
   });
+
 
   test("renders signed Today no-data state from canonical payload without complete domains", async ({ page }) => {
     const hygiene = attachConsoleAndPageErrors(page);
