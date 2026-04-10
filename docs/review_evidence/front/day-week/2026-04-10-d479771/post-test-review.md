@@ -5,8 +5,8 @@
 - logs_reviewed: `/opt/astro-project/logs/feed.jsonl`, `/opt/astro-project/logs/report.jsonl`
 
 ## FLOW-TODAY-WEEK-TODAY — unexpected-degradation
-- records_checked: 69
-- last_timestamp: `2026-04-10T20:54:37.528256+00:00`
+- records_checked: 86
+- last_timestamp: `2026-04-10T21:08:54.747527+00:00`
 - fallback_count: 0
 - sample_trace_id: `f7dc5ec4-3b68-4c0a-9b81-b985d6ecea09`
 - sample_correlation_id: `4a44d3e1-b2aa-4425-99a7-068477a93e00`
@@ -65,10 +65,10 @@
   "auth": "telegram",
   "personalization_level": "personalized_v2",
   "prompt_path": "personalized_daily_v2",
-  "fallback": true,
+  "fallback": false,
   "fallback_reason": null,
   "cache_hit": false,
-  "cache_scope": "a340c9c14945c8bb",
+  "cache_scope": "55bfb2b709c4bfe0",
   "location": "London, UK",
   "timezone": "Europe/London"
 }

@@ -56,4 +56,5 @@
   - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.
 - Observability note:
   - branch-visible closeout now uses strict clean semantics for Today: if the analyzed window still contains auth-fallback, fallback, or validator-fallback signals, the Today block is published as non-clean rather than clean-with-alerts.
-  - current published state is intentionally non-clean because the same 30m window still contains fallback-contaminated canonical evidence for Today and no canonical Week evidence.
+  - current published state is intentionally non-clean because the signed Day observability run still resolves to backend `profile_light` fallback semantics for this user, so the closeout window contains real Day fallback contamination rather than only mixed-window noise.
+  - RCA for `DAY-OBS-RCA-01`: the blocker source is real canonical-path contamination in feed evidence classification, not UI behavior and not mock visual harness leakage.

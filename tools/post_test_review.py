@@ -58,6 +58,8 @@ EXPECTED_REASON_CODES = {
     "test_expected_fallback",
 }
 
+CANONICAL_TODAY_PERSONALIZATION_LEVELS = {"personalized_v2"}
+
 
 @dataclass
 class FlowDigest:
@@ -174,6 +176,50 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
     for path in _canonical_log_paths(feed_log, "feed.jsonl"):
         records.extend(_recent_records(path, allowed_events=TODAY_EVENTS, limit=limit, since_delta=since_delta))
     records = sorted(records, key=lambda record: extract_timestamp(record) or datetime.min.replace(tzinfo=timezone.utc))[-limit:]
+
+    canonical_success_records = [
+        record
+        for record in records
+        if record.get("event") == "day_brief.response_returned"
+        and record.get("fallback_mode") is False
+        and record.get("personalization_level") in CANONICAL_TODAY_PERSONALIZATION_LEVELS
+        and str(record.get("path") or "") == "/api/feed/today"
+    ]
+    active_trace_ids = {
+        str(record.get("trace_id"))
+        for record in canonical_success_records
+        if isinstance(record.get("trace_id"), str) and record.get("trace_id")
+    }
+    active_request_ids = {
+        str(record.get("request_id"))
+        for record in canonical_success_records
+        if isinstance(record.get("request_id"), str) and record.get("request_id")
+    }
+    active_correlation_ids = {
+        str(record.get("correlation_id"))
+        for record in canonical_success_records
+        if isinstance(record.get("correlation_id"), str) and record.get("correlation_id")
+    }
+
+    if active_trace_ids or active_request_ids or active_correlation_ids:
+        scoped_records: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("event") == "feed.debug" and record.get("stage") == "auth_fallback":
+                record_trace = str(record.get("trace_id") or "")
+                record_request = str(record.get("request_id") or "")
+                record_corr = str(record.get("correlation_id") or "")
+                if record_trace in active_trace_ids or record_request in active_request_ids or record_corr in active_correlation_ids:
+                    scoped_records.append(record)
+                continue
+
+            record_trace = str(record.get("trace_id") or "")
+            record_request = str(record.get("request_id") or "")
+            record_corr = str(record.get("correlation_id") or "")
+            if record_trace in active_trace_ids or record_request in active_request_ids or record_corr in active_correlation_ids:
+                scoped_records.append(record)
+        if scoped_records:
+            records = scoped_records
+
     counters = Counter()
     reason_codes: Counter[str] = Counter()
     alerts: list[str] = []
