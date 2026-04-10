@@ -1,6 +1,10 @@
 # Day/Week review evidence
-- commit: `5d14cbf`
-- observability_closeout: `PASS_CLEAN`
+- commit: `baeda0f`
+- published_from_commit: `baeda0f`
+- evidence_generated_at: `2026-04-10T21:53:31Z`
+- proof_lane: `signed_telegram_today + canonical_log_window`
+- closeout_source: `tools/post_test_review.py --profile today-week --since 30m --report-format md`
+- observability_closeout: `FAIL_NO_EVIDENCE`
 
 - Date: 2026-04-10
 - Commit baseline: d479771
@@ -11,8 +15,8 @@
 - Primary capture lane: mock-helper for deterministic visual review
 - Signed canonical runtime is verified separately by `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts`
 - Signed Day proof lane is the primary product proof path; `frontend/e2e/day-canon-visual-evidence.spec.ts` remains mock-helper visual harness only.
-- Current signed Day closeout status in this branch snapshot: `PASS_CLEAN` after signed Telegram lane verification and branch-visible closeout refresh.
-- Observability closeout status: `PASS_CLEAN` in the currently published branch-visible `post-test-review.md`.
+- Current signed Day closeout status in this branch snapshot: `FAIL_SIGNED_PROOF_GAP` because the published closeout window still lacks signed markers in canonical Today logs.
+- Observability closeout status: `FAIL_NO_EVIDENCE` in the currently published branch-visible `post-test-review.md`; signed Today UI proof passed, but the canonical Today log window still lacks signed markers for a final clean claim.
 - If a device screenshot shows `объяснение недоступно` on canonical Today while these captures do not, treat it as deploy/cache/bundle parity drift first.
 
 ## Files
@@ -58,9 +62,10 @@
   - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.
 - Observability note:
   - branch-visible closeout now uses strict clean semantics for Today: if the analyzed window still contains auth-fallback, fallback, or validator-fallback signals, the Today block is published as non-clean rather than clean-with-alerts.
-  - current published state is clean: signed Day and Week evidence are both uncontaminated inside the published `30m` window.
-  - `DAY-OBS-RCA-01` is currently closed in the published branch snapshot; no fallback contamination is present in the sampled window.
+  - current published state is not final-clean for Day: signed Telegram UI proof passed, but the published Today log window still has `sample_trace_id=None`, `sample_request_id=None`, `auth=null`, and `prompt_path=null`, so the closeout remains a signed-proof gap rather than a clean signed claim.
+  - `DAY-OBS-RCA-01` remains open as a proof-layer issue: canonical Day builder logs are present, but signed-lane markers are not yet attributable in the published Today window.
 
 ## Lane split
-- Signed Day proof lane: `frontend/e2e/telegram-signed-auth.spec.ts`
+- Signed Telegram proof lane: `frontend/e2e/telegram-signed-auth.spec.ts`
+- Canonical builder/log proof lane: `tools/post_test_review.py --profile today-week --since 30m --report-format md`
 - Mock visual lane: `frontend/e2e/day-canon-visual-evidence.spec.ts`

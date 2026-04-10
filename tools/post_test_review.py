@@ -69,6 +69,7 @@ class FlowDigest:
     last_timestamp: str | None
     sample_trace_id: str | None
     sample_correlation_id: str | None
+    sample_request_id: str | None
     sample_report_id: str | None
     fallback_count: int
     reason_codes: list[str]
@@ -288,9 +289,27 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         alerts.append("today evidence missing concrete trace_id/request_id")
         status = "no-evidence-blocker"
 
-    # Strict clean semantics: if the same analyzed window still contains
-    # auth-fallback / fallback / validator-fallback signals, Today must not
-    # be labeled clean without an explicit explanatory model.
+    replay = summarize_feed_flow(records[-20:])
+    replay_auth = str(replay.get("auth") or "").strip().lower()
+    replay_prompt_path = replay.get("prompt_path")
+    replay_fallback = replay.get("fallback") is True
+    replay_personalization = str(replay.get("personalization_level") or "").strip().lower()
+    signed_today_clean = (
+        bool(saw_today_success)
+        and bool(sample_trace_id or sample_request_id)
+        and replay_auth == "telegram"
+        and not replay_fallback
+        and replay_personalization != "profile_light"
+        and replay_prompt_path not in (None, "")
+        and not auth_fallback_detected
+        and not fallback_record_detected
+        and not validator_fallback_detected
+    )
+
+    if status == "clean" and not signed_today_clean:
+        alerts.append("today signed proof gap")
+        status = "no-evidence-blocker"
+
     if status == "clean" and (auth_fallback_detected or fallback_record_detected or validator_fallback_detected):
         status = "unexpected-degradation"
 
@@ -301,6 +320,7 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         last_timestamp=last_timestamp,
         sample_trace_id=sample_trace_id,
         sample_correlation_id=sample_correlation_id,
+        sample_request_id=sample_request_id,
         sample_report_id=sample_report_id,
         fallback_count=effective_fallback_count,
         reason_codes=[name for name, _ in reason_codes.most_common(3)],
@@ -373,6 +393,7 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
         last_timestamp=last_timestamp,
         sample_trace_id=sample_trace_id,
         sample_correlation_id=sample_correlation_id,
+        sample_request_id=sample_request_id,
         sample_report_id=sample_report_id,
         fallback_count=fallback_count,
         reason_codes=[name for name, _ in reason_codes.most_common(3)],
@@ -516,6 +537,7 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
             "fallback_count": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
             "sample_trace_id": None,
             "sample_correlation_id": None,
+            "sample_request_id": None,
             "sample_report_id": None,
             "reason_codes": sorted(set(str((item.get("details") or {}).get("fallbackReason")) for item in read_rendered if (item.get("details") or {}).get("fallbackReason"))),
             "alerts": [] if read_presence.get("summary_count", 0) else ["no rendered read evidence materialized"],
@@ -582,6 +604,7 @@ def print_md(payload: dict[str, Any]) -> None:
         print(f"- fallback_count: {flow['fallback_count']}")
         print(f"- sample_trace_id: `{flow['sample_trace_id']}`")
         print(f"- sample_correlation_id: `{flow['sample_correlation_id']}`")
+        print(f"- sample_request_id: `{flow['sample_request_id']}`")
         print(f"- sample_report_id: `{flow['sample_report_id']}`")
         print(f"- reason_codes: {', '.join(flow['reason_codes']) if flow['reason_codes'] else '-'}")
         print(f"- alerts: {', '.join(flow['alerts']) if flow['alerts'] else '-'}")
@@ -617,6 +640,7 @@ def print_md(payload: dict[str, Any]) -> None:
                     f"{evidence.get('event')} @ {evidence.get('timestamp')} "
                     f"trace={evidence.get('trace_id') or '-'} "
                     f"corr={evidence.get('correlation_id') or '-'} "
+                    f"req={evidence.get('request_id') or '-'} "
                     f"report={evidence.get('report_id') or '-'} "
                     f"reason={evidence.get('reason') or '-'}"
                 )

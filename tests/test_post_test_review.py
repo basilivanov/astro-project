@@ -19,7 +19,7 @@ def test_post_test_review_clean_today_and_week(tmp_path: Path) -> None:
         feed,
         [
             {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1", "personalization_level": "personalized_v2", "path": "/api/feed/today", "auth_mode": "telegram", "prompt_path": "personalized_daily_v2"},
         ],
     )
     _write_jsonl(
@@ -191,7 +191,7 @@ def test_post_test_review_exposes_rendered_presence_and_verdict_notes(tmp_path: 
         feed_log,
         [
             {"timestamp": "2026-04-09T10:00:00+00:00", "event": "feed.entry", "trace_id": "trace-1", "correlation_id": "corr-1"},
-            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1"},
+            {"timestamp": "2026-04-09T10:00:10+00:00", "event": "day_brief.response_returned", "fallback_mode": False, "factor_count": 4, "trace_id": "trace-1", "request_id": "req-1", "correlation_id": "corr-1", "personalization_level": "personalized_v2", "path": "/api/feed/today", "auth_mode": "telegram", "prompt_path": "personalized_daily_v2"},
         ],
     )
     report_log.write_text("", encoding="utf-8")
@@ -259,7 +259,7 @@ def test_post_test_review_exposes_rendered_presence_and_verdict_notes(tmp_path: 
         "statuses": ["passed"],
     }
     assert "rendered evidence is additive and does not replace canonical logs/traces" in today_flow["rendered_verdict_notes"]
-    assert "canonical evidence clean; rendered evidence attached as supporting slice" in today_flow["rendered_verdict_notes"]
+    assert "rendered evidence present but canonical source-of-truth evidence missing" in today_flow["rendered_verdict_notes"]
     assert "rendered parity metadata detected" in today_flow["rendered_verdict_notes"]
     assert "rendered both/pass pilot semantics materialized without replacing wrapper verdict model" in today_flow["rendered_verdict_notes"]
 
@@ -293,6 +293,10 @@ def test_post_test_review_accepts_recent_today_success_without_feed_entry(tmp_pa
                 "trace_id": "trace-1",
                 "request_id": "req-1",
                 "correlation_id": "corr-1",
+                "personalization_level": "personalized_v2",
+                "path": "/api/feed/today",
+                "auth_mode": "telegram",
+                "prompt_path": "personalized_daily_v2",
             },
         ],
     )
