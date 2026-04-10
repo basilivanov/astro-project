@@ -1,5 +1,21 @@
 # Post-test observability gate — PASS_CLEAN
 
+## Publication Metadata
+- published_from_commit: `936d0a4`
+- branch_head: `ab0929998c601247dc3b9d9f79745ffee2cb57a9`
+- evidence_generated_at: `2026-04-10T22:12:41Z`
+- proof_lane: `signed_telegram_today_real_backend + canonical_log_window`
+- closeout_source: `tools/post_test_review.py --profile today-week --since 30m --report-format md`
+- observability_closeout: `PASS_CLEAN`
+
+## Public Ref Parity
+- public_ref_verified_at: `2026-04-10T22:33:23Z`
+- public_ref_verdict: `PUBLICLY_VERIFIED_CLEAN`
+- verification_tool: `tools/publication/verify_day_public_ref.py`
+- verification_scope: `exact commit + branch head + branch history + branch raw/blob evidence + signed proof spec`
+- fail_closed_verdict: `FAIL_NO_PUBLIC_REF_PARITY`
+
+
 - profile: `today-week`
 - analysis_window: `30m`
 - logs_reviewed: `/opt/astro-project/logs/feed.jsonl`, `/opt/astro-project/logs/report.jsonl`
@@ -76,17 +92,3 @@
   "location": "London, UK",
   "timezone": "Europe/London"
 }
-
-## Public Ref Parity — PASS
-- public_ref_verified_at: `2026-04-10T22:20:35Z`
-- public_ref_verdict: `pass`
-- branch: `prod-release-20260327`
-- branch_head: `8e63ec5ababefab53eccdc54e211fac411f3384c`
-- published_from_commit: `936d0a4`
-- dimensions:
-  - commit_history: `branch_head_after_published_commit`
-  - raw_readme_closeout: `pass`
-  - blob_raw_closeout: `pass`
-  - proof_lane: `pass`
-  - raw_spec: `pass`
-  - blob_spec: `pass`
