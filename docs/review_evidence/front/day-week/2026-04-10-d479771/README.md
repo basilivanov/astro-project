@@ -2,12 +2,13 @@
 
 - Date: 2026-04-10
 - Commit baseline: d479771
-- Current committed base: b3399c2
+- Current committed base: 70cf145
 - Day canon packet: PKT-DAY-CANON-NO-FALLBACK-2026-04-10
 - App build: local dev bundle from current worktree for `DAY-PUBLICATION-PARITY-01`
 - Viewport: 390x844 (Telegram WebApp representative mobile viewport)
 - Primary capture lane: mock-helper for deterministic visual review
 - Signed canonical runtime is verified separately by `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts`
+- Observability closeout status: `FAIL_NO_EVIDENCE` in the currently published branch-visible `post-test-review.md`; rendered parity evidence is present, but canonical log/trace closeout is still pending and is not claimed as clean.
 - If a device screenshot shows `объяснение недоступно` on canonical Today while these captures do not, treat it as deploy/cache/bundle parity drift first.
 
 ## Files
@@ -51,3 +52,5 @@
 - Forbidden-token and fallback-copy pass completed for visible Day surfaces:
   - checked canonical, no-data, and domain-failed captures for internal/fallback leakage;
   - checked that Day UI no longer renders windows, best-use, risks, factor cards, or signal badges.
+- Observability note:
+  - branch-visible closeout is intentionally published as non-clean until `python3 tools/post_test_review.py --profile today-week --since 30m --report-format md` produces canonical evidence records instead of `records_checked: 0`.
