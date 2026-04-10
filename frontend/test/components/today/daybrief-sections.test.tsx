@@ -113,6 +113,8 @@ describe('daybrief sections', () => {
     expect(energyWhy).toHaveTextContent('Что повлияло');
     expect(energyWhy).toHaveTextContent('Твой Марс сегодня включён мягче обычного');
     expect(energyWhy.querySelectorAll('li')).toHaveLength(0);
+    expect(screen.getByTestId('today-score-money')).toHaveTextContent('Что повлияло');
+    expect(screen.getByTestId('today-score-money')).not.toHaveTextContent(/недел|weekly/i);
   });
 
   it('renders honest no-data and error states inside domain cards', () => {

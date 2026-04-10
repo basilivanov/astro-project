@@ -169,4 +169,39 @@ describe('FeedPage', () => {
     expect(await screen.findByTestId('today-no-data-state')).toBeInTheDocument();
     expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'no_data');
   });
+
+  it('keeps partial-ready canonical state when at least one domain is complete and another failed', async () => {
+    homeFetchMock.mockImplementation(async (url: string) => {
+      if (url === '/api/users/me') {
+        return new Response(JSON.stringify({ full_name: 'Partial User', subscription_active_until: null }), { status: 200 });
+      }
+
+      if (url === '/api/feed/today') {
+        return new Response(JSON.stringify({
+          day_brief: {
+            version: 'day_brief_canon_v1',
+            status: 'partial',
+            date: '2026-04-10',
+            personalization_level: 'personalized_v2',
+            hero: { title: 'Частичный день', subtitle: 'Одна сфера собрана честно.', day_type: 'balance' },
+            domains: {
+              energy: { key: 'energy', title: 'Тонус', score_status: 'complete', score: 80, status: 'green', description_status: 'complete', description: 'Есть ресурс.', why_status: 'complete', why_astro_text: 'Твой Марс собран и держит темп.', evidence_refs: [] },
+              money: { key: 'money', title: 'Работа и деньги', score_status: 'failed', score: null, status: null, description_status: 'failed', description: null, why_status: 'failed', why_astro_text: null, evidence_refs: [] },
+              love: { key: 'love', title: 'Чувства', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+              focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+            },
+          },
+        }), { status: 200 });
+      }
+
+      throw new Error(`Unexpected url ${url}`);
+    });
+
+    render(<FeedPage />);
+
+    expect(await screen.findByTestId('today-verdict')).toBeInTheDocument();
+    expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'canonical');
+    expect(screen.getByTestId('today-scores')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-no-data-state')).not.toBeInTheDocument();
+  });
 });

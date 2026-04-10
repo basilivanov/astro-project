@@ -8,6 +8,8 @@
 - Viewport: 390x844 (Telegram WebApp representative mobile viewport)
 - Primary capture lane: mock-helper for deterministic visual review
 - Signed canonical runtime is verified separately by `./scripts/run_e2e.sh e2e/telegram-signed-auth.spec.ts`
+- Signed Day proof lane is the primary product proof path; `frontend/e2e/day-canon-visual-evidence.spec.ts` remains mock-helper visual harness only.
+- Current signed Day closeout status in this branch snapshot: `blocked in this shell unless TELEGRAM_BOT_TOKEN is provided`; fail-fast behavior is intentional and is part of the primary proof contract.
 - Observability closeout status: `FAIL_NO_EVIDENCE` in the currently published branch-visible `post-test-review.md`; rendered parity evidence is present, but canonical log/trace closeout is still pending and is not claimed as clean.
 - If a device screenshot shows `объяснение недоступно` on canonical Today while these captures do not, treat it as deploy/cache/bundle parity drift first.
 

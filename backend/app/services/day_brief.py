@@ -204,6 +204,8 @@ def _domain_description(key: str, semantic: dict[str, Any]) -> str | None:
     }.get(key, [])
     text = _dedupe_sentences(*[str(item or "") for item in candidates])
     text = _clip_text(text, fallback="", max_len=300)
+    if "недел" in text.lower() or "weekly" in text.lower():
+        return None
     return text or None
 
 
@@ -253,7 +255,8 @@ def _domain_why_text(key: str, semantic: dict[str, Any], factor_refs: list[dict[
         "love": str(semantic.get("relationship_softness") or ""),
         "focus": str(semantic.get("pacing") or semantic.get("practical_move") or ""),
     }.get(key, "")
-    text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", semantic_clause)
+    sanitized_semantic_clause = semantic_clause if "недел" not in semantic_clause.lower() and "weekly" not in semantic_clause.lower() else ""
+    text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", sanitized_semantic_clause)
     text = _clip_text(text, fallback="", max_len=400)
     return text or None
 

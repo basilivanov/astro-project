@@ -7,9 +7,46 @@ import {
   expectNoRouteHygieneIssues,
   mockCommonApis,
 } from "./utils";
-import { buildCanonicalTodayPersonaPack } from "./fixtures/canonical-personas";
+const canonicalTodayFeed = {
+  day_brief: {
+    version: "day_brief_canon_v1",
+    status: "complete",
+    date: "2026-04-10",
+    personalization_level: "personalized_v2",
+    hero: {
+      title: "День лучше держать собранным и точным.",
+      subtitle: "Главный результат приходит через один приоритет и спокойный темп.",
+      day_type: "deep_focus",
+      tone: "active_structured",
+    },
+    domains: {
+      energy: { key: "energy", title: "Тонус", score_status: "complete", score: 72, status: "green", description_status: "complete", description: "Ресурс лучше раскрывается в ровном ритме без лишних рывков.", why_status: "complete", why_astro_text: "Твой Марс сегодня собирает энергию в последовательное действие, а лунный фон поддерживает телесный ритм.", evidence_refs: [] },
+      money: { key: "money", title: "Работа и деньги", score_status: "complete", score: 62, status: "yellow", description_status: "complete", description: "Рабочие и денежные вопросы лучше вести через один главный приоритет и проверку цифр.", why_status: "complete", why_astro_text: "Твой 2-й дом денег и личной цены вопроса сейчас требует точных формулировок и внимательности к условиям.", evidence_refs: [] },
+      love: { key: "love", title: "Чувства", score_status: "complete", score: 58, status: "yellow", description_status: "complete", description: "Контакт сегодня держится лучше на мягком тоне и паузе перед ответом.", why_status: "complete", why_astro_text: "Твоя Венера звучит мягче обычного, поэтому бережная подача и короткая честная реплика работают лучше давления.", evidence_refs: [] },
+      focus: { key: "focus", title: "Фокус", score_status: "complete", score: 81, status: "green", description_status: "complete", description: "Один глубокий блок даст больше результата, чем распыление на мелочи.", why_status: "complete", why_astro_text: "Твой Меркурий сегодня лучше работает в одной линии, а фон дня усиливает концентрацию на главной задаче.", evidence_refs: [] },
+    },
+    premium: {
+      subscription_active: true,
+      subscription_active_until: "2026-05-01",
+      days_left: 21,
+      show_upgrade_cta: false,
+      show_resume_banner: false,
+    },
+    cta: {
+      primary: { type: "open_week", label: "Смотреть неделю", href: "/week" },
+      secondary: { type: "ask_question", label: "Задать вопрос", href: "/question" },
+    },
+  },
+};
 
-const canonicalTodayPersona = buildCanonicalTodayPersonaPack("CF-BE-001-baseline-exact-time");
+const canonicalTodayProfile = {
+  full_name: "Signed Today",
+  birth_date: "1992-08-14",
+  birth_time: "06:32",
+  birth_place: "London, UK",
+  timezone: "Europe/London",
+  subscription_active_until: "2026-04-15T00:00:00.000Z",
+};
 
 test.describe("telegram signed auth lane", () => {
   test("loads Today authenticated content via signed auth without mock mode", async ({ page }) => {
@@ -35,7 +72,7 @@ test.describe("telegram signed auth lane", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          ...canonicalTodayPersona.profile,
+          ...canonicalTodayProfile,
           full_name: "Signed Today",
           telegram_id: 45454545,
         }),
@@ -47,7 +84,7 @@ test.describe("telegram signed auth lane", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(canonicalTodayPersona.feed),
+        body: JSON.stringify(canonicalTodayFeed),
       });
     });
 
@@ -58,27 +95,215 @@ test.describe("telegram signed auth lane", () => {
     await expect(page.getByTestId("home-feed-page")).toBeVisible();
     await expect(page.getByTestId("consumer-page-shell-content")).toHaveAttribute("data-block", "SHELL_CONTENT");
     await expect(page.getByTestId("today-verdict")).toBeVisible();
-    await expect(page.getByTestId("today-day-mode")).toBeVisible();
     await expect(page.getByTestId("today-score-energy")).toBeVisible();
     await expect(page.getByTestId("today-score-money")).toBeVisible();
     await expect(page.getByTestId("today-score-love")).toBeVisible();
     await expect(page.getByTestId("today-score-focus")).toBeVisible();
-    await expect(page.getByTestId("today-windows")).toBeVisible();
-    await expect(page.getByTestId("today-actions")).toBeVisible();
-    await expect(page.getByTestId("today-risks")).toBeVisible();
-    await expect(page.getByTestId("today-explainability")).toBeVisible();
     await expect(page.getByTestId("today-cta-panel")).toBeVisible();
     await expect(page.getByTestId("today-cta-week")).toBeVisible();
     await expect(page.getByTestId("today-cta-premium")).toBeVisible();
-    await expect(page.getByTestId("today-score-energy")).toContainText("Энергия");
-    await expect(page.getByTestId("today-score-money")).toContainText("Деньги");
-    await expect(page.getByTestId("today-score-love")).toContainText("Отношения");
+    await expect(page.getByTestId("today-score-energy")).toContainText("Тонус");
+    await expect(page.getByTestId("today-score-money")).toContainText("Работа и деньги");
+    await expect(page.getByTestId("today-score-love")).toContainText("Чувства");
     await expect(page.getByTestId("today-score-focus")).toContainText("Фокус");
-    await expect(page.getByTestId("today-verdict")).toContainText("Держите главный вектор узким и точным.");
+    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
+    await expect(page.getByTestId("today-verdict")).toContainText(/день|сегодня/i);
+    await expect(page.locator('[data-testid="today-windows"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="today-actions"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="today-risks"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="today-explainability"]')).toHaveCount(0);
 
     await expect.poll(() => profileHeaders[0]).toBe(runtime.initData);
     await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
 
+    await expectNoRouteHygieneIssues("/", hygiene);
+    hygiene.dispose();
+  });
+
+  test("renders signed Today no-data state from canonical payload without complete domains", async ({ page }) => {
+    const hygiene = attachConsoleAndPageErrors(page);
+    const runtime = await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454546,
+        first_name: "Signed",
+        last_name: "NoData",
+        username: "signed_nodata",
+        language_code: "ru",
+      },
+    });
+
+    const profileHeaders: string[] = [];
+    const feedHeaders: string[] = [];
+
+    await mockCommonApis(page);
+
+    await page.route("**/api/users/me", async (route) => {
+      profileHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...canonicalTodayProfile,
+          full_name: "Signed NoData",
+          telegram_id: 45454546,
+        }),
+      });
+    });
+
+    await page.route("**/api/feed/today", async (route) => {
+      feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          day_brief: {
+            version: "day_brief_canon_v1",
+            status: "partial",
+            date: "2026-04-10",
+            personalization_level: "personalized_v2",
+            hero: {
+              title: "День пока не собран полностью",
+              subtitle: "Нет ни одной готовой сферы для честного дневного вывода.",
+              day_type: "balance",
+            },
+            domains: {
+              energy: { key: "energy", title: "Тонус", score_status: "missing", score: null, status: null, description_status: "missing", description: null, why_status: "missing", why_astro_text: null, evidence_refs: [] },
+              money: { key: "money", title: "Работа и деньги", score_status: "missing", score: null, status: null, description_status: "missing", description: null, why_status: "missing", why_astro_text: null, evidence_refs: [] },
+              love: { key: "love", title: "Чувства", score_status: "missing", score: null, status: null, description_status: "missing", description: null, why_status: "missing", why_astro_text: null, evidence_refs: [] },
+              focus: { key: "focus", title: "Фокус", score_status: "missing", score: null, status: null, description_status: "missing", description: null, why_status: "missing", why_astro_text: null, evidence_refs: [] },
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await expectNoCrash(page);
+    await expect(page.getByTestId("today-no-data-state")).toBeVisible();
+    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "no_data");
+    await expect(page.getByText("Нет данных на сегодня")).toBeVisible();
+    await expect.poll(() => profileHeaders[0]).toBe(runtime.initData);
+    await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
+    await expectNoRouteHygieneIssues("/", hygiene);
+    hygiene.dispose();
+  });
+
+  test("renders signed Today error state for failed canonical payload", async ({ page }) => {
+    const hygiene = attachConsoleAndPageErrors(page);
+    const runtime = await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454547,
+        first_name: "Signed",
+        last_name: "Error",
+        username: "signed_error",
+        language_code: "ru",
+      },
+    });
+
+    const feedHeaders: string[] = [];
+
+    await mockCommonApis(page);
+
+    await page.route("**/api/users/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...canonicalTodayProfile,
+          full_name: "Signed Error",
+          telegram_id: 45454547,
+        }),
+      });
+    });
+
+    await page.route("**/api/feed/today", async (route) => {
+      feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          day_brief: {
+            version: "day_brief_canon_v1",
+            status: "failed",
+            date: "2026-04-10",
+            personalization_level: "personalized_v2",
+            hero: { title: "Расчёт дня не завершён", subtitle: "Канонический слой вернул ошибку без подмены.", day_type: "balance" },
+            domains: {
+              energy: { key: "energy", title: "Тонус", score_status: "failed", score: null, status: null, description_status: "failed", description: null, why_status: "failed", why_astro_text: null, evidence_refs: [] },
+              money: { key: "money", title: "Работа и деньги", score_status: "failed", score: null, status: null, description_status: "failed", description: null, why_status: "failed", why_astro_text: null, evidence_refs: [] },
+              love: { key: "love", title: "Чувства", score_status: "failed", score: null, status: null, description_status: "failed", description: null, why_status: "failed", why_astro_text: null, evidence_refs: [] },
+              focus: { key: "focus", title: "Фокус", score_status: "failed", score: null, status: null, description_status: "failed", description: null, why_status: "failed", why_astro_text: null, evidence_refs: [] },
+            },
+          },
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await expectNoCrash(page);
+    await expect(page.getByTestId("today-error-state")).toBeVisible();
+    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "error");
+    await expect(page.getByText(/Расчёт дня не завершён|Не удалось собрать дневной слой/i)).toBeVisible();
+    await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
+    await expectNoRouteHygieneIssues("/", hygiene);
+    hygiene.dispose();
+  });
+
+  test("renders signed Today partial-ready with honest domain_failed state", async ({ page }) => {
+    const hygiene = attachConsoleAndPageErrors(page);
+    const runtime = await bootstrapSignedTelegram(page, {
+      user: {
+        id: 45454548,
+        first_name: "Signed",
+        last_name: "Partial",
+        username: "signed_partial",
+        language_code: "ru",
+      },
+    });
+
+    const feedHeaders: string[] = [];
+
+    await mockCommonApis(page);
+
+    await page.route("**/api/users/me", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...canonicalTodayProfile,
+          full_name: "Signed Partial",
+          telegram_id: 45454548,
+        }),
+      });
+    });
+
+    await page.route("**/api/feed/today", async (route) => {
+      feedHeaders.push(route.request().headers()["x-telegram-auth"] ?? "");
+      const feed = JSON.parse(JSON.stringify(canonicalTodayFeed));
+      feed.day_brief.status = "partial";
+      feed.day_brief.domains.money = {
+        key: "money",
+        title: "Работа и деньги",
+        score_status: "failed",
+        score: null,
+        status: null,
+        description_status: "failed",
+        description: null,
+        why_status: "failed",
+        why_astro_text: null,
+        evidence_refs: [],
+      };
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(feed) });
+    });
+
+    await page.goto("/");
+    await expectNoCrash(page);
+    await expect(page.getByTestId("today-verdict")).toBeVisible();
+    await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
+    await expect(page.getByTestId("today-score-money")).toContainText("Ошибка");
+    await expect(page.getByTestId("today-score-money")).toContainText("Ошибка расчёта этой сферы.");
+    await expect(page.getByTestId("today-score-energy")).toContainText("Тонус");
+    await expect.poll(() => feedHeaders[0]).toBe(runtime.initData);
     await expectNoRouteHygieneIssues("/", hygiene);
     hygiene.dispose();
   });
