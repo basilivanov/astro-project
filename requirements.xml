@@ -59,7 +59,7 @@
       <summary>Return a compact daily feed from calculated transit facts and an optional low-cost LLM interpretation layer.</summary>
       <entrypoints>GET /api/feed/today; /</entrypoints>
       <scenario id="SCN-FEED-TODAY">Frontend loads the feed payload with date, moon sign, moon phase, vibe text, and traffic-light summary.</scenario>
-      <scenario id="SCN-FEED-DAY-BRIEF">Feed endpoint emits a DayBrief DTO (summary, domain scores, windows, actions, risks, explainability, premium state) that matches schema while keeping legacy fields for compatibility.</scenario>
+      <scenario id="SCN-FEED-DAY-BRIEF">Feed endpoint emits a canonical DayBrief DTO (`day_brief_canon_v1`) with hero, four domain cards, premium state, CTA, and explicit per-domain statuses; legacy Day surface fields are not part of intended user-facing behavior.</scenario>
     </use_case>
     <use_case id="UC-ADMIN-OPERATIONS" actor="admin_user">
       <summary>Inspect reports, users, clients, tickets, analytics, audit logs, health, and trigger regeneration or diagnostics.</summary>
@@ -100,6 +100,7 @@
   <known_defects>
     <defect id="DEFECT-REFERRAL-POLICY-DRIFT" severity="high" status="open">Business docs promise 15-day referral rewards and as-is referral links, while current backend and bot constants use 14 days and current frontend share/profile pages prepend ref_ to referral_code. Intended behavior and implementation are misaligned.</defect>
     <defect id="DEFECT-FEED-LLM-TUPLE" severity="medium" status="open">backend/app/services/feed_service.py treats client.generate(...) as a string even though current LLM clients return (content, usage). Non-stub feed modes fall into fallback handling instead of using live LLM output.</defect>
+    <defect id="DEFECT-DAY-ARTIFACT-DRIFT" severity="high" status="open">Shared artifacts still describe legacy Day windows/actions/risks/explainability and compatibility semantics even though the intended Day product is now canonical hero + 4 domains + CTA only.</defect>
     <defect id="DEFECT-DIAGNOSTICS-MARKDOWN" severity="medium" status="open">backend/app/diagnostics.py references assemble_markdown and ReportSection symbols that are not imported in the current snapshot, so /api/diagnostics/run cannot provide full green evidence.</defect>
     <defect id="DEFECT-ADMIN-SERVER-AUTH" severity="high" status="open">Some server-side admin pages/actions fetch protected admin endpoints without Telegram auth, or with hardcoded X-Telegram-Auth: 123456789, which only works under development bypass assumptions and is not production-safe.</defect>
   </known_defects>

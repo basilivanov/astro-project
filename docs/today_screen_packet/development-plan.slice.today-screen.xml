@@ -1,6 +1,6 @@
 <development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-03-31" slice_id="SLICE-TODAY-SCREEN-REVIEW">
   <phase id="PHASE-TODAY-REFINE">
-    <goal>Stabilize the Today screen as a short-first, explainable, premium surface.</goal>
+      <goal>Stabilize the Today screen as a canonical hero + 4 domains + CTA surface.</goal>
 
     <wave id="WAVE-TODAY-MUSTFIX-NOW">
       <goal>Remove duplicate meaning and technical leakage from the first layer.</goal>
@@ -9,7 +9,7 @@
       <allowed_write_scope>
         <file>frontend/app/page.tsx</file>
         <file>frontend/components/today/*</file>
-        <file>frontend/lib/day-brief*</file>
+        <file>frontend/lib/day-brief.ts</file>
         <file>backend/app/services/day_brief.py</file>
         <file>backend/app/services/day_brief_types.py</file>
         <file>backend/app/services/day_brief_validators.py</file>
@@ -37,8 +37,8 @@
       </acceptance_criteria>
     </wave>
 
-    <wave id="WAVE-TODAY-EXPLAINABILITY-NEXT">
-      <goal>Add bounded second-layer explainability to scores, windows, and risks.</goal>
+    <wave id="WAVE-TODAY-CANON-CUTOVER-NEXT">
+      <goal>Cut remaining adapters and artifacts over to the canonical Day domain-only contract.</goal>
       <module_ref id="M-DAY-BRIEF-SERVICE" />
       <module_ref id="M-FRONTEND-TODAY" />
       <allowed_write_scope>
@@ -59,10 +59,10 @@
         <command>./scripts/run_e2e.sh e2e/quality.spec.ts -g "today|accordion|details"</command>
       </verification>
       <acceptance_criteria>
-        <criterion>Score cards expose explanation details when available.</criterion>
-        <criterion>Windows expose explanation details when available.</criterion>
-        <criterion>Risks expose explanation details when available.</criterion>
-        <criterion>Collapsed state remains concise and premium.</criterion>
+        <criterion>Day accepts only canonical payload version.</criterion>
+        <criterion>User-facing Today exposes hero + 4 domains + CTA only.</criterion>
+        <criterion>No user-facing Day fallback reconstruction remains.</criterion>
+        <criterion>Signed Telegram lane is the primary acceptance proof.</criterion>
       </acceptance_criteria>
       <deferred_work>
         <item>Backend truth-path repair for birth-time provenance remains separate from UI suppression.</item>

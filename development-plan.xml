@@ -1,7 +1,7 @@
 <development_plan project="astro-project" mode="strict-grace" updated_at="2026-03-27">
   <assumptions>
     <assumption local_adaptation="true">Consumer mini-app keeps App Router shell + BottomNav; product changes happen via DTO adapters, not structural rewrites.</assumption>
-    <assumption local_adaptation="true">Day/Week DTOs follow tmp/day_week_models.py strictly; frontend cannot synthesize scores/windows/actions.</assumption>
+    <assumption local_adaptation="true">Day/Week DTOs follow current canonical adapters and validators; frontend cannot synthesize user-facing Day sections beyond the canonical DayBrief contract.</assumption>
   </assumptions>
   <execution_phases>
     <phase id="PHASE-SNAPSHOT">Freeze repo boundary and confirm prod-release-20260327 snapshot before changes.</phase>
@@ -67,8 +67,8 @@
     </module>
     <module id="M-DAY-BRIEF-SERVICE">
       <owned_paths>backend/app/services/day_brief.py; backend/app/services/day_brief_types.py; backend/app/services/day_brief_validators.py</owned_paths>
-      <responsibility>Build DayBrief seeds from feed_service outputs, compute scores/windows/actions/risks/explainability, handle fallback + logging.</responsibility>
-      <public_interfaces>build_day_brief_payload; build_day_brief_fallback; serialize_day_brief</public_interfaces>
+      <responsibility>Build canonical DayBrief payloads for hero + 4 domains + CTA, preserve explicit per-domain state semantics, and emit truthful logging/evidence for /api/feed/today.</responsibility>
+      <public_interfaces>build_day_brief_payload; build_day_brief_telemetry; serialize_day_brief</public_interfaces>
       <depends_on>M-FACTS-CALC M-LLM-ORCHESTRATION</depends_on>
       <write_scope>no direct DB writes; emits trace + analytics</write_scope>
     </module>
@@ -80,8 +80,8 @@
       <write_scope>attach to report detail payload</write_scope>
     </module>
     <module id="M-FRONTEND-TODAY">
-      <owned_paths>frontend/app/page.tsx; frontend/components/today/*; frontend/lib/day-brief-adapter.ts</owned_paths>
-      <responsibility>Render Today screen via DayBrief, legacy adapter fallback, telemetry + CTA wiring.</responsibility>
+      <owned_paths>frontend/app/page.tsx; frontend/components/today/*; frontend/lib/day-brief.ts</owned_paths>
+      <responsibility>Render the canonical Day surface through TodayVerdict, TodayScores, and TodayCtaPanel, keep honest ready|no_data|error states, and wire telemetry/CTA without legacy reconstruction.</responsibility>
       <public_interfaces>/</public_interfaces>
       <depends_on>M-API-GATEWAY</depends_on>
       <write_scope>none</write_scope>
@@ -111,11 +111,11 @@
   <data_flows>
     <flow id="FLOW-DAILY-FEED" name="Daily feed legacy">
       <path>M-FRONTEND-WEBAPP -&gt; M-API-GATEWAY -&gt; M-DAY-BRIEF-SERVICE -&gt; LLM polish -&gt; response.</path>
-      <scope>Serve Today with DayBrief; keep legacy fields for compat.</scope>
+      <scope>Serve Today through canonical DayBrief only; legacy Day fields are not intended product output.</scope>
     </flow>
     <flow id="FLOW-DAY-BRIEF" name="DayBrief DTO build">
       <path>M-FACTS-CALC -&gt; M-DAY-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-TODAY.</path>
-      <scope>Aggregate day scores/windows/actions/explainability and expose via /api/feed/today.</scope>
+      <scope>Aggregate canonical Day hero + domain states + CTA and expose via /api/feed/today.</scope>
     </flow>
     <flow id="FLOW-WEEK-BRIEF" name="Week map DTO">
       <path>M-REPORT-WORKFLOW -&gt; M-WEEK-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-WEEK.</path>
@@ -128,7 +128,7 @@
   </data_flows>
   <sequencing_rules>
     <rule>Introduce new DTO fields only after updating schemas in tmp/, pydantic models, backend validators, telemetry, and adapters together.</rule>
-    <rule>Frontend may switch to DayBrief/WeekBrief only once backend returns validated payloads plus legacy adapters.</rule>
+    <rule>Frontend may switch to DayBrief/WeekBrief only once backend returns validated payloads; Day no longer depends on legacy adapters as intended product behavior.</rule>
     <rule>LLM prompt changes must ship with deterministic fallback templates and logging updates.</rule>
     <rule>Slow background factors (progressions/solar/profection) must be computed before WeekBrief reads them; do not stub them on frontend.</rule>
   </sequencing_rules>
@@ -138,4 +138,22 @@
     <item>Per-domain reaction logging on frontend to tune action/risk weights.</item>
     <item>Extraction of DTO schemas into shared package for CI validation.</item>
   </deferred_work>
+  <execution_packets>
+    <packet id="PKT-DAY-CANON-ARTIFACT-ALIGN">
+      <goal>Realign shared artifacts to canonical Day truth before further runtime cutover work.</goal>
+      <depends_on>M-DAY-BRIEF-SERVICE M-FRONTEND-TODAY M-AUTH-IDENTITY M-OPS-AUTOMATION</depends_on>
+    </packet>
+    <packet id="PKT-DAY-CANON-BACKEND-HARDCUT">
+      <goal>Remove legacy user-facing Day contract semantics and keep canonical backend payload only.</goal>
+      <depends_on>PKT-DAY-CANON-ARTIFACT-ALIGN</depends_on>
+    </packet>
+    <packet id="PKT-DAY-CANON-FRONTEND-CUTOVER">
+      <goal>Cut / fully over to canonical Day rendering and explicit non-canonical rejection.</goal>
+      <depends_on>PKT-DAY-CANON-BACKEND-HARDCUT</depends_on>
+    </packet>
+    <packet id="PKT-DAY-CANON-EVIDENCE-CLOSEOUT">
+      <goal>Close Day only with signed Telegram proof and truthful observability evidence.</goal>
+      <depends_on>PKT-DAY-CANON-FRONTEND-CUTOVER</depends_on>
+    </packet>
+  </execution_packets>
 </development_plan>

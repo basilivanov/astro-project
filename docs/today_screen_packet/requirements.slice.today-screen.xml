@@ -2,7 +2,7 @@
   <system_goal>Bring the Today screen to a premium, short-first, explainable state without UI duplication or misleading technical copy.</system_goal>
   <scope>
     <in_scope>
-      <item ref="UC-FEED-DAILY">Today screen composition, DayBrief DTO affordances, and explainability-driven disclosure for scores, windows, and risks.</item>
+      <item ref="UC-FEED-DAILY">Today screen composition through canonical DayBrief hero + 4 domains + CTA only.</item>
       <item ref="UC-TODAY-UX-PREMIUM">Top-layer verdict compression, moon-context deduplication, removal of raw technical tags, and suppression of misleading birth-time message.</item>
     </in_scope>
     <out_of_scope>
@@ -21,7 +21,7 @@
       <scenario id="SCN-TODAY-NO-FALSE-BIRTHTIME">UI does not show a user-facing warning about missing exact birth time while backend truth-path remains unresolved.</scenario>
     </use_case>
     <use_case id="UC-TODAY-EXPLAINABILITY-LAYER" actor="curious_user">
-      <summary>User can expand scores, windows, and risks to understand why the system made each judgment and what factors support it.</summary>
+      <summary>User can read one bounded explanation path inside each of the four canonical Day domains.</summary>
       <scenario id="SCN-TODAY-SCORES-DETAIL">Each score card can reveal why_text plus 2-4 supporting factors and practical guidance.</scenario>
       <scenario id="SCN-TODAY-WINDOWS-DETAIL">Each time window can reveal why the window is strong/soft/caution and what actions fit it.</scenario>
       <scenario id="SCN-TODAY-RISKS-DETAIL">Each risk can reveal mechanism, typical manifestation, supporting factors, and short mitigation guidance.</scenario>
@@ -48,7 +48,7 @@
     <criterion id="SC-TODAY-1">Today top screen reads as one confident verdict with no duplicate semantic layer.</criterion>
     <criterion id="SC-TODAY-2">Moon appears only as compact context.</criterion>
     <criterion id="SC-TODAY-3">No raw technical tags or misleading birth-time notice remain visible in Today UI.</criterion>
-    <criterion id="SC-TODAY-4">Execution packet defines DTO extensions and UI expansion behavior for scores/windows/risks.</criterion>
+    <criterion id="SC-TODAY-4">Execution packet defines canonical Day DTO and honest state behavior without windows/risks reconstruction.</criterion>
     <criterion id="SC-TODAY-5">Worker can execute against an explicit bounded write scope and verification plan.</criterion>
   </success_criteria>
 </requirements_slice>
