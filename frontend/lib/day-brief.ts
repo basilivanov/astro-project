@@ -120,9 +120,18 @@ function normalizeDomainCard(key: DayBriefScoreKey, value: unknown): DayDomainCa
   const whyText = normalizeTextField(item.why_astro_text);
   const whyStatus = normalizeFieldStatus(item.why_status);
 
+  const rawTitle = text(item.title).trim();
+  const canonicalTitle = DAY_TITLES[key];
+  const titleAliases: Record<DayBriefScoreKey, Set<string>> = {
+    energy: new Set(["Энергия", "Тонус"]),
+    money: new Set(["Деньги", "Работа и деньги"]),
+    love: new Set(["Любовь", "Чувства"]),
+    focus: new Set(["Фокус"]),
+  };
+
   return {
     key,
-    title: text(item.title, DAY_TITLES[key]),
+    title: titleAliases[key].has(rawTitle) || !rawTitle ? canonicalTitle : rawTitle,
     score_status: scoreStatus,
     score,
     status: normalizeLight(item.status),

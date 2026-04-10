@@ -148,7 +148,7 @@ function formatSubscriptionLabel(dateValue?: string | null) {
 
 function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
   const heroLabel = today?.brief.hero.title ?? "Сегодня";
-  const shouldRenderLegacyHero = state !== "ready";
+  const shouldRenderHero = Boolean(today);
   return (
     <ConsumerPageShell
       testId="home-feed-page"
@@ -166,7 +166,7 @@ function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: 
           {renderPath ?? "empty"}
         </div>
       ) : null}
-      {shouldRenderLegacyHero ? (
+      {shouldRenderHero ? (
         <ConsumerHero
           eyebrow={dateLabel ?? "Сегодня"}
           title={heroLabel}

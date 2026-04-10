@@ -96,6 +96,27 @@ describe('day-brief helpers', () => {
     expect((result?.brief as any).legacy).toBeUndefined();
   });
 
+  it('uses canonical fallback titles when payload titles drift to old labels', () => {
+    const result = normalizeDayBriefPayload({
+      version: 'day_brief_canon_v1',
+      status: 'partial',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: { title: 'День', subtitle: 'Только canonical путь', day_type: 'balance' },
+      domains: {
+        energy: { key: 'energy', title: 'Энергия', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        money: { key: 'money', title: 'Деньги', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        love: { key: 'love', title: 'Любовь', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+        focus: { key: 'focus', title: 'Фокус', score_status: 'missing', score: null, status: null, description_status: 'missing', description: null, why_status: 'missing', why_astro_text: null, evidence_refs: [] },
+      },
+    });
+
+    expect(result?.brief.domains.energy.title).toBe('Тонус');
+    expect(result?.brief.domains.money.title).toBe('Работа и деньги');
+    expect(result?.brief.domains.love.title).toBe('Чувства');
+    expect(result?.brief.domains.focus.title).toBe('Фокус');
+  });
+
   it('derives no_data surface when canonical payload has no complete domains', () => {
     const result = normalizeDayBriefPayload({
       version: 'day_brief_canon_v1',
