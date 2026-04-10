@@ -176,7 +176,7 @@ describe('day-brief helpers', () => {
       id: 'window-0',
       start: '09:00',
       end: '11:00',
-      label: 'Рабочее окно',
+      label: 'Окно проверки',
       mode: 'soft',
       advice: 'Держите спокойный темп и проверяйте детали.',
     }));
@@ -489,5 +489,61 @@ describe('day-brief helpers', () => {
       secondary: expect.objectContaining({ type: 'open_premium', href: '/reports' }),
     }));
     expect(result?.brief.legacy).toBeNull();
+  });
+
+  it('merges adjacent semantically identical windows into one longer interval', () => {
+    const result = normalizeDayBriefPayload({
+      day_brief: {
+        version: 'day_brief_v1',
+        date: '2026-04-02',
+        personalization_level: 'personalized_v2',
+        fallback_mode: false,
+        summary: { headline: 'Ровный день', subhead: 'Без лишнего шума', day_type: 'balance' },
+        context: {},
+        scores: [],
+        windows: [
+          {
+            id: 'window-1',
+            start: '09:00',
+            end: '10:30',
+            label: 'Собрать ядро дня',
+            mode: 'best',
+            advice: 'Закройте один главный блок.',
+            details: {
+              why_text: 'Утро лучше держит одну линию внимания.',
+              factor_ids: ['factor-1'],
+              supporting_factors: [{ id: 'factor-1', label: 'Ритм', explanation_human: 'С утра проще не распыляться.' }],
+            },
+          },
+          {
+            id: 'window-2',
+            start: '10:30',
+            end: '12:00',
+            label: 'Рабочий слот',
+            mode: 'best',
+            advice: 'Закройте один главный блок.',
+            details: {
+              why_text: 'Утро лучше держит одну линию внимания.',
+              factor_ids: ['factor-1'],
+              supporting_factors: [{ id: 'factor-1', label: 'Ритм', explanation_human: 'С утра проще не распыляться.' }],
+            },
+          },
+        ],
+        best_uses: [],
+        risks: [],
+        personalized_factors: [],
+        explainability: { confidence: 0.6, birth_time_used: true, factor_count: 1, selected_factors: [] },
+      },
+    });
+
+    expect(result?.brief.windows).toHaveLength(1);
+    expect(result?.brief.windows[0]).toEqual(expect.objectContaining({
+      start: '09:00',
+      end: '12:00',
+      label: 'Рабочий импульс',
+      mode: 'best',
+      advice: 'Закройте один главный блок.',
+    }));
+    expect(result?.brief.windows[0].details?.factor_ids).toEqual(['factor-1']);
   });
 });

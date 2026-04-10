@@ -77,8 +77,8 @@ describe('week-brief helpers', () => {
       theme: 'Спокойная стратегия',
       weekType: 'deep_work',
       status: 'ready',
-      weekStart: '2026-04-01',
-      weekEnd: '2026-04-07',
+      weekStart: '2026-03-30',
+      weekEnd: '2026-04-05',
       personalizationLevel: 'full',
       fallbackMode: false,
       usesCanonicalWeekBrief: true,
@@ -90,7 +90,13 @@ describe('week-brief helpers', () => {
       sectionsCount: 1,
       waitMessage: null,
     }));
+    expect(surface.dayStrip).toHaveLength(7);
     expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
+      weekday: 'ПН, 30 мар',
+      score: null,
+      headline: null,
+    }));
+    expect(surface.dayStrip[2]).toEqual(expect.objectContaining({
       weekday: 'СР, 1 апр',
       score: 88,
       headline: 'Фокус на главном',
@@ -144,8 +150,8 @@ describe('week-brief helpers', () => {
       theme: 'Осторожная неделя',
       weekType: 'balance',
       status: 'pending',
-      weekStart: '2026-04-08',
-      weekEnd: null,
+      weekStart: '2026-04-06',
+      weekEnd: '2026-04-12',
       timezone: 'Europe/Moscow',
       location: 'Moscow',
       personalizationLevel: null,
@@ -163,7 +169,10 @@ describe('week-brief helpers', () => {
       expect.objectContaining({ weekday: 'mon', mode: 'green', score: 82, best_for: ['запуск'], avoid: ['спешка'] }),
       expect.objectContaining({ weekday: 'fri', mode: 'red', score: 35 }),
     ]);
-    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'ПН, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус на запуск' }));
+    expect(surface.dayStrip).toHaveLength(7);
+    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({ weekday: 'ПН, 6 апр', score: 82 }));
+    expect(surface.dayStrip[2]).toEqual(expect.objectContaining({ weekday: 'СР, 8 апр', best_for: ['запуск'], avoid: ['спешка'], headline: 'Фокус на запуск' }));
+    expect(surface.dayStrip[6]).toEqual(expect.objectContaining({ weekday: 'ВС, 12 апр', score: null }));
     expect(surface.domains).toEqual([
       expect.objectContaining({ key: 'work', title: 'Работа и деньги', status: 'green', headline: 'Работа и деньги: 72/100' }),
       expect.objectContaining({ key: 'unknown', title: 'unknown', status: 'red', headline: 'unknown: 44/100' }),
@@ -253,7 +262,7 @@ describe('week-brief helpers', () => {
     expect(surface.usesCanonicalWeekBrief).toBe(true);
     expect(surface.headline).toBe('Каноническая неделя');
     expect(surface.subhead).toBe('Только week_brief формирует happy-path');
-    expect(surface.dayStrip[0]).toEqual(expect.objectContaining({
+    expect(surface.dayStrip[4]).toEqual(expect.objectContaining({
       weekday: 'ПТ, 10 апр',
       headline: 'Работать по главному приоритету',
     }));

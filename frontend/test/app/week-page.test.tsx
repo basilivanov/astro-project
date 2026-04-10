@@ -271,7 +271,9 @@ describe('WeekPage', () => {
     expect(await screen.findByTestId('week-map-surface')).toBeInTheDocument();
     expect(screen.getByTestId('week-hero-map')).toHaveTextContent('Каноническая неделя');
     expect(screen.getByTestId('week-hero-map')).not.toHaveTextContent('Legacy тезис не должен попасть в canonical render');
+    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПН, 6 апр');
     expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ПТ, 10 апр');
+    expect(screen.getByTestId('week-day-strip')).toHaveTextContent('ВС, 12 апр');
     expect(screen.queryByTestId('week-fallback-note')).not.toBeInTheDocument();
   });
 

@@ -12,7 +12,7 @@ import {
   trackCatalogEvent,
 } from "../../components/catalog/catalog-analytics";
 import { CorrelationManager, correlatedFetch } from "../../lib/correlation";
-import { ConsumerPageShell, ConsumerPanel, ConsumerStatusBadge } from "../../components/consumer-page-shell";
+import { ConsumerPageShell, ConsumerPanel } from "../../components/consumer-page-shell";
 import { EmptyState, ErrorState, LoadingState } from "../../components/ui-states";
 import { WeekHeroMap } from "../../components/week/week-hero-map";
 import { WeekDayStrip } from "../../components/week/week-day-strip";
@@ -412,6 +412,8 @@ function WeekPageContent() {
   const resolvedPrimaryHref = hasConcreteWeekReport ? primaryHref : emptyStateCopy.primaryHref;
   const resolvedPrimaryLabel = hasConcreteWeekReport ? primaryLabel : emptyStateCopy.primaryLabel;
   const shouldShowFallbackNote = week.surfaceMode === "compatibility";
+  const shouldShowExplainabilityPanel = Boolean(week.factors.length) || Boolean(week.explainabilityDetailItems.length);
+  const shouldShowDeepSections = Boolean(week.deepSections.length);
 
   return (
     // START_BLOCK: WEEK_READY_SURFACE
@@ -448,12 +450,12 @@ function WeekPageContent() {
           }}
         />
 
-        <WeekDayStrip week={week} onDayClick={trackDayClick} />
-        <WeekDayGrid week={week} onDayClick={trackDayClick} />
         <WeekDomainPanel week={week} />
+        <WeekDayStrip week={week} onDayClick={trackDayClick} />
+        {week.surfaceMode === "compatibility" ? <WeekDayGrid week={week} onDayClick={trackDayClick} /> : null}
         <WeekActionsPanel week={week} />
-        <WeekExplainabilityPanel week={week} />
-        <WeekDeepSections week={week} />
+        {shouldShowExplainabilityPanel ? <WeekExplainabilityPanel week={week} /> : null}
+        {shouldShowDeepSections ? <WeekDeepSections week={week} /> : null}
 
         {shouldShowFallbackNote ? (
           <p className="text-xs text-slate-500" data-testid="week-fallback-note">

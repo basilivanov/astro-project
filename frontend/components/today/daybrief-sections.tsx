@@ -372,6 +372,14 @@ function factorMatchesScoreKey(label: string | null | undefined, relatedKey: str
   return (aliases[normalizedKey] ?? [normalizedKey]).some((alias) => normalizedLabel.includes(alias));
 }
 
+function normalizeScoreKey(scoreKey: string | null | undefined): "energy" | "money" | "love" | "focus" {
+  const normalized = normalizeComparableText(scoreKey);
+  if (normalized === "work money" || normalized === "work_money" || normalized === "money") return "money";
+  if (normalized === "relationships" || normalized === "relationship" || normalized === "love") return "love";
+  if (normalized === "focus") return "focus";
+  return "energy";
+}
+
 function buildScoreFallbackFactors(score: DayBriefDto["scores"][number], brief: DayBriefDto) {
   const scoped = (brief.explainability.selected_factors ?? [])
     .filter((factor) => {
@@ -381,8 +389,8 @@ function buildScoreFallbackFactors(score: DayBriefDto["scores"][number], brief: 
       if (relatedKey) {
         return normalizeComparableText(relatedKey) === normalizeComparableText(score.key);
       }
-      return factorMatchesScoreKey(factor.label, score.key)
-        || textLooksDomainScoped(factor.explanation_human, score.key)
+      return looksLikeDomainScopedFactor(factor, score.key)
+        || factorMatchesScoreKey(factor.label, score.key)
         || textLooksDomainScoped(factor.explanation_astro, score.key);
     })
     .map((factor) => ({
@@ -393,6 +401,25 @@ function buildScoreFallbackFactors(score: DayBriefDto["scores"][number], brief: 
     }));
 
   return scoped.slice(0, 3);
+}
+
+function buildGenericScoreExplanation(score: DayBriefDto["scores"][number], brief: DayBriefDto): string {
+  const normalizedKey = normalizeScoreKey(String((score as { key?: string | null }).key ?? ""));
+  const domainCopy: Record<typeof normalizedKey, string> = {
+    energy: "Эта сфера сегодня держится на темпе, запасе ресурса и способности не разгонять себя без нужды.",
+    money: "Эта сфера сегодня держится на проверяемых цифрах, ясных договорённостях и аккуратной оценке обязательств.",
+    love: "Эта сфера сегодня держится на тоне разговора, ясности ожиданий и способности не достраивать мотивы за другого.",
+    focus: "Эта сфера сегодня держится на одном приоритете, коротких циклах и защите внимания от лишних переключений.",
+  };
+  const dayTypeCopy: Record<DayBriefDto["summary"]["day_type"], string> = {
+    push: "Фон дня поддерживает прямое движение, если не распыляться на параллельные задачи.",
+    balance: "Лучше работает спокойный устойчивый ритм без лишних разворотов.",
+    caution: "Сигнал дня просит сначала перепроверять шаг, а уже потом ускоряться.",
+    deep_focus: "Главный выигрыш идёт от одной глубокой линии вместо нескольких разрозненных рывков.",
+    recovery: "База дня строится от восстановления и экономного расхода внимания.",
+  };
+
+  return `${domainCopy[normalizedKey]} ${dayTypeCopy[brief.summary.day_type]}`;
 }
 
 function shouldSuppressAstroText(
@@ -568,11 +595,18 @@ function buildScoreDisclosureContent(score: DayBriefDto["scores"][number], brief
     ? score.details.supporting_factors.filter((item) => item?.label || item?.explanation_human)
     : [];
   const normalizedOwnFactors = mapLegacyFactorsToNormalized(ownFactors, score.key);
-  const hasScopedOwnFactors = normalizedOwnFactors.length > 0;
+  const fallbackFactors = mapLegacyFactorsToNormalized(buildScoreFallbackFactors(score, brief), score.key);
+  const scopedWhyText = isScopedScoreWhyText(score.details?.why_text, score, brief)
+    ? sanitizeHumanFacingText(score.details?.why_text)
+    : null;
+  const factors = normalizedOwnFactors.length ? normalizedOwnFactors : fallbackFactors;
+  const body = scopedWhyText
+    || (factors.length ? null : buildGenericScoreExplanation(score, brief));
+
   return {
-    title: hasScopedOwnFactors ? "Что повлияло" : null,
-    body: null,
-    factors: hasScopedOwnFactors ? normalizedOwnFactors : [],
+    title: factors.length ? "Что повлияло" : "Почему сфера звучит так",
+    body,
+    factors,
   };
 }
 
@@ -745,7 +779,7 @@ function TodayScoreCard({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const disclosure = buildScoreDisclosureContent(score, brief);
-  const hasDetails = Boolean(String(disclosure.body || "").trim()) || Boolean(disclosure.factors?.length);
+  const hasDetails = true;
 
   const handleCardClick = useCallback(() => {
     onScoreTap(score.key, score.value);
@@ -782,21 +816,15 @@ function TodayScoreCard({
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{score.advice}</p>
       </button>
       <div id={panelId}>
-        {hasDetails ? (
-          <DetailDisclosureCard
-            testId={`today-score-details-${score.key}`}
-            title={disclosure.title}
-            body={disclosure.body}
-            factors={disclosure.factors}
-            compact
-            isOpen={isOpen}
-            onToggle={() => setIsOpen((current) => !current)}
-          />
-        ) : (
-          <p className="mt-3 text-xs leading-relaxed text-slate-500" data-testid={`today-score-details-fallback-${score.key}`}>
-            Короткое объяснение для этой сферы пока недоступно.
-          </p>
-        )}
+        <DetailDisclosureCard
+          testId={`today-score-details-${score.key}`}
+          title={disclosure.title}
+          body={disclosure.body}
+          factors={disclosure.factors}
+          compact
+          isOpen={isOpen}
+          onToggle={() => setIsOpen((current) => !current)}
+        />
       </div>
     </article>
   );

@@ -260,6 +260,12 @@ const RU_DAY_SHORT: Record<string, string> = {
   sun: "ВС",
 };
 
+const WEEKDAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const WEEKDAY_INDEX = WEEKDAY_ORDER.reduce<Record<string, number>>((acc, day, index) => {
+  acc[day] = index;
+  return acc;
+}, {});
+
 const LEGACY_DOMAIN_TITLES: Record<string, string> = {
   work: "Работа и деньги",
   work_money: "Работа и деньги",
@@ -276,6 +282,62 @@ const LEGACY_STATUS_BY_SCORE = (value: number): LightStatus => {
 
 const normalizeList = (value: string[] | null | undefined): string[] =>
   Array.isArray(value) ? dedupeSemanticTexts(value) : [];
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfCalendarWeek(date: Date): Date {
+  const offset = (date.getUTCDay() + 6) % 7;
+  return addUtcDays(date, -offset);
+}
+
+function endOfCalendarWeek(date: Date): Date {
+  return addUtcDays(startOfCalendarWeek(date), 6);
+}
+
+function sortDayCardsMondayToSunday(dayCards: NonNullable<WeekBrief["day_cards"]>) {
+  return [...dayCards].sort((left, right) => {
+    const leftDate = parseIsoDate(left.date);
+    const rightDate = parseIsoDate(right.date);
+    if (leftDate && rightDate) {
+      return leftDate.getTime() - rightDate.getTime();
+    }
+    if (leftDate) return -1;
+    if (rightDate) return 1;
+    const leftWeekday = WEEKDAY_INDEX[normalizeLegacyWeekday(left.weekday) ?? ""] ?? Number.MAX_SAFE_INTEGER;
+    const rightWeekday = WEEKDAY_INDEX[normalizeLegacyWeekday(right.weekday) ?? ""] ?? Number.MAX_SAFE_INTEGER;
+    return leftWeekday - rightWeekday;
+  });
+}
+
+function resolveCalendarWeekBounds(brief: WeekBrief, dayCards: NonNullable<WeekBrief["day_cards"]>) {
+  const anchor =
+    parseIsoDate(brief.week_start)
+    ?? parseIsoDate(brief.week_end)
+    ?? sortDayCardsMondayToSunday(dayCards).map((card) => parseIsoDate(card.date)).find((value): value is Date => Boolean(value))
+    ?? null;
+
+  if (!anchor) {
+    return {
+      weekStart: brief.week_start ?? null,
+      weekEnd: brief.week_end ?? null,
+    };
+  }
+
+  const weekStart = startOfCalendarWeek(anchor);
+  const weekEnd = endOfCalendarWeek(anchor);
+  return {
+    weekStart: toIsoDate(weekStart),
+    weekEnd: toIsoDate(weekEnd),
+  };
+}
 
 const compactDateLabel = (dateValue?: string | null, weekdayValue?: string | null) => {
   const normalizedWeekday = normalizeLegacyWeekday(weekdayValue);
@@ -438,7 +500,9 @@ function buildWeekSurfaceModel(input: {
   waitMessageFallback?: string | null;
 }): WeekSurfaceModel {
   const brief = input.brief;
-  const dayCards = brief.day_cards ?? [];
+  const rawDayCards = brief.day_cards ?? [];
+  const calendarBounds = resolveCalendarWeekBounds(brief, rawDayCards);
+  const dayCards = sortDayCardsMondayToSunday(rawDayCards);
   const actions = normalizeActionItems(brief.best_uses, null, "action");
   const risks = normalizeActionItems(brief.risks, null, "risk");
   const factors = brief.major_factors ?? [];
@@ -457,6 +521,46 @@ function buildWeekSurfaceModel(input: {
     topSignalLabel ? `Главный слой влияния: ${topSignalLabel}` : null,
   ].filter(Boolean);
 
+  const stripByDate = new Map(dayCards.filter((card) => Boolean(card.date)).map((card) => [card.date as string, card]));
+  const stripByWeekday = new Map(dayCards.map((card) => [normalizeLegacyWeekday(card.weekday), card] as const).filter((entry): entry is [string, NonNullable<WeekBrief["day_cards"]>[number]] => Boolean(entry[0])));
+  const dayStrip: NonNullable<WeekBrief["day_cards"]> = calendarBounds.weekStart
+    ? WEEKDAY_ORDER.map((weekday, index) => {
+        const date = toIsoDate(addUtcDays(parseIsoDate(calendarBounds.weekStart)!, index));
+        const card = stripByDate.get(date) ?? stripByWeekday.get(weekday) ?? null;
+        return {
+          id: card?.id ?? `week-day-shell-${date}`,
+          date,
+          weekday: compactDateLabel(date, weekday),
+          mode: card?.mode ?? null,
+          score: card?.score ?? null,
+          headline: card ? normalizeStripHeadline(card.headline, card.best_for, card.avoid) : null,
+          lead: null,
+          practical: [],
+          supporting_factors: [],
+          details: { why_text: null, why_title: null, supporting_factors: [] },
+          factor_ids: Array.isArray(card?.factor_ids) ? card?.factor_ids : [],
+          best_for: normalizeList(card?.best_for).slice(0, 1),
+          avoid: normalizeList(card?.avoid).slice(0, 1),
+          peak_window_label: card?.peak_window_label ?? null,
+        };
+      })
+    : dayCards.map((card) => ({
+        id: card.id ?? null,
+        date: card.date ?? null,
+        weekday: compactDateLabel(card.date ?? null, card.weekday ?? null),
+        mode: card.mode ?? null,
+        score: card.score ?? null,
+        headline: normalizeStripHeadline(card.headline, card.best_for, card.avoid),
+        lead: null,
+        practical: [],
+        supporting_factors: [],
+        details: { why_text: null, why_title: null, supporting_factors: [] },
+        factor_ids: Array.isArray(card.factor_ids) ? card.factor_ids : [],
+        best_for: normalizeList(card.best_for).slice(0, 1),
+        avoid: normalizeList(card.avoid).slice(0, 1),
+        peak_window_label: card.peak_window_label ?? null,
+      }));
+
   return {
     surfaceMode: input.surfaceMode,
     headline: brief.summary?.headline?.trim() || "Неделя держится на спокойном темпе и точных решениях",
@@ -464,8 +568,8 @@ function buildWeekSurfaceModel(input: {
     theme: brief.summary?.theme?.trim() || "Карта недели",
     weekType: brief.summary?.week_type ?? "balance",
     status: brief.status ?? (input.sourceStatus === "in_progress" ? "in_progress" : input.sourceStatus === "pending" ? "pending" : "ready"),
-    weekStart: brief.week_start ?? null,
-    weekEnd: brief.week_end ?? null,
+    weekStart: calendarBounds.weekStart,
+    weekEnd: calendarBounds.weekEnd,
     timezone: input.timezone ?? null,
     location: input.location ?? null,
     personalizationLevel: brief.personalization_level ?? null,
@@ -473,22 +577,7 @@ function buildWeekSurfaceModel(input: {
     usesCanonicalWeekBrief: input.usesCanonicalWeekBrief,
     reportId: brief.report_ref?.report_id ?? input.latestReportId ?? null,
     dayCards,
-    dayStrip: dayCards.map((card) => ({
-      id: card.id ?? null,
-      date: card.date ?? null,
-      weekday: compactDateLabel(card.date ?? null, card.weekday ?? null),
-      mode: card.mode ?? null,
-      score: card.score ?? null,
-      headline: normalizeStripHeadline(card.headline, card.best_for, card.avoid),
-      lead: null,
-      practical: [],
-      supporting_factors: [],
-      details: { why_text: null, why_title: null, supporting_factors: [] },
-      factor_ids: Array.isArray(card.factor_ids) ? card.factor_ids : [],
-      best_for: normalizeList(card.best_for).slice(0, 1),
-      avoid: normalizeList(card.avoid).slice(0, 1),
-      peak_window_label: card.peak_window_label ?? null,
-    })),
+    dayStrip,
     domains: brief.domains ?? [],
     actions,
     risks,

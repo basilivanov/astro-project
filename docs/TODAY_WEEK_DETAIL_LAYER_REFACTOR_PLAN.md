@@ -7,9 +7,13 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
 - Shared frontend detail contract is now implemented in `frontend/lib/detail-layer.ts` and reused by `Today` plus `Week` domain/action/risk disclosures.
 - `frontend/lib/detail-layer.ts` now uses repo-local imports only; machine-specific filesystem paths are removed from runtime/test code.
 - `Today` canonical happy-path is now limited to `day_brief_v1`; legacy payloads are rendered as explicit compatibility fallback instead of premium reconstruction.
+- `Today` scored cards no longer allow score-without-explanation: if scoped evidence is thin, the renderer derives a bounded domain-safe explanation path instead of falling back to `объяснение недоступно`.
+- `Today` timing windows now pass through a post-normalization step that merges adjacent identical windows and collapses labels into a finite product taxonomy instead of generator-looking duplicates.
 - `Week` now has split mappers in `frontend/lib/week-brief.ts`: canonical `week_brief` and compatibility `week_map/chunks` are no longer merged in one happy-path adapter.
 - `/week` controller now mirrors `Today` more strictly: canonical screen requires `week_brief`, compatibility screen requires explicit legacy payload, and missing history without payload resolves to empty/create semantics instead of synthesized compatibility.
 - `Week` day strip is intentionally compact-only; canonical mode stays brief, while compatibility mode is explicitly marked as fallback without pseudo-depth.
+- `Week` main information architecture is now domain-led: hero -> weekly domains -> compact rhythm strip -> compact actions/risks -> optional supporting explainability -> optional deep reading.
+- `Week` visible calendar shell is now hard Monday→Sunday. Canonical and compatibility modes share the same stable calendar order; if fewer than seven explicit day payloads exist, the strip keeps an honest empty skeleton instead of fabricating depth.
 
 ## Current State Summary
 
@@ -21,6 +25,8 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
   - `details.supporting_factors[]`
 - UI implementation is concentrated in `frontend/components/today/daybrief-sections.tsx`.
 - `Today` also has a second explainability lane via `explainability.selected_factors` and personalized factors.
+- Scored domains must always surface one explanation path: scoped factors, scoped `why_text`, domain-matched explainability support, or a bounded domain-safe generic explanation.
+- Window cards should feel productized, not generator-like: adjacent same-signal windows merge, repeated disclosure copy is capped, and labels stay inside a controlled vocabulary.
 
 ### Week
 - `Week` uses several separate detail concepts instead of one unified detail-layer:
@@ -34,6 +40,11 @@ Bring `Today` and `Week` to one reusable, premium-looking detail-layer model wit
   - `frontend/components/week/week-actions-panel.tsx`
   - `frontend/components/week/week-explainability-panel.tsx`
   - `frontend/components/week/week-deep-sections.tsx`
+- Product priority is now explicit:
+  - weekly domains are the default summary layer
+  - Monday→Sunday strip is secondary drill-down
+  - actions/risks stay compact support
+  - deep sections remain optional long-form reading, not a competing main screen
 
 ## Target Architecture
 
@@ -119,6 +130,14 @@ That gives a stable layering:
 3. normalized detail-layer adapter
 4. reusable disclosure components
 5. page composition
+
+For weekly composition, prefer:
+1. `WeekHeroMap`
+2. weekly domain cards
+3. compact Monday→Sunday strip
+4. compact actions / risks
+5. optional supporting explainability
+6. optional deep sections behind a lower-priority boundary
 
 ## Contract Strategy
 

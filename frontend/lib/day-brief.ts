@@ -175,6 +175,15 @@ const text = (value: unknown, fallback = ""): string => typeof value === "string
 const bool = (value: unknown, fallback = false): boolean => typeof value === "boolean" ? value : fallback;
 const num = (value: unknown, fallback = 0): number => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
+function normalizeComparableText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // FN-CONTRACT: FN-DAY-NORMALIZE-SUPPORTING-FACTORS
 // purpose: Coerce supporting-factor payloads into a stable array of human-readable factor records.
 function normalizeSupportingFactors(value: unknown) {
@@ -207,6 +216,113 @@ function normalizeDetails(value: unknown) {
     supporting_factors: normalizeSupportingFactors(value.supporting_factors),
     factor_ids: Array.isArray(value.factor_ids) ? value.factor_ids.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [],
   };
+}
+
+function normalizeWindowLabelTaxonomy(input: {
+  label?: string | null;
+  mode?: DayBriefWindowMode | null;
+  advice?: string | null;
+  details?: { why_text?: string | null } | null;
+}): string {
+  const normalizedText = normalizeComparableText([
+    input.label,
+    input.advice,
+    input.details?.why_text,
+  ].filter(Boolean).join(" "));
+
+  if (/(переговор|обсужд|созвон|договор|контакт)/.test(normalizedText)) {
+    return "Окно переговоров";
+  }
+  if (/(провер|свер|редакт|уточн|контрол)/.test(normalizedText) || input.mode === "caution") {
+    return "Окно проверки";
+  }
+  if (/(восстанов|отдых|передыш|сон|ресурс|пауза)/.test(normalizedText)) {
+    return "Окно восстановления";
+  }
+  if (input.mode === "best") {
+    return "Рабочий импульс";
+  }
+  return "Мягкое окно";
+}
+
+function dedupeSupportingFactors(
+  factors: Array<{
+    id?: string | null;
+    label: string;
+    explanation_human: string;
+    explanation_astro?: string | null;
+    value?: string | null;
+  }>,
+) {
+  const seen = new Set<string>();
+  return factors.filter((factor) => {
+    const key = [
+      normalizeComparableText(factor.label),
+      normalizeComparableText(factor.explanation_human),
+      normalizeComparableText(factor.explanation_astro),
+      normalizeComparableText(factor.value),
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function mergeAdjacentWindows(windows: DayBriefDto["windows"]): DayBriefDto["windows"] {
+  return windows.reduce<DayBriefDto["windows"]>((result, currentWindow, index) => {
+    const current = {
+      ...currentWindow,
+      label: normalizeWindowLabelTaxonomy(currentWindow),
+    };
+    const previous = result[result.length - 1];
+    if (!previous) {
+      result.push(current);
+      return result;
+    }
+
+    const previousSignature = [
+      normalizeComparableText(previous.label),
+      previous.mode,
+      normalizeComparableText(previous.advice),
+      normalizeComparableText(previous.details?.why_text),
+    ].join("|");
+    const currentSignature = [
+      normalizeComparableText(current.label),
+      current.mode,
+      normalizeComparableText(current.advice),
+      normalizeComparableText(current.details?.why_text),
+    ].join("|");
+
+    if (previousSignature !== currentSignature) {
+      result.push(current);
+      return result;
+    }
+
+    const mergedFactors = dedupeSupportingFactors([
+      ...(previous.details?.supporting_factors ?? []),
+      ...(current.details?.supporting_factors ?? []),
+    ]);
+    const mergedFactorIds = Array.from(new Set([
+      ...(previous.details?.factor_ids ?? []),
+      ...(current.details?.factor_ids ?? []),
+    ]));
+
+    result[result.length - 1] = {
+      ...previous,
+      id: `${previous.id}-${index}`,
+      end: current.end || previous.end,
+      details: previous.details || current.details
+        ? {
+            why_title: previous.details?.why_title ?? current.details?.why_title ?? null,
+            why_text: previous.details?.why_text ?? current.details?.why_text ?? "Сегодня здесь лучше идти через спокойную точность, а не через голый напор.",
+            supporting_factors: mergedFactors,
+            factor_ids: mergedFactorIds,
+          }
+        : null,
+    };
+
+    return result;
+  }, []);
 }
 
 // FN-CONTRACT: FN-DAY-NORMALIZE-SCORES
@@ -243,15 +359,20 @@ function normalizeItems(value: unknown): DayBriefDto["best_uses"] {
 // purpose: Convert raw timing-window payloads into stable today window cards.
 function normalizeWindows(value: unknown): DayBriefDto["windows"] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isRecord).map((item, index) => ({
+  return mergeAdjacentWindows(value.filter(isRecord).map((item, index) => ({
     id: text(item.id, `window-${index}`),
     start: text(item.start, "09:00"),
     end: text(item.end, "11:00"),
-    label: text(item.label, "Рабочее окно"),
+    label: normalizeWindowLabelTaxonomy({
+      label: text(item.label, "Рабочее окно"),
+      mode: isWindowMode(item.mode) ? item.mode : "soft",
+      advice: text(item.advice, "Держите спокойный темп и проверяйте детали."),
+      details: normalizeDetails(item.details),
+    }),
     mode: isWindowMode(item.mode) ? item.mode : "soft",
     advice: text(item.advice, "Держите спокойный темп и проверяйте детали."),
     details: normalizeDetails(item.details),
-  }));
+  })));
 }
 
 function normalizeFactors(value: unknown): DayBriefDto["personalized_factors"] {

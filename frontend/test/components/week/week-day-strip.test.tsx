@@ -60,13 +60,13 @@ describe('WeekDayStrip', () => {
     render(<WeekDayStrip week={week} onDayClick={onDayClick} />);
 
     const card = screen.getByTestId('week-day-strip-card-1');
-    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Окно и фокус — без лишней глубины');
+    expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Понедельник — воскресенье');
     expect(card).toHaveTextContent('СР, 1 апр');
     expect(card).toHaveTextContent('88/100');
     expect(card).toHaveTextContent('Фокус на главном');
     expect(card).toHaveTextContent('Окно Утро · Фокус Стратегия');
     expect(card).not.toHaveTextContent('Детали дня');
-    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Окно и фокус — без лишней глубины');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Календарный ритм недели без лишней глубины');
     expect(screen.getByTestId('week-day-strip-section')).not.toHaveTextContent('совместимый');
 
     fireEvent.click(card.querySelector('button') as HTMLElement);
@@ -82,6 +82,6 @@ describe('WeekDayStrip', () => {
     );
 
     expect(screen.getByTestId('week-day-strip-section')).toHaveTextContent('Дни как совместимый обзор');
-    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Совместимый fallback без псевдо-детализации');
+    expect(screen.getByTestId('week-day-strip-caption')).toHaveTextContent('Fallback-обзор по календарной неделе');
   });
 });

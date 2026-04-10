@@ -125,8 +125,7 @@ describe('Week unified detail panels', () => {
     render(<WeekDomainPanel week={baseWeek} />);
 
     expect(screen.getByTestId('week-domain-explainability-work')).toHaveTextContent('Что повлияло');
-    expect(screen.getByTestId('detail-evidence-chips')).not.toHaveTextContent(/green|yellow|red/i);
-    expect(screen.getByTestId('detail-evidence-chips')).toHaveTextContent('74/100');
+    expect(screen.getByTestId('week-domain-status-work')).toHaveTextContent('74/100');
 
     fireEvent.click(screen.getByRole('button', { name: 'Что повлияло' }));
     expect(screen.getByTestId('week-domain-explainability-work-factors')).toHaveTextContent('Солнце');

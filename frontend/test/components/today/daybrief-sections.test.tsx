@@ -209,7 +209,8 @@ describe('daybrief sections', () => {
     expect(disclosure).toHaveAttribute('open');
     fireEvent.click(disclosure);
     expect(disclosure).toHaveAttribute('open');
-    expect(screen.getByTestId('today-score-details-fallback-focus')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    expect(screen.getByTestId('today-score-details-focus')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-score-details-fallback-focus')).toBeNull();
   });
 
   it('hides disclosure when score why text duplicates advice and no scoped factors remain', () => {
@@ -231,7 +232,9 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    expect(screen.getByTestId('today-score-details-fallback-energy')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    expect(screen.getByTestId('today-score-details-energy')).toHaveTextContent('Эта сфера сегодня держится на темпе');
+    expect(screen.queryByTestId('today-score-details-fallback-energy')).toBeNull();
   });
 
   it('hides disclosure when score has local why text but no local factors', () => {
@@ -254,7 +257,9 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    expect(screen.getByTestId('today-score-details-fallback-focus')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    fireEvent.click(screen.getByRole('button', { name: /Работа и деньги: 61/i }));
+    expect(screen.getByTestId('today-score-details-focus')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-score-details-fallback-focus')).toBeNull();
   });
 
 
@@ -320,7 +325,9 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    expect(screen.getByTestId('today-score-details-fallback-focus')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    fireEvent.click(screen.getByRole('button', { name: /Фокус: 61/i }));
+    expect(screen.getByTestId('today-score-details-focus')).toHaveTextContent('Эта сфера сегодня держится на одном приоритете');
+    expect(screen.queryByTestId('today-score-details-fallback-focus')).toBeNull();
   });
 
 
@@ -403,8 +410,10 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    expect(screen.getByTestId('today-score-details-fallback-work_money')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
-    expect(screen.getByTestId('today-score-details-fallback-relationships')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    expect(screen.getByTestId('today-score-details-work_money')).toBeInTheDocument();
+    expect(screen.getByTestId('today-score-details-relationships')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-score-details-fallback-work_money')).toBeNull();
+    expect(screen.queryByTestId('today-score-details-fallback-relationships')).toBeNull();
   });
 
   it('renders window meta and suppresses redundant mode badge when label matches semantic mode', () => {
@@ -736,7 +745,9 @@ describe('daybrief sections', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
 
-    expect(screen.getByTestId('today-score-details-fallback-energy')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    expect(screen.queryByTestId('today-score-details-fallback-energy')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    expect(screen.getByTestId('today-score-details-energy')).toHaveTextContent('Эта сфера сегодня держится на темпе');
   });
 
   it('dedupes identical legacy score factors including self-duplicates', () => {
@@ -805,7 +816,9 @@ describe('daybrief sections', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
 
-    expect(screen.getByTestId('today-score-details-fallback-energy')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    expect(screen.queryByTestId('today-score-details-fallback-energy')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    expect(screen.getByTestId('today-score-details-energy')).not.toHaveTextContent('energy:green');
   });
 
   it('removes raw technical text from explainability descriptions and dedupes repeated aspects', () => {
@@ -981,7 +994,9 @@ describe('daybrief sections', () => {
 
     render(React.createElement(TodayScores, { brief, onScoreTap: jest.fn() }));
 
-    expect(screen.getByTestId('today-score-details-fallback-energy')).toHaveTextContent('Короткое объяснение для этой сферы пока недоступно.');
+    expect(screen.queryByTestId('today-score-details-fallback-energy')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Энергия: 82/i }));
+    expect(screen.getByTestId('today-score-details-energy')).toHaveTextContent('Ритм дня');
   });
 
   it.skip('renders explainability links to related today items', () => {

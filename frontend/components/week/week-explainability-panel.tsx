@@ -33,8 +33,8 @@ export function WeekExplainabilityPanel({ week }: { week: WeekSurfaceModel }) {
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Почему карта именно такая</p>
-            <h2 className="mt-2 text-lg font-black text-slate-950">Объяснимость</h2>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Поддерживающий слой</p>
+            <h2 className="mt-2 text-lg font-black text-slate-950">Основа недели</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-600" data-testid="week-explainability-summary">
               {week.explainabilitySummary ?? [week.confidenceLabel, week.birthTimeLabel ? week.birthTimeLabel.charAt(0).toUpperCase() + week.birthTimeLabel.slice(1) : null, week.topSignalLabel ? `Главный слой влияния: ${week.topSignalLabel}` : null].filter(Boolean).join(". ") + "."}
             </p>
