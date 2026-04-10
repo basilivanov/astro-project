@@ -67,6 +67,14 @@ def _repair_day_brief_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
 def validate_day_brief_payload(payload: Mapping[str, Any] | DayBrief) -> DayBrief:
     if isinstance(payload, DayBrief):
         return payload
+    if not isinstance(payload, Mapping):
+        return DayBrief.parse_obj(payload)
+
+    # Canonical Day no longer accepts alternate versions. Unknown nested keys are repaired,
+    # but a non-canonical version must fail loudly instead of slipping through legacy semantics.
+    version = payload.get("version")
+    if version not in (None, "day_brief_canon_v1"):
+        return DayBrief.parse_obj(payload)
     try:
         return DayBrief.parse_obj(payload)
     except ValidationError:

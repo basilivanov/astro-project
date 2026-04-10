@@ -118,7 +118,7 @@ class CtaSet(StrictModel):
 
 
 class DayBrief(StrictModel):
-    version: Literal["day_brief_canon_v1", "day_brief_v2"] = "day_brief_canon_v1"
+    version: Literal["day_brief_canon_v1"] = "day_brief_canon_v1"
     status: DayBriefStatus = DayBriefStatus.complete
     date: date
     personalization_level: str = Field(..., min_length=1, max_length=64)

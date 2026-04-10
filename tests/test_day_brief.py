@@ -187,6 +187,22 @@ def test_day_brief_payload_has_only_four_domains() -> None:
     assert set(payload["domains"].keys()) == {"energy", "money", "love", "focus"}
 
 
+def test_day_brief_payload_uses_canonical_domain_titles() -> None:
+    payload = build_day_brief_payload(_sample_facts(), user=None, generation_mode="deterministic")
+    assert payload["domains"]["energy"]["title"] == "Тонус"
+    assert payload["domains"]["money"]["title"] == "Работа и деньги"
+    assert payload["domains"]["love"]["title"] == "Чувства"
+    assert payload["domains"]["focus"]["title"] == "Фокус"
+
+
+def test_day_brief_payload_contains_only_canonical_surface_fields() -> None:
+    payload = build_day_brief_payload(_sample_facts(), user=None, generation_mode="deterministic")
+    assert set(payload.keys()).issubset({"version", "status", "date", "personalization_level", "hero", "domains", "premium", "cta"})
+    assert {"version", "status", "date", "personalization_level", "hero", "domains", "cta"}.issubset(payload.keys())
+    assert "summary" not in payload
+    assert "explainability" not in payload
+
+
 def test_day_brief_payload_never_sets_fallback_mode() -> None:
     payload = build_day_brief_payload(_sample_facts(), user=None, generation_mode="deterministic")
     assert "fallback_mode" not in payload
