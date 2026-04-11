@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { ConsumerPanel } from "../consumer-page-shell";
 import type { DayBriefDto, DayBriefLight, DayBriefScoreKey, DayDomainCard } from "../../lib/day-brief";
 
@@ -18,7 +18,7 @@ const SCORE_ORDER: DayBriefScoreKey[] = ["energy", "money", "love", "focus"];
 const SCORE_LABELS: Record<DayBriefLight, string> = {
   green: "Сильная зона",
   yellow: "Зона внимания",
-  red: "Зона бережности",
+  red: "Бережно",
 };
 
 const STATE_LABELS = {
@@ -93,8 +93,8 @@ export function TodayVerdict({ brief }: { brief: DayBriefDto }) {
           <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] shadow-sm ${copy.badgeClass}`}>{copy.label}</span>
         </div>
         <div>
-          <h1 className="max-w-2xl text-[1.95rem] font-black leading-[1.08] text-white sm:text-[2.25rem]" data-testid="today-hero-title">{brief.hero.title}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-indigo-50/95 sm:text-[15px]">{brief.hero.subtitle}</p>
+          <h1 className="max-w-[14ch] text-[1.7rem] font-black leading-[1.04] text-white sm:max-w-[16ch] sm:text-[2.05rem]" data-testid="today-hero-title">{brief.hero.title}</h1>
+          <p className="mt-3 max-w-[34ch] text-sm leading-relaxed text-indigo-50/95 sm:max-w-[42ch] sm:text-[15px]" data-testid="today-hero-subtitle">{brief.hero.subtitle}</p>
         </div>
       </div>
     </section>
@@ -125,7 +125,7 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
                 <span
                   data-testid={`today-score-status-${key}`}
                   className={[
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+                    "inline-flex max-w-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold leading-none sm:px-3 sm:text-xs",
                     domain.status === "green" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "",
                     domain.status === "yellow" ? "border-amber-200 bg-amber-50 text-amber-700" : "",
                     domain.status === "red" ? "border-rose-200 bg-rose-50 text-rose-700" : "",
@@ -135,7 +135,7 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
                 >
                   <span
                     className={[
-                      "h-2.5 w-2.5 rounded-full",
+                      "h-2 w-2 shrink-0 rounded-full",
                       domain.status === "green" ? "bg-emerald-500" : "",
                       domain.status === "yellow" ? "bg-amber-500" : "",
                       domain.status === "red" ? "bg-rose-500" : "",
@@ -148,8 +148,14 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-700">{domainDescription(domain)}</p>
               {domainWhyText(domain) ? (
-                <details data-testid={`today-score-details-${key}`} className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
-                  <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">Что повлияло</summary>
+                <details data-testid={`today-score-details-${key}`} className="group mt-4 rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-3">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 rounded-xl text-sm font-semibold text-slate-900 marker:content-none">
+                    <span>Что повлияло</span>
+                    <span className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-500 group-open:text-slate-700">
+                      <span className="hidden sm:inline">Открыть</span>
+                      <ChevronDown size={18} className="shrink-0 transition-transform duration-200 group-open:rotate-180" />
+                    </span>
+                  </summary>
                   <p className="mt-3 text-sm leading-relaxed text-slate-700">{domainWhyText(domain)}</p>
                 </details>
               ) : null}

@@ -99,6 +99,19 @@ describe('daybrief sections', () => {
     expect(screen.getByText('Глубокий фокус')).toBeInTheDocument();
   });
 
+  it('keeps status badge single-line and disclosure affordance visible', () => {
+    render(React.createElement(TodayScores, { brief: buildBrief(), onScoreTap: jest.fn() }));
+
+    const status = screen.getByTestId('today-score-status-money');
+    expect(status.className).toContain('whitespace-nowrap');
+    expect(status).toHaveTextContent('Зона внимания');
+
+    const summary = screen.getByTestId('today-score-details-energy').querySelector('summary');
+    expect(summary).not.toBeNull();
+    expect(summary?.textContent).toContain('Что повлияло');
+    expect(summary?.textContent).toContain('Открыть');
+  });
+
   it('renders only four canonical domain cards with a single why text block', () => {
     const onScoreTap = jest.fn();
     render(React.createElement(TodayScores, { brief: buildBrief(), onScoreTap }));

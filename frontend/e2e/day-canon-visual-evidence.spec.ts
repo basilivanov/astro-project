@@ -48,7 +48,7 @@ function canonicalDomains(): Record<'energy' | 'money' | 'love' | 'focus', DayBr
       score: 63,
       status: 'yellow',
       description_status: 'complete',
-      description: 'В денежных и рабочих вопросах лучше держаться одной линии и проверять формулировки дважды. Результат приходит через аккуратность, а не через скорость.',
+      description: 'В рабочих и денежных вопросах сегодня важны условия, сроки и точные формулировки. Спокойная проверка цифр и договорённостей работает лучше, чем быстрый нажим.',
       why_status: 'complete',
       why_astro_text: 'Твой 2-й дом денег и личной цены вопроса сегодня требует точности в цифрах и договорённостях. Твой Меркурий помогает увидеть слабые места до того, как они станут ошибкой.',
       evidence_refs: [{ kind: 'house', ref: 'house-2' }],
@@ -72,7 +72,7 @@ function canonicalDomains(): Record<'energy' | 'money' | 'love' | 'focus', DayBr
       score: 81,
       status: 'green',
       description_status: 'complete',
-      description: 'Ментальная линия сегодня особенно чистая, если не дробить внимание между параллельными задачами. Один глубокий проход даёт лучший результат, чем серия резких переключений.',
+      description: 'Внимание держится лучше, если отсечь параллельные задачи и пройти один контур целиком. Главный выигрыш сегодня — в удержании приоритета без лишних переключений.',
       why_status: 'complete',
       why_astro_text: 'Твой Меркурий сегодня держит мысль собранной и лучше работает в одной задаче. Твой 10-й дом карьеры и решений подчёркивает важность главного хода и ясного приоритета.',
       evidence_refs: [{ kind: 'planet', ref: 'mercury' }, { kind: 'house', ref: 'house-10' }],
@@ -97,8 +97,8 @@ test.describe('day canon branch-visible visual evidence', () => {
       date: '2026-04-10',
       personalization_level: 'personalized_v2',
       hero: {
-        title: 'День лучше проходит через один главный вектор.',
-        subtitle: 'Собирайте ресурс в четыре ключевые сферы и не подменяйте их общим фоном.',
+        title: 'Держите день в одном векторе.',
+        subtitle: 'Главный результат сегодня приходит через собранный темп и спокойные решения без перегруза.',
         day_type: 'deep_focus',
         tone: 'steady',
       },
@@ -114,6 +114,9 @@ test.describe('day canon branch-visible visual evidence', () => {
     await expectNoCrash(page);
     await expect(page.getByTestId('today-verdict')).toBeVisible();
     await expect(page.getByTestId('today-scores')).toBeVisible();
+    await expect(page.getByTestId('today-hero-title')).toHaveCSS('max-width', /./);
+    await expect(page.getByTestId('today-score-status-money')).toHaveCSS('white-space', 'nowrap');
+    await expect(page.getByTestId('today-score-details-focus').locator('summary')).toContainText('Что повлияло');
 
     await writeShot(page, 'today-canonical-top.png');
 
