@@ -21,6 +21,8 @@ DEFAULT_EVIDENCE_DIR = "docs/review_evidence/front/day-week/2026-04-10-d479771"
 README_NAME = "README.md"
 CLOSEOUT_NAME = "post-test-review.md"
 SPEC_PATH = "frontend/e2e/telegram-signed-auth.spec.ts"
+DAY_BRIEF_PATH = "frontend/lib/day-brief.ts"
+DAY_PAGE_PATH = "frontend/app/page.tsx"
 USER_AGENT = "astro-public-ref-verifier/2.0"
 PASS_VERDICT = "PUBLICLY_VERIFIED_CLEAN"
 FAIL_VERDICT = "FAIL_NO_PUBLIC_REF_PARITY"
@@ -135,6 +137,35 @@ def check_spec_public_text(text: str) -> tuple[bool, str]:
     return False, "real_backend_markers_missing"
 
 
+
+def check_day_surface_public_text(day_brief_text: str, day_page_text: str) -> tuple[bool, str]:
+    forbidden_brief = [
+        'title: "Сегодня"',
+        'subtitle: "Четыре ключевые сферы на сегодня."',
+        'Открыть неделю',
+        'История разборов',
+        'Открыть premium',
+    ]
+    forbidden_page = [
+        'today-premium-block',
+        'actionLabel="Открыть неделю"',
+        'actionHref="/week"',
+    ]
+    leaked = [f"day_brief:{token}" for token in forbidden_brief if token in day_brief_text]
+    leaked.extend(f"day_page:{token}" for token in forbidden_page if token in day_page_text)
+    required = [
+        'hero: DayBriefHero | null',
+        'const cta = isRecord(source.cta)',
+        'TodayCtaPanel',
+    ]
+    combined_text = day_brief_text + "\n" + day_page_text
+    missing = [token for token in required if token not in combined_text]
+    if leaked:
+        return False, "old_day_surface_markers_visible"
+    if missing:
+        return False, "strict_day_surface_markers_missing"
+    return True, "pass"
+
 def commit_from_api(payload: Any) -> str | None:
     if isinstance(payload, dict):
         return str(payload.get("sha") or "") or None
@@ -173,6 +204,8 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
         "blob_readme": blob_url(repo, branch, f"{evidence_dir}/{README_NAME}"),
         "blob_closeout": blob_url(repo, branch, f"{evidence_dir}/{CLOSEOUT_NAME}"),
         "blob_spec": blob_url(repo, branch, SPEC_PATH),
+        "blob_day_brief": blob_url(repo, branch, DAY_BRIEF_PATH),
+        "blob_day_page": blob_url(repo, branch, DAY_PAGE_PATH),
         "raw_cdn_readme": raw_cdn_url(repo, branch, f"{evidence_dir}/{README_NAME}"),
         "raw_cdn_closeout": raw_cdn_url(repo, branch, f"{evidence_dir}/{CLOSEOUT_NAME}"),
     }
@@ -204,6 +237,8 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
         blob_readme = visible_blob_text(fetch_text(paths["blob_readme"]))
         blob_closeout = visible_blob_text(fetch_text(paths["blob_closeout"]))
         blob_spec = visible_blob_text(fetch_text(paths["blob_spec"]))
+        blob_day_brief = visible_blob_text(fetch_text(paths["blob_day_brief"]))
+        blob_day_page = visible_blob_text(fetch_text(paths["blob_day_page"]))
     except Exception as exc:
         result.errors.append(str(exc))
         result.dimensions["fetch"] = "fail"
@@ -247,11 +282,13 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
 
     raw_spec_ok, raw_spec_reason = check_spec_public_text(raw_spec)
     blob_spec_ok, blob_spec_reason = check_spec_public_text(blob_spec)
+    day_surface_ok, day_surface_reason = check_day_surface_public_text(blob_day_brief, blob_day_page)
     dimensions["raw_spec"] = raw_spec_reason
     dimensions["blob_spec"] = blob_spec_reason
+    dimensions["branch_day_surface"] = day_surface_reason
 
     result.dimensions = dimensions
-    result.verdict = PASS_VERDICT if all(value == "pass" for value in dimensions.values()) and raw_spec_ok and blob_spec_ok else FAIL_VERDICT
+    result.verdict = PASS_VERDICT if all(value == "pass" for value in dimensions.values()) and raw_spec_ok and blob_spec_ok and day_surface_ok else FAIL_VERDICT
     return result
 
 
