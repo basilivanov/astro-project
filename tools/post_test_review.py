@@ -24,6 +24,7 @@ VERDICTS = {
     "degraded-but-expected": "PASS_WITH_EXPECTED_DEGRADATION",
     "unexpected-degradation": "FAIL_OBSERVABILITY_GATE",
     "no-evidence-blocker": "FAIL_NO_EVIDENCE",
+    "primary-live-session-mismatch": "FAIL_PRIMARY_LIVE_SESSION_MISMATCH",
 }
 
 TODAY_EVENTS = {
@@ -192,6 +193,8 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
     alerts: list[str] = []
     status = "clean"
     fallback_count = 0
+    expected_user_id = str(payload.get("expected_user_id") or payload.get("canary_user_id") or "").strip()
+    actual_user_id = str(payload.get("actual_user_id") or "").strip()
 
     if users_me.get("status") != 200:
         alerts.append("live canary /api/users/me non-200")
@@ -208,7 +211,10 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
     if render_path == "no_data" or payload.get("today_no_data_visible") is True:
         alerts.append("live canary Today rendered no_data")
         fallback_count = 1
-        status = "unexpected-degradation"
+        status = "primary-live-session-mismatch"
+    if not expected_user_id or actual_user_id != expected_user_id:
+        alerts.append("primary live session identity mismatch")
+        status = "primary-live-session-mismatch"
     if not payload.get("request_id") or not payload.get("trace_id"):
         alerts.append("live canary request/trace id missing")
         status = "no-evidence-blocker"
@@ -647,8 +653,11 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
         overall = read_status
         replay_summary = None
     else:
-        candidate_flows = (today, week, *([canary] if canary else []))
+        candidate_flows = (*([canary] if canary else []), today, week)
         for flow in candidate_flows:
+            if flow.status == "primary-live-session-mismatch":
+                overall = "primary-live-session-mismatch"
+                break
             if flow.status == "no-evidence-blocker":
                 overall = "no-evidence-blocker"
                 break

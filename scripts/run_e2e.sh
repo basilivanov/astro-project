@@ -129,7 +129,13 @@ mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
 
 if printf '%s\n' "${PLAYWRIGHT_ARGS[@]}" | grep -qx 'e2e/telegram-live-canary.spec.ts' && [ -z "${TELEGRAM_LIVE_CANARY_INIT_DATA:-}" ]; then
   echo "❌ ERROR: TELEGRAM_LIVE_CANARY_INIT_DATA is required for e2e/telegram-live-canary.spec.ts."
-  echo "Live canary is a DEV/staging blocker and must use real Telegram initData from env/secret store."
+  echo "Primary Day live-session acceptance must use the user's real Telegram initData from env/secret store."
+  exit 1
+fi
+
+if printf '%s\n' "${PLAYWRIGHT_ARGS[@]}" | grep -qx 'e2e/telegram-live-canary.spec.ts' && [ -z "${TELEGRAM_LIVE_CANARY_USER_ID:-}" ]; then
+  echo "❌ ERROR: TELEGRAM_LIVE_CANARY_USER_ID is required for e2e/telegram-live-canary.spec.ts."
+  echo "Primary Day live-session acceptance must bind to the exact visible Telegram user identity."
   exit 1
 fi
 
