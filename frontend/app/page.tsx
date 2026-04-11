@@ -179,6 +179,7 @@ export default function FeedPage() {
   const [feedState, setFeedState] = useState<FeedState>("ready");
   const [error, setError] = useState<string | null>(null);
   const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
+  const [recoveryRedirectScheduled, setRecoveryRedirectScheduled] = useState(false);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") {
@@ -206,6 +207,20 @@ export default function FeedPage() {
 
     return () => window.clearTimeout(timer);
   }, [isReady]);
+
+  useEffect(() => {
+    const needsRecoveryHandoff = isReady && !isCanonicalTelegramLane && (bootstrapOutcome === "runtime_missing" || bootstrapOutcome === "initdata_missing");
+    if (!needsRecoveryHandoff) {
+      setRecoveryRedirectScheduled(false);
+      return;
+    }
+    setRecoveryRedirectScheduled(true);
+    const reason = bootstrapOutcome ?? "runtime_missing";
+    const timer = window.setTimeout(() => {
+      router.replace(`/start?recovery=${reason}`);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [bootstrapOutcome, isCanonicalTelegramLane, isReady, router]);
 
   const emitHomeEvent = useCallback(async (eventName: string, block: string, semanticBlock: string, meta: Record<string, unknown>) => {
     await trackHomeEvent(
@@ -378,8 +393,8 @@ export default function FeedPage() {
               message={bootstrapOutcome === "initdata_missing"
                 ? "Mini App открылась, но Telegram не передал initData. Перейди через /start, чтобы повторить bootstrap."
                 : "Приложение открылось, но Telegram WebApp не инициализировался вовремя. Открой экран заново через /start или обнови mini app."}
-              actionLabel="Открыть /start"
-              actionHref="/start"
+              actionLabel={recoveryRedirectScheduled ? "Переходим в /start…" : "Открыть /start"}
+              actionHref={`/start?recovery=${bootstrapOutcome ?? "runtime_missing"}`}
               actionTestId="home-bootstrap-recover-cta"
             />
           ) : (
@@ -396,6 +411,7 @@ export default function FeedPage() {
               data-bootstrap-outcome={bootstrapOutcome ?? "unknown"}
               data-bootstrap-href={bootstrapDiagnostics?.href ?? ""}
               data-bootstrap-hash={bootstrapDiagnostics?.hash ?? ""}
+              data-recovery-redirect-scheduled={String(recoveryRedirectScheduled)}
             />
           ) : null}
         </ConsumerPanel>

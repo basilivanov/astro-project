@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 
 import FeedPage from '../../app/page';
 
@@ -81,11 +81,35 @@ describe('FeedPage', () => {
     });
 
     render(<FeedPage />);
-    jest.advanceTimersByTime(4500);
+    await act(async () => {
+      jest.advanceTimersByTime(4500);
+    });
 
     expect(await screen.findByTestId('empty-state')).toBeInTheDocument();
     expect(screen.getByText('Telegram runtime не инициализировался')).toBeInTheDocument();
-    expect(screen.getByTestId('home-bootstrap-recover-cta')).toHaveAttribute('href', '/start');
+    expect(screen.getByTestId('home-bootstrap-recover-cta')).toHaveAttribute('href', '/start?recovery=runtime_missing');
+    jest.useRealTimers();
+  });
+
+  it('uses recovery query on home bootstrap CTA for initdata_missing', async () => {
+    jest.useFakeTimers();
+    mockUseTelegram.mockReturnValue({
+      isReady: false,
+      mode: 'none',
+      initData: '',
+      user: null,
+      bootstrapOutcome: 'initdata_missing',
+      bootstrapDiagnostics: { href: '/?foo=1', hash: '#tg', outcome: 'initdata_missing' },
+    });
+
+    render(<FeedPage />);
+    await act(async () => {
+      jest.advanceTimersByTime(4500);
+    });
+
+    const cta = await screen.findByTestId('home-bootstrap-recover-cta');
+    expect(cta).toHaveAttribute('href', '/start?recovery=initdata_missing');
+    expect(screen.getByText('Telegram не передал initData')).toBeInTheDocument();
     jest.useRealTimers();
   });
 

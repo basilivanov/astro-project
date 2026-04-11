@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "../../components/ui-states";
 import { trackCatalogEvent } from "../../components/catalog/catalog-analytics";
@@ -246,6 +246,11 @@ export default function StartPage() {
   const router = useRouter();
   const [status, setStatus] = useState<StartStatus>("init");
   const [effectiveCorrelationId, setEffectiveCorrelationId] = useState<string>("");
+  const [retryTick, setRetryTick] = useState(0);
+  const recoveryReason = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("recovery");
+  }, [retryTick]);
 
   const activeFlowId = flowId || FLOW_HOME_FEED;
 
@@ -289,9 +294,15 @@ export default function StartPage() {
           ✨
         </div>
         <div data-testid="start-auth-gate-copy" className="space-y-2">
-          <h1 className="text-2xl font-black text-slate-900">Войти через Telegram</h1>
-          <p className="text-slate-500 max-w-xs mx-auto">
-            Чтобы сохранить ваш прогресс и открыть доступ к прогнозам, нам нужно знать, кто вы.
+          <h1 className="text-2xl font-black text-slate-900">
+            {recoveryReason ? "Восстанавливаем запуск Mini App" : "Войти через Telegram"}
+          </h1>
+          <p className="text-slate-500 max-w-xs mx-auto" data-testid="start-recovery-copy">
+            {recoveryReason === "initdata_missing"
+              ? "Telegram открыл Mini App, но не передал initData. Попробуйте повторить запуск через этот recovery screen."
+              : recoveryReason === "runtime_missing"
+                ? "Mini App не получила Telegram runtime вовремя. Этот экран поможет безопасно перезапустить запуск."
+                : "Чтобы сохранить ваш прогресс и открыть доступ к прогнозам, нам нужно знать, кто вы."}
           </p>
         </div>
         <button
@@ -314,11 +325,24 @@ export default function StartPage() {
         >
           Тестовый вход (Браузер)
         </button>
-        <p data-testid="start-auth-gate-hint" className="text-xs text-slate-400 mt-8">
-          {bootstrapOutcome === "initdata_missing"
-            ? "Telegram открыл Mini App, но не передал initData. Нажмите кнопку ещё раз или откройте экран повторно."
-            : "Если вы видите этот экран внутри Telegram, попробуйте перезапустить мини-приложение."}
-        </p>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            data-testid="start-recovery-retry"
+            onClick={() => {
+              setRetryTick((value) => value + 1);
+              window.location.href = "/start";
+            }}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            Повторить запуск
+          </button>
+          <p data-testid="start-auth-gate-hint" className="text-xs text-slate-400 mt-2">
+            {bootstrapOutcome === "initdata_missing"
+              ? "Telegram открыл Mini App, но не передал initData. Нажмите кнопку ещё раз или откройте экран повторно."
+              : "Если вы видите этот экран внутри Telegram, попробуйте перезапустить мини-приложение."}
+          </p>
+        </div>
       </div>
     );
   }
