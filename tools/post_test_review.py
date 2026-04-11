@@ -188,6 +188,14 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
     feed_today = payload.get("feed_today") if isinstance(payload.get("feed_today"), dict) else {}
     feed_body = feed_today.get("body") if isinstance(feed_today, dict) else {}
     day_brief = feed_body.get("day_brief") if isinstance(feed_body, dict) and isinstance(feed_body.get("day_brief"), dict) else {}
+    domains = day_brief.get("domains") if isinstance(day_brief.get("domains"), dict) else {}
+    complete_domains = [
+        key for key, value in domains.items()
+        if isinstance(value, dict)
+        and value.get("score_status") == "complete"
+        and value.get("description_status") == "complete"
+        and value.get("why_status") == "complete"
+    ]
     render_path = payload.get("render_path")
     timestamp_window = payload.get("timestamp_window") if isinstance(payload.get("timestamp_window"), dict) else {}
     alerts: list[str] = []
@@ -205,6 +213,12 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
     if day_brief.get("version") != "day_brief_canon_v1":
         alerts.append("live canary canonical payload missing")
         status = "unexpected-degradation"
+    if not day_brief.get("hero"):
+        alerts.append("primary live canary hero missing")
+        status = "primary-live-session-mismatch"
+    if not complete_domains:
+        alerts.append("primary live canary usable complete domain missing")
+        status = "primary-live-session-mismatch"
     if day_brief.get("status") == "failed" or render_path == "failed":
         alerts.append("live canary Today failed")
         status = "unexpected-degradation"
@@ -231,7 +245,7 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
         fallback_count,
         [],
         alerts,
-        {"artifact_bundle_total": 1},
+        {"artifact_bundle_total": 1, "primary_live_complete_domain_total": len(complete_domains)},
         [{"event": "day_live_canary.diagnostics", "timestamp": timestamp_window.get("to"), "trace_id": payload.get("trace_id"), "request_id": payload.get("request_id"), "reason": render_path, "report_id": str(latest)}],
     )
 

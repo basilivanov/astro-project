@@ -23,6 +23,21 @@ type UsersMePayload = {
   user?: UsersMePayload;
 };
 
+type DayDomainReadiness = {
+  score_status?: unknown;
+  description_status?: unknown;
+  why_status?: unknown;
+};
+
+type DayBriefPayload = {
+  day_brief?: {
+    version?: unknown;
+    status?: unknown;
+    hero?: unknown;
+    domains?: Record<string, DayDomainReadiness>;
+  };
+};
+
 const canaryInitData = process.env.TELEGRAM_LIVE_CANARY_INIT_DATA;
 const canaryUserId = process.env.TELEGRAM_LIVE_CANARY_USER_ID ?? "unknown";
 const shouldRunLiveCanary = Boolean(canaryInitData && canaryUserId !== "unknown");
@@ -34,7 +49,7 @@ function resolvedTelegramUserId(payload: UsersMePayload): string | null {
   return null;
 }
 
-function summarizeDayPayload(feedPayload: { day_brief?: { version?: unknown; status?: unknown; hero?: unknown; domains?: Record<string, { score_status?: unknown; description_status?: unknown; why_status?: unknown }> } }) {
+function summarizeDayPayload(feedPayload: DayBriefPayload) {
   const domains = feedPayload.day_brief?.domains ?? {};
   return {
     version: feedPayload.day_brief?.version ?? null,
@@ -46,6 +61,12 @@ function summarizeDayPayload(feedPayload: { day_brief?: { version?: unknown; sta
       why_status: value?.why_status ?? null,
     }])),
   };
+}
+
+function completeDomainKeys(feedPayload: DayBriefPayload) {
+  return Object.entries(feedPayload.day_brief?.domains ?? {})
+    .filter(([, domain]) => domain?.score_status === "complete" && domain?.description_status === "complete" && domain?.why_status === "complete")
+    .map(([key]) => key);
 }
 
 async function readResponseBody(response: import("@playwright/test").Response): Promise<unknown> {
@@ -136,13 +157,14 @@ test.describe("telegram live canary acceptance lane", () => {
       await page.waitForLoadState("networkidle");
 
       const usersPayload = await usersMe.json() as UsersMePayload;
-      const feedPayload = await feedToday.json() as { day_brief?: { version?: unknown; status?: unknown; hero?: unknown; domains?: Record<string, { score_status?: unknown; description_status?: unknown; why_status?: unknown }> } };
+      const feedPayload = await feedToday.json() as DayBriefPayload;
       const actualUserId = resolvedTelegramUserId(usersPayload);
+      const completeDomains = completeDomainKeys(feedPayload);
       diagnostics.current_url = page.url();
       diagnostics.render_path = await page.getByTestId("today-render-path").getAttribute("data-render-path");
       diagnostics.today_no_data_visible = await page.getByTestId("today-no-data-state").isVisible().catch(() => false);
       diagnostics.actual_user_id = actualUserId;
-      diagnostics.day_payload_summary = summarizeDayPayload(feedPayload);
+      diagnostics.day_payload_summary = { ...summarizeDayPayload(feedPayload), complete_domain_keys: completeDomains };
       diagnostics.timestamp_window = { from: startedAt, to: new Date().toISOString() };
       diagnostics.lookup_tuple = { request_id: proofRequestId, trace_id: proofRequestId, expected_user_id: canaryUserId, actual_user_id: actualUserId, timestamp_window: diagnostics.timestamp_window };
 
@@ -151,6 +173,8 @@ test.describe("telegram live canary acceptance lane", () => {
       expect(actualUserId, "primary live session must resolve to TELEGRAM_LIVE_CANARY_USER_ID").toBe(canaryUserId);
       expect(feedPayload?.day_brief?.version, "live canary must receive canonical Day payload").toBe("day_brief_canon_v1");
       expect(feedPayload?.day_brief?.status, "live canary Day payload must not be failed").not.toBe("failed");
+      expect(feedPayload?.day_brief?.hero, "primary live Day payload must include hero").toBeTruthy();
+      expect(completeDomains.length, "primary live Day payload must include at least one complete usable domain").toBeGreaterThan(0);
       await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
       await expect(page.getByTestId("today-no-data-state")).toHaveCount(0);
       await expect(page.getByText("Нет данных на сегодня")).toHaveCount(0);
