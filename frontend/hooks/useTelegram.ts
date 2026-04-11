@@ -126,6 +126,14 @@ export function useTelegram(): UseTelegramResult {
       setFlowId(flowSeed);
       const runtimeOverride = (window as typeof window & { __TEST_TELEGRAM_RUNTIME__?: TelegramRuntimeOverride }).__TEST_TELEGRAM_RUNTIME__;
       const telegramRuntime = (window as typeof window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[useTelegram.bootstrap]", {
+          hasRuntimeOverride: Boolean(runtimeOverride?.initData),
+          runtimeOverrideInitDataLength: runtimeOverride?.initData?.length ?? 0,
+          hasTelegramRuntime: Boolean(telegramRuntime),
+          telegramInitDataLength: telegramRuntime?.initData?.length ?? 0,
+        });
+      }
       const helperLaneEnabled = mockHelperLaneEnabled();
       const hasMockSession = window.sessionStorage.getItem("mock_telegram_user") === "1";
       const mockParam = params.get("mock");

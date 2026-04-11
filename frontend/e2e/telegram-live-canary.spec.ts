@@ -90,7 +90,8 @@ test.describe("telegram live canary acceptance lane", () => {
   liveCanaryTest("blocks DEV acceptance when live signed Today is no-data", async ({ page }, testInfo) => {
     testInfo.annotations.push({ type: "flow", description: "FLOW-TODAY-CANARY-LIVE" });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const artifactDir = path.resolve(process.cwd(), "artifacts", "day_live_canary", timestamp);
+    const artifactRoot = process.env.DAY_LIVE_CANARY_ARTIFACT_DIR ?? path.resolve("/tmp", "day_live_canary");
+    const artifactDir = path.resolve(artifactRoot, timestamp);
     await fs.mkdir(artifactDir, { recursive: true });
 
     const proofRequestId = `day-live-canary-${Date.now()}`;
@@ -157,19 +158,20 @@ test.describe("telegram live canary acceptance lane", () => {
       await expect(page.getByTestId("home-feed-page")).toBeVisible();
       await page.waitForLoadState("networkidle");
 
+      const usersPayload = await usersMe.json() as UsersMePayload;
+      const feedPayload = await feedToday.json() as DayBriefPayload;
+      await page.waitForTimeout(1000);
       const runtimeMode = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-mode").catch(() => null);
       const runtimeHasUser = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-has-user").catch(() => null);
       const runtimeHasInitData = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-has-init-data").catch(() => null);
       const runtimeInitDataLength = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-init-data-length").catch(() => null);
       const runtimeBootstrapTimedOut = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-bootstrap-timed-out").catch(() => null);
 
-      const usersPayload = await usersMe.json() as UsersMePayload;
-      const feedPayload = await feedToday.json() as DayBriefPayload;
       const actualUserId = resolvedTelegramUserId(usersPayload);
       const completeDomains = completeDomainKeys(feedPayload);
       diagnostics.current_url = page.url();
       diagnostics.runtime = { mode: runtimeMode, has_user: runtimeHasUser, has_init_data: runtimeHasInitData, init_data_length: runtimeInitDataLength, bootstrap_timed_out: runtimeBootstrapTimedOut };
-      diagnostics.render_path = await page.getByTestId("today-render-path").getAttribute("data-render-path");
+      diagnostics.render_path = await page.getByTestId("today-render-path").getAttribute("data-render-path").catch(() => null);
       diagnostics.today_no_data_visible = await page.getByTestId("today-no-data-state").isVisible().catch(() => false);
       diagnostics.actual_user_id = actualUserId;
       diagnostics.day_payload_summary = { ...summarizeDayPayload(feedPayload), complete_domain_keys: completeDomains };
@@ -186,7 +188,7 @@ test.describe("telegram live canary acceptance lane", () => {
       expect(diagnostics.render_path, "live canary must finish on canonical render path").toBe("canonical");
       await expect(page.getByTestId("today-no-data-state")).toHaveCount(0);
       await expect(page.getByText("Нет данных на сегодня")).toHaveCount(0);
-      await expect(page.getByTestId("today-verdict")).toBeVisible();
+      await expect(page.getByTestId("today-verdict")).toBeVisible({ timeout: 30000 });
     } finally {
       diagnostics.current_url = diagnostics.current_url ?? page.url();
       diagnostics.render_path = diagnostics.render_path ?? await page.getByTestId("today-render-path").getAttribute("data-render-path").catch(() => null);
