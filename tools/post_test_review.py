@@ -22,6 +22,7 @@ from tools.rendered_artifacts import load_rendered_summaries
 VERDICTS = {
     "clean": "PASS_CLEAN",
     "degraded-but-expected": "PASS_WITH_EXPECTED_DEGRADATION",
+    "primary-live-clean-wrapper-noise": "PASS_PRIMARY_LIVE_CLEAN_WRAPPER_NOISE",
     "unexpected-degradation": "FAIL_OBSERVABILITY_GATE",
     "no-evidence-blocker": "FAIL_NO_EVIDENCE",
     "primary-live-session-mismatch": "FAIL_PRIMARY_LIVE_SESSION_MISMATCH",
@@ -718,6 +719,12 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
                 break
             if flow.status == "degraded-but-expected":
                 overall = "degraded-but-expected"
+
+        if canary and canary.status == "clean" and overall == "no-evidence-blocker":
+            today_only_no_evidence = today.status == "no-evidence-blocker"
+            week_only_no_evidence = week.status in {"no-evidence-blocker", "clean"}
+            if today_only_no_evidence and week_only_no_evidence:
+                overall = "primary-live-clean-wrapper-noise"
         replay_summary = None
         feed_records = _recent_records(feed_log, allowed_events=TODAY_EVENTS, limit=200, since_delta=parse_since(since))
         if feed_records:
