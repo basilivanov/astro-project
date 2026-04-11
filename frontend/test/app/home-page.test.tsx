@@ -22,10 +22,6 @@ jest.mock('../../components/landing/LandingContent', () => ({
   LandingContent: () => <div data-testid="landing-content" />,
 }));
 
-jest.mock('../../components/TrialStatusWidget', () => ({
-  TrialStatusWidget: () => <div data-testid="trial-status-widget" />,
-}));
-
 jest.mock('../../components/consumer-page-shell', () => ({
   ConsumerHero: ({ title }: { title?: string }) => <div data-testid="consumer-hero">{title}</div>,
   ConsumerMetaPill: ({ value }: { value?: string }) => <span data-testid="consumer-meta-pill">{value}</span>,
@@ -132,6 +128,7 @@ describe('FeedPage', () => {
     expect(screen.getByTestId('today-render-path')).toHaveAttribute('data-render-path', 'canonical');
     expect(screen.getByTestId('today-scores')).toBeInTheDocument();
     expect(screen.getByTestId('today-cta-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-premium-block')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
     });

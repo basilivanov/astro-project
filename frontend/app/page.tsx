@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTelegram } from "../hooks/useTelegram";
 import { LandingContent } from "../components/landing/LandingContent";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui-states";
-import { TrialStatusWidget } from "../components/TrialStatusWidget";
 import {
   ConsumerHero,
   ConsumerMetaPill,
@@ -135,20 +134,9 @@ function toErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function formatSubscriptionLabel(dateValue?: string | null) {
-  if (!dateValue) {
-    return "Нет активной подписки";
-  }
-  const parsed = new Date(dateValue);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Подписка активна";
-  }
-  return `Активна до ${parsed.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" })}`;
-}
-
 function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
-  const heroLabel = today?.brief.hero.title ?? "Сегодня";
-  const shouldRenderHero = Boolean(today);
+  const heroLabel = today?.brief.hero?.title ?? "";
+  const shouldRenderHero = Boolean(today?.brief.hero);
   return (
     <ConsumerPageShell
       testId="home-feed-page"
@@ -168,9 +156,9 @@ function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: 
       ) : null}
       {shouldRenderHero ? (
         <ConsumerHero
-          eyebrow={dateLabel ?? "Сегодня"}
+          eyebrow={dateLabel ?? ""}
           title={heroLabel}
-          meta={<ConsumerMetaPill label="Дата" value={dateLabel ?? "Сегодня"} />}
+          meta={<ConsumerMetaPill label="Дата" value={dateLabel ?? ""} />}
         />
       ) : null}
       {children}
@@ -349,9 +337,6 @@ export default function FeedPage() {
     );
   }, [correlationId]);
 
-  const premiumActiveUntil = today?.premiumActiveUntil ?? profile?.subscription_active_until ?? null;
-  const referralCode = profile?.referral_code ?? null;
-  const showPremiumBlock = Boolean(premiumActiveUntil);
 
   if (!isReady || loading) {
     return (
@@ -386,8 +371,6 @@ export default function FeedPage() {
             compact
             title="Нет данных на сегодня"
             message="Для сегодняшней карты пока нет канонических данных по четырём сферам."
-            actionLabel="Открыть неделю"
-            actionHref="/week"
           />
         </ConsumerPanel>
       </FeedLayout>
@@ -402,9 +385,6 @@ export default function FeedPage() {
             compact
             title="Ошибка расчёта дня"
             message="Каноническая карта дня не собрана. Доступна только неделя или история разборов."
-            actionLabel="Открыть неделю"
-            actionHref="/week"
-            actionTestId="today-error-cta"
           />
           <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-error-note">
             Экран не подменяется fallback-текстом и ждёт новый расчёт.
@@ -422,9 +402,6 @@ export default function FeedPage() {
             compact
             title="Нет данных на сегодня"
             message="По одной или нескольким сферам нет канонических текстов и оценок."
-            actionLabel="Открыть неделю"
-            actionHref="/week"
-            actionTestId="today-no-data-cta"
           />
           <p className="mt-4 text-center text-xs leading-relaxed text-slate-500" data-testid="today-no-data-note">
             Экран остаётся честно пустым, пока не появится полный дневной расчёт.
@@ -447,12 +424,6 @@ export default function FeedPage() {
         <TodayScores brief={today.brief} onScoreTap={handleScoreTap} />
         <TodayCtaPanel brief={today.brief} onCta={handleHomeCta} />
       </div>
-      {showPremiumBlock ? (
-        <section className="mt-6 space-y-3" data-testid="today-premium-block">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{formatSubscriptionLabel(premiumActiveUntil)}</p>
-          <TrialStatusWidget activeUntil={premiumActiveUntil} referralCode={referralCode} />
-        </section>
-      ) : null}
     </FeedLayout>
   );
 }

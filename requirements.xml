@@ -59,7 +59,7 @@
       <summary>Return a compact daily feed from calculated transit facts and an optional low-cost LLM interpretation layer.</summary>
       <entrypoints>GET /api/feed/today; /</entrypoints>
       <scenario id="SCN-FEED-TODAY">Frontend loads the feed payload with date, moon sign, moon phase, vibe text, and traffic-light summary.</scenario>
-      <scenario id="SCN-FEED-DAY-BRIEF">Feed endpoint emits a canonical DayBrief DTO (`day_brief_canon_v1`) with hero, four domain cards, premium state, CTA, and explicit per-domain statuses; each domain owns `score`, human `description`, personalized `why_astro_text`, and field-level status, while legacy Day windows/actions/risks/explainability are not primary contract fields.</scenario>
+      <scenario id="SCN-FEED-DAY-BRIEF">Feed endpoint emits a canonical DayBrief DTO (`day_brief_canon_v1`) with hero, four domain cards, premium state, CTA, and explicit per-domain statuses; each domain owns `score`, human `description`, personalized `why_astro_text`, and field-level status; Hero and CTA are payload-driven only, extra premium widgets stay outside the canonical Day surface, and legacy Day windows/actions/risks/explainability are not primary contract fields.</scenario>
     </use_case>
     <use_case id="UC-ADMIN-OPERATIONS" actor="admin_user">
       <summary>Inspect reports, users, clients, tickets, analytics, audit logs, health, and trigger regeneration or diagnostics.</summary>

@@ -68,6 +68,7 @@ function domainWhyText(domain: DayDomainCard): string {
 }
 
 export function TodayVerdict({ brief }: { brief: DayBriefDto }) {
+  if (!brief.hero) return null;
   const copy = DAY_MODE_COPY[brief.hero.day_type];
   return (
     <section data-testid="today-verdict" className="relative overflow-hidden rounded-[32px] border border-indigo-100 bg-[linear-gradient(145deg,#0f172a_0%,#1e1b4b_55%,#312e81_100%)] p-6 text-white shadow-[0_30px_70px_-45px_rgba(15,23,42,0.85)]">
@@ -131,8 +132,9 @@ export function TodayScores({ brief, onScoreTap }: { brief: DayBriefDto; onScore
 }
 
 export function TodayCtaPanel({ brief, onCta }: { brief: DayBriefDto; onCta: (ctaId: string, href: string, entryPoint: string, block: string) => void }) {
-  const primary = brief.cta?.primary ?? { type: "open_week", label: "Открыть неделю", href: "/week" };
-  const secondary = brief.cta?.secondary ?? { type: brief.premium?.subscription_active ? "open_history" : "open_premium", label: brief.premium?.subscription_active ? "История разборов" : "Открыть premium", href: brief.premium?.subscription_active ? "/reports/history" : "/reports" };
+  const primary = brief.cta?.primary ?? null;
+  const secondary = brief.cta?.secondary ?? null;
+  if (!primary && !secondary) return null;
 
   return (
     <ConsumerPanel data-testid="today-cta-panel" className="p-5 sm:p-6">
@@ -142,23 +144,27 @@ export function TodayCtaPanel({ brief, onCta }: { brief: DayBriefDto; onCta: (ct
           <p className="mt-2 text-sm leading-relaxed text-slate-600">Перейдите в недельную карту или откройте историю разборов.</p>
         </div>
         <div className="flex flex-col gap-3 sm:min-w-[220px]">
-          <Link
-            href={primary.href}
-            data-testid="today-cta-week"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            onClick={() => onCta(primary.type, primary.href, "daybrief_primary", "CTA_PRIMARY")}
-          >
-            {primary.label}
-            <ArrowRight size={16} />
-          </Link>
-          <Link
-            href={secondary.href}
-            data-testid="today-cta-premium"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
-            onClick={() => onCta(secondary.type, secondary.href, "daybrief_secondary", "CTA_SECONDARY")}
-          >
-            {secondary.label}
-          </Link>
+          {primary ? (
+            <Link
+              href={primary.href}
+              data-testid="today-cta-primary"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              onClick={() => onCta(primary.type, primary.href, "daybrief_primary", "CTA_PRIMARY")}
+            >
+              {primary.label}
+              <ArrowRight size={16} />
+            </Link>
+          ) : null}
+          {secondary ? (
+            <Link
+              href={secondary.href}
+              data-testid="today-cta-secondary"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-slate-50"
+              onClick={() => onCta(secondary.type, secondary.href, "daybrief_secondary", "CTA_SECONDARY")}
+            >
+              {secondary.label}
+            </Link>
+          ) : null}
         </div>
       </div>
     </ConsumerPanel>

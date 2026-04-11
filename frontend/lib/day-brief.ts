@@ -36,17 +36,19 @@ export type DayDomainCard = {
   evidence_refs: Array<Record<string, unknown>>;
 };
 
+export type DayBriefHero = {
+  title: string;
+  subtitle: string;
+  day_type: "push" | "balance" | "caution" | "deep_focus" | "recovery";
+  tone?: string | null;
+};
+
 export type DayBriefDto = {
   version: "day_brief_canon_v1";
   status: "complete" | "partial" | "failed";
   date: string;
   personalization_level: string;
-  hero: {
-    title: string;
-    subtitle: string;
-    day_type: "push" | "balance" | "caution" | "deep_focus" | "recovery";
-    tone?: string | null;
-  };
+  hero: DayBriefHero | null;
   domains: Record<DayBriefScoreKey, DayDomainCard>;
   premium?: {
     subscription_active: boolean;
@@ -163,20 +165,35 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
   }
 
   const premiumActiveUntil = typeof profile?.subscription_active_until === "string" ? profile.subscription_active_until : null;
+  const rawHero = isRecord(source.hero) ? source.hero : null;
+  const heroTitle = normalizeTextField(rawHero?.title);
+  const heroSubtitle = normalizeTextField(rawHero?.subtitle);
+  const heroDayType = text(rawHero?.day_type);
+  const hero = heroTitle && heroSubtitle && ["push", "balance", "caution", "deep_focus", "recovery"].includes(heroDayType)
+    ? {
+      title: heroTitle,
+      subtitle: heroSubtitle,
+      day_type: heroDayType as DayBriefHero["day_type"],
+      tone: typeof rawHero?.tone === "string" ? rawHero.tone : null,
+    }
+    : null;
   const domains = normalizeDomains(source.domains);
+  const cta = isRecord(source.cta)
+    ? {
+      primary: isRecord(source.cta.primary) && normalizeTextField(source.cta.primary.label) && normalizeTextField(source.cta.primary.href)
+        ? { type: (text(source.cta.primary.type, "custom") as DayBriefCtaType), label: normalizeTextField(source.cta.primary.label)!, href: normalizeTextField(source.cta.primary.href)! }
+        : null,
+      secondary: isRecord(source.cta.secondary) && normalizeTextField(source.cta.secondary.label) && normalizeTextField(source.cta.secondary.href)
+        ? { type: (text(source.cta.secondary.type, "custom") as DayBriefCtaType), label: normalizeTextField(source.cta.secondary.label)!, href: normalizeTextField(source.cta.secondary.href)! }
+        : null,
+    }
+    : null;
   const brief: DayBriefDto = {
     version,
     status: source.status === "complete" || source.status === "partial" || source.status === "failed" ? source.status : "failed",
     date: text(source.date),
     personalization_level: text(source.personalization_level, "personalized_v2"),
-    hero: {
-      title: text(isRecord(source.hero) ? source.hero.title : undefined, "Сегодня"),
-      subtitle: text(isRecord(source.hero) ? source.hero.subtitle : undefined, "Четыре ключевые сферы на сегодня."),
-      day_type: (["push", "balance", "caution", "deep_focus", "recovery"].includes(text(isRecord(source.hero) ? source.hero.day_type : undefined))
-        ? text(isRecord(source.hero) ? source.hero.day_type : undefined)
-        : "balance") as DayBriefDto["hero"]["day_type"],
-      tone: isRecord(source.hero) && typeof source.hero.tone === "string" ? source.hero.tone : null,
-    },
+    hero,
     domains,
     premium: isRecord(source.premium) ? {
       subscription_active: bool(source.premium.subscription_active, false),
@@ -191,13 +208,7 @@ export function normalizeDayBriefPayload(payload: unknown, profile?: { subscript
       show_upgrade_cta: !premiumActiveUntil,
       show_resume_banner: false,
     },
-    cta: isRecord(source.cta) ? {
-      primary: isRecord(source.cta.primary) ? { type: (text(source.cta.primary.type, "open_week") as DayBriefCtaType), label: text(source.cta.primary.label, "Открыть неделю"), href: text(source.cta.primary.href, "/week") } : null,
-      secondary: isRecord(source.cta.secondary) ? { type: (text(source.cta.secondary.type, "open_premium") as DayBriefCtaType), label: text(source.cta.secondary.label, "История разборов"), href: text(source.cta.secondary.href, "/reports/history") } : null,
-    } : {
-      primary: { type: "open_week", label: "Открыть неделю", href: "/week" },
-      secondary: { type: premiumActiveUntil ? "open_history" : "open_premium", label: premiumActiveUntil ? "История разборов" : "Открыть premium", href: premiumActiveUntil ? "/reports/history" : "/reports" },
-    },
+    cta,
   };
 
   return {

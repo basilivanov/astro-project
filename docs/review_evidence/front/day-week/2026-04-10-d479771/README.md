@@ -81,6 +81,14 @@
   - `PKT-DAY-F` evidence: the signed Today real-backend E2E stamps `signed-today-real-*` into `X-Request-ID`/`X-Trace-ID`, and `post-test-review.md` shows that request in `feed.debug` + `day_brief.response_returned`.
 
 
+
+## Strict Day Surface Parity
+- packet: `PKT-DAY-SURFACE-PARITY-2026-04-11`
+- product_surface: `Hero + 4 domains + payload-driven CTA only`
+- no_synthetic_defaults: adapter no longer creates `Сегодня`, `Четыре ключевые сферы на сегодня.`, or default CTA links when payload omits them
+- premium_widgets: `today-premium-block` removed from canonical Day route surface
+- honest_states: empty/error/no_data states no longer use `/week` as substitute Day action
+
 ## Day Text Layer Split
 - packet: `PKT-DAY-TEXT-LAYER-SPLIT-2026-04-11`
 - backend_text_layer: `description + why_astro_text` composed in `M-DAY-BRIEF-SERVICE`

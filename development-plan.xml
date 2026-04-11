@@ -67,7 +67,7 @@
     </module>
     <module id="M-DAY-BRIEF-SERVICE">
       <owned_paths>backend/app/services/day_brief.py; backend/app/services/day_brief_types.py; backend/app/services/day_brief_validators.py</owned_paths>
-      <responsibility>Build canonical DayBrief payloads from facts, semantic layer, factor evidence, and explicit text composition into hero + 4 domains + CTA; preserve score/description/why_astro_text state semantics and emit truthful logging/evidence for /api/feed/today.</responsibility>
+      <responsibility>Build canonical DayBrief payloads from facts, semantic layer, factor evidence, and explicit text composition into payload-driven hero + 4 domains + optional CTA; preserve score/description/why_astro_text state semantics and emit truthful logging/evidence for /api/feed/today.</responsibility>
       <public_interfaces>build_day_brief_payload; build_day_brief_telemetry; serialize_day_brief</public_interfaces>
       <depends_on>M-FACTS-CALC M-LLM-ORCHESTRATION</depends_on>
       <write_scope>no direct DB writes; emits trace + analytics</write_scope>
@@ -115,7 +115,7 @@
     </flow>
     <flow id="FLOW-DAY-BRIEF" name="DayBrief DTO build">
       <path>M-FACTS-CALC -&gt; M-DAY-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-TODAY.</path>
-      <scope>Aggregate scores, compose distinct domain description and personalized why_astro_text layers, validate canonical Day DTO completeness, and expose trace/log evidence via /api/feed/today.</scope>
+      <scope>Aggregate scores, compose distinct domain description and personalized why_astro_text layers, validate payload-driven hero/CTA canonical Day DTO completeness, and expose trace/log evidence via /api/feed/today.</scope>
     </flow>
     <flow id="FLOW-WEEK-BRIEF" name="Week map DTO">
       <path>M-REPORT-WORKFLOW -&gt; M-WEEK-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-WEEK.</path>

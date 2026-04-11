@@ -8,10 +8,13 @@ import {
 import type { DayBriefDto } from '../../../lib/day-brief';
 
 jest.mock('next/link', () => {
-  return ({ children, href, onClick, ...props }: any) => React.createElement('a', { href, onClick, ...props }, children);
+  function MockLink({ children, href, onClick, ...props }: any) {
+    return React.createElement('a', { href, onClick, ...props }, children);
+  }
+  return MockLink;
 });
 
-const buildBrief = (): DayBriefDto => ({
+const buildBrief = (overrides: Partial<DayBriefDto> = {}): DayBriefDto => ({
   version: 'day_brief_canon_v1',
   status: 'complete',
   date: '2026-04-10',
@@ -83,6 +86,7 @@ const buildBrief = (): DayBriefDto => ({
     primary: { type: 'ask_question', label: 'Спросить совет', href: '/question' },
     secondary: { type: 'open_premium', label: 'Открыть premium', href: '/reports' },
   },
+  ...overrides,
 });
 
 describe('daybrief sections', () => {
@@ -144,13 +148,20 @@ describe('daybrief sections', () => {
     expect(screen.queryByLabelText('Фокус: 0')).not.toBeInTheDocument();
   });
 
+  it('does not render CTA panel without payload CTA', () => {
+    const onCta = jest.fn();
+    const brief = buildBrief({ cta: null });
+    const { container } = render(React.createElement(TodayCtaPanel, { brief, onCta }));
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('renders CTA panel without day fallback copy', () => {
     const onCta = jest.fn();
     render(React.createElement(TodayCtaPanel, { brief: buildBrief(), onCta }));
 
     expect(screen.getByText('Перейдите в недельную карту или откройте историю разборов.')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('today-cta-week'));
-    fireEvent.click(screen.getByTestId('today-cta-premium'));
+    fireEvent.click(screen.getByTestId('today-cta-primary'));
+    fireEvent.click(screen.getByTestId('today-cta-secondary'));
     expect(onCta).toHaveBeenNthCalledWith(1, 'ask_question', '/question', 'daybrief_primary', 'CTA_PRIMARY');
     expect(onCta).toHaveBeenNthCalledWith(2, 'open_premium', '/reports', 'daybrief_secondary', 'CTA_SECONDARY');
   });
