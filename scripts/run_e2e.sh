@@ -63,7 +63,7 @@ has_explicit_test_target() {
 requires_signed_auth_token() {
   for arg in "$@"; do
     case "$arg" in
-      e2e/telegram-signed-auth.spec.ts)
+      e2e/telegram-signed-auth.spec.ts|e2e/telegram-live-canary.spec.ts)
         return 0
         ;;
     esac
@@ -126,6 +126,12 @@ select_frontend_container
 cd "$PROJECT_ROOT"
 
 mapfile -t PLAYWRIGHT_ARGS < <(normalize_playwright_args "$@")
+
+if printf '%s\n' "${PLAYWRIGHT_ARGS[@]}" | grep -qx 'e2e/telegram-live-canary.spec.ts' && [ -z "${TELEGRAM_LIVE_CANARY_INIT_DATA:-}" ]; then
+  echo "❌ ERROR: TELEGRAM_LIVE_CANARY_INIT_DATA is required for e2e/telegram-live-canary.spec.ts."
+  echo "Live canary is a DEV/staging blocker and must use real Telegram initData from env/secret store."
+  exit 1
+fi
 
 if requires_signed_auth_token "${PLAYWRIGHT_ARGS[@]}" && [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
   echo "❌ ERROR: TELEGRAM_BOT_TOKEN is required for e2e/telegram-signed-auth.spec.ts."

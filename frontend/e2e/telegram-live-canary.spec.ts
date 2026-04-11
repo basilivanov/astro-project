@@ -1,0 +1,137 @@
+import { expect, test } from "@playwright/test";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+import {
+  attachConsoleAndPageErrors,
+  bootstrapTelegramWebApp,
+  expectNoCrash,
+} from "./utils";
+
+type CapturedResponse = {
+  status?: number;
+  headers?: Record<string, string>;
+  body?: unknown;
+  error?: string;
+  url?: string;
+};
+
+const canaryInitData = process.env.TELEGRAM_LIVE_CANARY_INIT_DATA;
+const canaryUserId = process.env.TELEGRAM_LIVE_CANARY_USER_ID ?? "unknown";
+const shouldRunLiveCanary = Boolean(canaryInitData);
+const liveCanaryTest = shouldRunLiveCanary ? test : test.skip;
+
+async function readResponseBody(response: import("@playwright/test").Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    try {
+      return await response.text();
+    } catch (error) {
+      return { read_error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+}
+
+async function writeJson(filePath: string, payload: unknown) {
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+test.describe("telegram live canary acceptance lane", () => {
+  liveCanaryTest("blocks DEV acceptance when live signed Today is no-data", async ({ page }, testInfo) => {
+    testInfo.annotations.push({ type: "flow", description: "FLOW-TODAY-CANARY-LIVE" });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const artifactDir = path.resolve(process.cwd(), "..", "artifacts", "day_live_canary", timestamp);
+    await fs.mkdir(artifactDir, { recursive: true });
+
+    const proofRequestId = `day-live-canary-${Date.now()}`;
+    const startedAt = new Date().toISOString();
+    const consoleAndPageErrors: string[] = [];
+    const diagnostics: Record<string, unknown> = {
+      flow_id: "FLOW-TODAY-CANARY-LIVE",
+      verdict_policy: "no_data/failed/malformed/missing-trace => acceptance failure",
+      request_id: proofRequestId,
+      trace_id: proofRequestId,
+      canary_user_id: canaryUserId,
+      started_at: startedAt,
+      timestamp_window: { from: startedAt, to: null },
+      users_me: {},
+      feed_today: {},
+      console_errors: consoleAndPageErrors,
+      page_errors: consoleAndPageErrors,
+      current_url: null,
+      render_path: null,
+      today_no_data_visible: null,
+    };
+
+    const hygiene = attachConsoleAndPageErrors(page);
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleAndPageErrors.push(`[console:error] ${message.text()}`);
+    });
+    page.on("pageerror", (error) => consoleAndPageErrors.push(`[pageerror] ${error.message}`));
+
+    await bootstrapTelegramWebApp(page, {
+      initData: canaryInitData,
+      initDataUnsafe: { user: { id: Number(canaryUserId) || 0, first_name: "Live", last_name: "Canary" } },
+      sessionMockUser: false,
+    });
+
+    await page.route("**/api/users/me", async (route) => {
+      const headers = route.request().headers();
+      await route.continue({ headers: { ...headers, "X-Request-ID": proofRequestId, "X-Trace-ID": proofRequestId } });
+    });
+    await page.route("**/api/feed/today", async (route) => {
+      const headers = route.request().headers();
+      await route.continue({ headers: { ...headers, "X-Request-ID": proofRequestId, "X-Trace-ID": proofRequestId } });
+    });
+
+    page.on("response", async (response) => {
+      const url = response.url();
+      const method = response.request().method();
+      if (method !== "GET" || (!url.includes("/api/users/me") && !url.includes("/api/feed/today"))) return;
+      const key = url.includes("/api/users/me") ? "users_me" : "feed_today";
+      const captured: CapturedResponse = { status: response.status(), headers: response.headers(), url, body: await readResponseBody(response) };
+      diagnostics[key] = captured;
+      await writeJson(path.join(artifactDir, `${key}.json`), captured);
+    });
+
+    try {
+      const usersMeResponse = page.waitForResponse((response) => response.url().includes("/api/users/me") && response.request().method() === "GET");
+      const feedTodayResponse = page.waitForResponse((response) => response.url().includes("/api/feed/today") && response.request().method() === "GET");
+
+      await page.goto("/");
+      await expectNoCrash(page);
+      const [usersMe, feedToday] = await Promise.all([usersMeResponse, feedTodayResponse]);
+      await expect(page.getByTestId("home-feed-page")).toBeVisible();
+      await page.waitForLoadState("networkidle");
+
+      const feedPayload = await feedToday.json() as { day_brief?: { version?: unknown; status?: unknown } };
+      diagnostics.current_url = page.url();
+      diagnostics.render_path = await page.getByTestId("today-render-path").getAttribute("data-render-path");
+      diagnostics.today_no_data_visible = await page.getByTestId("today-no-data-state").isVisible().catch(() => false);
+      diagnostics.timestamp_window = { from: startedAt, to: new Date().toISOString() };
+      diagnostics.lookup_tuple = { request_id: proofRequestId, trace_id: proofRequestId, canary_user_id: canaryUserId, timestamp_window: diagnostics.timestamp_window };
+
+      expect(usersMe.status(), "GET /api/users/me must be 200 for live canary").toBe(200);
+      expect(feedToday.status(), "GET /api/feed/today must be 200 for live canary").toBe(200);
+      expect(feedPayload?.day_brief?.version, "live canary must receive canonical Day payload").toBe("day_brief_canon_v1");
+      expect(feedPayload?.day_brief?.status, "live canary Day payload must not be failed").not.toBe("failed");
+      await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
+      await expect(page.getByTestId("today-no-data-state")).toHaveCount(0);
+      await expect(page.getByText("Нет данных на сегодня")).toHaveCount(0);
+      await expect(page.getByTestId("today-verdict")).toBeVisible();
+    } finally {
+      diagnostics.current_url = diagnostics.current_url ?? page.url();
+      diagnostics.render_path = diagnostics.render_path ?? await page.getByTestId("today-render-path").getAttribute("data-render-path").catch(() => null);
+      diagnostics.today_no_data_visible = diagnostics.today_no_data_visible ?? await page.getByTestId("today-no-data-state").isVisible().catch(() => false);
+      diagnostics.timestamp_window = { from: startedAt, to: new Date().toISOString() };
+      diagnostics.lookup_tuple = { request_id: proofRequestId, trace_id: proofRequestId, canary_user_id: canaryUserId, timestamp_window: diagnostics.timestamp_window };
+      await page.screenshot({ path: path.join(artifactDir, "screenshot.png"), fullPage: true }).catch(() => undefined);
+      await writeJson(path.join(artifactDir, "diagnostics.json"), diagnostics);
+      await fs.writeFile(path.join(artifactDir, "diagnostics.md"), `# Day live canary diagnostics\n\n- flow_id: FLOW-TODAY-CANARY-LIVE\n- request_id: ${proofRequestId}\n- trace_id: ${proofRequestId}\n- canary_user_id: ${canaryUserId}\n- timestamp_window: ${JSON.stringify(diagnostics.timestamp_window)}\n- users_me_status: ${(diagnostics.users_me as CapturedResponse).status ?? "missing"}\n- feed_today_status: ${(diagnostics.feed_today as CapturedResponse).status ?? "missing"}\n- render_path: ${diagnostics.render_path}\n- today_no_data_visible: ${diagnostics.today_no_data_visible}\n- current_url: ${diagnostics.current_url}\n\nLookup events: feed.debug, day_brief.response_returned\n`, "utf8");
+      console.log(`DAY_LIVE_CANARY_LOOKUP ${JSON.stringify(diagnostics.lookup_tuple)}`);
+      console.log(`DAY_LIVE_CANARY_ARTIFACTS ${artifactDir}`);
+      hygiene.dispose();
+    }
+  });
+});

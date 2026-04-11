@@ -172,6 +172,64 @@ def _canonical_log_paths(active_log: Path, filename: str) -> list[Path]:
     return paths
 
 
+def analyze_today_canary(artifact_root: Path) -> FlowDigest:
+    diagnostics_files = sorted(artifact_root.glob("*/diagnostics.json")) if artifact_root.exists() else []
+    if not diagnostics_files:
+        return FlowDigest("FLOW-TODAY-CANARY-LIVE", "no-evidence-blocker", 0, None, None, None, None, None, 0, [], ["live canary artifact bundle missing"], {}, [])
+
+    latest = diagnostics_files[-1]
+    try:
+        payload = json.loads(latest.read_text(encoding="utf8"))
+    except Exception as error:
+        return FlowDigest("FLOW-TODAY-CANARY-LIVE", "no-evidence-blocker", 1, None, None, None, None, None, 0, ["diagnostics_unreadable"], [f"live canary diagnostics unreadable: {error}"], {}, [])
+
+    users_me = payload.get("users_me") if isinstance(payload.get("users_me"), dict) else {}
+    feed_today = payload.get("feed_today") if isinstance(payload.get("feed_today"), dict) else {}
+    feed_body = feed_today.get("body") if isinstance(feed_today, dict) else {}
+    day_brief = feed_body.get("day_brief") if isinstance(feed_body, dict) and isinstance(feed_body.get("day_brief"), dict) else {}
+    render_path = payload.get("render_path")
+    timestamp_window = payload.get("timestamp_window") if isinstance(payload.get("timestamp_window"), dict) else {}
+    alerts: list[str] = []
+    status = "clean"
+    fallback_count = 0
+
+    if users_me.get("status") != 200:
+        alerts.append("live canary /api/users/me non-200")
+        status = "unexpected-degradation"
+    if feed_today.get("status") != 200:
+        alerts.append("live canary /api/feed/today non-200")
+        status = "unexpected-degradation"
+    if day_brief.get("version") != "day_brief_canon_v1":
+        alerts.append("live canary canonical payload missing")
+        status = "unexpected-degradation"
+    if day_brief.get("status") == "failed" or render_path == "failed":
+        alerts.append("live canary Today failed")
+        status = "unexpected-degradation"
+    if render_path == "no_data" or payload.get("today_no_data_visible") is True:
+        alerts.append("live canary Today rendered no_data")
+        fallback_count = 1
+        status = "unexpected-degradation"
+    if not payload.get("request_id") or not payload.get("trace_id"):
+        alerts.append("live canary request/trace id missing")
+        status = "no-evidence-blocker"
+
+    return FlowDigest(
+        "FLOW-TODAY-CANARY-LIVE",
+        status,
+        1,
+        timestamp_window.get("to") or payload.get("started_at"),
+        payload.get("trace_id"),
+        None,
+        payload.get("request_id"),
+        None,
+        fallback_count,
+        [],
+        alerts,
+        {"artifact_bundle_total": 1},
+        [{"event": "day_live_canary.diagnostics", "timestamp": timestamp_window.get("to"), "trace_id": payload.get("trace_id"), "request_id": payload.get("request_id"), "reason": render_path, "report_id": str(latest)}],
+    )
+
+
 def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> FlowDigest:
     records = []
     for path in _canonical_log_paths(feed_log, "feed.jsonl"):
@@ -541,7 +599,7 @@ def _augment_flow_with_rendered(flow: FlowDigest, rendered: list[dict[str, Any]]
     return payload
 
 
-def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None, canary: FlowDigest | None = None) -> dict[str, Any]:
     rendered_index = _rendered_gate_summary_map(rendered_summaries or [])
     flows: list[dict[str, Any]] = []
     overall = "clean"
@@ -589,7 +647,8 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
         overall = read_status
         replay_summary = None
     else:
-        for flow in (today, week):
+        candidate_flows = (today, week, *([canary] if canary else []))
+        for flow in candidate_flows:
             if flow.status == "no-evidence-blocker":
                 overall = "no-evidence-blocker"
                 break
@@ -606,6 +665,8 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
             _augment_flow_with_rendered(today, rendered_index["FLOW-TODAY-WEEK-TODAY"]),
             _augment_flow_with_rendered(week, rendered_index["FLOW-TODAY-WEEK-WEEK"]),
         ]
+        if canary:
+            flows.append(canary.__dict__)
 
     return {
         "profile": profile,
@@ -685,6 +746,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--feed-log", type=Path, default=ACTIVE_LOG_DIR / "feed.jsonl")
     parser.add_argument("--report-log", type=Path, default=ACTIVE_LOG_DIR / "report.jsonl")
     parser.add_argument("--rendered-dir", type=Path, default=PROJECT_ROOT / "test-results" / "rendered-gate")
+    parser.add_argument("--day-live-canary-artifact-dir", type=Path, default=PROJECT_ROOT / "artifacts" / "day_live_canary")
+    parser.add_argument("--include-day-live-canary", action="store_true")
     parser.add_argument("--limit", type=int, default=4000)
     parser.add_argument("--report-format", choices=["json", "md"], default="json")
     return parser.parse_args(argv)
@@ -694,6 +757,7 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     today = analyze_today(args.feed_log, since_delta=args.since, limit=args.limit)
     week = analyze_week(args.report_log, since_delta=args.since, limit=args.limit)
+    canary = analyze_today_canary(args.day_live_canary_artifact_dir) if args.include_day_live_canary else None
     rendered_summaries = load_rendered_summaries(args.rendered_dir)
     since_label = f"{int(args.since.total_seconds() // 60)}m"
     payload = build_output(
@@ -704,6 +768,7 @@ def main(argv: list[str]) -> int:
         today=today,
         week=week,
         rendered_summaries=rendered_summaries,
+        canary=canary,
     )
     if args.report_format == "md":
         print_md(payload)
