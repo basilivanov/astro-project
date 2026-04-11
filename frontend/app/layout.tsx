@@ -35,6 +35,37 @@ import Script from 'next/script';
 import BottomNav from '../components/BottomNav';
 import { LegalFooterBlock } from '../components/legal-links';
 
+const STALE_SERVER_ACTION_GUARD = `
+(() => {
+  if (typeof window === 'undefined') return;
+  const shouldBlockStaleActionPost = (url, method) => {
+    if (method !== 'POST') return false;
+    if (!url) return false;
+    try {
+      const target = new URL(url, window.location.href);
+      return target.origin === window.location.origin
+        && (target.pathname === '/' || target.pathname === '/app' || target.pathname === '/_next' || target.pathname === '/_next/server');
+    } catch {
+      return false;
+    }
+  };
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+    const method = (init?.method || (input instanceof Request ? input.method : 'GET') || 'GET').toUpperCase();
+    if (shouldBlockStaleActionPost(url, method)) {
+      console.warn('[server-action-guard] blocked stale POST', { url, method });
+      return new Response(JSON.stringify({ blocked: true, reason: 'stale_server_action_guard' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return originalFetch(input, init);
+  };
+})();
+`;
+
 const runtimeEnvironment =
   process.env.ENVIRONMENT ||
   process.env.NEXT_PUBLIC_ENVIRONMENT ||
@@ -52,6 +83,9 @@ export default function RootLayout({
   return (
     <html lang="ru" suppressHydrationWarning>
       <head>
+        <Script id="stale-server-action-guard" strategy="beforeInteractive">
+          {STALE_SERVER_ACTION_GUARD}
+        </Script>
         <Script 
             src="https://telegram.org/js/telegram-web-app.js" 
             strategy="beforeInteractive" 
