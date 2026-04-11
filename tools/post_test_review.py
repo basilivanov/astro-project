@@ -245,8 +245,26 @@ def analyze_today_canary(artifact_root: Path) -> FlowDigest:
         fallback_count,
         [],
         alerts,
-        {"artifact_bundle_total": 1, "primary_live_complete_domain_total": len(complete_domains)},
-        [{"event": "day_live_canary.diagnostics", "timestamp": timestamp_window.get("to"), "trace_id": payload.get("trace_id"), "request_id": payload.get("request_id"), "reason": render_path, "report_id": str(latest)}],
+        {
+            "artifact_bundle_total": 1,
+            "primary_live_session_total": 1,
+            "primary_live_expected_user_id": expected_user_id,
+            "primary_live_actual_user_id": actual_user_id,
+            "primary_live_render_path": str(render_path or ""),
+            "primary_live_no_data_visible_total": int(payload.get("today_no_data_visible") is True),
+            "primary_live_hero_present_total": int(bool(day_brief.get("hero"))),
+            "primary_live_complete_domain_total": len(complete_domains),
+        },
+        [{
+            "event": "day_live_canary.diagnostics",
+            "timestamp": timestamp_window.get("to"),
+            "trace_id": payload.get("trace_id"),
+            "request_id": payload.get("request_id"),
+            "reason": render_path,
+            "report_id": str(latest),
+            "expected_user_id": expected_user_id,
+            "actual_user_id": actual_user_id,
+        }],
     )
 
 
@@ -720,6 +738,15 @@ def print_md(payload: dict[str, Any]) -> None:
         print(f"- sample_report_id: `{flow['sample_report_id']}`")
         print(f"- reason_codes: {', '.join(flow['reason_codes']) if flow['reason_codes'] else '-'}")
         print(f"- alerts: {', '.join(flow['alerts']) if flow['alerts'] else '-'}")
+        if flow.get("flow_id") == "FLOW-TODAY-CANARY-LIVE":
+            counters = flow.get("counters") or {}
+            print("- primary_truth_source: live Telegram session")
+            print(f"- expected_user_id: `{counters.get('primary_live_expected_user_id') or '-'}`")
+            print(f"- actual_user_id: `{counters.get('primary_live_actual_user_id') or '-'}`")
+            print(f"- render_path: `{counters.get('primary_live_render_path') or '-'}`")
+            print(f"- hero_present: {bool(counters.get('primary_live_hero_present_total'))}")
+            print(f"- complete_domain_count: {counters.get('primary_live_complete_domain_total', 0)}")
+            print("- primary_rule: mock/no-data/proof lanes cannot override this verdict")
         if flow.get("rendered_presence"):
             rendered_presence = flow["rendered_presence"]
             print(
