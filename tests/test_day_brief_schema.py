@@ -62,7 +62,7 @@ def test_day_brief_payload_validates_against_pydantic_schema() -> None:
         generation_mode="llm",
     )
     model = DayBrief.parse_obj(payload)
-    assert model.version in {"day_brief_canon_v1", "day_brief_v2"}
+    assert model.version == "day_brief_canon_v1"
     assert set(model.domains.keys()) == {"energy", "money", "love", "focus"}
 
 
@@ -101,7 +101,22 @@ def test_day_brief_validator_repairs_unknown_nested_keys_without_contract_drift(
     assert "unexpected" not in dumped
     assert "extra_copy" not in dumped["hero"]
     assert "shadow" not in dumped["domains"]["energy"]
-    assert dumped["version"] in {"day_brief_canon_v1", "day_brief_v2"}
+    assert dumped["version"] == "day_brief_canon_v1"
+
+
+def test_day_brief_validator_rejects_non_canonical_version() -> None:
+    payload = build_day_brief_payload(
+        _sample_facts(),
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        generation_mode="deterministic",
+    )
+    payload["version"] = "day_brief_v2"
+    try:
+        validate_day_brief_payload(payload)
+    except Exception as exc:
+        assert "day_brief_canon_v1" in str(exc)
+    else:
+        raise AssertionError("validator must reject non-canonical day versions")
 
 
 def test_day_brief_validator_preserves_domain_texts() -> None:

@@ -20,6 +20,14 @@
 - analysis_window: `30m`
 - logs_reviewed: `/opt/astro-project/logs/feed.jsonl`, `/opt/astro-project/logs/report.jsonl`
 
+
+## Day Text Layer Split
+- packet: `PKT-DAY-TEXT-LAYER-SPLIT-2026-04-11`
+- backend_text_layer: `description + why_astro_text` composed in `M-DAY-BRIEF-SERVICE`
+- product_contract: `score + description + Что повлияло` per domain
+- policy_gate: `description` stays human/non-technical; `why_astro_text` stays personalized astro and distinct from description
+- observability_gate: post-test review now fails clean Today if text layer statuses or role policy reason codes are incomplete
+
 ## FLOW-TODAY-WEEK-TODAY — clean
 - records_checked: 199
 - last_timestamp: `2026-04-10T22:12:41.008639+00:00`

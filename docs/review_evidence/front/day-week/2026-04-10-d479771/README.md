@@ -80,6 +80,14 @@
   - `DAY-OBS-RCA-01` is closed for the current published window: signed-lane markers are attributable in canonical Today logs.
   - `PKT-DAY-F` evidence: the signed Today real-backend E2E stamps `signed-today-real-*` into `X-Request-ID`/`X-Trace-ID`, and `post-test-review.md` shows that request in `feed.debug` + `day_brief.response_returned`.
 
+
+## Day Text Layer Split
+- packet: `PKT-DAY-TEXT-LAYER-SPLIT-2026-04-11`
+- backend_text_layer: `description + why_astro_text` composed in `M-DAY-BRIEF-SERVICE`
+- product_contract: `score + description + Что повлияло` per domain
+- policy_gate: `description` stays human/non-technical; `why_astro_text` stays personalized astro and distinct from description
+- observability_gate: post-test review now fails clean Today if text layer statuses or role policy reason codes are incomplete
+
 ## Lane split
 - Signed Telegram proof lane: `frontend/e2e/telegram-signed-auth.spec.ts`
 - Canonical builder/log proof lane: `tools/post_test_review.py --profile today-week --since 30m --report-format md`
