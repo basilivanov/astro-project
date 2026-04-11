@@ -89,7 +89,7 @@ test.describe("telegram live canary acceptance lane", () => {
   liveCanaryTest("blocks DEV acceptance when live signed Today is no-data", async ({ page }, testInfo) => {
     testInfo.annotations.push({ type: "flow", description: "FLOW-TODAY-CANARY-LIVE" });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const artifactDir = path.resolve(process.cwd(), "..", "artifacts", "day_live_canary", timestamp);
+    const artifactDir = path.resolve(process.cwd(), "artifacts", "day_live_canary", timestamp);
     await fs.mkdir(artifactDir, { recursive: true });
 
     const proofRequestId = `day-live-canary-${Date.now()}`;
