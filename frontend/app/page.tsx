@@ -178,6 +178,34 @@ export default function FeedPage() {
   const [today, setToday] = useState<TodayViewModel | null>(null);
   const [feedState, setFeedState] = useState<FeedState>("ready");
   const [error, setError] = useState<string | null>(null);
+  const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+    console.info("[home-runtime]", {
+      mode,
+      isReady,
+      hasUser: Boolean(user),
+      hasInitData: Boolean(initData),
+      initDataLength: initData.length,
+      href: typeof window !== "undefined" ? window.location.href : null,
+    });
+  }, [mode, isReady, user, initData]);
+
+  useEffect(() => {
+    if (isReady) {
+      setBootstrapTimedOut(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setBootstrapTimedOut(true);
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [isReady]);
 
   const emitHomeEvent = useCallback(async (eventName: string, block: string, semanticBlock: string, meta: Record<string, unknown>) => {
     await trackHomeEvent(
@@ -339,11 +367,29 @@ export default function FeedPage() {
 
 
   if (!isReady || loading) {
+    const shouldShowBootstrapDebug = !isReady && bootstrapTimedOut;
     return (
       <FeedLayout state="loading" profile={profile} today={today} renderPath="empty">
         <ConsumerPanel className="p-5">
-          <LoadingState compact message="Собираем сводку дня" />
-          
+          {shouldShowBootstrapDebug ? (
+            <EmptyState
+              compact
+              title="Telegram runtime не инициализировался"
+              message="Приложение открылось, но Telegram WebApp не передал initData. Закрой и открой mini app заново."
+            />
+          ) : (
+            <LoadingState compact message="Собираем сводку дня" />
+          )}
+          {process.env.NODE_ENV !== "production" ? (
+            <div hidden data-testid="home-runtime-diagnostics"
+              data-mode={mode}
+              data-is-ready={String(isReady)}
+              data-has-user={String(Boolean(user))}
+              data-has-init-data={String(Boolean(initData))}
+              data-init-data-length={String(initData.length)}
+              data-bootstrap-timed-out={String(bootstrapTimedOut)}
+            />
+          ) : null}
         </ConsumerPanel>
       </FeedLayout>
     );

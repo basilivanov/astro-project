@@ -82,6 +82,7 @@ async function readResponseBody(response: import("@playwright/test").Response): 
 }
 
 async function writeJson(filePath: string, payload: unknown) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
@@ -156,11 +157,18 @@ test.describe("telegram live canary acceptance lane", () => {
       await expect(page.getByTestId("home-feed-page")).toBeVisible();
       await page.waitForLoadState("networkidle");
 
+      const runtimeMode = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-mode").catch(() => null);
+      const runtimeHasUser = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-has-user").catch(() => null);
+      const runtimeHasInitData = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-has-init-data").catch(() => null);
+      const runtimeInitDataLength = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-init-data-length").catch(() => null);
+      const runtimeBootstrapTimedOut = await page.locator('[data-testid="home-runtime-diagnostics"]').getAttribute("data-bootstrap-timed-out").catch(() => null);
+
       const usersPayload = await usersMe.json() as UsersMePayload;
       const feedPayload = await feedToday.json() as DayBriefPayload;
       const actualUserId = resolvedTelegramUserId(usersPayload);
       const completeDomains = completeDomainKeys(feedPayload);
       diagnostics.current_url = page.url();
+      diagnostics.runtime = { mode: runtimeMode, has_user: runtimeHasUser, has_init_data: runtimeHasInitData, init_data_length: runtimeInitDataLength, bootstrap_timed_out: runtimeBootstrapTimedOut };
       diagnostics.render_path = await page.getByTestId("today-render-path").getAttribute("data-render-path");
       diagnostics.today_no_data_visible = await page.getByTestId("today-no-data-state").isVisible().catch(() => false);
       diagnostics.actual_user_id = actualUserId;
@@ -175,7 +183,7 @@ test.describe("telegram live canary acceptance lane", () => {
       expect(feedPayload?.day_brief?.status, "live canary Day payload must not be failed").not.toBe("failed");
       expect(feedPayload?.day_brief?.hero, "primary live Day payload must include hero").toBeTruthy();
       expect(completeDomains.length, "primary live Day payload must include at least one complete usable domain").toBeGreaterThan(0);
-      await expect(page.getByTestId("today-render-path")).toHaveAttribute("data-render-path", "canonical");
+      expect(diagnostics.render_path, "live canary must finish on canonical render path").toBe("canonical");
       await expect(page.getByTestId("today-no-data-state")).toHaveCount(0);
       await expect(page.getByText("Нет данных на сегодня")).toHaveCount(0);
       await expect(page.getByTestId("today-verdict")).toBeVisible();
@@ -187,7 +195,8 @@ test.describe("telegram live canary acceptance lane", () => {
       diagnostics.lookup_tuple = { request_id: proofRequestId, trace_id: proofRequestId, expected_user_id: canaryUserId, actual_user_id: diagnostics.actual_user_id, timestamp_window: diagnostics.timestamp_window };
       await page.screenshot({ path: path.join(artifactDir, "screenshot.png"), fullPage: true }).catch(() => undefined);
       await writeJson(path.join(artifactDir, "diagnostics.json"), diagnostics);
-      await fs.writeFile(path.join(artifactDir, "diagnostics.md"), `# Day primary live-session diagnostics\n\n- flow_id: FLOW-TODAY-CANARY-LIVE\n- primary_lane: true\n- request_id: ${proofRequestId}\n- trace_id: ${proofRequestId}\n- expected_user_id: ${canaryUserId}\n- actual_user_id: ${diagnostics.actual_user_id}\n- timestamp_window: ${JSON.stringify(diagnostics.timestamp_window)}\n- users_me_status: ${(diagnostics.users_me as CapturedResponse).status ?? "missing"}\n- feed_today_status: ${(diagnostics.feed_today as CapturedResponse).status ?? "missing"}\n- render_path: ${diagnostics.render_path}\n- today_no_data_visible: ${diagnostics.today_no_data_visible}\n- current_url: ${diagnostics.current_url}\n- day_payload_summary: ${JSON.stringify(diagnostics.day_payload_summary)}\n\nLookup events: feed.debug, day_brief.response_returned\n`, "utf8");
+      await fs.mkdir(artifactDir, { recursive: true });
+      await fs.writeFile(path.join(artifactDir, "diagnostics.md"), `# Day primary live-session diagnostics\n\n- flow_id: FLOW-TODAY-CANARY-LIVE\n- primary_lane: true\n- request_id: ${proofRequestId}\n- trace_id: ${proofRequestId}\n- expected_user_id: ${canaryUserId}\n- actual_user_id: ${diagnostics.actual_user_id}\n- timestamp_window: ${JSON.stringify(diagnostics.timestamp_window)}\n- users_me_status: ${(diagnostics.users_me as CapturedResponse).status ?? "missing"}\n- feed_today_status: ${(diagnostics.feed_today as CapturedResponse).status ?? "missing"}\n- render_path: ${diagnostics.render_path}\n- today_no_data_visible: ${diagnostics.today_no_data_visible}\n- current_url: ${diagnostics.current_url}\n- runtime: ${JSON.stringify((diagnostics as Record<string, unknown>).runtime ?? null)}\n- day_payload_summary: ${JSON.stringify(diagnostics.day_payload_summary)}\n\nLookup events: feed.debug, day_brief.response_returned\n`, "utf8");
       console.log(`DAY_LIVE_CANARY_LOOKUP ${JSON.stringify(diagnostics.lookup_tuple)}`);
       console.log(`DAY_LIVE_CANARY_ARTIFACTS ${artifactDir}`);
       hygiene.dispose();
