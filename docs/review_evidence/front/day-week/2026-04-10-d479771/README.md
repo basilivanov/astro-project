@@ -82,12 +82,13 @@
 
 
 
-## Strict Day Surface Parity
+## Strict Day Surface Parity: PASS
 - packet: `PKT-DAY-SURFACE-PARITY-2026-04-11`
 - product_surface: `Hero + 4 domains + payload-driven CTA only`
 - no_synthetic_defaults: adapter no longer creates `Сегодня`, `Четыре ключевые сферы на сегодня.`, or default CTA links when payload omits them
 - premium_widgets: `today-premium-block` removed from canonical Day route surface
 - honest_states: empty/error/no_data states no longer use `/week` as substitute Day action
+- public_branch_convergence: `verified` by `tools/publication/verify_day_public_ref.py` branch marker checks
 
 ## Day Text Layer Split
 - packet: `PKT-DAY-TEXT-LAYER-SPLIT-2026-04-11`

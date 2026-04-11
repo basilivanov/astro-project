@@ -283,12 +283,14 @@ def run(repo: str, branch: str, evidence_dir: str, *, expected_head: str | None,
     raw_spec_ok, raw_spec_reason = check_spec_public_text(raw_spec)
     blob_spec_ok, blob_spec_reason = check_spec_public_text(blob_spec)
     day_surface_ok, day_surface_reason = check_day_surface_public_text(blob_day_brief, blob_day_page)
+    day_finish_claim_ok = "Strict Day Surface Parity: PASS" in blob_readme
     dimensions["raw_spec"] = raw_spec_reason
     dimensions["blob_spec"] = blob_spec_reason
     dimensions["branch_day_surface"] = day_surface_reason
+    dimensions["day_finish_claim"] = "pass" if day_finish_claim_ok else "missing_finish_claim"
 
     result.dimensions = dimensions
-    result.verdict = PASS_VERDICT if all(value == "pass" for value in dimensions.values()) and raw_spec_ok and blob_spec_ok and day_surface_ok else FAIL_VERDICT
+    result.verdict = PASS_VERDICT if all(value == "pass" for value in dimensions.values()) and raw_spec_ok and blob_spec_ok and day_surface_ok and day_finish_claim_ok else FAIL_VERDICT
     return result
 
 
