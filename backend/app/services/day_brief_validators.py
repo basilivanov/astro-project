@@ -21,6 +21,8 @@ _DAY_DOMAIN_KEYS = (
     "why_status",
     "why_astro_text",
     "evidence_refs",
+    "text_reason_codes",
+    "text_composition_mode",
 )
 _PREMIUM_KEYS = (
     "subscription_active",

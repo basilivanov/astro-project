@@ -255,6 +255,25 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
             auth_fallback_detected = True
         if event == "day_brief.response_returned" and record.get("fallback_mode") is False:
             saw_today_success = True
+        text_status = record.get("text_layer_status")
+        if isinstance(text_status, dict):
+            for domain_key, layer_status in text_status.items():
+                if not isinstance(layer_status, dict):
+                    continue
+                if layer_status.get("description") != "complete":
+                    counters["today_text_description_incomplete_total"] += 1
+                    reason_codes[f"{domain_key}:description_{layer_status.get('description') or 'missing'}"] += 1
+                if layer_status.get("why") != "complete":
+                    counters["today_text_why_incomplete_total"] += 1
+                    reason_codes[f"{domain_key}:why_{layer_status.get('why') or 'missing'}"] += 1
+        text_reason_map = record.get("text_layer_reason_codes")
+        if isinstance(text_reason_map, dict):
+            for domain_reasons in text_reason_map.values():
+                if isinstance(domain_reasons, list):
+                    for item in domain_reasons:
+                        if isinstance(item, str) and item.strip():
+                            counters["today_text_role_policy_violation_total"] += 1
+                            reason_codes[item.strip()] += 1
         if record.get("personalization_level") == "profile_light":
             counters["today_profile_light_total"] += 1
         if record.get("fallback_mode") is True:
@@ -276,6 +295,12 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         alerts.append("today auth fallback detected")
     if counters["today_validator_fallback_total"] > 0:
         alerts.append("today validator fallback detected")
+    if counters["today_text_description_incomplete_total"] > 0:
+        alerts.append("today description text layer incomplete")
+    if counters["today_text_why_incomplete_total"] > 0:
+        alerts.append("today why text layer incomplete")
+    if counters["today_text_role_policy_violation_total"] > 0:
+        alerts.append("today text role policy violation detected")
     effective_fallback_count = 0 if saw_today_success else fallback_count
     status = _classify_status(
         has_records=bool(records),
@@ -304,6 +329,9 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         and not auth_fallback_detected
         and not fallback_record_detected
         and not validator_fallback_detected
+        and counters["today_text_description_incomplete_total"] == 0
+        and counters["today_text_why_incomplete_total"] == 0
+        and counters["today_text_role_policy_violation_total"] == 0
     )
 
     if status == "clean" and not signed_today_clean:
