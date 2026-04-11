@@ -168,7 +168,7 @@ function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: 
 
 export default function FeedPage() {
   const router = useRouter();
-  const { isReady, user, initData, mode } = useTelegram();
+  const { isReady, user, initData, mode, bootstrapOutcome, bootstrapDiagnostics } = useTelegram();
   const correlationId = useMemo(() => ensureHomeCorrelation(), []);
   const isMockHelperLane = mode === "mock";
   const isCanonicalTelegramLane = mode === "telegram" && Boolean(user) && Boolean(initData);
@@ -374,8 +374,13 @@ export default function FeedPage() {
           {shouldShowBootstrapDebug ? (
             <EmptyState
               compact
-              title="Telegram runtime не инициализировался"
-              message="Приложение открылось, но Telegram WebApp не передал initData. Закрой и открой mini app заново."
+              title={bootstrapOutcome === "initdata_missing" ? "Telegram не передал initData" : "Telegram runtime не инициализировался"}
+              message={bootstrapOutcome === "initdata_missing"
+                ? "Mini App открылась, но Telegram не передал initData. Перейди через /start, чтобы повторить bootstrap."
+                : "Приложение открылось, но Telegram WebApp не инициализировался вовремя. Открой экран заново через /start или обнови mini app."}
+              actionLabel="Открыть /start"
+              actionHref="/start"
+              actionTestId="home-bootstrap-recover-cta"
             />
           ) : (
             <LoadingState compact message="Собираем сводку дня" />
@@ -388,6 +393,9 @@ export default function FeedPage() {
               data-has-init-data={String(Boolean(initData))}
               data-init-data-length={String(initData.length)}
               data-bootstrap-timed-out={String(bootstrapTimedOut)}
+              data-bootstrap-outcome={bootstrapOutcome ?? "unknown"}
+              data-bootstrap-href={bootstrapDiagnostics?.href ?? ""}
+              data-bootstrap-hash={bootstrapDiagnostics?.hash ?? ""}
             />
           ) : null}
         </ConsumerPanel>

@@ -3,31 +3,15 @@
 import { useEffect, useState } from "react";
 
 import { CorrelationManager } from "../lib/correlation";
-
-type TelegramMode = "telegram" | "mock" | "guest" | "none";
-
-type TelegramUser = {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  language_code?: string;
-  photo_url?: string;
-};
-
-type TelegramWebApp = {
-  initData?: string;
-  initDataUnsafe?: {
-    user?: TelegramUser | null;
-  };
-  ready?: () => void;
-  close?: () => void;
-};
-
-type TelegramRuntimeOverride = {
-  user?: TelegramUser | null;
-  initData?: string;
-};
+import {
+  waitForTelegramWebAppRuntime,
+  type TelegramBootstrapDiagnostics,
+  type TelegramBootstrapOutcome,
+  type TelegramMode,
+  type TelegramRuntimeOverride,
+  type TelegramUser,
+  type TelegramWebApp,
+} from "../lib/telegram-runtime";
 
 type UseTelegramResult = {
   user: TelegramUser | null;
@@ -37,6 +21,8 @@ type UseTelegramResult = {
   mode: TelegramMode;
   correlationId: string | null;
   flowId: string;
+  bootstrapOutcome: TelegramBootstrapOutcome["kind"] | null;
+  bootstrapDiagnostics: TelegramBootstrapDiagnostics | null;
   onClose: () => void;
 };
 
@@ -109,12 +95,15 @@ export function useTelegram(): UseTelegramResult {
   const [mode, setMode] = useState<TelegramMode>("none");
   const [correlationId, setCorrelationId] = useState<string | null>(null);
   const [flowId, setFlowId] = useState<string>("FLOW-HOME-FEED");
+  const [bootstrapOutcome, setBootstrapOutcome] = useState<TelegramBootstrapOutcome["kind"] | null>(null);
+  const [bootstrapDiagnostics, setBootstrapDiagnostics] = useState<TelegramBootstrapDiagnostics | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
+    const run = async () => {
     try {
       // START_BLOCK: RUNTIME_DETECTION
       const params = new URLSearchParams(window.location.search);
@@ -171,16 +160,20 @@ export function useTelegram(): UseTelegramResult {
 
       window.sessionStorage.removeItem("mock_telegram_user");
 
-      if (hasCanonicalRuntimeOverride && runtimeOverride?.initData) {
-        setWebApp(telegramRuntime || null);
-        setInitData(runtimeOverride.initData);
-        setUser(runtimeOverride.user || null);
-        setMode("telegram");
-      } else if (hasCanonicalTelegramRuntime && telegramRuntime?.initData) {
-        telegramRuntime.ready?.();
-        setWebApp(telegramRuntime);
-        setInitData(telegramRuntime.initData);
-        setUser(telegramRuntime.initDataUnsafe?.user || null);
+      const bootstrap = await waitForTelegramWebAppRuntime();
+      setBootstrapOutcome(bootstrap.outcome.kind);
+      setBootstrapDiagnostics(bootstrap.diagnostics);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[useTelegram.bootstrap]", bootstrap.diagnostics);
+      }
+
+      if (bootstrap.mode === "telegram") {
+        bootstrap.webApp?.ready?.();
+        bootstrap.webApp?.expand?.();
+        setWebApp(bootstrap.webApp);
+        setInitData(bootstrap.initData);
+        setUser(bootstrap.user);
         setMode("telegram");
       } else {
         setMode("none");
@@ -191,7 +184,10 @@ export function useTelegram(): UseTelegramResult {
     } finally {
       setIsReady(true);
     }
+    };
+
+    void run();
   }, []);
 
-  return { user, webApp, initData, isReady, mode, correlationId, flowId, onClose: () => webApp?.close?.() };
+  return { user, webApp, initData, isReady, mode, correlationId, flowId, bootstrapOutcome, bootstrapDiagnostics, onClose: () => webApp?.close?.() };
 }

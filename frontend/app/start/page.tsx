@@ -242,7 +242,7 @@ function ensureProfileCompletion(
 // side_effects: redirect orchestration, profile fetch, telemetry dispatch.
 // END_CONTRACT: FN-START-PAGE
 export default function StartPage() {
-  const { user, initData, isReady, mode, correlationId, flowId } = useTelegram();
+  const { user, initData, isReady, mode, correlationId, flowId, bootstrapOutcome } = useTelegram();
   const router = useRouter();
   const [status, setStatus] = useState<StartStatus>("init");
   const [effectiveCorrelationId, setEffectiveCorrelationId] = useState<string>("");
@@ -315,7 +315,9 @@ export default function StartPage() {
           Тестовый вход (Браузер)
         </button>
         <p data-testid="start-auth-gate-hint" className="text-xs text-slate-400 mt-8">
-          Если вы видите этот экран внутри Telegram, попробуйте перезапустить мини-приложение.
+          {bootstrapOutcome === "initdata_missing"
+            ? "Telegram открыл Mini App, но не передал initData. Нажмите кнопку ещё раз или откройте экран повторно."
+            : "Если вы видите этот экран внутри Telegram, попробуйте перезапустить мини-приложение."}
         </p>
       </div>
     );

@@ -69,6 +69,26 @@ describe('FeedPage', () => {
     makeHomeTraceMock.mockReturnValue({ trace_id: 'trace-home' });
   });
 
+  it('shows bootstrap recovery state instead of infinite shell after timeout', async () => {
+    jest.useFakeTimers();
+    mockUseTelegram.mockReturnValue({
+      isReady: false,
+      mode: 'none',
+      initData: '',
+      user: null,
+      bootstrapOutcome: 'runtime_missing',
+      bootstrapDiagnostics: { href: 'https://dev.astro.vasiliy-ivanov.ru/', hash: '', outcome: 'runtime_missing' },
+    });
+
+    render(<FeedPage />);
+    jest.advanceTimersByTime(4500);
+
+    expect(await screen.findByTestId('empty-state')).toBeInTheDocument();
+    expect(screen.getByText('Telegram runtime не инициализировался')).toBeInTheDocument();
+    expect(screen.getByTestId('home-bootstrap-recover-cta')).toHaveAttribute('href', '/start');
+    jest.useRealTimers();
+  });
+
   it('renders explicit empty Today state for non-canonical payloads', async () => {
     homeFetchMock.mockImplementation(async (url: string) => {
       if (url === '/api/users/me') {
