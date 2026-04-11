@@ -38,6 +38,38 @@ def test_day_brief_payload_is_canonical_only_and_omits_legacy_surface():
     assert "fallback_mode" not in payload
 
 
+def test_day_brief_hero_and_focus_are_not_near_duplicates():
+    payload = build_day_brief_payload(
+        {
+            "local_dt": "2026-04-11T09:00:00+03:00",
+            "semantic_layer": {
+                "headline": "День лучше держать в одном векторе и не обещать лишнего.",
+                "pacing": "Выбери один главный шаг, не распыляйся и не открывай лишние фронты.",
+                "practical_move": "Собери короткий список дел и закрой один документ до конца.",
+                "money_admin_focus": "Проверь условия, цифры и сроки перед подтверждением.",
+                "relationship_softness": "Говори мягче и точнее.",
+                "rest": "Не прожимай день первым рывком.",
+            },
+            "personalization_level": "personalized_v2",
+        },
+        user=SimpleNamespace(birth_time="07:05", birth_time_known=True),
+        general_vibe="спокойный деловой фокус",
+        generation_mode="deterministic",
+    )
+    hero_text = f"{payload['hero']['title']} {payload['hero']['subtitle']}".lower()
+    focus_description = payload["domains"]["focus"]["description"].lower()
+    money_description = payload["domains"]["money"]["description"].lower()
+
+    assert "один документ" not in focus_description
+    assert "не обещать" not in focus_description
+    assert "список дел" not in focus_description
+    assert any(token in focus_description for token in ("вниман", "переключ", "приоритет", "контур", "перегруз"))
+    assert any(token in money_description for token in ("услов", "цифр", "срок", "договор", "документ", "соглас"))
+    assert len(payload["hero"]["title"]) <= 72
+    assert len(payload["hero"]["subtitle"]) <= 150
+    assert payload["domains"]["focus"]["description"] not in hero_text
+
+
 def test_week_brief_prompt_bundle_and_fallback_are_deterministic():
     report = SimpleNamespace(
         id="r1",

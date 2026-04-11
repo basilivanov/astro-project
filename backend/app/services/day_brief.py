@@ -232,6 +232,58 @@ def _domain_description(key: str, semantic: dict[str, Any]) -> str | None:
     return text or None
 
 
+def _hero_focus_overlap_tokens() -> tuple[str, ...]:
+    return (
+        "один главный",
+        "один шаг",
+        "не распы",
+        "коротк",
+        "список дел",
+        "не обещ",
+        "один документ",
+        "один дедлайн",
+        "одно согласование",
+    )
+
+
+def _rewrite_focus_description(description: str | None) -> str | None:
+    lowered = str(description or "").lower()
+    if not lowered.strip():
+        return None
+    if any(token in lowered for token in _hero_focus_overlap_tokens()):
+        return "Внимание держится лучше, если отсечь переключения и пройти один контур работы до конца. Главный выигрыш сегодня — в удержании приоритета без ментальной перегрузки."
+    return description
+
+
+def _rewrite_money_description(description: str | None) -> str | None:
+    lowered = str(description or "").lower()
+    if not lowered.strip():
+        return None
+    if not any(token in lowered for token in ("услов", "срок", "цифр", "договор", "документ", "соглас", "обязател", "цен")):
+        return "В рабочих и денежных вопросах сегодня важны условия, сроки и точные формулировки. Спокойная проверка цифр и договорённостей работает лучше, чем быстрый нажим."
+    return description
+
+
+def _polish_domain_description(key: str, description: str | None, hero: dict[str, Any] | None = None) -> str | None:
+    next_description = description
+    if key == "focus":
+        next_description = _rewrite_focus_description(next_description)
+        hero_text = f"{hero.get('title') or ''} {hero.get('subtitle') or ''}".lower() if isinstance(hero, dict) else ""
+        if next_description and any(token in hero_text for token in _hero_focus_overlap_tokens()):
+            next_description = "Фокус дня держится на удержании внимания в одном контуре без резких переключений. Последовательность действий сейчас полезнее, чем параллельные попытки успеть всё сразу."
+    if key == "money":
+        next_description = _rewrite_money_description(next_description)
+    return _trim_to_sentences(next_description, max_sentences=2, max_len=170) if next_description else None
+
+
+def _polish_hero_copy(hero: dict[str, Any]) -> dict[str, Any]:
+    title = _trim_to_sentences(hero.get("title"), max_sentences=1, max_len=72) or "Держите день собранным."
+    subtitle = _trim_to_sentences(hero.get("subtitle"), max_sentences=2, max_len=150) or "Главный результат сегодня приходит через спокойный темп и один ясный вектор действий."
+    hero["title"] = title
+    hero["subtitle"] = subtitle
+    return hero
+
+
 def _domain_text_forbidden_description_reason(text: str | None) -> str | None:
     lowered = str(text or "").lower()
     if not lowered.strip():
@@ -284,8 +336,9 @@ def _strip_repeated_opening(text: str | None, seen: set[str]) -> str | None:
 
 def _dedupe_day_surface(hero: dict[str, Any], domains: dict[str, dict[str, Any]]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     seen: set[str] = set()
-    hero_title = _trim_to_sentences(hero.get("title"), max_sentences=1, max_len=110)
-    hero_subtitle = _trim_to_sentences(hero.get("subtitle"), max_sentences=2, max_len=190)
+    hero = _polish_hero_copy(hero)
+    hero_title = _trim_to_sentences(hero.get("title"), max_sentences=1, max_len=72)
+    hero_subtitle = _trim_to_sentences(hero.get("subtitle"), max_sentences=2, max_len=150)
     for item in [hero_title, hero_subtitle]:
         canon = _canonicalize_clause(item)
         if canon:
@@ -296,6 +349,7 @@ def _dedupe_day_surface(hero: dict[str, Any], domains: dict[str, dict[str, Any]]
     for key in DOMAIN_KEYS:
         domain = domains[key]
         description = _strip_repeated_opening(domain.get("description"), seen)
+        description = _polish_domain_description(key, description, hero)
         why_text = _strip_repeated_opening(domain.get("why_astro_text"), seen)
         if description and why_text and _text_similarity(description, why_text) >= 0.72:
             why_text = None
