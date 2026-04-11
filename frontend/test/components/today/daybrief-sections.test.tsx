@@ -130,12 +130,12 @@ describe('daybrief sections', () => {
     expect(screen.getByText('Фокус')).toBeInTheDocument();
 
     expect(screen.getByTestId('today-score-love')).toHaveTextContent('Нет данных');
-    expect(screen.getByTestId('today-score-love')).toHaveTextContent('Нет данных по этой сфере.');
-    expect(screen.getByTestId('today-score-love')).toHaveTextContent('Для этой сферы пока нет персонального астрологического объяснения.');
+    expect(screen.getByTestId('today-score-love')).toHaveTextContent('Пока нет устойчивых данных по этой сфере на сегодня.');
+    expect(screen.getByTestId('today-score-love')).not.toHaveTextContent('Что повлияло');
 
     expect(screen.getByTestId('today-score-focus')).toHaveTextContent('Ошибка');
     expect(screen.getByTestId('today-score-focus')).toHaveTextContent('Ошибка расчёта этой сферы.');
-    expect(screen.getByTestId('today-score-focus')).toHaveTextContent('Причина для этой сферы не рассчитана.');
+    expect(screen.getByTestId('today-score-focus')).not.toHaveTextContent('Что повлияло');
   });
 
   it('keeps score tap only for complete domains', () => {

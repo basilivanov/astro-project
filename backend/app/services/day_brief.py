@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import re
 from typing import Any
 
 from ..logging_utils import get_correlation_ids, log_grace_event
 from .aggregation_weights import DAY_BRIEF_WEIGHT_TABLE
 from .day_brief_validators import serialize_day_brief, validate_day_brief_payload
+from .forecast_factor_pipeline import NormalizedFactor
 from .forecast_factor_pipeline import build_normalized_factors, preprocess_factors_for_ranking
 
 MODULE_NAME = "M-DAY-BRIEF-SERVICE"
@@ -103,7 +105,14 @@ def _get_semantic_layer(facts: dict[str, Any]) -> dict[str, Any]:
 def _get_normalized_factors(facts: dict[str, Any], *, semantic_seed: dict[str, Any] | None = None) -> list[Any]:
     existing = facts.get("normalized_factors")
     if isinstance(existing, list) and existing:
-        return existing
+        normalized: list[NormalizedFactor] = []
+        for item in existing:
+            if isinstance(item, NormalizedFactor):
+                normalized.append(item)
+            elif isinstance(item, dict):
+                normalized.append(NormalizedFactor.model_validate(item))
+        if normalized:
+            return normalized
     return build_normalized_factors(
         fast_hits=facts.get("fast_hits") or [],
         traffic_lights=facts.get("traffic_lights") or {},
@@ -241,6 +250,69 @@ def _text_similarity(left: str | None, right: str | None) -> float:
         return 0.0
     return len(left_words & right_words) / max(1, min(len(left_words), len(right_words)))
 
+def _trim_to_sentences(text: str | None, *, max_sentences: int, max_len: int) -> str | None:
+    raw = " ".join(str(text or "").split()).strip()
+    if not raw:
+        return None
+    parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", raw) if part.strip()]
+    clipped = " ".join(parts[:max_sentences]) if parts else raw
+    return _clip_text(clipped, fallback="", max_len=max_len) or None
+
+
+def _canonicalize_clause(text: str | None) -> str:
+    lowered = str(text or "").lower()
+    lowered = re.sub(r"[^а-яa-z0-9 ]+", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    return lowered
+
+
+def _strip_repeated_opening(text: str | None, seen: set[str]) -> str | None:
+    value = _trim_to_sentences(text, max_sentences=3, max_len=240)
+    if not value:
+        return None
+    parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", value) if part.strip()]
+    kept: list[str] = []
+    for part in parts:
+        canon = _canonicalize_clause(part)
+        if canon and canon in seen and len(parts) > 1:
+            continue
+        kept.append(part)
+        if canon:
+            seen.add(canon)
+    return _clip_text(" ".join(kept) or value, fallback=value, max_len=240)
+
+
+def _dedupe_day_surface(hero: dict[str, Any], domains: dict[str, dict[str, Any]]) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    seen: set[str] = set()
+    hero_title = _trim_to_sentences(hero.get("title"), max_sentences=1, max_len=110)
+    hero_subtitle = _trim_to_sentences(hero.get("subtitle"), max_sentences=2, max_len=190)
+    for item in [hero_title, hero_subtitle]:
+        canon = _canonicalize_clause(item)
+        if canon:
+            seen.add(canon)
+    hero["title"] = hero_title or hero.get("title")
+    hero["subtitle"] = hero_subtitle or hero.get("subtitle")
+
+    for key in DOMAIN_KEYS:
+        domain = domains[key]
+        description = _strip_repeated_opening(domain.get("description"), seen)
+        why_text = _strip_repeated_opening(domain.get("why_astro_text"), seen)
+        if description and why_text and _text_similarity(description, why_text) >= 0.72:
+            why_text = None
+            domain["why_status"] = "failed"
+            reason_codes = list(domain.get("text_reason_codes") or [])
+            if "why_duplicates_description" not in reason_codes:
+                reason_codes.append("why_duplicates_description")
+            domain["text_reason_codes"] = reason_codes
+        if description:
+            domain["description"] = description
+        if why_text:
+            domain["why_astro_text"] = _trim_to_sentences(why_text, max_sentences=2, max_len=220)
+        elif domain.get("why_status") == "complete":
+            domain["why_status"] = "failed"
+            domain["why_astro_text"] = None
+    return hero, domains
+
 
 def _factor_personal_clause(record: dict[str, Any]) -> str | None:
     label = str(record.get("label") or "").strip()
@@ -282,7 +354,7 @@ def _collect_domain_text_inputs(key: str, semantic: dict[str, Any], factor_refs:
 
 
 def _compose_domain_description(inputs: dict[str, Any]) -> tuple[str | None, list[str]]:
-    description = _domain_description(str(inputs["key"]), inputs["semantic"])
+    description = _trim_to_sentences(_domain_description(str(inputs["key"]), inputs["semantic"]), max_sentences=2, max_len=220)
     reason = _domain_text_forbidden_description_reason(description)
     return (None if reason else description), ([reason] if reason else [])
 
@@ -314,7 +386,7 @@ def _compose_domain_why_text(inputs: dict[str, Any]) -> tuple[str | None, list[s
     }.get(key, "")
     sanitized_semantic_clause = semantic_clause if "недел" not in semantic_clause.lower() and "weekly" not in semantic_clause.lower() else ""
     text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", sanitized_semantic_clause)
-    text = _clip_text(text, fallback="", max_len=400)
+    text = _trim_to_sentences(text, max_sentences=2, max_len=220) or ""
     reasons: list[str] = []
     lowered = text.lower()
     if not text:
@@ -433,12 +505,13 @@ def _assemble_day_brief_payload(
     _records, factor_refs, domain_meta = _prepare_factor_refs(facts, normalized_factors)
     int_scores = _normalize_scores_with_factors(facts, domain_meta)
     hero = {
-        "title": _clip_text(str(semantic.get("headline") or general_vibe or ""), fallback="Сегодня лучше держать день собранным и не распылять внимание.", max_len=140),
-        "subtitle": _clip_text(_dedupe_sentences(str(semantic.get("pacing") or ""), str(semantic.get("practical_move") or "")), fallback="Лучше работают короткие циклы, ясные формулировки и один главный шаг.", max_len=240),
+        "title": _trim_to_sentences(str(semantic.get("headline") or general_vibe or ""), max_sentences=1, max_len=110) or "Сегодня лучше держать день собранным и не распылять внимание.",
+        "subtitle": _trim_to_sentences(_dedupe_sentences(str(semantic.get("pacing") or ""), str(semantic.get("practical_move") or "")), max_sentences=2, max_len=190) or "Лучше работают короткие циклы, ясные формулировки и один главный шаг.",
         "day_type": _resolve_day_type(int_scores),
         "tone": _resolve_tone_tag(int_scores, semantic),
     }
     domains = {key: _build_day_domain(key, int_scores, semantic, factor_refs, facts) for key in DOMAIN_KEYS}
+    hero, domains = _dedupe_day_surface(hero, domains)
     now_local = _parse_local_dt(facts)
     return {
         "version": "day_brief_canon_v1",
