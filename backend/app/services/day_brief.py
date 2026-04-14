@@ -45,6 +45,12 @@ HOUSE_DOMAIN_MAP = {
     11: "love",
     12: "energy",
 }
+DOMAIN_MARKER_HINTS = {
+    "money": ("услов", "срок", "цен", "цифр", "договор", "обязател", "соглас"),
+    "love": ("контакт", "мотив", "уточн", "реакц", "ясност", "мягк"),
+    "focus": ("фокус", "вниман", "переключ", "приоритет", "контур"),
+    "energy": ("ресурс", "темп", "ритм", "восстанов", "нагруз", "рывок"),
+}
 
 
 @dataclass
@@ -148,7 +154,7 @@ def _resolve_tone_tag(scores: dict[str, int], semantic: dict[str, Any]) -> str:
     return "balanced"
 
 
-def _prepare_factor_refs(facts: dict[str, Any], normalized_factors: list[Any]) -> tuple[list[FactorRecord], list[dict[str, Any]]]:
+def _prepare_factor_refs(facts: dict[str, Any], normalized_factors: list[Any]) -> tuple[list[FactorRecord], list[dict[str, Any]], dict[str, Any]]:
     if normalized_factors:
         ranked_factors, factor_domain_meta = preprocess_factors_for_ranking(normalized_factors)
         records = [
@@ -174,6 +180,30 @@ def _prepare_factor_refs(facts: dict[str, Any], normalized_factors: list[Any]) -
         domain_meta = {domain: meta for domain, meta in factor_domain_meta.items()}
         return records, refs, domain_meta
     return [], [], {}
+
+
+def _select_domain_explainability_refs(key: str, records: list[FactorRecord], *, limit: int = 4) -> list[dict[str, Any]]:
+    aliases = DOMAIN_ALIASES.get(key, {key})
+    domain_records = [record for record in records if record.domain in aliases]
+    if not domain_records:
+        return []
+    prioritized = sorted(
+        domain_records,
+        key=lambda record: (
+            0 if _factor_personal_clause({"label": record.label}) else 1,
+            -abs(record.signal),
+        ),
+    )
+    return [
+        {
+            "id": record.id,
+            "label": record.label,
+            "domain": record.domain,
+            "explanation": record.explanation,
+            "signal": record.signal,
+        }
+        for record in prioritized[: max(1, limit)]
+    ]
 
 
 def _base_scores(facts: dict[str, Any]) -> dict[str, int]:
@@ -236,6 +266,7 @@ def _hero_focus_overlap_tokens() -> tuple[str, ...]:
     return (
         "один главный",
         "один шаг",
+        "за раз",
         "не распы",
         "коротк",
         "список дел",
@@ -243,6 +274,7 @@ def _hero_focus_overlap_tokens() -> tuple[str, ...]:
         "один документ",
         "один дедлайн",
         "одно согласование",
+        "один вектор",
     )
 
 
@@ -251,7 +283,7 @@ def _rewrite_focus_description(description: str | None) -> str | None:
     if not lowered.strip():
         return None
     if any(token in lowered for token in _hero_focus_overlap_tokens()):
-        return "Внимание держится лучше, если отсечь переключения и пройти один контур работы до конца. Главный выигрыш сегодня — в удержании приоритета без ментальной перегрузки."
+        return "Фокус дня просит удерживать один главный приоритет и сокращать лишние переключения. Не дробите внимание: один контур действий сейчас собирает результат лучше, чем параллельные рывки."
     return description
 
 
@@ -267,10 +299,12 @@ def _rewrite_money_description(description: str | None) -> str | None:
 def _polish_domain_description(key: str, description: str | None, hero: dict[str, Any] | None = None) -> str | None:
     next_description = description
     if key == "focus":
-        next_description = _rewrite_focus_description(next_description)
         hero_text = f"{hero.get('title') or ''} {hero.get('subtitle') or ''}".lower() if isinstance(hero, dict) else ""
-        if next_description and any(token in hero_text for token in _hero_focus_overlap_tokens()):
-            next_description = "Фокус дня держится на удержании внимания в одном контуре без резких переключений. Последовательность действий сейчас полезнее, чем параллельные попытки успеть всё сразу."
+        next_description = _rewrite_focus_description(next_description)
+        focus_text = str(next_description or "").lower()
+        blocked_overlap = any(token in hero_text and token in focus_text for token in _hero_focus_overlap_tokens())
+        if blocked_overlap or _text_similarity(hero_text, focus_text) >= 0.34:
+            next_description = "Фокус дня держится на одном главном приоритете и спокойной последовательности действий. Чем меньше лишних переключений и дробления внимания, тем легче довести результат до конца."
     if key == "money":
         next_description = _rewrite_money_description(next_description)
     return _trim_to_sentences(next_description, max_sentences=2, max_len=170) if next_description else None
@@ -388,6 +422,36 @@ def _factor_personal_clause(record: dict[str, Any]) -> str | None:
     return None
 
 
+def _domain_semantic_clause(key: str, semantic: dict[str, Any]) -> str | None:
+    candidates = {
+        "energy": str(semantic.get("rest") or ""),
+        "money": str(semantic.get("money_admin_focus") or semantic.get("practical_move") or ""),
+        "love": str(semantic.get("relationship_softness") or ""),
+        "focus": str(semantic.get("pacing") or semantic.get("practical_move") or ""),
+    }
+    clause = candidates.get(key, "")
+    lowered = clause.lower()
+    if not clause.strip():
+        return None
+    return None if "недел" in lowered or "weekly" in lowered else clause
+
+
+def _domain_lunar_clause(key: str, moon_phase: str, moon_sign: str) -> str | None:
+    if not (moon_phase or moon_sign):
+        return None
+    backdrop = " ".join(part for part in [f"Луна в {moon_sign}" if moon_sign else "", moon_phase] if part).strip()
+    if not backdrop:
+        return None
+    return None
+
+
+def _has_domain_driver_marker(key: str, text: str | None) -> bool:
+    lowered = str(text or "").lower()
+    if not lowered.strip():
+        return False
+    return any(marker in lowered for marker in DOMAIN_MARKER_HINTS.get(key, ()))
+
+
 def _collect_domain_text_inputs(key: str, semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
     domain_refs = [
         item for item in factor_refs
@@ -420,11 +484,7 @@ def _compose_domain_why_text(inputs: dict[str, Any]) -> tuple[str | None, list[s
     first_factor = domain_refs[0] if domain_refs else None
     phase = str(inputs.get("moon_phase") or "").strip()
     moon_sign = str(inputs.get("moon_sign") or "").strip()
-    lunar_clause = None
-    if phase or moon_sign:
-        lunar_bits = [bit for bit in [f"Луна в {moon_sign}" if moon_sign else "", phase] if bit]
-        if lunar_bits:
-            lunar_clause = f"Фон дня задают {' '.join(lunar_bits)}, поэтому сфера реагирует заметнее обычного."
+    lunar_clause = _domain_lunar_clause(key, phase, moon_sign)
     profection_house = inputs.get("profection_house")
     house_clause = None
     if isinstance(profection_house, int):
@@ -432,23 +492,19 @@ def _compose_domain_why_text(inputs: dict[str, Any]) -> tuple[str | None, list[s
         if human_house and HOUSE_DOMAIN_MAP.get(profection_house) == key:
             house_clause = f"Дополнительный акцент идёт через твой {human_house}."
     factor_clause = _factor_personal_clause(first_factor) if first_factor else None
-    semantic_clause = {
-        "energy": str(semantic.get("rest") or ""),
-        "money": str(semantic.get("money_admin_focus") or semantic.get("practical_move") or ""),
-        "love": str(semantic.get("relationship_softness") or ""),
-        "focus": str(semantic.get("pacing") or semantic.get("practical_move") or ""),
-    }.get(key, "")
-    sanitized_semantic_clause = semantic_clause if "недел" not in semantic_clause.lower() and "weekly" not in semantic_clause.lower() else ""
-    text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", sanitized_semantic_clause)
+    semantic_clause = _domain_semantic_clause(key, semantic)
+    text = _dedupe_sentences(factor_clause or "", house_clause or "", lunar_clause or "", semantic_clause or "")
     text = _trim_to_sentences(text, max_sentences=2, max_len=220) or ""
     reasons: list[str] = []
     lowered = text.lower()
     if not text:
         reasons.append("why_missing")
-    if domain_refs and not any(_factor_personal_clause(item) for item in domain_refs) and not house_clause and not lunar_clause:
+    if domain_refs and not any(_factor_personal_clause(item) for item in domain_refs) and not house_clause and not semantic_clause and not lunar_clause:
         reasons.append("why_not_personalized")
     if text and not any(token in lowered for token in WHY_CAUSAL_RE):
         reasons.append("why_missing_causal_link")
+    if text and not (factor_clause or house_clause or _has_domain_driver_marker(key, text)):
+        reasons.append("why_missing_domain_driver")
     return (None if reasons else text), reasons
 
 
@@ -469,6 +525,27 @@ def _build_domain_text_layers(key: str, semantic: dict[str, Any], factor_refs: l
         reason_codes=reason_codes,
         composition_mode="deterministic",
     )
+
+
+def _guard_cross_domain_why_duplicates(domains: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    seen: dict[str, str] = {}
+    for key in DOMAIN_KEYS:
+        domain = domains[key]
+        why_text = domain.get("why_astro_text")
+        if domain.get("why_status") != "complete" or not why_text:
+            continue
+        canon = _canonicalize_clause(why_text)
+        duplicate_of = next((other for other, other_text in seen.items() if _text_similarity(other_text, canon) >= 0.82), None)
+        if duplicate_of and not _has_domain_driver_marker(key, why_text):
+            reasons = list(domain.get("text_reason_codes") or [])
+            if "why_cross_domain_duplicate" not in reasons:
+                reasons.append("why_cross_domain_duplicate")
+            domain["text_reason_codes"] = reasons
+            domain["why_status"] = "failed"
+            domain["why_astro_text"] = None
+            continue
+        seen[key] = canon
+    return domains
 
 def _build_day_domain(key: str, scores: dict[str, int], semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
     text_layers = _build_domain_text_layers(key, semantic, factor_refs, facts)
@@ -556,7 +633,7 @@ def _assemble_day_brief_payload(
 ) -> dict[str, Any]:
     semantic = _get_semantic_layer(facts)
     normalized_factors = _get_normalized_factors(facts, semantic_seed=semantic)
-    _records, factor_refs, domain_meta = _prepare_factor_refs(facts, normalized_factors)
+    records, factor_refs, domain_meta = _prepare_factor_refs(facts, normalized_factors)
     int_scores = _normalize_scores_with_factors(facts, domain_meta)
     hero = {
         "title": _trim_to_sentences(str(semantic.get("headline") or general_vibe or ""), max_sentences=1, max_len=110) or "Сегодня лучше держать день собранным и не распылять внимание.",
@@ -564,7 +641,11 @@ def _assemble_day_brief_payload(
         "day_type": _resolve_day_type(int_scores),
         "tone": _resolve_tone_tag(int_scores, semantic),
     }
-    domains = {key: _build_day_domain(key, int_scores, semantic, factor_refs, facts) for key in DOMAIN_KEYS}
+    domains = {
+        key: _build_day_domain(key, int_scores, semantic, _select_domain_explainability_refs(key, records), facts)
+        for key in DOMAIN_KEYS
+    }
+    domains = _guard_cross_domain_why_duplicates(domains)
     hero, domains = _dedupe_day_surface(hero, domains)
     now_local = _parse_local_dt(facts)
     return {

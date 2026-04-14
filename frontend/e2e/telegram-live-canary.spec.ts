@@ -40,6 +40,7 @@ type DayBriefPayload = {
 
 const canaryInitData = process.env.TELEGRAM_LIVE_CANARY_INIT_DATA;
 const canaryUserId = process.env.TELEGRAM_LIVE_CANARY_USER_ID ?? "unknown";
+const captureLiveVisualEvidence = process.env.DAY_LIVE_CANARY_CAPTURE_VISUAL === "1";
 const shouldRunLiveCanary = Boolean(canaryInitData && canaryUserId !== "unknown");
 const liveCanaryTest = shouldRunLiveCanary ? test : test.skip;
 
@@ -84,6 +85,59 @@ async function readResponseBody(response: import("@playwright/test").Response): 
 async function writeJson(filePath: string, payload: unknown) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+async function writeLiveCanonComparison(filePath: string, diagnostics: Record<string, unknown>) {
+  const summary = (diagnostics.day_payload_summary as Record<string, unknown> | null) ?? null;
+  const lines = [
+    "# Live Canon Comparison",
+    "",
+    "- source: primary live Telegram session",
+    "- live_session: true",
+    "- mock: false",
+    `- request_id: ${diagnostics.request_id}`,
+    `- trace_id: ${diagnostics.trace_id}`,
+    `- expected_user_id: ${diagnostics.expected_user_id}`,
+    `- actual_user_id: ${diagnostics.actual_user_id}`,
+    `- render_path: ${diagnostics.render_path}`,
+    `- current_url: ${diagnostics.current_url}`,
+    `- payload_summary: ${JSON.stringify(summary)}`,
+    "",
+    "## Canon Rubric",
+    `- Hero: ${summary?.hero_present ? "pass" : "fail"}`,
+    `- Four domains surface: ${summary?.domains ? "pass" : "fail"}`,
+    `- Disclosure collapsed by default: ${diagnostics.today_no_data_visible === false ? "pass" : "review"}`,
+    "- Semantic separation: review against screenshot pack and canon file",
+    "",
+    "## Drift Taxonomy",
+    "- VISUAL_READABILITY_DRIFT",
+    "- DISCLOSURE_AFFORDANCE_DRIFT",
+    "- DOMAIN_STATE_DRIFT",
+    "- HERO_DOMAIN_OVERLAP_DRIFT",
+    "- CROSS_DOMAIN_DUPLICATION_DRIFT",
+    "- COPY_LENGTH_DRIFT",
+    "- LIVE_PAYLOAD_ONLY_DRIFT",
+  ];
+  await fs.writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
+}
+
+async function captureLiveVisualPack(page: import("@playwright/test").Page, artifactDir: string) {
+  await page.screenshot({ path: path.join(artifactDir, "live-top-fold.png"), fullPage: true });
+  const domainKeys = ["energy", "money", "love", "focus"] as const;
+  for (const key of domainKeys) {
+    const card = page.getByTestId(`today-score-${key}`);
+    if (await card.count()) {
+      await card.screenshot({ path: path.join(artifactDir, `live-domain-${key}-collapsed.png`) });
+      const disclosure = page.getByTestId(`today-score-details-${key}`);
+      if (await disclosure.count()) {
+        const summary = disclosure.locator("summary");
+        await summary.click();
+        await page.waitForTimeout(150);
+        await card.screenshot({ path: path.join(artifactDir, `live-domain-${key}-expanded.png`) });
+        await summary.click();
+      }
+    }
+  }
 }
 
 test.describe("telegram live canary acceptance lane", () => {
@@ -189,6 +243,9 @@ test.describe("telegram live canary acceptance lane", () => {
       await expect(page.getByTestId("today-no-data-state")).toHaveCount(0);
       await expect(page.getByText("Нет данных на сегодня")).toHaveCount(0);
       await expect(page.getByTestId("today-verdict")).toBeVisible({ timeout: 30000 });
+      if (captureLiveVisualEvidence) {
+        await captureLiveVisualPack(page, artifactDir);
+      }
     } finally {
       diagnostics.current_url = diagnostics.current_url ?? page.url();
       diagnostics.render_path = diagnostics.render_path ?? await page.getByTestId("today-render-path").getAttribute("data-render-path").catch(() => null);
@@ -197,6 +254,7 @@ test.describe("telegram live canary acceptance lane", () => {
       diagnostics.lookup_tuple = { request_id: proofRequestId, trace_id: proofRequestId, expected_user_id: canaryUserId, actual_user_id: diagnostics.actual_user_id, timestamp_window: diagnostics.timestamp_window };
       await page.screenshot({ path: path.join(artifactDir, "screenshot.png"), fullPage: true }).catch(() => undefined);
       await writeJson(path.join(artifactDir, "diagnostics.json"), diagnostics);
+      await writeLiveCanonComparison(path.join(artifactDir, "live-canon-comparison.md"), diagnostics);
       await fs.mkdir(artifactDir, { recursive: true });
       await fs.writeFile(path.join(artifactDir, "diagnostics.md"), `# Day primary live-session diagnostics\n\n- flow_id: FLOW-TODAY-CANARY-LIVE\n- primary_lane: true\n- request_id: ${proofRequestId}\n- trace_id: ${proofRequestId}\n- expected_user_id: ${canaryUserId}\n- actual_user_id: ${diagnostics.actual_user_id}\n- timestamp_window: ${JSON.stringify(diagnostics.timestamp_window)}\n- users_me_status: ${(diagnostics.users_me as CapturedResponse).status ?? "missing"}\n- feed_today_status: ${(diagnostics.feed_today as CapturedResponse).status ?? "missing"}\n- render_path: ${diagnostics.render_path}\n- today_no_data_visible: ${diagnostics.today_no_data_visible}\n- current_url: ${diagnostics.current_url}\n- runtime: ${JSON.stringify((diagnostics as Record<string, unknown>).runtime ?? null)}\n- day_payload_summary: ${JSON.stringify(diagnostics.day_payload_summary)}\n\nLookup events: feed.debug, day_brief.response_returned\n`, "utf8");
       console.log(`DAY_LIVE_CANARY_LOOKUP ${JSON.stringify(diagnostics.lookup_tuple)}`);

@@ -17,6 +17,8 @@ Slice id: `SLICE-TODAY-SCREEN-REVIEW`
 
 Acceptance invariant: green frontend/visual acceptance means the same visible Telegram test session represented by `TELEGRAM_LIVE_CANARY_INIT_DATA` sees the same canonical Day surface as the automated screenshot. If the user sees `no_data` in that same session after a green verdict, the verdict is invalid and must be treated as `FAIL_PRIMARY_LIVE_SESSION_MISMATCH` until proven otherwise.
 
+Live canon evidence lane: `DAY_LIVE_CANARY_CAPTURE_VISUAL=1 TELEGRAM_LIVE_CANARY_INIT_DATA=... TELEGRAM_LIVE_CANARY_USER_ID=... ./scripts/run_e2e.sh e2e/telegram-live-canary.spec.ts`. This lane stores live screenshots, `users_me.json`, `feed_today.json`, `diagnostics.json`, and `live-canon-comparison.md` in `artifacts/day_live_canary/<timestamp>/`. Mock visual proof remains regression-only and does not close live canon fit on its own.
+
 ## Evidence rules
 
 - Worker MUST attach the exact commands executed and PASS/FAIL result.
