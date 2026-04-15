@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from prefect_grace.models import PacketStatus, ReasoningProfile
+from prefect_grace.models import PacketStatus, ReasoningProfile, slugify
 from prefect_grace.tasks.state_store import find_record, update_record
 
 WAVE_PLAN_MARKER_START = "FINAL_GRACE_WAVE_PLAN_JSON"
@@ -166,7 +166,11 @@ def default_wave_plan_contract(
     }
 
 
-def normalize_wave_plan_contract(payload: dict[str, Any]) -> dict[str, Any]:
+def normalize_wave_plan_contract(
+    payload: dict[str, Any],
+    *,
+    external_dependency_refs: set[str] | None = None,
+) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("Planner contract must be a JSON object")
     packets = payload.get("packets")
@@ -213,8 +217,17 @@ def normalize_wave_plan_contract(payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     known_keys = {packet["key"] for packet in normalized_packets}
+    allowed_external_refs = {
+        str(ref).strip()
+        for ref in (external_dependency_refs or set())
+        if str(ref).strip()
+    }
     for packet in normalized_packets:
-        unknown_dependencies = [dependency for dependency in packet["dependencies"] if dependency not in known_keys]
+        unknown_dependencies = [
+            dependency
+            for dependency in packet["dependencies"]
+            if dependency not in known_keys and dependency not in allowed_external_refs
+        ]
         if unknown_dependencies:
             raise ValueError(f"Packet {packet['key']} has unknown dependencies: {unknown_dependencies}")
 
@@ -233,13 +246,39 @@ def materialize_planner_contract(
     base_execution_hints: dict[str, Any] | None = None,
     default_verifier_execution_hints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    normalized = normalize_wave_plan_contract(contract)
-    key_to_packet_id: dict[str, str] = {}
+    normalized = normalize_wave_plan_contract(
+        contract,
+        external_dependency_refs={
+            str(planner_packet_id).strip(),
+            str(architect_packet_id).strip(),
+            "planner output",
+            "architect formalization",
+        },
+    )
+    key_to_packet_id: dict[str, str] = {
+        packet_spec["key"]: _planned_packet_id(
+            feature_id=feature_id,
+            wave_id=packet_spec["wave_id"],
+            title=packet_spec["title"],
+        )
+        for packet_spec in normalized["packets"]
+    }
     materialized: list[dict[str, Any]] = []
     base_hints = dict(base_execution_hints or {})
 
     for packet_spec in normalized["packets"]:
-        dependencies = [key_to_packet_id[key] for key in packet_spec["dependencies"]]
+        dependencies = [
+            resolved
+            for dependency in packet_spec["dependencies"]
+            if (
+                resolved := _resolve_packet_reference(
+                    dependency,
+                    key_to_packet_id=key_to_packet_id,
+                    planner_packet_id=planner_packet_id,
+                    architect_packet_id=architect_packet_id,
+                )
+            )
+        ]
         if packet_spec["role"] == "coder" and not dependencies:
             dependencies = [planner_packet_id]
         execution_hints = _resolve_execution_hints(
@@ -268,14 +307,19 @@ def materialize_planner_contract(
         )
         review_target_key = str(packet_spec.get("review_target_key") or "").strip()
         if review_target_key:
+            review_target_packet_id = _resolve_packet_reference(
+                review_target_key,
+                key_to_packet_id=key_to_packet_id,
+                planner_packet_id=planner_packet_id,
+                architect_packet_id=architect_packet_id,
+            )
             packet = update_record(
                 "packets",
                 "packets",
                 "packet_id",
                 packet["packet_id"],
-                {"review_target_packet_id": key_to_packet_id.get(review_target_key, "")},
+                {"review_target_packet_id": review_target_packet_id},
             )
-        key_to_packet_id[packet_spec["key"]] = packet["packet_id"]
         materialized.append(packet)
 
     wave_plan_path = _write_dynamic_wave_plan(feature_id, normalized["waves"], materialized)
@@ -344,6 +388,29 @@ def _resolve_inputs(
         else:
             resolved.append(item)
     return resolved
+
+
+def _resolve_packet_reference(
+    reference: str,
+    *,
+    key_to_packet_id: dict[str, str],
+    planner_packet_id: str,
+    architect_packet_id: str,
+) -> str:
+    value = str(reference).strip()
+    if not value:
+        return ""
+    if value in key_to_packet_id:
+        return key_to_packet_id[value]
+    if value == "planner output" or value == str(planner_packet_id).strip():
+        return str(planner_packet_id).strip()
+    if value == "architect formalization" or value == str(architect_packet_id).strip():
+        return str(architect_packet_id).strip()
+    return value
+
+
+def _planned_packet_id(*, feature_id: str, wave_id: str, title: str) -> str:
+    return f"{feature_id}-{wave_id}-{slugify(title)}".upper()
 
 
 def _write_dynamic_wave_plan(feature_id: str, waves: list[dict[str, Any]], packets: list[dict[str, Any]]) -> str:
@@ -428,7 +495,7 @@ def _resolve_execution_hints(
         return {**base_execution_hints, **packet_hints}
 
     verifier_defaults = dict(default_verifier_execution_hints or {})
-    hints: dict[str, Any] = {**base_execution_hints, **verifier_defaults, **packet_hints}
+    hints: dict[str, Any] = {**base_execution_hints, **packet_hints}
     hints.setdefault("runner", "verifier")
 
     verifier_execution = dict(packet_spec.get("verification_profile") or {}).get("execution")
@@ -453,6 +520,18 @@ def _resolve_execution_hints(
             hints["artifact_globs"] = _string_list(verifier_execution.get("artifact_globs"))
         if "include_day_live_canary" not in packet_hints and "include_day_live_canary" in verifier_execution:
             hints["include_day_live_canary"] = bool(verifier_execution.get("include_day_live_canary"))
+
+    command_locked_keys = {
+        "backend_profile": "backend_commands",
+        "frontend_profile": "frontend_commands",
+        "observability_profile": "observability_commands",
+    }
+    for key, value in verifier_defaults.items():
+        command_key = command_locked_keys.get(key)
+        if command_key and hints.get(command_key):
+            continue
+        if key not in hints and value not in (None, "", []):
+            hints[key] = value
 
     return hints
 

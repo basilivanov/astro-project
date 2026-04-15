@@ -19,6 +19,7 @@ Rules:
 5. Split rework-prone packets earlier rather than later.
 6. Return a machine-readable JSON contract between markers.
 7. Use packet keys in `dependencies` and `inputs` when referring to other generated packets.
+7a. When referring to W00 packets, use `planner output` and `architect formalization` aliases, not concrete packet IDs.
 8. Keep W00 for architect/planner only; execution packets start at W01 unless a stronger reason is stated.
 9. Treat the architect-produced slice docs and architect_manifest as the source of truth for impacted modules, scope boundaries, verification lanes, and frozen scope.
 10. Do not invent or widen slice boundaries that are not present in architect artifacts. If architect artifacts are incomplete, return a blocker packet graph rather than guessing.

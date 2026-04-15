@@ -164,6 +164,8 @@ def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_pat
     assert hints['observability_commands'] == [
         'python3 tools/post_test_review.py --profile today-week --since 30m --report-format md'
     ]
+
+
 def test_materialize_planner_contract_sets_explicit_review_target(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / 'state'
     packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-PLAN-REVIEW-TARGET'
@@ -205,3 +207,138 @@ def test_normalize_planner_contract_rejects_unknown_dependency() -> None:
         assert 'unknown dependencies' in str(exc)
     else:
         raise AssertionError('Expected ValueError for unknown dependency')
+
+
+def test_verifier_execution_overrides_default_profiles() -> None:
+    state_store.STATE_DIR = Path("/tmp/pytest-prefect-grace-verify-override-state")
+    if state_store.STATE_DIR.exists():
+        import shutil
+        shutil.rmtree(state_store.STATE_DIR)
+    packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-VERIFY-OVERRIDE'
+    if packets_dir.exists():
+        import shutil
+        shutil.rmtree(packets_dir)
+    seed_test_feature(
+        feature_id='FEAT-VERIFY-OVERRIDE',
+        title='Verify override feature',
+        summary='Seed feature for direct materialization test',
+        implementation_title='Seed implementation',
+        implementation_summary='Seed implementation summary',
+    )
+    contract = {
+        "waves": [{"wave_id": "W01", "title": "Wave", "objective": "Test"}],
+        "packets": [
+            {
+                "key": "coder_main",
+                "wave_id": "W01",
+                "title": "Coder",
+                "role": "coder",
+                "summary": "Do work",
+            },
+            {
+                "key": "verifier_main",
+                "wave_id": "W01",
+                "title": "Verifier",
+                "role": "verifier",
+                "summary": "Verify work",
+                "dependencies": ["coder_main"],
+                "verification_profile": {
+                    "execution": {
+                        "frontend_commands": ["./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts"],
+                        "observability_commands": ["python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"],
+                        "touches_frontend": True,
+                        "requires_frontend_visual": True,
+                        "artifact_globs": ["frontend/test-results/**/*"],
+                    }
+                },
+            },
+        ],
+    }
+
+    result = materialize_planner_contract(
+        feature_id="FEAT-VERIFY-OVERRIDE",
+        planner_packet_id="PLANNER",
+        architect_packet_id="ARCH",
+        contract=contract,
+        default_verifier_execution_hints={
+            "runner": "verifier",
+            "backend_profile": "backend_quick",
+            "frontend_profile": "frontend_quick",
+            "frontend_commands": ["./scripts/run_e2e.sh e2e/quality.spec.ts -g \"today|day|dev|diagnostics\""],
+            "observability_profile": "today-week",
+            "observability_commands": [],
+            "artifact_globs": ["test-results/**/*"],
+            "touches_frontend": True,
+            "requires_frontend_visual": True,
+        },
+    )
+
+    verifier = next(packet for packet in result["packets"] if packet["role"] == "verifier")
+    hints = verifier["execution_hints"]
+    assert hints["frontend_commands"] == ["./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts"]
+    assert hints["observability_commands"] == ["python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"]
+    assert hints["artifact_globs"] == ["frontend/test-results/**/*"]
+    assert "frontend_profile" not in hints
+    assert "observability_profile" not in hints
+
+
+def test_materialize_planner_contract_accepts_external_w00_dependencies() -> None:
+    state_store.STATE_DIR = Path("/tmp/pytest-prefect-grace-verify-override-external-state")
+    if state_store.STATE_DIR.exists():
+        import shutil
+        shutil.rmtree(state_store.STATE_DIR)
+    packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-VERIFY-OVERRIDE'
+    if packets_dir.exists():
+        import shutil
+        shutil.rmtree(packets_dir)
+    seed_test_feature(
+        feature_id='FEAT-VERIFY-OVERRIDE',
+        title='Verify override feature',
+        summary='Seed feature for external dependency test',
+        implementation_title='Seed implementation',
+        implementation_summary='Seed implementation summary',
+    )
+    planner_packet_id = "FEAT-VERIFY-OVERRIDE-W00-PLANNER-SLICING"
+    architect_packet_id = "FEAT-VERIFY-OVERRIDE-W00-ARCHITECT-FORMALIZATION"
+    contract = {
+        "waves": [{"wave_id": "W01", "title": "Wave", "objective": "Test"}],
+        "packets": [
+            {
+                "key": "FEAT-VERIFY-OVERRIDE-W01-CODER",
+                "wave_id": "W01",
+                "title": "Coder",
+                "role": "coder",
+                "summary": "Do work",
+                "dependencies": [planner_packet_id],
+            },
+            {
+                "key": "FEAT-VERIFY-OVERRIDE-W01-VERIFIER",
+                "wave_id": "W01",
+                "title": "Verifier",
+                "role": "verifier",
+                "summary": "Verify work",
+                "dependencies": ["FEAT-VERIFY-OVERRIDE-W01-CODER"],
+            },
+            {
+                "key": "FEAT-VERIFY-OVERRIDE-W01-REVIEWER",
+                "wave_id": "W01",
+                "title": "Reviewer",
+                "role": "reviewer",
+                "summary": "Review work",
+                "dependencies": ["FEAT-VERIFY-OVERRIDE-W01-CODER", "FEAT-VERIFY-OVERRIDE-W01-VERIFIER"],
+                "review_target_key": "FEAT-VERIFY-OVERRIDE-W01-CODER",
+            },
+        ],
+    }
+
+    result = materialize_planner_contract(
+        feature_id="FEAT-VERIFY-OVERRIDE",
+        planner_packet_id=planner_packet_id,
+        architect_packet_id=architect_packet_id,
+        contract=contract,
+    )
+
+    coder = next(packet for packet in result["packets"] if packet["role"] == "coder")
+    reviewer = next(packet for packet in result["packets"] if packet["role"] == "reviewer")
+    assert planner_packet_id in coder["dependencies"]
+    assert reviewer["review_target_packet_id"] == coder["packet_id"]

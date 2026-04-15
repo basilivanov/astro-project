@@ -137,6 +137,8 @@ def seed_feature_packets_task(
 def resolve_planner_contract_task(
     planner_run: dict,
     *,
+    planner_packet_id: str,
+    architect_packet_id: str,
     feature_id: str,
     implementation_title: str,
     implementation_summary: str,
@@ -160,11 +162,27 @@ def resolve_planner_contract_task(
             payload = parse_planner_wave_plan_message(
                 read_agent_message(planner_run.get('last_message_path'), planner_run.get('stdout_path'))
             )
-            contract = normalize_wave_plan_contract(payload)
+            contract = normalize_wave_plan_contract(
+                payload,
+                external_dependency_refs={
+                    str(planner_packet_id).strip(),
+                    str(architect_packet_id).strip(),
+                    "planner output",
+                    "architect formalization",
+                },
+            )
         except ValueError as exc:
             parser_error = str(exc)
     if contract is None and planner_contract_override:
-        contract = normalize_wave_plan_contract(planner_contract_override)
+        contract = normalize_wave_plan_contract(
+            planner_contract_override,
+            external_dependency_refs={
+                str(planner_packet_id).strip(),
+                str(architect_packet_id).strip(),
+                "planner output",
+                "architect formalization",
+            },
+        )
         source = 'explicit_input'
     elif contract is None:
         contract = default_wave_plan_contract(
@@ -689,6 +707,8 @@ def feature_pipeline(
 
         planner_contract_result = resolve_planner_contract_task(
             planner_run,
+            planner_packet_id=planner_packet_id,
+            architect_packet_id=architect_packet_id,
             feature_id=feature_id,
             implementation_title=implementation_title,
             implementation_summary=implementation_summary,
@@ -705,6 +725,15 @@ def feature_pipeline(
             prefer_agent_output=prefer_agent_output,
         )
         packet_results["planner_contract"] = planner_contract_result
+        if prefer_agent_output and planner_contract_result.get("parser_error") and planner_contract_result.get("source") != "agent_output":
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="pipeline_invalid",
+                next_action="fix-planner-agent-output",
+                reasons=[str(planner_contract_result["parser_error"])],
+            )
+            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
+            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
         materialized_contract = materialize_planner_contract_task(
             feature_id,
             planner_packet_id,
