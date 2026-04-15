@@ -15,10 +15,12 @@ from prefect_grace.tasks.codex_launcher import (
     CodexProcessResult,
     _extract_stdout_progress,
     _extract_last_stdout_event,
+    _run_progress_class,
     _extract_thread_id,
     _format_heartbeat_message,
     _heartbeat_loop,
     _heartbeat_payload,
+    build_packet_prompt,
     launch_codex_for_packet,
 )
 from prefect_grace.tasks import state_store
@@ -59,6 +61,18 @@ def test_extract_thread_id_reads_thread_started_event(tmp_path: Path) -> None:
     )
 
     assert _extract_thread_id(stdout_path) == "thread-123"
+
+
+def test_run_progress_class_detects_startup_only(tmp_path: Path) -> None:
+    stdout_path = tmp_path / "stdout.jsonl"
+    stdout_path.write_text(
+        json.dumps({"type": "thread.started", "thread_id": "thread-123"}) + "\n"
+        + json.dumps({"type": "turn.started"})
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert _run_progress_class(stdout_path) == "startup_only"
 
 
 def test_format_heartbeat_message_contains_run_paths(tmp_path: Path) -> None:
@@ -115,6 +129,111 @@ def test_extract_stdout_progress_ignores_noise_and_detects_final_marker(tmp_path
     assert progress["semantic_reason"] == "item.completed:agent_message"
     assert progress["final_marker"] == "END_FINAL_PACKET_DECISION_JSON"
     assert progress["final_signature"] is not None
+
+
+def test_launch_codex_for_packet_retries_startup_stall_with_fresh_exec(monkeypatch, tmp_path: Path) -> None:
+    packet_path = tmp_path / "packet.md"
+    packet_path.write_text("# Packet\nArchitect packet body", encoding="utf-8")
+    feature_id = "FEAT-STARTUP-STALL"
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.load_agent_config",
+        lambda: {
+            "codex": {
+                "binary": "codex",
+                "shared_model": "gpt-5.4",
+                "workdir": "/opt/astro-project",
+                "roles": {"architect": {"reasoning": "xhigh", "sandbox": "danger-full-access", "approval": "never", "resume_strategy": "feature_role", "max_auto_resume_attempts": 2}},
+            }
+        },
+    )
+    packets_path = tmp_path / "packets.yaml"
+    packets_path.write_text(
+        yaml.safe_dump(
+            {
+                "packets": [
+                    {
+                        "packet_id": "PKT-STARTUP-STALL",
+                        "feature_id": feature_id,
+                        "wave_id": "W00",
+                        "role": "architect",
+                        "reasoning": "xhigh",
+                        "packet_path": str(packet_path),
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.find_record", lambda *args, **kwargs: yaml.safe_load(packets_path.read_text())["packets"][0])
+    monkeypatch.setattr("prefect_grace.tasks.state_store.find_record", lambda *args, **kwargs: yaml.safe_load(packets_path.read_text())["packets"][0])
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.update_record", lambda *args, **kwargs: None)
+
+    calls: list[list[str]] = []
+
+    def _fake_run(command, **kwargs):
+        calls.append(list(command))
+        stdout_path = kwargs["stdout_path"]
+        stderr_path = kwargs["stderr_path"]
+        last_message_path = kwargs["run_dir"] / "last-message.md"
+        if len(calls) == 1:
+            stdout_path.write_text(
+                json.dumps({"type": "thread.started", "thread_id": "thread-startup-stall"}) + "\n"
+                + json.dumps({"type": "turn.started"})
+                + "\n",
+                encoding="utf-8",
+            )
+            stderr_path.write_text("Codex stall detected after 300.0 idle seconds.\n", encoding="utf-8")
+            return CodexProcessResult(returncode=-9, termination_reason="stall_killed")
+        stdout_path.write_text(
+            json.dumps({"type": "item.completed", "item": {"status": "completed"}}) + "\n",
+            encoding="utf-8",
+        )
+        stderr_path.write_text("", encoding="utf-8")
+        last_message_path.write_text("done\n", encoding="utf-8")
+        return CodexProcessResult(returncode=0, termination_reason="completed")
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher._run_codex_process", _fake_run)
+
+    result = launch_codex_for_packet("PKT-STARTUP-STALL")
+
+    assert result["returncode"] == 0
+    assert result["attempt_count"] == 2
+    assert result["attempts"][0]["termination_reason"] == "stall_killed"
+    assert "resume" not in calls[0]
+    assert "resume" not in calls[1]
+
+
+def test_build_packet_prompt_compacts_large_context_for_planner(monkeypatch, tmp_path: Path) -> None:
+    feature_dir = tmp_path / "packets" / "FEAT-1"
+    feature_dir.mkdir(parents=True)
+    (feature_dir / "feature-brief.md").write_text("# Brief\n" + ("- line\n" * 2000), encoding="utf-8")
+    (feature_dir / "wave-plan.md").write_text("# Wave\n" + ("- wave\n" * 2000), encoding="utf-8")
+    packet_path = tmp_path / "packet.md"
+    packet_path.write_text("# Packet\nPlanner packet body", encoding="utf-8")
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.find_record",
+        lambda *args, **kwargs: {"feature_id": "FEAT-1"},
+    )
+
+    packet = {
+        "packet_id": "PKT-1",
+        "feature_id": "FEAT-1",
+        "wave_id": "W00",
+        "role": "planner",
+        "packet_path": str(packet_path),
+        "dependencies": [],
+    }
+    prompt = build_packet_prompt(packet, "Planner role prompt")
+
+    assert len(prompt) < 30000
+    assert prompt.count("- line") < 2000
+    assert prompt.count("- wave") < 2000
 
 
 def test_heartbeat_loop_kills_when_only_stdout_noise_grows(tmp_path: Path) -> None:
@@ -710,7 +829,7 @@ def test_launch_codex_for_packet_keeps_reviewer_session_separate_and_coder_fresh
     assert "resume" not in calls["PKT-CODER"]
 
 
-def test_launch_codex_for_packet_auto_resumes_after_stall(tmp_path: Path, monkeypatch) -> None:
+def test_launch_codex_for_packet_retries_fresh_after_startup_only_stall(tmp_path: Path, monkeypatch) -> None:
     state_store.STATE_DIR = tmp_path / "state"
     state_store.STATE_DIR.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("prefect_grace.tasks.codex_launcher.RUNS_DIR", tmp_path / "runs")
@@ -772,14 +891,16 @@ def test_launch_codex_for_packet_auto_resumes_after_stall(tmp_path: Path, monkey
         stdout_path = kwargs["stdout_path"]
         stderr_path = kwargs["stderr_path"]
         last_message_path = kwargs["run_dir"] / "last-message.md"
-        if "resume" in command:
+        if len(calls) > 1:
             stdout_path.write_text(
-                json.dumps({"type": "item.completed", "item": {"status": "completed"}}) + "\n",
+                json.dumps({"type": "thread.started", "thread_id": "thread-fresh-retry"}) + "\n"
+                + json.dumps({"type": "item.completed", "item": {"status": "completed"}})
+                + "\n",
                 encoding="utf-8",
             )
             stderr_path.write_text("", encoding="utf-8")
             last_message_path.write_text("done\n", encoding="utf-8")
-            return 0
+            return CodexProcessResult(returncode=0, termination_reason="completed")
         stdout_path.write_text(
             json.dumps({"type": "thread.started", "thread_id": "thread-auto-resume"}) + "\n",
             encoding="utf-8",
@@ -792,11 +913,11 @@ def test_launch_codex_for_packet_auto_resumes_after_stall(tmp_path: Path, monkey
     result = launch_codex_for_packet("PKT-AUTO-RESUME")
 
     assert result["returncode"] == 0
-    assert result["session_mode"] == "resume"
-    assert result["resumed_from_thread_id"] == "thread-auto-resume"
-    assert result["thread_id"] == "thread-auto-resume"
+    assert result["session_mode"] == "exec"
+    assert result["resumed_from_thread_id"] is None
+    assert result["thread_id"] == "thread-fresh-retry"
     assert result["attempt_count"] == 2
     assert result["attempts"][0]["termination_reason"] == "stall_killed"
-    assert result["attempts"][1]["session_mode"] == "resume"
+    assert result["attempts"][1]["session_mode"] == "exec"
     assert "resume" not in calls[0]
-    assert "resume" in calls[1]
+    assert "resume" not in calls[1]

@@ -34,6 +34,7 @@ DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
 DEFAULT_STALL_TIMEOUT_SECONDS = 900.0
 DEFAULT_FINAL_OUTPUT_GRACE_SECONDS = 60.0
 DEFAULT_POST_TURN_COMPLETION_GRACE_SECONDS = 30.0
+DEFAULT_PROMPT_DIGEST_MAX_CHARS = 4000
 AUTO_RESUME_TERMINATION_REASONS = {"stall_killed", "timeout"}
 FINAL_OUTPUT_MARKERS = (
     ARCHITECT_ARTIFACT_PLAN_END,
@@ -124,7 +125,65 @@ def _artifact_block(tag: str, path: str | Path | None, **attrs: str) -> str:
     return f"<{tag}{prefix}>\n{text}\n</{tag}>"
 
 
-def _feature_context_blocks(packet: dict[str, Any]) -> list[str]:
+def _compact_text(text: str, *, limit: int = DEFAULT_PROMPT_DIGEST_MAX_CHARS) -> str:
+    stripped = text.strip()
+    if len(stripped) <= limit:
+        return stripped
+    head = int(limit * 0.7)
+    tail = max(0, limit - head - 64)
+    return (
+        stripped[:head].rstrip()
+        + "\n\n...[prompt digest truncated for size]...\n\n"
+        + stripped[-tail:].lstrip()
+    )
+
+
+def _bullet_digest(text: str, *, max_lines: int = 24, max_chars: int = DEFAULT_PROMPT_DIGEST_MAX_CHARS) -> str:
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    selected: list[str] = []
+    for line in lines:
+        keep = False
+        stripped = line.lstrip()
+        if stripped.startswith(("#", "- ", "* ", "##", "###")):
+            keep = True
+        if ":" in stripped and len(stripped) < 220:
+            keep = True
+        if keep:
+            selected.append(line)
+        if len(selected) >= max_lines:
+            break
+    if not selected:
+        return _compact_text(text, limit=max_chars)
+    return _compact_text("\n".join(selected), limit=max_chars)
+
+
+def _context_text_for_role(*, role: str, tag: str, text: str) -> str:
+    strict_digest_roles = {"architect", "planner"}
+    if role not in strict_digest_roles:
+        return text
+    digest_tags = {
+        "feature_brief",
+        "wave_plan",
+        "architect_handoff",
+        "execution_packet",
+        "requirements_slice",
+        "development_plan_slice",
+        "verification_matrix_slice",
+        "knowledge_graph_slice",
+        "dependency_packet",
+        "dependency_output",
+        "dependency_verification",
+        "dependency_review",
+        "dependency_wave_review",
+    }
+    if tag == "architect_manifest":
+        return _compact_text(text, limit=2500)
+    if tag in digest_tags:
+        return _bullet_digest(text)
+    return _compact_text(text)
+
+
+def _feature_context_blocks(packet: dict[str, Any], *, role: str) -> list[str]:
     feature_dir = FEATURES_DIR / str(packet.get("feature_id"))
     blocks: list[str] = []
     for tag, path in (
@@ -133,7 +192,7 @@ def _feature_context_blocks(packet: dict[str, Any]) -> list[str]:
     ):
         text = _read_text(path)
         if text:
-            blocks.append(f"<{tag} path=\"{path}\">\n{text}\n</{tag}>")
+            blocks.append(f"<{tag} path=\"{path}\">\n{_context_text_for_role(role=role, tag=tag, text=text)}\n</{tag}>")
     try:
         feature = find_record("features", "features", "feature_id", str(packet.get("feature_id")))
     except KeyError:
@@ -150,11 +209,11 @@ def _feature_context_blocks(packet: dict[str, Any]) -> list[str]:
         path = feature.get(key)
         text = _read_text(path)
         if text:
-            blocks.append(f"<{tag} path=\"{path}\">\n{text}\n</{tag}>")
+            blocks.append(f"<{tag} path=\"{path}\">\n{_context_text_for_role(role=role, tag=tag, text=text)}\n</{tag}>")
     return blocks
 
 
-def _dependency_context_blocks(packet: dict[str, Any]) -> list[str]:
+def _dependency_context_blocks(packet: dict[str, Any], *, role: str) -> list[str]:
     blocks: list[str] = []
     related_packet_ids = list(packet.get("dependencies") or [])
     parent_packet_id = packet.get("parent_packet_id")
@@ -173,7 +232,7 @@ def _dependency_context_blocks(packet: dict[str, Any]) -> list[str]:
         if related_packet_text:
             blocks.append(
                 f"<dependency_packet packet_id=\"{related_packet_id}\" role=\"{related_packet.get('role', '')}\">\n"
-                f"{related_packet_text}\n"
+                f"{_context_text_for_role(role=role, tag='dependency_packet', text=related_packet_text)}\n"
                 f"</dependency_packet>"
             )
         related_run = related_packet.get("last_execution_run") or related_packet.get("last_verifier_run") or related_packet.get("last_codex_run") or {}
@@ -181,7 +240,7 @@ def _dependency_context_blocks(packet: dict[str, Any]) -> list[str]:
         if related_message:
             blocks.append(
                 f"<dependency_output packet_id=\"{related_packet_id}\" role=\"{related_packet.get('role', '')}\">\n"
-                f"{related_message}\n"
+                f"{_context_text_for_role(role=role, tag='dependency_output', text=related_message)}\n"
                 f"</dependency_output>"
             )
         last_verification = related_packet.get("last_verification") or {}
@@ -218,9 +277,10 @@ def _dependency_context_blocks(packet: dict[str, Any]) -> list[str]:
 
 
 def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
+    role = str(packet.get("role") or "")
     packet_path = packet.get("packet_path") or ""
     packet_text = _read_text(packet_path)
-    context_blocks = _feature_context_blocks(packet) + _dependency_context_blocks(packet)
+    context_blocks = _feature_context_blocks(packet, role=role) + _dependency_context_blocks(packet, role=role)
     context_text = "\n\n".join(context_blocks)
     prompt_parts = [
         role_prompt.strip(),
@@ -487,6 +547,18 @@ def _extract_last_stdout_event(stdout_path: Path, *, max_bytes: int = 16384) -> 
                 "status": status or "unknown",
             }
     return None
+
+
+def _run_progress_class(stdout_path: Path) -> str:
+    progress = _extract_stdout_progress(stdout_path)
+    if progress.get("turn_completed_signature"):
+        return "completed_turn"
+    semantic_reason = str(progress.get("semantic_reason") or "")
+    if semantic_reason.startswith("item."):
+        return "semantic_progress"
+    if semantic_reason == "thread.started" or progress.get("event_type") in {"turn.started", "thread.started"}:
+        return "startup_only"
+    return "no_output"
 
 
 def _text_signature(text: str) -> str:
@@ -1096,11 +1168,14 @@ def launch_codex_for_packet(
         ).to_dict()
         attempts.append(attempt_result)
 
+        progress_class = _run_progress_class(stdout_path)
+
         should_auto_resume = (
             not dry_run
             and returncode != 0
             and bool(thread_id)
             and termination_reason in AUTO_RESUME_TERMINATION_REASONS
+            and progress_class not in {"startup_only", "no_output"}
             and attempt <= max_auto_resume_attempts
         )
         if should_auto_resume:
@@ -1113,6 +1188,26 @@ def launch_codex_for_packet(
                     returncode,
                     termination_reason,
                     resume_thread_id,
+                )
+            continue
+
+        should_retry_fresh = (
+            not dry_run
+            and returncode != 0
+            and termination_reason in AUTO_RESUME_TERMINATION_REASONS
+            and attempt <= max_auto_resume_attempts
+            and progress_class in {"startup_only", "no_output"}
+        )
+        if should_retry_fresh:
+            resume_thread_id = None
+            if logger is not None:
+                logger.warning(
+                    "Codex packet=%s attempt=%s rc=%s reason=%s progress=%s; retrying with fresh exec instead of resume",
+                    packet_id,
+                    attempt,
+                    returncode,
+                    termination_reason,
+                    progress_class,
                 )
             continue
 
