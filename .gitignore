@@ -139,6 +139,8 @@ traces/
 task_artifacts/
 output_to_user/
 .horary-venv/
+prefect_grace/state/
+prefect_grace/packets/
 
 # Local task memory
 TASKMEMORY.md
