@@ -102,6 +102,9 @@ class PacketRecord:
     packet_id: str
     feature_id: str
     wave_id: str
+    grace_feature_ref: str
+    grace_wave_ref: str
+    grace_packet_ref: str
     title: str
     summary: str
     role: str
@@ -109,6 +112,7 @@ class PacketRecord:
     status: PacketStatus = PacketStatus.DRAFT
     dependencies: list[str] = field(default_factory=list)
     parent_packet_id: str | None = None
+    verification_profile: dict[str, Any] = field(default_factory=dict)
     execution_hints: dict[str, Any] = field(default_factory=dict)
     packet_path: str = ""
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -118,6 +122,9 @@ class PacketRecord:
             "packet_id": self.packet_id,
             "feature_id": self.feature_id,
             "wave_id": self.wave_id,
+            "grace_feature_ref": self.grace_feature_ref,
+            "grace_wave_ref": self.grace_wave_ref,
+            "grace_packet_ref": self.grace_packet_ref,
             "title": self.title,
             "summary": self.summary,
             "role": self.role,
@@ -125,6 +132,7 @@ class PacketRecord:
             "status": self.status.value,
             "dependencies": self.dependencies,
             "parent_packet_id": self.parent_packet_id,
+            "verification_profile": self.verification_profile,
             "execution_hints": self.execution_hints,
             "packet_path": self.packet_path,
             "created_at": self.created_at,
@@ -136,6 +144,11 @@ class ReviewRecord:
     packet_id: str
     verdict: ReviewVerdict
     reasons: list[str]
+    feature_id: str = ""
+    wave_id: str = ""
+    grace_feature_ref: str = ""
+    grace_wave_ref: str = ""
+    grace_packet_ref: str = ""
     reviewer: str = "reviewer"
     follow_up_action: str = "none"
     review_path: str = ""
@@ -144,6 +157,11 @@ class ReviewRecord:
     def to_dict(self) -> dict[str, Any]:
         return {
             "packet_id": self.packet_id,
+            "feature_id": self.feature_id,
+            "wave_id": self.wave_id,
+            "grace_feature_ref": self.grace_feature_ref,
+            "grace_wave_ref": self.grace_wave_ref,
+            "grace_packet_ref": self.grace_packet_ref,
             "verdict": self.verdict.value,
             "reasons": self.reasons,
             "reviewer": self.reviewer,
@@ -210,12 +228,22 @@ class VerificationRecord:
     commands_run: list[str]
     evidence_paths: list[str]
     blocking_issues: list[str]
+    feature_id: str = ""
+    wave_id: str = ""
+    grace_feature_ref: str = ""
+    grace_wave_ref: str = ""
+    grace_packet_ref: str = ""
     verification_path: str = ""
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "packet_id": self.packet_id,
+            "feature_id": self.feature_id,
+            "wave_id": self.wave_id,
+            "grace_feature_ref": self.grace_feature_ref,
+            "grace_wave_ref": self.grace_wave_ref,
+            "grace_packet_ref": self.grace_packet_ref,
             "test_verdict": self.test_verdict.value,
             "observability_verdict": self.observability_verdict.value,
             "frontend_visual_verdict": self.frontend_visual_verdict.value,

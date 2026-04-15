@@ -5,6 +5,7 @@ from typing import Any
 
 from prefect_grace.models import FeatureRecord, FeatureStatus, PacketRecord, PacketStatus, ReasoningProfile, slugify
 from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan
+from prefect_grace.tasks.grace_ids import grace_refs_for_packet
 from prefect_grace.tasks.planner_contract import default_wave_plan_contract, materialize_planner_contract
 from prefect_grace.tasks.state_store import append_record, find_record, update_record
 
@@ -36,7 +37,30 @@ def _verification_lines(profile: dict[str, str] | None) -> str:
         "observability": "artifact review only",
     }
     merged.update(profile or {})
-    return "\n".join(f"- {key}: {value}" for key, value in merged.items())
+    lines: list[str] = []
+    for key, value in merged.items():
+        lines.extend(_nested_bullet_lines(key, value))
+    return "\n".join(lines) if lines else "-"
+
+
+def _nested_bullet_lines(key: str, value: Any, *, indent: int = 0) -> list[str]:
+    prefix = "  " * indent
+    if isinstance(value, dict):
+        lines = [f"{prefix}- {key}:"]
+        for nested_key, nested_value in value.items():
+            lines.extend(_nested_bullet_lines(str(nested_key), nested_value, indent=indent + 1))
+        return lines
+    if isinstance(value, list):
+        lines = [f"{prefix}- {key}:"]
+        for item in value:
+            if isinstance(item, dict):
+                lines.append(f"{prefix}  -")
+                for nested_key, nested_value in item.items():
+                    lines.extend(_nested_bullet_lines(str(nested_key), nested_value, indent=indent + 2))
+            else:
+                lines.append(f"{prefix}  - {item}")
+        return lines
+    return [f"{prefix}- {key}: {value}"]
 
 
 def _execution_hint_lines(hints: dict[str, Any] | None) -> str:
@@ -232,6 +256,7 @@ def create_packet(
 ) -> dict[str, Any]:
     packet_slug = slugify(title)
     packet_id = f"{feature_id}-{wave_id}-{packet_slug}".upper()
+    grace_refs = grace_refs_for_packet({"feature_id": feature_id, "wave_id": wave_id, "packet_id": packet_id})
     feature_dir = FEATURES_DIR / feature_id
     packet_dir = feature_dir / "packets"
     packet_dir.mkdir(parents=True, exist_ok=True)
@@ -241,6 +266,13 @@ def create_packet(
             "packet.md",
             {
                 "packet_id": packet_id,
+                "grace_ids": _bullet_lines(
+                    [
+                        f"feature_ref: `{grace_refs['grace_feature_ref']}`",
+                        f"wave_ref: `{grace_refs['grace_wave_ref']}`",
+                        f"packet_ref: `{grace_refs['grace_packet_ref']}`",
+                    ]
+                ),
                 "summary": summary,
                 "wave_id": wave_id,
                 "role": role,
@@ -261,6 +293,9 @@ def create_packet(
         packet_id=packet_id,
         feature_id=feature_id,
         wave_id=wave_id,
+        grace_feature_ref=grace_refs["grace_feature_ref"],
+        grace_wave_ref=grace_refs["grace_wave_ref"],
+        grace_packet_ref=grace_refs["grace_packet_ref"],
         title=title,
         summary=summary,
         role=role,
@@ -268,6 +303,7 @@ def create_packet(
         status=status,
         dependencies=dependencies or [],
         parent_packet_id=parent_packet_id,
+        verification_profile=verification_profile or {},
         execution_hints=execution_hints or {},
         packet_path=str(packet_path),
     ).to_dict()

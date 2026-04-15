@@ -124,6 +124,11 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     review_route = {
         "review": {
             "packet_id": "FEAT-X-W01-REVIEWER-VERDICT",
+            "feature_id": "FEAT-X",
+            "wave_id": "W01",
+            "grace_feature_ref": "feature:FEAT-X",
+            "grace_wave_ref": "feature:FEAT-X:wave:W01",
+            "grace_packet_ref": "feature:FEAT-X:wave:W01:packet:FEAT-X-W01-REVIEWER-VERDICT",
             "verdict": "accepted",
             "follow_up_action": "none",
             "review_path": "/tmp/feature-x/review.md",
@@ -157,3 +162,5 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     assert "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts" in planner_markdown
     assert "FEAT-X-W01-CODER-MAIN" in agent_markdown
     assert "/tmp/runs/coder/stdout.jsonl" in agent_markdown
+    review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-review-feat-x-w01-reviewer-verdict")
+    assert "feature:FEAT-X:wave:W01:packet:FEAT-X-W01-REVIEWER-VERDICT" in review_markdown

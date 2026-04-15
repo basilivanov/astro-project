@@ -5,6 +5,7 @@ from typing import Any
 
 from prefect_grace.models import DecisionRecord, PacketStatus, ReasoningProfile, ReviewRecord, ReviewVerdict, WaveReviewRecord, WaveVerdict
 from prefect_grace.tasks.feature_bootstrap import create_packet
+from prefect_grace.tasks.grace_ids import grace_refs_for_packet
 from prefect_grace.tasks.state_store import find_record, update_record, upsert_record
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
@@ -21,12 +22,17 @@ def record_review(
 ) -> dict[str, Any]:
     packet = find_record("packets", "packets", "packet_id", packet_id)
     feature_id = packet["feature_id"]
+    grace_refs = grace_refs_for_packet(packet)
     review_dir = FEATURES_DIR / feature_id / "reviews"
     review_dir.mkdir(parents=True, exist_ok=True)
     review_path = review_dir / f"{packet_id}.review.md"
     reason_text = "\n".join(f"- {reason}" for reason in reasons) or "- none"
     review_path.write_text(
         f"# Packet Review: {packet_id}\n\n"
+        f"## GRACE IDs\n"
+        f"- feature_ref: `{grace_refs['grace_feature_ref']}`\n"
+        f"- wave_ref: `{grace_refs['grace_wave_ref']}`\n"
+        f"- packet_ref: `{grace_refs['grace_packet_ref']}`\n\n"
         f"## Verdict\n{verdict.value}\n\n"
         f"## Acceptance Check\n- see packet acceptance criteria\n\n"
         f"## Blockers\n{reason_text}\n\n"
@@ -35,6 +41,11 @@ def record_review(
     )
     record = ReviewRecord(
         packet_id=packet_id,
+        feature_id=feature_id,
+        wave_id=str(packet.get("wave_id") or ""),
+        grace_feature_ref=grace_refs["grace_feature_ref"],
+        grace_wave_ref=grace_refs["grace_wave_ref"],
+        grace_packet_ref=grace_refs["grace_packet_ref"],
         verdict=verdict,
         reasons=reasons,
         reviewer=reviewer,
@@ -57,6 +68,7 @@ def record_review(
 
 def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, Any]:
     packet = find_record("packets", "packets", "packet_id", packet_id)
+    inherited_execution_hints = dict(packet.get("execution_hints") or {})
     blocker_summary = "; ".join(reasons) if reasons else "Reviewer requested localized rework."
     return create_packet(
         feature_id=packet["feature_id"],
@@ -91,6 +103,7 @@ def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, A
             "This is a localized rework packet created from reviewer blockers.",
         ],
         parent_packet_id=packet_id,
+        execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
     )
 
@@ -111,9 +124,12 @@ def create_rework_bundle_from_review(
         ),
         None,
     )
-    verifier_hints = {}
+    verifier_hints = dict(rework_packet.get("execution_hints") or {})
+    verifier_profile = {}
     if verifier_packet_id:
-        verifier_hints = dict(find_record("packets", "packets", "packet_id", verifier_packet_id).get("execution_hints") or {})
+        verifier_source = find_record("packets", "packets", "packet_id", verifier_packet_id)
+        verifier_hints = {**verifier_hints, **dict(verifier_source.get("execution_hints") or {})}
+        verifier_profile = dict(verifier_source.get("verification_profile") or {})
 
     verifier_packet = create_packet(
         feature_id=rework_packet["feature_id"],
@@ -129,7 +145,8 @@ def create_rework_bundle_from_review(
             "Evidence paths are refreshed for the reworked scope.",
             "Observability verdict is explicit for the rework.",
         ],
-        verification_profile={
+        verification_profile=verifier_profile
+        or {
             "backend": "rerun minimally sufficient backend checks for the reworked scope",
             "frontend": "rerun targeted frontend checks if UI changed",
             "observability": "repeat post-test digest, trace, and replay review",
@@ -172,6 +189,16 @@ def create_rework_bundle_from_review(
         notes=["This reviewer packet was auto-created from reviewer blockers."],
         parent_packet_id=packet_id,
         status=PacketStatus.READY,
+    )
+    rework_reviewer_packet = update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        rework_reviewer_packet["packet_id"],
+        {
+            "review_target_packet_id": rework_packet["packet_id"],
+            "execution_hints": dict(rework_packet.get("execution_hints") or {}),
+        },
     )
     return {
         "rework": rework_packet,

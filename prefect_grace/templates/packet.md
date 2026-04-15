@@ -1,5 +1,8 @@
 # Packet: {{ packet_id }}
 
+## GRACE IDs
+{{ grace_ids }}
+
 ## Summary
 {{ summary }}
 

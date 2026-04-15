@@ -221,13 +221,17 @@ def _feature_summary_markdown(
 
 def _verification_markdown(verification: dict[str, Any]) -> str:
     packet_id = verification.get("packet_id", "-")
-    wave_id = str(packet_id).split("-")[3] if str(packet_id).count("-") >= 3 else "-"
+    wave_id = verification.get("wave_id") or (str(packet_id).split("-")[3] if str(packet_id).count("-") >= 3 else "-")
     return "\n".join(
         [
             f"# Verifier Snapshot: {packet_id}",
             "",
+            f"- feature_id: {verification.get('feature_id', '-')}",
             f"- packet_id: {packet_id}",
             f"- wave_id: {wave_id}",
+            f"- grace_feature_ref: {verification.get('grace_feature_ref', '-')}",
+            f"- grace_wave_ref: {verification.get('grace_wave_ref', '-')}",
+            f"- grace_packet_ref: {verification.get('grace_packet_ref', '-')}",
             f"- test_verdict: {verification.get('test_verdict', '-')}",
             f"- observability_verdict: {verification.get('observability_verdict', '-')}",
             f"- frontend_visual_verdict: {verification.get('frontend_visual_verdict', '-')}",
@@ -251,13 +255,17 @@ def _review_markdown(review_route: dict[str, Any]) -> str:
     rework = dict(review_route.get("rework") or {})
     decision = dict(review_route.get("decision") or {})
     packet_id = review.get("packet_id", "-")
-    wave_id = str(packet_id).split("-")[3] if str(packet_id).count("-") >= 3 else "-"
+    wave_id = review.get("wave_id") or (str(packet_id).split("-")[3] if str(packet_id).count("-") >= 3 else "-")
     return "\n".join(
         [
             f"# Reviewer Snapshot: {packet_id}",
             "",
+            f"- feature_id: {review.get('feature_id', '-')}",
             f"- packet_id: {packet_id}",
             f"- wave_id: {wave_id}",
+            f"- grace_feature_ref: {review.get('grace_feature_ref', '-')}",
+            f"- grace_wave_ref: {review.get('grace_wave_ref', '-')}",
+            f"- grace_packet_ref: {review.get('grace_packet_ref', '-')}",
             f"- verdict: {review.get('verdict', '-')}",
             f"- follow_up_action: {review.get('follow_up_action', '-')}",
             f"- review_path: {review.get('review_path', '-')}",
@@ -404,10 +412,12 @@ def _planner_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]
             "",
             "## Verifier Execution Lanes",
             _markdown_table(
-                ["key", "frontend_commands", "observability_commands", "artifact_globs"],
+                ["key", "scope", "canonical_flow_commands", "frontend_commands", "observability_commands", "artifact_globs"],
                 [
                     [
                         str(packet.get("key") or "-"),
+                        str(((dict(packet.get("verification_profile") or {}).get("execution") or {}).get("observability_scope") or "-")),
+                        _execution_values(packet, "canonical_flow_commands"),
                         _execution_values(packet, "frontend_commands"),
                         _execution_values(packet, "observability_commands"),
                         _execution_values(packet, "artifact_globs"),
