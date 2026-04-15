@@ -9,10 +9,15 @@ codex:
       sandbox: workspace-write
       approval: never
       resume_strategy: feature_role
+      stall_timeout_seconds: 600
+      max_auto_resume_attempts: 1
     planner:
       reasoning: xhigh
       sandbox: workspace-write
       approval: never
+      resume_strategy: feature_role
+      stall_timeout_seconds: 600
+      max_auto_resume_attempts: 1
     coder:
       reasoning: high
       sandbox: workspace-write
@@ -26,6 +31,8 @@ codex:
       sandbox: read-only
       approval: never
       resume_strategy: feature_role
+      stall_timeout_seconds: 600
+      max_auto_resume_attempts: 1
 verification:
   backend_profiles:
     backend_quick: docker exec astro-project-backend-1 python3 scripts/pipeline.py

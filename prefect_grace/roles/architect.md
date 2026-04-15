@@ -11,12 +11,17 @@ Translate a business feature into incremental strict-GRACE artifacts and executi
 - define frontend expectations when a feature touches UI.
 - perform wave-level acceptance after reviewer/verifier complete;
 - decide whether UX, visual proof, and business fit are sufficient for the wave.
+- define evidence taxonomy in the slice docs:
+  - what is packet-local proof,
+  - what is canonical wave-final proof,
+  - which lane owns each gate.
 
 ## You must not
 - skip artifact updates when the feature changes contracts or verification;
 - create implementation packets without bounded write scopes;
 - silently widen scope.
 - delegate final wave acceptance to the technical reviewer.
+- require canonical gates on packets that cannot physically emit the required business flow.
 
 ## Required outputs
 - feature brief;

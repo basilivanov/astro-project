@@ -12,6 +12,7 @@ from unittest.mock import patch
 import yaml
 
 from prefect_grace.tasks.codex_launcher import (
+    CodexProcessResult,
     _extract_last_stdout_event,
     _extract_thread_id,
     _format_heartbeat_message,
@@ -272,6 +273,108 @@ def test_launch_codex_for_packet_reuses_feature_role_session_for_architect(tmp_p
     assert feature_state["role_threads"]["architect"]["thread_id"] == "thread-architect-1"
 
 
+def test_launch_codex_for_packet_reuses_feature_role_session_for_planner(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    state_store.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.load_agent_config",
+        lambda: {
+            "codex": {
+                "binary": "codex1",
+                "workdir": str(tmp_path),
+                "shared_model": "gpt-5.4",
+                "roles": {
+                    "planner": {
+                        "reasoning": "xhigh",
+                        "sandbox": "workspace-write",
+                        "approval": "never",
+                        "resume_strategy": "feature_role",
+                    }
+                },
+            }
+        },
+    )
+
+    feature_id = "FEAT-PLANNER-RESUME"
+    packet_dir = tmp_path / "packets" / feature_id
+    packet_dir.mkdir(parents=True, exist_ok=True)
+    (packet_dir / "feature-brief.md").write_text("# Feature brief\n", encoding="utf-8")
+    packet_path = tmp_path / "planner-packet.md"
+    packet_path.write_text("# Packet\n", encoding="utf-8")
+
+    (state_store.STATE_DIR / "features.yaml").write_text(
+        yaml.safe_dump({"features": [{"feature_id": feature_id, "title": "Feature"}]}, sort_keys=False),
+        encoding="utf-8",
+    )
+    (state_store.STATE_DIR / "packets.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "packets": [
+                    {
+                        "packet_id": "PKT-PLAN-1",
+                        "feature_id": feature_id,
+                        "wave_id": "W00",
+                        "role": "planner",
+                        "reasoning": "xhigh",
+                        "packet_path": str(packet_path),
+                    },
+                    {
+                        "packet_id": "PKT-PLAN-2",
+                        "feature_id": feature_id,
+                        "wave_id": "W00",
+                        "role": "planner",
+                        "reasoning": "xhigh",
+                        "packet_path": str(packet_path),
+                    },
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    calls: list[list[str]] = []
+
+    def _fake_run(command, **kwargs):
+        calls.append(list(command))
+        stdout_path = kwargs["stdout_path"]
+        last_message_path = kwargs["run_dir"] / "last-message.md"
+        if "resume" in command:
+            stdout_path.write_text(
+                json.dumps({"type": "item.completed", "item": {"status": "completed"}}) + "\n",
+                encoding="utf-8",
+            )
+        else:
+            stdout_path.write_text(
+                json.dumps({"type": "thread.started", "thread_id": "thread-planner-1"}) + "\n"
+                + json.dumps({"type": "item.completed", "item": {"status": "completed"}})
+                + "\n",
+                encoding="utf-8",
+            )
+        kwargs["stderr_path"].write_text("", encoding="utf-8")
+        last_message_path.write_text("done\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher._run_codex_process", _fake_run)
+
+    first = launch_codex_for_packet("PKT-PLAN-1")
+    second = launch_codex_for_packet("PKT-PLAN-2")
+
+    assert first["session_mode"] == "exec"
+    assert first["thread_id"] == "thread-planner-1"
+    assert second["session_mode"] == "resume"
+    assert second["thread_id"] == "thread-planner-1"
+    assert second["resumed_from_thread_id"] == "thread-planner-1"
+    assert "resume" not in calls[0]
+    assert "resume" in calls[1]
+    assert "thread-planner-1" in calls[1]
+
+    feature_state = state_store.find_record("features", "features", "feature_id", feature_id)
+    assert feature_state["role_threads"]["planner"]["thread_id"] == "thread-planner-1"
+
+
 def test_launch_codex_for_packet_keeps_reviewer_session_separate_and_coder_fresh(tmp_path: Path, monkeypatch) -> None:
     state_store.STATE_DIR = tmp_path / "state"
     state_store.STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -379,3 +482,95 @@ def test_launch_codex_for_packet_keeps_reviewer_session_separate_and_coder_fresh
     assert coder["session_mode"] == "exec"
     assert coder["thread_id"] is None
     assert "resume" not in calls["PKT-CODER"]
+
+
+def test_launch_codex_for_packet_auto_resumes_after_stall(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    state_store.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.load_agent_config",
+        lambda: {
+            "codex": {
+                "binary": "codex1",
+                "workdir": str(tmp_path),
+                "shared_model": "gpt-5.4",
+                "roles": {
+                    "architect": {
+                        "reasoning": "xhigh",
+                        "sandbox": "workspace-write",
+                        "approval": "never",
+                        "resume_strategy": "feature_role",
+                        "max_auto_resume_attempts": 1,
+                    }
+                },
+            }
+        },
+    )
+
+    feature_id = "FEAT-AUTO-RESUME"
+    packet_dir = tmp_path / "packets" / feature_id
+    packet_dir.mkdir(parents=True, exist_ok=True)
+    (packet_dir / "feature-brief.md").write_text("# Feature brief\n", encoding="utf-8")
+    packet_path = tmp_path / "architect-packet.md"
+    packet_path.write_text("# Packet\n", encoding="utf-8")
+
+    (state_store.STATE_DIR / "features.yaml").write_text(
+        yaml.safe_dump({"features": [{"feature_id": feature_id, "title": "Feature"}]}, sort_keys=False),
+        encoding="utf-8",
+    )
+    (state_store.STATE_DIR / "packets.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "packets": [
+                    {
+                        "packet_id": "PKT-AUTO-RESUME",
+                        "feature_id": feature_id,
+                        "wave_id": "W00",
+                        "role": "architect",
+                        "reasoning": "xhigh",
+                        "packet_path": str(packet_path),
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    calls: list[list[str]] = []
+
+    def _fake_run(command, **kwargs):
+        calls.append(list(command))
+        stdout_path = kwargs["stdout_path"]
+        stderr_path = kwargs["stderr_path"]
+        last_message_path = kwargs["run_dir"] / "last-message.md"
+        if "resume" in command:
+            stdout_path.write_text(
+                json.dumps({"type": "item.completed", "item": {"status": "completed"}}) + "\n",
+                encoding="utf-8",
+            )
+            stderr_path.write_text("", encoding="utf-8")
+            last_message_path.write_text("done\n", encoding="utf-8")
+            return 0
+        stdout_path.write_text(
+            json.dumps({"type": "thread.started", "thread_id": "thread-auto-resume"}) + "\n",
+            encoding="utf-8",
+        )
+        stderr_path.write_text("Codex stall detected after 600.0 idle seconds.\n", encoding="utf-8")
+        return CodexProcessResult(returncode=-9, termination_reason="stall_killed")
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher._run_codex_process", _fake_run)
+
+    result = launch_codex_for_packet("PKT-AUTO-RESUME")
+
+    assert result["returncode"] == 0
+    assert result["session_mode"] == "resume"
+    assert result["resumed_from_thread_id"] == "thread-auto-resume"
+    assert result["thread_id"] == "thread-auto-resume"
+    assert result["attempt_count"] == 2
+    assert result["attempts"][0]["termination_reason"] == "stall_killed"
+    assert result["attempts"][1]["session_mode"] == "resume"
+    assert "resume" not in calls[0]
+    assert "resume" in calls[1]

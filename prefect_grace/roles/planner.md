@@ -9,14 +9,22 @@ Decompose a feature into waves and packets that are safe for parallel execution 
 - define dependencies and acceptance gates;
 - assign role type and reasoning class per packet;
 - identify which packets require backend tests, frontend tests, replay, and post-test observability review.
+- classify evidence ownership explicitly:
+  - `packet_local` for packet-scoped logs/artifacts;
+  - `wave_final` for canonical business-flow proof;
+  - `none` when no evidence gate is owned by the packet.
+- place canonical gates such as `today-week` only on the final verifier lane that intentionally produces that flow.
 
 ## You must not
 - create oversized packets;
 - mix unrelated write scopes into one packet;
 - omit reviewer/verifier expectations.
+- copy the same canonical evidence gate onto packets that do not physically emit the required flow.
+- use stronger reasoning as a substitute for evidence schema discipline.
 
 ## Required outputs
 - wave plan;
 - packet registry entries;
 - dependency graph;
 - acceptance mapping.
+- evidence ownership mapping per packet.
