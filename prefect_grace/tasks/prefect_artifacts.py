@@ -224,6 +224,149 @@ def _wave_markdown(wave_route: dict[str, Any]) -> str:
     ) + "\n"
 
 
+def _architect_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:
+    architect_plan = dict(packet_results.get("architect_artifact_plan") or {})
+    architect_written = dict(packet_results.get("architect_artifacts") or {})
+    manifest = dict(architect_written.get("manifest") or {})
+    waves = list(manifest.get("waves") or [])
+    root_deltas = dict(manifest.get("root_deltas") or {})
+
+    return "\n".join(
+        [
+            f"# Architect Snapshot: {feature.get('feature_id', '-')}",
+            "",
+            f"- source: {architect_plan.get('source', '-')}",
+            f"- parser_error: {architect_plan.get('parser_error', '-')}",
+            f"- slice_id: {architect_written.get('slice_id', manifest.get('slice_id', '-'))}",
+            f"- slice_slug: {architect_written.get('slice_slug', manifest.get('slice_slug', '-'))}",
+            f"- slice_dir: {architect_written.get('slice_dir', manifest.get('slice_dir', '-'))}",
+            f"- architect_manifest_path: {architect_written.get('architect_manifest_path', '-')}",
+            f"- architect_handoff_path: {architect_written.get('architect_handoff_path', '-')}",
+            f"- execution_packet_path: {architect_written.get('execution_packet_path', '-')}",
+            f"- requirements_slice_path: {architect_written.get('requirements_slice_path', '-')}",
+            f"- development_plan_slice_path: {architect_written.get('development_plan_slice_path', '-')}",
+            f"- verification_matrix_slice_path: {architect_written.get('verification_matrix_slice_path', '-')}",
+            f"- knowledge_graph_slice_path: {architect_written.get('knowledge_graph_slice_path', '-')}",
+            "",
+            "## Impacted Modules",
+            _bullet(list(manifest.get("impacted_modules") or [])),
+            "",
+            "## Planner Inputs",
+            _bullet(list(manifest.get("planner_inputs") or [])),
+            "",
+            "## Waves",
+            _markdown_table(
+                ["wave_id", "title", "objective"],
+                [
+                    [
+                        str(item.get("wave_id") or "-"),
+                        str(item.get("title") or "-"),
+                        str(item.get("objective") or "-"),
+                    ]
+                    for item in waves
+                ],
+            ),
+            "",
+            "## Root Deltas",
+            _bullet([f"{name}: {value}" for name, value in root_deltas.items()] or ["none"]),
+            "",
+        ]
+    )
+
+
+def _planner_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:
+    planner_contract = dict(packet_results.get("planner_contract") or {})
+    materialized = dict(packet_results.get("planner_materialized") or {})
+    validation = dict(packet_results.get("planner_validation") or {})
+    contract = dict(planner_contract.get("contract") or {})
+    waves = list(contract.get("waves") or [])
+    packets = list(contract.get("packets") or [])
+    materialized_packets = list(materialized.get("packets") or [])
+
+    def _deps(packet: dict[str, Any]) -> str:
+        values = list(packet.get("dependencies") or [])
+        return ", ".join(str(item) for item in values) if values else "-"
+
+    def _execution_values(packet: dict[str, Any], key: str) -> str:
+        execution = dict(dict(packet.get("verification_profile") or {}).get("execution") or {})
+        values = list(execution.get(key) or [])
+        return "<br>".join(str(item) for item in values) if values else "-"
+
+    return "\n".join(
+        [
+            f"# Planner Snapshot: {feature.get('feature_id', '-')}",
+            "",
+            f"- source: {planner_contract.get('source', '-')}",
+            f"- parser_error: {planner_contract.get('parser_error', '-')}",
+            f"- validation_valid: {validation.get('valid', '-')}",
+            f"- wave_plan_path: {materialized.get('wave_plan_path', feature.get('wave_plan_path', '-'))}",
+            "",
+            "## Validation Issues",
+            _bullet(list(validation.get("issues") or [])),
+            "",
+            "## Waves",
+            _markdown_table(
+                ["wave_id", "title", "objective"],
+                [
+                    [
+                        str(item.get("wave_id") or "-"),
+                        str(item.get("title") or "-"),
+                        str(item.get("objective") or "-"),
+                    ]
+                    for item in waves
+                ],
+            ),
+            "",
+            "## Packet Graph",
+            _markdown_table(
+                ["key", "wave", "role", "title", "dependencies", "review_target_key"],
+                [
+                    [
+                        str(packet.get("key") or "-"),
+                        str(packet.get("wave_id") or "-"),
+                        str(packet.get("role") or "-"),
+                        str(packet.get("title") or "-"),
+                        _deps(packet),
+                        str(packet.get("review_target_key") or "-"),
+                    ]
+                    for packet in packets
+                ],
+            ),
+            "",
+            "## Verifier Execution Lanes",
+            _markdown_table(
+                ["key", "frontend_commands", "observability_commands", "artifact_globs"],
+                [
+                    [
+                        str(packet.get("key") or "-"),
+                        _execution_values(packet, "frontend_commands"),
+                        _execution_values(packet, "observability_commands"),
+                        _execution_values(packet, "artifact_globs"),
+                    ]
+                    for packet in packets
+                    if str(packet.get("role") or "") == "verifier"
+                ],
+            ),
+            "",
+            "## Materialized Packets",
+            _markdown_table(
+                ["packet_id", "wave", "role", "status", "dependencies"],
+                [
+                    [
+                        str(packet.get("packet_id") or "-"),
+                        str(packet.get("wave_id") or "-"),
+                        str(packet.get("role") or "-"),
+                        str(packet.get("status") or "-"),
+                        _deps(packet),
+                    ]
+                    for packet in materialized_packets
+                ],
+            ),
+            "",
+        ]
+    )
+
+
 def publish_feature_artifacts(
     *,
     feature: dict[str, Any],
@@ -257,10 +400,52 @@ def publish_feature_artifacts(
             )
         )
     ]
+    if packet_results.get("architect_artifact_plan") or packet_results.get("architect_artifacts"):
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-architect", feature_id),
+                    description=_artifact_description(
+                        "Architect slice snapshot",
+                        feature_id=feature_id,
+                        slice_id=dict(packet_results.get("architect_artifacts") or {}).get("slice_id"),
+                    ),
+                    markdown=_architect_markdown(feature=feature, packet_results=packet_results),
+                )
+            )
+        )
+    if packet_results.get("planner_contract") or packet_results.get("planner_materialized"):
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-planner", feature_id),
+                    description=_artifact_description(
+                        "Planner contract snapshot",
+                        feature_id=feature_id,
+                        source=dict(packet_results.get("planner_contract") or {}).get("source"),
+                    ),
+                    markdown=_planner_markdown(feature=feature, packet_results=packet_results),
+                )
+            )
+        )
+    if review_route and review_route.get("review"):
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-review", review_route["review"].get("packet_id", feature_id)),
+                    description=_artifact_description(
+                        "Reviewer gate snapshot",
+                        packet_id=review_route["review"].get("packet_id"),
+                        verdict=review_route["review"].get("verdict"),
+                    ),
+                    markdown=_review_markdown(review_route),
+                )
+            )
+        )
     if verification:
         artifact_ids.append(
             str(
-                    create_markdown_artifact(
+                create_markdown_artifact(
                     key=_artifact_key("grace-verification", verification.get("packet_id", feature_id)),
                     description=_artifact_description(
                         "Verifier evidence snapshot",
@@ -272,25 +457,11 @@ def publish_feature_artifacts(
                 )
             )
         )
-    if review_route and review_route.get("review"):
-        artifact_ids.append(
-            str(
-                    create_markdown_artifact(
-                    key=_artifact_key("grace-review", review_route["review"].get("packet_id", feature_id)),
-                    description=_artifact_description(
-                        "Reviewer gate snapshot",
-                        packet_id=review_route["review"].get("packet_id"),
-                        verdict=review_route["review"].get("verdict"),
-                    ),
-                    markdown=_review_markdown(review_route),
-                )
-            )
-        )
     if wave_route and wave_route.get("wave_review"):
         wave_review = dict(wave_route["wave_review"])
         artifact_ids.append(
             str(
-                    create_markdown_artifact(
+                create_markdown_artifact(
                     key=_artifact_key("grace-wave", wave_review.get("feature_id", feature_id), wave_review.get("wave_id", "W00")),
                     description=_artifact_description(
                         "Architect wave gate snapshot",
