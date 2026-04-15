@@ -120,7 +120,7 @@ def create_rework_bundle_from_review(
         wave_id=rework_packet["wave_id"],
         title=f"Verifier Rework {rework_packet['title']}",
         role="verifier",
-        reasoning=ReasoningProfile.HIGH,
+        reasoning=ReasoningProfile.MEDIUM,
         summary=f"Validate the localized rework for `{packet_id}` and capture fresh evidence.",
         write_scope=["Verification notes and evidence references only."],
         inputs=[rework_packet["packet_id"], reviewer_packet_id],

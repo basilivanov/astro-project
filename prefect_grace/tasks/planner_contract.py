@@ -78,7 +78,7 @@ def default_wave_plan_contract(
                 "wave_id": "W01",
                 "title": "Verifier Evidence",
                 "role": "verifier",
-                "reasoning": ReasoningProfile.HIGH.value,
+                "reasoning": ReasoningProfile.MEDIUM.value,
                 "summary": "Validate the coder packet with the required test profile and observability gate.",
                 "write_scope": ["Verification notes and evidence references only."],
                 "inputs": [coder_key, "coder packet file"],
@@ -100,7 +100,7 @@ def default_wave_plan_contract(
                 "dependencies": [coder_key],
                 "notes": ["Fail the packet if evidence is missing."],
                 "execution_hints": {
-                    "runner": "verifier",
+                    "runner": "codex",
                     "backend_profile": verifier_backend_profile,
                     "frontend_profile": verifier_frontend_profile,
                     "frontend_commands": verifier_frontend_commands or [],
@@ -359,6 +359,8 @@ def find_architect_wave_gate_packet_id(packets: list[dict[str, Any]]) -> str:
 def _default_reasoning_for_role(role: str) -> str:
     if role in {"architect", "planner", "reviewer"}:
         return ReasoningProfile.XHIGH.value
+    if role == "verifier":
+        return ReasoningProfile.MEDIUM.value
     return ReasoningProfile.HIGH.value
 
 
@@ -496,7 +498,7 @@ def _resolve_execution_hints(
 
     verifier_defaults = dict(default_verifier_execution_hints or {})
     hints: dict[str, Any] = {**base_execution_hints, **packet_hints}
-    hints.setdefault("runner", "verifier")
+    hints.setdefault("runner", "codex")
 
     verifier_execution = dict(packet_spec.get("verification_profile") or {}).get("execution")
     if isinstance(verifier_execution, dict):

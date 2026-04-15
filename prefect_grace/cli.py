@@ -17,7 +17,6 @@ from prefect_grace.tasks.review_router import create_rework_from_review, record_
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 from prefect_grace.tasks.grace_dashboard import build_grace_dashboard_snapshot, render_grace_dashboard
 from prefect_grace.tasks.job_queue import enqueue_feature_job, list_jobs
-from prefect_grace.tasks.verifier_runner import run_verifier_for_packet
 from prefect_grace.tasks.business_intake import TEMPLATE_PATH as BUSINESS_BRIEF_TEMPLATE_PATH, enqueue_feature_job_from_brief
 
 
@@ -53,7 +52,7 @@ def _cmd_run_codex(args: argparse.Namespace) -> None:
 
 
 def _cmd_run_verifier(args: argparse.Namespace) -> None:
-    result = run_verifier_for_packet(
+    result = launch_codex_for_packet(
         args.packet_id,
         dry_run=args.dry_run,
         timeout_seconds=args.timeout_seconds,

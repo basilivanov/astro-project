@@ -37,7 +37,6 @@ from prefect_grace.tasks.review_router import (
     record_wave_review,
 )
 from prefect_grace.tasks.state_store import update_record
-from prefect_grace.tasks.verifier_runner import run_verifier_for_packet
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
     append_unique_packet,
@@ -336,12 +335,6 @@ def validate_planner_contract_task(
                         issues.append(f"{packet_id}: {key} contains empty/non-string command")
                     elif item.strip().startswith("{") or item.strip().startswith("["):
                         issues.append(f"{packet_id}: {key} contains structured text instead of shell command")
-            if hints.get("touches_frontend") and not list(hints.get("frontend_commands") or []) and not hints.get("frontend_profile"):
-                issues.append(f"{packet_id}: frontend-touching verifier is missing explicit frontend execution lane")
-            if hints.get("touches_frontend") and hints.get("requires_frontend_visual") and not list(hints.get("artifact_globs") or []):
-                issues.append(f"{packet_id}: frontend visual verification requires artifact_globs")
-            if not list(hints.get("observability_commands") or []) and not hints.get("observability_profile"):
-                issues.append(f"{packet_id}: verifier is missing explicit observability execution lane")
 
     logger.info("Planner contract validation for %s issues=%s", feature_id, len(issues))
     return {"valid": not issues, "issues": issues}
@@ -365,7 +358,7 @@ def run_packet_task(packet_id: str, dry_run: bool, timeout_seconds: int):
 def run_verifier_packet_task(packet_id: str, dry_run: bool, timeout_seconds: int):
     logger = get_run_logger()
     logger.info("Running verifier packet %s dry_run=%s", packet_id, dry_run)
-    return run_verifier_for_packet(packet_id, dry_run=dry_run, timeout_seconds=timeout_seconds)
+    return launch_codex_for_packet(packet_id, dry_run=dry_run, timeout_seconds=timeout_seconds, logger=logger)
 
 
 @task(task_run_name="packet-status:{packet_id}:{status}")

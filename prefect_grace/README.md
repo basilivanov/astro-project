@@ -25,7 +25,7 @@ Phase 1 is intentionally conservative:
 
 The scaffold can already dry-run or execute a packet through a configured `codexN` wrapper.
 It now parses verifier, reviewer, and architect-wave outputs and injects dependency context into downstream agent prompts.
-It also supports live Prefect deployments, a scheduled state dashboard artifact, a YAML business-feature intake contract, and a real verifier runner wired to canonical repo commands.
+It also supports live Prefect deployments, a scheduled state dashboard artifact, a YAML business-feature intake contract, and an LLM-driven verifier that executes packet contracts through Codex.
 
 ## Runtime portability
 

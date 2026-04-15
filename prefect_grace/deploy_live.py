@@ -94,7 +94,7 @@ def deploy_flows() -> dict[str, str]:
             working_directory=runtime.working_directory,
             work_queue_name=runtime.live_queue_name,
             tags=["grace", "live"],
-            description="Strict GRACE feature pipeline backed by Codex packets and real verifier runner.",
+            description="Strict GRACE feature pipeline backed by Codex packets and an LLM verifier.",
         ),
         "codex_packet": _apply_deployment(
             entrypoint="prefect_grace/flows/codex_packet.py:codex_packet_flow",

@@ -153,7 +153,7 @@ def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_pat
     )
     verifier = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'verifier')
     hints = verifier['execution_hints']
-    assert hints['runner'] == 'verifier'
+    assert hints['runner'] == 'codex'
     assert hints['touches_frontend'] is True
     assert hints['requires_frontend_visual'] is True
     assert hints['artifact_globs'] == ['frontend/test-results/**/*']
@@ -261,7 +261,7 @@ def test_verifier_execution_overrides_default_profiles() -> None:
         architect_packet_id="ARCH",
         contract=contract,
         default_verifier_execution_hints={
-            "runner": "verifier",
+            "runner": "codex",
             "backend_profile": "backend_quick",
             "frontend_profile": "frontend_quick",
             "frontend_commands": ["./scripts/run_e2e.sh e2e/quality.spec.ts -g \"today|day|dev|diagnostics\""],

@@ -417,7 +417,7 @@ def seed_test_feature(
         contract=contract,
         base_execution_hints=base_execution_hints,
         default_verifier_execution_hints={
-            "runner": "verifier",
+            "runner": "codex",
             "backend_profile": verifier_backend_profile,
             "frontend_profile": verifier_frontend_profile,
             "frontend_commands": verifier_frontend_commands or [],

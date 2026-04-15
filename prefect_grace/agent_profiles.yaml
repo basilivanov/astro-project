@@ -17,7 +17,7 @@ codex:
       sandbox: workspace-write
       approval: never
     verifier:
-      reasoning: high
+      reasoning: medium
       sandbox: workspace-write
       approval: never
     reviewer:
