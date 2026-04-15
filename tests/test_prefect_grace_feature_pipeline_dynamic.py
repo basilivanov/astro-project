@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from prefect_grace.tasks import state_store
-from prefect_grace.flows.feature_pipeline import feature_pipeline
+from prefect_grace.flows.feature_pipeline import feature_pipeline, _normalize_reviewer_decision_for_pipeline
+from prefect_grace.tasks import prefect_artifacts
 
 
 def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> None:
@@ -177,3 +178,154 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
     assert result["final_status"]["feature"]["status"] == "accepted"
     assert len(result["review_routes"]) == 2
     assert any("REWORK" in key for key in result["runs"])
+
+
+def test_pipeline_normalizes_evidence_only_blocked_review_to_rework() -> None:
+    decision = {
+        "packet_verdict": "blocked",
+        "follow_up_action": "none",
+        "reasons": [
+            "Required frontend visual evidence is missing or insufficient for the UI change",
+            "Today post-test observability verdict is no-evidence-blocker due to missing canonical logs",
+        ],
+        "source": "agent_output",
+    }
+
+    normalized = _normalize_reviewer_decision_for_pipeline(decision)
+
+    assert normalized["packet_verdict"] == "rework_required"
+    assert normalized["follow_up_action"] == "localized_rework"
+    assert normalized["source"] == "pipeline_normalized_rework"
+
+
+def test_feature_pipeline_publishes_intermediate_architect_and_planner_artifacts(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    created: list[str] = []
+
+    def _fake_publish_feature_artifacts(**kwargs):
+        created.append(str(kwargs["feature"].get("feature_id")))
+        return ["artifact-1"]
+
+    monkeypatch.setattr(prefect_artifacts, "publish_feature_artifacts", _fake_publish_feature_artifacts)
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.publish_feature_artifacts", _fake_publish_feature_artifacts)
+
+    result = feature_pipeline(
+        feature_id="FEAT-ARTIFACT-PUBLISH",
+        title="Artifact publish feature",
+        summary="Exercise intermediate architect/planner artifact publishing",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert len(created) >= 4
+
+
+def test_feature_pipeline_can_skip_live_w00_agents_for_fast_iteration(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-SKIP-W00",
+        title="Skip W00 feature",
+        summary="Skip live architect/planner execution and continue with fallback/materialized contracts",
+        dry_run=True,
+        prefer_agent_output=False,
+        run_architect=False,
+        run_planner=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["runs"]["architect"]["launcher"] == "skipped"
+    assert result["runs"]["planner"]["launcher"] == "skipped"

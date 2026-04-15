@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 from prefect_grace import dispatcher
@@ -71,3 +72,48 @@ def test_sync_running_jobs_maps_completed_in_progress_to_rework(monkeypatch):
     result = dispatcher.sync_running_jobs()
     assert result[0]["status"] == "needs_rework"
     assert result[0]["feature_status"] == FeatureStatus.IN_PROGRESS.value
+
+
+def test_dispatch_next_job_sets_prefect_api_from_runtime(monkeypatch):
+    job = {
+        "job_id": "job-3",
+        "feature_id": "FEAT-3",
+        "title": "Feature 3",
+        "summary": "Summary",
+        "implementation_title": "Impl",
+        "implementation_summary": "Impl summary",
+    }
+    monkeypatch.setattr(dispatcher, "list_jobs", lambda: [])
+    monkeypatch.setattr(dispatcher, "claim_next_job", lambda: job)
+    monkeypatch.setattr(
+        dispatcher,
+        "load_runtime_config",
+        lambda: SimpleNamespace(api_url="http://127.0.0.1:4200/api", live_queue_name="grace-live"),
+    )
+
+    created: dict[str, object] = {}
+
+    class _Client:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read_deployment_by_name(self, name):
+            created["deployment_name"] = name
+            return SimpleNamespace(id="dep-1")
+
+        def create_flow_run_from_deployment(self, **kwargs):
+            created["kwargs"] = kwargs
+            return SimpleNamespace(id="flow-1")
+
+    monkeypatch.setattr(dispatcher, "get_client", lambda sync_client=True: _Client())
+    monkeypatch.setattr(dispatcher, "update_job", lambda job_id, **updates: {"job_id": job_id, **updates})
+    monkeypatch.delenv("PREFECT_API_URL", raising=False)
+
+    result = dispatcher.dispatch_next_job()
+
+    assert os.environ["PREFECT_API_URL"] == "http://127.0.0.1:4200/api"
+    assert created["deployment_name"] == dispatcher.FEATURE_DEPLOYMENT_NAME
+    assert result["status"] == "submitted"

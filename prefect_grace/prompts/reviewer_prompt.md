@@ -16,6 +16,8 @@ Rules:
 7. Reject missing verifier evidence, including missing frontend visual evidence when the packet touches UI.
 8. End your answer with a machine-readable JSON block between explicit markers.
 9. If the evidence failure is caused by a malformed pipeline contract, invalid verifier command schema, or missing orchestration wiring, block it as a pipeline issue in the reasons instead of treating the product change itself as incorrect.
+10. If the product change is implemented correctly but the verifier reports only missing evidence, missing visual captures, or `no-evidence-blocker`, prefer `rework_required` with `localized_rework` instead of `blocked`.
+11. Use `blocked` only when the packet cannot proceed without pipeline repair, environment repair, or an architect/business decision.
 
 Output sections:
 - Verdict

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from typing import Any
@@ -23,6 +24,11 @@ ACTIVE_JOB_STATUSES = {"dispatching", "submitted", "running"}
 def _prefect_client_guard() -> None:
     if get_client is None:  # pragma: no cover
         raise RuntimeError("Prefect is not available in this Python environment.")
+
+
+def _configure_prefect_api() -> None:
+    runtime = load_runtime_config()
+    os.environ["PREFECT_API_URL"] = runtime.api_url
 
 
 def _job_parameters(job: dict[str, Any]) -> dict[str, Any]:
@@ -101,6 +107,7 @@ def dispatch_next_job() -> dict[str, Any] | None:
         return None
 
     runtime = load_runtime_config()
+    _configure_prefect_api()
     try:
         with get_client(sync_client=True) as client:
             deployment = client.read_deployment_by_name(FEATURE_DEPLOYMENT_NAME)
@@ -131,6 +138,7 @@ def dispatch_next_job() -> dict[str, Any] | None:
 
 def sync_running_jobs() -> list[dict[str, Any]]:
     _prefect_client_guard()
+    _configure_prefect_api()
     jobs_to_sync = [
         job
         for job in list_jobs()

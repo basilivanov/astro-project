@@ -21,6 +21,14 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
             "source": "agent_output",
             "parser_error": None,
         },
+        "architect": {
+            "packet_id": "FEAT-X-W00-ARCHITECT-FORMALIZATION",
+            "returncode": 0,
+            "launcher": "codex1",
+            "last_message_path": "/tmp/runs/architect/last-message.md",
+            "stdout_path": "/tmp/runs/architect/stdout.jsonl",
+            "stderr_path": "/tmp/runs/architect/stderr.log",
+        },
         "architect_artifacts": {
             "slice_id": "SLICE-FEAT-X",
             "slice_slug": "feature-x",
@@ -73,6 +81,14 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
                 ],
             },
         },
+        "planner": {
+            "packet_id": "FEAT-X-W00-PLANNER-SLICING",
+            "returncode": 0,
+            "launcher": "codex1",
+            "last_message_path": "/tmp/runs/planner/last-message.md",
+            "stdout_path": "/tmp/runs/planner/stdout.jsonl",
+            "stderr_path": "/tmp/runs/planner/stderr.log",
+        },
         "planner_materialized": {
             "wave_plan_path": "/tmp/feature-x/wave-plan.md",
             "packets": [
@@ -96,6 +112,14 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
             "valid": True,
             "issues": [],
         },
+        "run:FEAT-X-W01-CODER-MAIN": {
+            "packet_id": "FEAT-X-W01-CODER-MAIN",
+            "returncode": 0,
+            "launcher": "codex1",
+            "last_message_path": "/tmp/runs/coder/last-message.md",
+            "stdout_path": "/tmp/runs/coder/stdout.jsonl",
+            "stderr_path": "/tmp/runs/coder/stderr.log",
+        },
     }
     review_route = {
         "review": {
@@ -116,16 +140,20 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
         final_status=None,
     )
 
-    assert len(artifact_ids) == 4
+    assert len(artifact_ids) == 5
     keys = {item["key"] for item in created}
     assert "grace-feature-feat-x" in keys
     assert "grace-architect-feat-x" in keys
     assert "grace-planner-feat-x" in keys
+    assert "grace-agent-outputs-feat-x" in keys
     assert "grace-review-feat-x-w01-reviewer-verdict" in keys
 
     architect_markdown = next(item["markdown"] for item in created if item["key"] == "grace-architect-feat-x")
     planner_markdown = next(item["markdown"] for item in created if item["key"] == "grace-planner-feat-x")
+    agent_markdown = next(item["markdown"] for item in created if item["key"] == "grace-agent-outputs-feat-x")
     assert "SLICE-FEAT-X" in architect_markdown
     assert "frontend/app/page.tsx" in architect_markdown
     assert "coder_main" in planner_markdown
     assert "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts" in planner_markdown
+    assert "FEAT-X-W01-CODER-MAIN" in agent_markdown
+    assert "/tmp/runs/coder/stdout.jsonl" in agent_markdown

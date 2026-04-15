@@ -18,6 +18,9 @@ Rules:
 7. Emit a frontend visual verdict when UI is touched: sufficient / insufficient / not_applicable.
 8. If evidence is missing or degraded unexpectedly, do not pass the packet.
 9. End your answer with a machine-readable JSON block between explicit markers.
+10. For frontend-only or mock-driven slices, if no backend/report flow was intentionally exercised and the diff scope shows no backend writes, you may classify observability as `degraded-but-expected` instead of `no-evidence-blocker` — but only if you explain precisely why canonical logs are not expected for this packet.
+11. Reserve `no-evidence-blocker` for cases where observability evidence should have been produced by the exercised flow but is unexpectedly absent.
+12. After command execution, inspect configured artifact paths and globs and include the concrete matched files in `evidence_paths`.
 
 Output sections:
 - Verification Scope

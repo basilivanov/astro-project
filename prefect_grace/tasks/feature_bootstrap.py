@@ -300,8 +300,28 @@ def seed_test_feature(
     business_context: dict[str, Any] | None = None,
     planner_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context)
     business_context = dict(business_context or {})
+    impacted_surfaces = list(business_context.get("impacted_surfaces") or [])
+    if not impacted_surfaces:
+        impacted_surfaces = [
+            "frontend: the existing Day dev runtime indicator slice only.",
+            "automation: Prefect packet orchestration only if the feature explicitly asks to validate pipeline behavior.",
+            "observability: packet-local evidence collection only if explicitly required by the feature.",
+        ]
+    business_context["impacted_surfaces"] = impacted_surfaces
+
+    impacted_grace_artifacts = list(business_context.get("impacted_grace_artifacts") or [])
+    if not impacted_grace_artifacts:
+        impacted_grace_artifacts = [
+            "requirements.xml: only if the business scope/invariants change.",
+            "technology.xml: only if the runtime/tooling contract changes.",
+            "development-plan.xml: only if execution topology or packet model changes.",
+            "knowledge-graph.xml: only if module/slice links change.",
+            "verification-matrix.md: only if verification gates or evidence rules change.",
+        ]
+    business_context["impacted_grace_artifacts"] = impacted_grace_artifacts
+
+    feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context)
     architect_artifact_plan = default_architect_artifact_plan(
         feature_id=feature_id,
         title=title,

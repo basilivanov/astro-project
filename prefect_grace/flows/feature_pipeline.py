@@ -36,7 +36,7 @@ from prefect_grace.tasks.review_router import (
     record_review,
     record_wave_review,
 )
-from prefect_grace.tasks.state_store import update_record
+from prefect_grace.tasks.state_store import find_record, update_record
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
     append_unique_packet,
@@ -76,6 +76,49 @@ def _final_failure(
         "next_action": next_action,
         "failure_category": category,
         "reasons": list(reasons or []),
+    }
+
+
+_EVIDENCE_ONLY_REVIEW_MARKERS = (
+    "evidence",
+    "visual",
+    "observability",
+    "artifact",
+    "screenshot",
+    "proof",
+    "no-evidence-blocker",
+    "canonical logs",
+)
+_TERMINAL_REVIEW_MARKERS = (
+    "architect decision",
+    "business",
+    "scope expansion",
+    "slice boundary",
+    "decomposition",
+    "orchestration wiring",
+    "invalid verifier command",
+    "malformed pipeline contract",
+    "schema",
+    "environment unavailable",
+)
+
+
+def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
+    if str(decision.get("packet_verdict") or "") != ReviewVerdict.BLOCKED.value:
+        return decision
+    reasons = [str(item).strip() for item in list(decision.get("reasons") or []) if str(item).strip()]
+    if not reasons:
+        return decision
+    lowered = [reason.lower() for reason in reasons]
+    if any(any(marker in reason for marker in _TERMINAL_REVIEW_MARKERS) for reason in lowered):
+        return decision
+    if not all(any(marker in reason for marker in _EVIDENCE_ONLY_REVIEW_MARKERS) for reason in lowered):
+        return decision
+    return {
+        **decision,
+        "packet_verdict": ReviewVerdict.REWORK_REQUIRED.value,
+        "follow_up_action": "localized_rework",
+        "source": "pipeline_normalized_rework",
     }
 
 
@@ -523,8 +566,15 @@ def publish_feature_artifacts_task(
     final_status: dict | None,
 ):
     logger = get_run_logger()
+    current_feature = feature
+    feature_id = str(feature.get("feature_id") or "").strip()
+    if feature_id:
+        try:
+            current_feature = find_record("features", "features", "feature_id", feature_id)
+        except KeyError:
+            current_feature = feature
     artifact_ids = publish_feature_artifacts(
-        feature=feature,
+        feature=current_feature,
         packet_results=packet_results,
         verification=verification,
         review_route=review_route,
@@ -624,6 +674,8 @@ def feature_pipeline(
     wave_reasons: list[str] | None = None,
     create_rework: bool = True,
     prefer_agent_output: bool = False,
+    run_architect: bool = True,
+    run_planner: bool = True,
     reviewer_verdict_script: list[str] | None = None,
     review_reasons_script: list[list[str]] | None = None,
     wave_verdict_script: list[str] | None = None,
@@ -658,8 +710,18 @@ def feature_pipeline(
         architect_packet_id = seeded["packets"]["architect"]["packet_id"]
         planner_packet_id = seeded["packets"]["planner"]["packet_id"]
 
-        with tags("wave:W00", "role:architect"):
-            architect_run = run_packet_task(architect_packet_id, dry_run, timeout_seconds)
+        if run_architect:
+            with tags("wave:W00", "role:architect"):
+                architect_run = run_packet_task(architect_packet_id, dry_run, timeout_seconds)
+        else:
+            architect_run = {
+                "packet_id": architect_packet_id,
+                "returncode": 0,
+                "launcher": "skipped",
+                "stdout_path": "",
+                "stderr_path": "",
+                "last_message_path": "",
+            }
         packet_results["architect"] = architect_run
         if architect_run.get("returncode") != 0:
             final_status = _final_failure(
@@ -683,9 +745,20 @@ def feature_pipeline(
         packet_results["architect_artifact_plan"] = architect_artifact_plan
         architect_artifacts = write_architect_artifacts_task(feature_id, architect_artifact_plan)
         packet_results["architect_artifacts"] = architect_artifacts
+        publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
 
-        with tags("wave:W00", "role:planner"):
-            planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
+        if run_planner:
+            with tags("wave:W00", "role:planner"):
+                planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
+        else:
+            planner_run = {
+                "packet_id": planner_packet_id,
+                "returncode": 0,
+                "launcher": "skipped",
+                "stdout_path": "",
+                "stderr_path": "",
+                "last_message_path": "",
+            }
         packet_results["planner"] = planner_run
         if planner_run.get("returncode") != 0:
             final_status = _final_failure(
@@ -747,6 +820,7 @@ def feature_pipeline(
         packet_results["planner_materialized"] = materialized_contract
         planner_validation = validate_planner_contract_task(feature_id, materialized_contract)
         packet_results["planner_validation"] = planner_validation
+        publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
         if not planner_validation["valid"]:
             final_status = _final_failure(
                 feature_id=feature_id,
@@ -932,6 +1006,14 @@ def feature_pipeline(
                         mark_packet_status_task(packet_id, PacketStatus.ACCEPTED.value)
                     verification_records.append(verification_record)
                     packet_results[packet_result_key("verification", packet_id)] = verification_record
+                    publish_feature_artifacts_task(
+                        seeded["feature"],
+                        packet_results,
+                        verification_record,
+                        review_routes[-1] if review_routes else None,
+                        wave_routes[-1] if wave_routes else None,
+                        None,
+                    )
                     completed_packet_ids.add(packet_id)
                     continue
 
@@ -953,6 +1035,7 @@ def feature_pipeline(
                         current_review_reasons,
                         prefer_agent_output,
                     )
+                    reviewer_decision = _normalize_reviewer_decision_for_pipeline(reviewer_decision)
                     reviewer_decision_index += 1
                     with tags(f"wave:{wave_id}", "role:reviewer"):
                         review_route = route_reviewer_verdict_task(
@@ -963,6 +1046,14 @@ def feature_pipeline(
                         )
                     review_routes.append(review_route)
                     packet_results[packet_result_key("review", packet_id)] = review_route
+                    publish_feature_artifacts_task(
+                        seeded["feature"],
+                        packet_results,
+                        verification_records[-1] if verification_records else None,
+                        review_route,
+                        wave_routes[-1] if wave_routes else None,
+                        None,
+                    )
                     completed_packet_ids.add(packet_id)
 
                     if review_route["reviewer_verdict"] == ReviewVerdict.REWORK_REQUIRED.value:
@@ -1108,6 +1199,14 @@ def feature_pipeline(
                         )
                     wave_routes.append(wave_route)
                     packet_results[packet_result_key("wave", packet_id)] = wave_route
+                    publish_feature_artifacts_task(
+                        seeded["feature"],
+                        packet_results,
+                        verification_records[-1] if verification_records else None,
+                        review_routes[-1] if review_routes else None,
+                        wave_route,
+                        None,
+                    )
                     completed_packet_ids.add(packet_id)
                     if wave_route["wave_verdict"] == WaveVerdict.ACCEPTED.value:
                         continue

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 import re
 
@@ -61,6 +62,74 @@ def _business_context_lines(context: dict[str, Any]) -> list[str]:
         if values:
             lines.append(f"{key}: {'; '.join(str(value) for value in values)}")
     return lines or ["none"]
+
+
+def _path_status(path: str | None) -> str:
+    if not path:
+        return "-"
+    file_path = Path(path)
+    if not file_path.exists():
+        return f"{path} (missing)"
+    if file_path.is_file():
+        return f"{path} ({file_path.stat().st_size} bytes)"
+    return f"{path} (dir)"
+
+
+def _role_for_agent_run(name: str, payload: dict[str, Any], role_by_packet_id: dict[str, str]) -> str:
+    packet_id = str(payload.get("packet_id") or "")
+    if packet_id in role_by_packet_id:
+        return role_by_packet_id[packet_id]
+    if name in {"architect", "planner"}:
+        return name
+    if name.startswith("verifier-run:"):
+        return "verifier"
+    if name.startswith("run:"):
+        packet_id_from_key = name.removeprefix("run:")
+        return role_by_packet_id.get(packet_id_from_key, "-")
+    return "-"
+
+
+def _agent_output_summary(last_message_path: str | None) -> str:
+    if not last_message_path:
+        return "-"
+    path = Path(last_message_path)
+    if not path.exists():
+        return "-"
+    text = path.read_text(encoding="utf-8", errors="replace").strip()
+    if not text:
+        return "-"
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    if len(first_line) > 160:
+        return f"{first_line[:157]}..."
+    return first_line or "-"
+
+
+def _agent_output_rows(packet_results: dict[str, Any]) -> list[list[str]]:
+    role_by_packet_id: dict[str, str] = {}
+    for packet in list(dict(packet_results.get("planner_materialized") or {}).get("packets") or []):
+        if isinstance(packet, dict) and packet.get("packet_id"):
+            role_by_packet_id[str(packet["packet_id"])] = str(packet.get("role") or "-")
+
+    rows: list[list[str]] = []
+    for name, payload in packet_results.items():
+        if not isinstance(payload, dict):
+            continue
+        if "returncode" not in payload or not (payload.get("stdout_path") or payload.get("last_message_path")):
+            continue
+        packet_id = str(payload.get("packet_id") or name)
+        rows.append(
+            [
+                packet_id,
+                _role_for_agent_run(name, payload, role_by_packet_id),
+                str(payload.get("returncode", "-")),
+                str(payload.get("launcher") or payload.get("runner") or "-"),
+                _path_status(payload.get("last_message_path")),
+                _path_status(payload.get("stdout_path")),
+                _path_status(payload.get("stderr_path")),
+                _agent_output_summary(payload.get("last_message_path")),
+            ]
+        )
+    return rows
 
 
 def _feature_summary_markdown(
@@ -367,6 +436,23 @@ def _planner_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]
     )
 
 
+def _agent_outputs_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:
+    rows = _agent_output_rows(packet_results)
+    return "\n".join(
+        [
+            f"# Agent Outputs Snapshot: {feature.get('feature_id', '-')}",
+            "",
+            f"- generated_at: {datetime.now(timezone.utc).isoformat()}",
+            "",
+            "## Agent Run Files",
+            _markdown_table(
+                ["packet_id", "role", "rc", "runner", "last_message", "stdout", "stderr", "summary"],
+                rows,
+            ),
+        ]
+    )
+
+
 def publish_feature_artifacts(
     *,
     feature: dict[str, Any],
@@ -425,6 +511,19 @@ def publish_feature_artifacts(
                         source=dict(packet_results.get("planner_contract") or {}).get("source"),
                     ),
                     markdown=_planner_markdown(feature=feature, packet_results=packet_results),
+                )
+            )
+        )
+    if _agent_output_rows(packet_results):
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-agent-outputs", feature_id),
+                    description=_artifact_description(
+                        "Agent output files snapshot",
+                        feature_id=feature_id,
+                    ),
+                    markdown=_agent_outputs_markdown(feature=feature, packet_results=packet_results),
                 )
             )
         )
