@@ -13,6 +13,7 @@ import yaml
 
 from prefect_grace.tasks.codex_launcher import (
     CodexProcessResult,
+    _extract_stdout_progress,
     _extract_last_stdout_event,
     _extract_thread_id,
     _format_heartbeat_message,
@@ -73,7 +74,232 @@ def test_format_heartbeat_message_contains_run_paths(tmp_path: Path) -> None:
     assert "PKT-1" in message
     assert str(run_dir) in message
     assert str(stdout_path) in message
-    assert "item.completed/completed" in message
+    assert "item.completed/completed/unknown" in message
+
+
+def test_extract_stdout_progress_ignores_noise_and_detects_final_marker(tmp_path: Path) -> None:
+    stdout_path = tmp_path / "stdout.jsonl"
+    stdout_path.write_text(
+        json.dumps({"type": "item.updated", "item": {"id": "todo-1", "type": "todo_list", "status": "in_progress"}})
+        + "\n"
+        + json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "cmd-1",
+                    "type": "command_execution",
+                    "status": "completed",
+                    "aggregated_output": "noise only",
+                },
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "msg-1",
+                    "type": "agent_message",
+                    "text": "FINAL_PACKET_DECISION_JSON\n{}\nEND_FINAL_PACKET_DECISION_JSON",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    progress = _extract_stdout_progress(stdout_path)
+
+    assert progress["event_type"] == "item.completed"
+    assert progress["item_type"] == "agent_message"
+    assert progress["semantic_reason"] == "item.completed:agent_message"
+    assert progress["final_marker"] == "END_FINAL_PACKET_DECISION_JSON"
+    assert progress["final_signature"] is not None
+
+
+def test_heartbeat_loop_kills_when_only_stdout_noise_grows(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    stdout_path = run_dir / "stdout.jsonl"
+    stdout_path.write_text("", encoding="utf-8")
+    handler = _ListHandler()
+    logger = logging.getLogger("test_prefect_grace_codex_launcher_noise")
+    logger.handlers = []
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+    class _Proc:
+        def __init__(self) -> None:
+            self.pid = 322
+            self.killed = False
+
+        def poll(self):
+            return None if not self.killed else -9
+
+        def kill(self):
+            self.killed = True
+
+    process = _Proc()
+    stop_event = threading.Event()
+    thread = threading.Thread(
+        target=_heartbeat_loop,
+        args=(process,),
+        kwargs={
+            "packet_id": "PKT-NOISE",
+            "run_dir": run_dir,
+            "stdout_path": stdout_path,
+            "logger": logger,
+            "interval_seconds": 0.01,
+            "stop_event": stop_event,
+            "stall_timeout_seconds": 0.03,
+        },
+        daemon=True,
+    )
+    thread.start()
+    for index in range(4):
+        stdout_path.write_text(
+            stdout_path.read_text(encoding="utf-8")
+            + json.dumps(
+                {
+                    "type": "item.updated",
+                    "item": {"id": f"todo-{index}", "type": "todo_list", "status": "in_progress"},
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        time.sleep(0.01)
+    thread.join(timeout=1)
+    stop_event.set()
+
+    assert process.killed is True
+    assert any("Codex stall detected packet=PKT-NOISE" in message for message in handler.messages)
+
+
+def test_heartbeat_loop_collects_final_output_and_kills_hung_process(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    stdout_path = run_dir / "stdout.jsonl"
+    stdout_path.write_text("", encoding="utf-8")
+    last_message_path = run_dir / "last-message.md"
+    last_message_path.write_text(
+        "FINAL_GRACE_WAVE_PLAN_JSON\n{}\nEND_FINAL_GRACE_WAVE_PLAN_JSON\n",
+        encoding="utf-8",
+    )
+    handler = _ListHandler()
+    logger = logging.getLogger("test_prefect_grace_codex_launcher_final")
+    logger.handlers = []
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+    class _Proc:
+        def __init__(self) -> None:
+            self.pid = 323
+            self.killed = False
+
+        def poll(self):
+            return None if not self.killed else -9
+
+        def kill(self):
+            self.killed = True
+
+    process = _Proc()
+    stop_event = threading.Event()
+    stall_state = {"detected": False, "idle_seconds": 0.0, "final_output_collected": False}
+    thread = threading.Thread(
+        target=_heartbeat_loop,
+        args=(process,),
+        kwargs={
+            "packet_id": "PKT-FINAL",
+            "run_dir": run_dir,
+            "stdout_path": stdout_path,
+            "last_message_path": last_message_path,
+            "logger": logger,
+            "interval_seconds": 0.01,
+            "stop_event": stop_event,
+            "stall_state": stall_state,
+            "stall_timeout_seconds": 1.0,
+            "final_output_grace_seconds": 0.02,
+        },
+        daemon=True,
+    )
+    thread.start()
+    time.sleep(0.08)
+    thread.join(timeout=1)
+    stop_event.set()
+
+    assert process.killed is True
+    assert stall_state["final_output_collected"] is True
+    assert stall_state["final_marker"] == "END_FINAL_GRACE_WAVE_PLAN_JSON"
+    assert any("Codex final output collected packet=PKT-FINAL" in message for message in handler.messages)
+
+
+def test_heartbeat_loop_kills_hung_process_after_turn_completed(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    stdout_path = run_dir / "stdout.jsonl"
+    stdout_path.write_text(
+        json.dumps(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "msg-1",
+                    "type": "agent_message",
+                    "text": "Plain final message without strict marker",
+                },
+            }
+        )
+        + "\n"
+        + json.dumps({"type": "turn.completed", "usage": {"output_tokens": 3}})
+        + "\n",
+        encoding="utf-8",
+    )
+    handler = _ListHandler()
+    logger = logging.getLogger("test_prefect_grace_codex_launcher_post_turn")
+    logger.handlers = []
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+    class _Proc:
+        def __init__(self) -> None:
+            self.pid = 324
+            self.killed = False
+
+        def poll(self):
+            return None if not self.killed else -9
+
+        def kill(self):
+            self.killed = True
+
+    process = _Proc()
+    stop_event = threading.Event()
+    stall_state = {"detected": False, "idle_seconds": 0.0, "final_output_collected": False, "post_turn_completion_collected": False}
+    thread = threading.Thread(
+        target=_heartbeat_loop,
+        args=(process,),
+        kwargs={
+            "packet_id": "PKT-POST-TURN",
+            "run_dir": run_dir,
+            "stdout_path": stdout_path,
+            "logger": logger,
+            "interval_seconds": 0.01,
+            "stop_event": stop_event,
+            "stall_state": stall_state,
+            "stall_timeout_seconds": 1.0,
+            "final_output_grace_seconds": 10.0,
+            "post_turn_completion_grace_seconds": 0.02,
+        },
+        daemon=True,
+    )
+    thread.start()
+    time.sleep(0.08)
+    thread.join(timeout=1)
+    stop_event.set()
+
+    assert process.killed is True
 
 
 def test_heartbeat_loop_logs_progress_until_stop(tmp_path: Path) -> None:

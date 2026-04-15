@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import re
 import subprocess
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TextIO
@@ -14,7 +15,14 @@ from typing import Any, TextIO
 import yaml
 
 from prefect_grace.models import ReasoningProfile
-from prefect_grace.tasks.agent_output_parser import read_agent_message
+from prefect_grace.tasks.agent_output_parser import (
+    ARCHITECT_ARTIFACT_PLAN_END,
+    PACKET_DECISION_END,
+    PLANNER_WAVE_PLAN_END,
+    VERIFIER_EVIDENCE_END,
+    WAVE_DECISION_END,
+    read_agent_message,
+)
 from prefect_grace.tasks.state_store import find_record, update_record
 from prefect_grace.tasks.workdir import resolve_execution_workdir
 
@@ -24,6 +32,17 @@ RUNS_DIR = Path(__file__).resolve().parents[1] / "state" / "runs"
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
 DEFAULT_STALL_TIMEOUT_SECONDS = 900.0
+DEFAULT_FINAL_OUTPUT_GRACE_SECONDS = 60.0
+DEFAULT_POST_TURN_COMPLETION_GRACE_SECONDS = 30.0
+AUTO_RESUME_TERMINATION_REASONS = {"stall_killed", "timeout"}
+FINAL_OUTPUT_MARKERS = (
+    ARCHITECT_ARTIFACT_PLAN_END,
+    PLANNER_WAVE_PLAN_END,
+    VERIFIER_EVIDENCE_END,
+    PACKET_DECISION_END,
+    WAVE_DECISION_END,
+)
+SEMANTIC_ITEM_TYPES = {"agent_message", "file_change", "command_execution"}
 
 
 @dataclass(frozen=True)
@@ -41,6 +60,10 @@ class CodexLaunchResult:
     last_message_path: str
     started_at: str
     finished_at: str
+    termination_reason: str | None = None
+    attempt: int = 1
+    attempt_count: int = 1
+    attempts: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -57,7 +80,17 @@ class CodexLaunchResult:
             "last_message_path": self.last_message_path,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
+            "termination_reason": self.termination_reason,
+            "attempt": self.attempt,
+            "attempt_count": self.attempt_count,
+            "attempts": list(self.attempts),
         }
+
+
+@dataclass(frozen=True)
+class CodexProcessResult:
+    returncode: int
+    termination_reason: str
 
 
 def load_agent_config() -> dict[str, Any]:
@@ -221,9 +254,53 @@ def _normalize_resume_strategy(value: Any) -> str:
     return strategy
 
 
+def _normalize_non_negative_int(value: Any, *, default: int = 0) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(parsed, 0)
+
+
+def _normalize_positive_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
 def _resolve_resume_strategy(packet: dict[str, Any], role_defaults: dict[str, Any]) -> str:
     execution_hints = dict(packet.get("execution_hints") or {})
     return _normalize_resume_strategy(execution_hints.get("resume_strategy") or role_defaults.get("resume_strategy"))
+
+
+def _resolve_stall_timeout_seconds(
+    packet: dict[str, Any],
+    role_defaults: dict[str, Any],
+    explicit_timeout: float | None,
+) -> float | None:
+    if explicit_timeout is not None:
+        return explicit_timeout
+    execution_hints = dict(packet.get("execution_hints") or {})
+    resolved = _normalize_positive_float(
+        execution_hints.get("stall_timeout_seconds", role_defaults.get("stall_timeout_seconds"))
+    )
+    if resolved is not None:
+        return resolved
+    return DEFAULT_STALL_TIMEOUT_SECONDS
+
+
+def _resolve_max_auto_resume_attempts(packet: dict[str, Any], role_defaults: dict[str, Any]) -> int:
+    execution_hints = dict(packet.get("execution_hints") or {})
+    return _normalize_non_negative_int(
+        execution_hints.get("max_auto_resume_attempts", role_defaults.get("max_auto_resume_attempts")),
+        default=0,
+    )
 
 
 def _feature_role_session(feature_id: str, role: str) -> dict[str, Any] | None:
@@ -412,22 +489,188 @@ def _extract_last_stdout_event(stdout_path: Path, *, max_bytes: int = 16384) -> 
     return None
 
 
-def _heartbeat_payload(*, run_dir: Path, stdout_path: Path, process: subprocess.Popen[str]) -> dict[str, Any]:
-    event = _extract_last_stdout_event(stdout_path)
+def _text_signature(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _iter_stdout_payloads(stdout_path: Path, *, max_bytes: int = 262144) -> list[dict[str, Any]]:
+    if not stdout_path.exists() or stdout_path.stat().st_size == 0:
+        return []
+    with stdout_path.open("rb") as handle:
+        size = handle.seek(0, os.SEEK_END)
+        read_size = min(size, max_bytes)
+        handle.seek(-read_size, os.SEEK_END)
+        tail = handle.read(read_size).decode("utf-8", errors="replace")
+    payloads: list[dict[str, Any]] = []
+    for line in tail.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            payloads.append(payload)
+    return payloads
+
+
+def _payload_text(payload: dict[str, Any]) -> str:
+    item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+    for value in (item.get("text"), payload.get("text"), item.get("message"), payload.get("message")):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _detect_final_marker(text: str) -> str | None:
+    for marker in FINAL_OUTPUT_MARKERS:
+        if marker in text:
+            return marker
+    return None
+
+
+def _semantic_signature_from_payload(payload: dict[str, Any]) -> tuple[str | None, str | None]:
+    event_type = str(payload.get("type") or "").strip()
+    if event_type == "thread.started":
+        thread_id = str(payload.get("thread_id") or "").strip()
+        if thread_id:
+            return (f"thread.started:{thread_id}", "thread.started")
+        return ("thread.started", "thread.started")
+
+    item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+    item_type = str(item.get("type") or "").strip()
+    if item_type not in SEMANTIC_ITEM_TYPES:
+        return (None, None)
+    item_id = str(item.get("id") or "").strip()
+    status = str(item.get("status") or "").strip()
+    if item_type == "agent_message":
+        text = _payload_text(payload)
+        if not text:
+            return (None, None)
+        return (
+            f"{event_type}:{item_type}:{item_id}:{_text_signature(text)}",
+            f"{event_type}:{item_type}",
+        )
+    exit_code = item.get("exit_code")
+    exit_code_part = f":{exit_code}" if exit_code is not None else ""
+    return (
+        f"{event_type}:{item_type}:{item_id}:{status}{exit_code_part}",
+        f"{event_type}:{item_type}",
+    )
+
+
+def _extract_stdout_progress(stdout_path: Path, *, max_bytes: int = 262144) -> dict[str, Any]:
+    payloads = _iter_stdout_payloads(stdout_path, max_bytes=max_bytes)
+    latest_event: dict[str, Any] = {
+        "event_type": "none",
+        "status": "none",
+        "item_type": "none",
+        "semantic_signature": None,
+        "semantic_reason": None,
+        "final_signature": None,
+        "final_marker": None,
+        "turn_completed_signature": None,
+    }
+    for payload in reversed(payloads):
+        if latest_event["event_type"] == "none":
+            event_type = str(payload.get("type") or "").strip()
+            item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+            status = str(item.get("status") or "").strip()
+            item_type = str(item.get("type") or "").strip()
+            if event_type or status or item_type:
+                latest_event["event_type"] = event_type or "unknown"
+                latest_event["status"] = status or "unknown"
+                latest_event["item_type"] = item_type or "unknown"
+        if latest_event["semantic_signature"] is None:
+            semantic_signature, semantic_reason = _semantic_signature_from_payload(payload)
+            if semantic_signature is not None:
+                latest_event["semantic_signature"] = semantic_signature
+                latest_event["semantic_reason"] = semantic_reason
+        if latest_event["final_signature"] is None:
+            item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+            item_type = str(item.get("type") or "").strip()
+            if item_type == "agent_message":
+                text = _payload_text(payload)
+                marker = _detect_final_marker(text)
+                if marker:
+                    item_id = str(item.get("id") or "").strip()
+                    latest_event["final_signature"] = f"agent_message:{item_id}:{marker}:{_text_signature(text)}"
+                    latest_event["final_marker"] = marker
+        if latest_event["turn_completed_signature"] is None and str(payload.get("type") or "").strip() == "turn.completed":
+            usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+            latest_event["turn_completed_signature"] = (
+                f"turn.completed:{usage.get('input_tokens')}:{usage.get('output_tokens')}:{usage.get('reasoning_tokens')}"
+            )
+        if (
+            latest_event["semantic_signature"] is not None
+            and latest_event["final_signature"] is not None
+            and latest_event["turn_completed_signature"] is not None
+        ):
+            break
+    return latest_event
+
+
+def _last_message_progress(last_message_path: Path | None) -> dict[str, Any]:
+    if last_message_path is None or not last_message_path.exists():
+        return {
+            "last_message_bytes": 0,
+            "last_message_signature": None,
+            "final_signature": None,
+            "final_marker": None,
+        }
+    text = last_message_path.read_text(encoding="utf-8").strip()
+    if not text:
+        return {
+            "last_message_bytes": 0,
+            "last_message_signature": None,
+            "final_signature": None,
+            "final_marker": None,
+        }
+    marker = _detect_final_marker(text)
+    signature = f"last_message:{_text_signature(text)}"
+    return {
+        "last_message_bytes": len(text.encode("utf-8")),
+        "last_message_signature": signature,
+        "final_signature": f"{signature}:{marker}" if marker else None,
+        "final_marker": marker,
+    }
+
+
+def _heartbeat_payload(
+    *,
+    run_dir: Path,
+    stdout_path: Path,
+    process: subprocess.Popen[str],
+    last_message_path: Path | None = None,
+) -> dict[str, Any]:
+    progress = _extract_stdout_progress(stdout_path)
+    last_message = _last_message_progress(last_message_path)
     stdout_bytes = stdout_path.stat().st_size if stdout_path.exists() else 0
+    semantic_signature = last_message["last_message_signature"] or progress["semantic_signature"]
+    semantic_reason = "last_message" if last_message["last_message_signature"] else progress["semantic_reason"]
+    final_signature = last_message["final_signature"] or progress["final_signature"]
+    final_marker = last_message["final_marker"] or progress["final_marker"]
     return {
         "run_dir": str(run_dir),
         "stdout_path": str(stdout_path),
         "stdout_bytes": stdout_bytes,
         "pid": process.pid,
-        "event_type": (event or {}).get("event_type", "none"),
-        "event_status": (event or {}).get("status", "none"),
+        "event_type": progress.get("event_type", "none"),
+        "event_status": progress.get("status", "none"),
+        "event_item_type": progress.get("item_type", "none"),
+        "semantic_signature": semantic_signature,
+        "semantic_reason": semantic_reason or "none",
+        "final_signature": final_signature,
+        "final_marker": final_marker or "none",
+        "last_message_bytes": last_message["last_message_bytes"],
+        "last_message_path": str(last_message_path) if last_message_path else "",
     }
 
 
 def _format_heartbeat_message(packet_id: str, payload: dict[str, Any]) -> str:
     return (
-        "Codex heartbeat packet=%s pid=%s run_dir=%s stdout_bytes=%s last_event=%s/%s stdout=%s"
+        "Codex heartbeat packet=%s pid=%s run_dir=%s stdout_bytes=%s last_event=%s/%s/%s last_semantic=%s final=%s stdout=%s last_message=%s"
         % (
             packet_id,
             payload.get("pid"),
@@ -435,7 +678,11 @@ def _format_heartbeat_message(packet_id: str, payload: dict[str, Any]) -> str:
             payload.get("stdout_bytes"),
             payload.get("event_type"),
             payload.get("event_status"),
+            payload.get("event_item_type"),
+            payload.get("semantic_reason"),
+            payload.get("final_marker"),
             payload.get("stdout_path"),
+            payload.get("last_message_path"),
         )
     )
 
@@ -449,21 +696,98 @@ def _heartbeat_loop(
     logger: logging.Logger,
     interval_seconds: float,
     stop_event: threading.Event,
+    stall_state: dict[str, Any] | None = None,
     stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
+    last_message_path: Path | None = None,
+    final_output_grace_seconds: float = DEFAULT_FINAL_OUTPUT_GRACE_SECONDS,
+    post_turn_completion_grace_seconds: float = DEFAULT_POST_TURN_COMPLETION_GRACE_SECONDS,
 ) -> None:
-    last_size = stdout_path.stat().st_size if stdout_path.exists() else 0
     last_progress_at = datetime.now(timezone.utc)
+    payload = _heartbeat_payload(
+        run_dir=run_dir,
+        stdout_path=stdout_path,
+        process=process,
+        last_message_path=last_message_path,
+    )
+    last_semantic_signature = payload.get("semantic_signature")
+    last_final_signature = payload.get("final_signature")
+    final_seen_at = datetime.now(timezone.utc) if last_final_signature else None
+    last_turn_completed_signature = payload.get("turn_completed_signature")
+    turn_completed_seen_at = datetime.now(timezone.utc) if last_turn_completed_signature else None
     while not stop_event.wait(interval_seconds):
         if process.poll() is not None:
             break
-        size = stdout_path.stat().st_size if stdout_path.exists() else 0
-        if size > last_size:
-            last_size = size
+        payload = _heartbeat_payload(
+            run_dir=run_dir,
+            stdout_path=stdout_path,
+            process=process,
+            last_message_path=last_message_path,
+        )
+        semantic_signature = payload.get("semantic_signature")
+        if semantic_signature and semantic_signature != last_semantic_signature:
+            last_semantic_signature = semantic_signature
             last_progress_at = datetime.now(timezone.utc)
-        payload = _heartbeat_payload(run_dir=run_dir, stdout_path=stdout_path, process=process)
+        final_signature = payload.get("final_signature")
+        if final_signature:
+            if final_signature != last_final_signature:
+                last_final_signature = final_signature
+                final_seen_at = datetime.now(timezone.utc)
+        else:
+            last_final_signature = None
+            final_seen_at = None
+        turn_completed_signature = payload.get("turn_completed_signature")
+        if turn_completed_signature:
+            if turn_completed_signature != last_turn_completed_signature:
+                last_turn_completed_signature = turn_completed_signature
+                turn_completed_seen_at = datetime.now(timezone.utc)
+        else:
+            last_turn_completed_signature = None
+            turn_completed_seen_at = None
         idle_seconds = max(0.0, (datetime.now(timezone.utc) - last_progress_at).total_seconds())
         logger.info("%s idle_seconds=%.1f", _format_heartbeat_message(packet_id, payload), idle_seconds)
+        if (
+            final_seen_at is not None
+            and final_output_grace_seconds > 0
+            and (datetime.now(timezone.utc) - final_seen_at).total_seconds() >= final_output_grace_seconds
+            and process.poll() is None
+        ):
+            if stall_state is not None:
+                stall_state["final_output_collected"] = True
+                stall_state["final_marker"] = payload.get("final_marker")
+                stall_state["idle_seconds"] = idle_seconds
+            logger.warning(
+                "Codex final output collected packet=%s pid=%s final_marker=%s run_dir=%s stdout=%s; terminating hung process",
+                packet_id,
+                process.pid,
+                payload.get("final_marker"),
+                run_dir,
+                stdout_path,
+            )
+            process.kill()
+            break
+        if (
+            turn_completed_seen_at is not None
+            and post_turn_completion_grace_seconds > 0
+            and (datetime.now(timezone.utc) - turn_completed_seen_at).total_seconds() >= post_turn_completion_grace_seconds
+            and process.poll() is None
+        ):
+            if stall_state is not None:
+                stall_state["post_turn_completion_collected"] = True
+                stall_state["turn_completed_signature"] = last_turn_completed_signature
+                stall_state["idle_seconds"] = idle_seconds
+            logger.warning(
+                "Codex post-turn completion collected packet=%s pid=%s run_dir=%s stdout=%s; terminating hung process after completed turn",
+                packet_id,
+                process.pid,
+                run_dir,
+                stdout_path,
+            )
+            process.kill()
+            break
         if stall_timeout_seconds and idle_seconds >= stall_timeout_seconds and process.poll() is None:
+            if stall_state is not None:
+                stall_state["detected"] = True
+                stall_state["idle_seconds"] = idle_seconds
             logger.warning(
                 "Codex stall detected packet=%s pid=%s idle_seconds=%.1f run_dir=%s stdout=%s; terminating process",
                 packet_id,
@@ -490,7 +814,7 @@ def _run_codex_process(
     logger: logging.Logger | None = None,
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
-) -> int:
+) -> CodexProcessResult:
     process = subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
@@ -507,8 +831,17 @@ def _run_codex_process(
     stderr_thread.start()
     heartbeat_stop = threading.Event()
     heartbeat_thread: threading.Thread | None = None
-    if logger is not None:
-        logger.info(
+    stall_state: dict[str, Any] = {
+        "detected": False,
+        "idle_seconds": 0.0,
+        "final_output_collected": False,
+        "post_turn_completion_collected": False,
+    }
+    returncode = -1
+    heartbeat_logger = logger or (logging.getLogger(__name__) if stall_timeout_seconds else None)
+    last_message_path = run_dir / "last-message.md"
+    if heartbeat_logger is not None:
+        heartbeat_logger.info(
             "Launching Codex packet=%s pid=%s run_dir=%s stdout=%s stderr=%s",
             packet_id,
             process.pid,
@@ -523,10 +856,12 @@ def _run_codex_process(
                 "packet_id": packet_id,
                 "run_dir": run_dir,
                 "stdout_path": stdout_path,
-                "logger": logger,
+                "logger": heartbeat_logger,
                 "interval_seconds": heartbeat_interval_seconds,
                 "stop_event": heartbeat_stop,
+                "stall_state": stall_state,
                 "stall_timeout_seconds": stall_timeout_seconds,
+                "last_message_path": last_message_path,
             },
             daemon=True,
         )
@@ -544,6 +879,35 @@ def _run_codex_process(
             sink.write(f"\nTimed out after {timeout_seconds} seconds.\n")
             sink.flush()
     finally:
+        termination_reason = "completed"
+        if stall_state.get("final_output_collected"):
+            returncode = 0
+            termination_reason = "final_output_collected"
+            with stderr_path.open("a", encoding="utf-8") as sink:
+                sink.write(
+                    f"\nCodex final output collected ({stall_state.get('final_marker') or 'unknown-marker'})"
+                    f" after {float(stall_state.get('idle_seconds') or 0.0):.1f} idle seconds; process terminated.\n"
+                )
+                sink.flush()
+        elif stall_state.get("post_turn_completion_collected"):
+            returncode = 0
+            termination_reason = "post_turn_hung_killed"
+            with stderr_path.open("a", encoding="utf-8") as sink:
+                sink.write(
+                    f"\nCodex post-turn completion collected after {float(stall_state.get('idle_seconds') or 0.0):.1f} idle seconds; process terminated after completed turn.\n"
+                )
+                sink.flush()
+        elif stall_state.get("detected"):
+            termination_reason = "stall_killed"
+            with stderr_path.open("a", encoding="utf-8") as sink:
+                sink.write(
+                    f"\nCodex stall detected after {float(stall_state.get('idle_seconds') or 0.0):.1f} idle seconds.\n"
+                )
+                sink.flush()
+        elif returncode == 124:
+            termination_reason = "timeout"
+        elif returncode != 0:
+            termination_reason = "nonzero_exit"
         heartbeat_stop.set()
         if heartbeat_thread is not None:
             heartbeat_thread.join(timeout=5)
@@ -555,15 +919,16 @@ def _run_codex_process(
             process.stderr.close()
         if logger is not None:
             logger.info(
-                "Codex finished packet=%s pid=%s rc=%s stdout_bytes=%s run_dir=%s last_message=%s",
+                "Codex finished packet=%s pid=%s rc=%s reason=%s stdout_bytes=%s run_dir=%s last_message=%s",
                 packet_id,
                 process.pid,
                 returncode,
+                termination_reason,
                 stdout_path.stat().st_size if stdout_path.exists() else 0,
                 run_dir,
                 run_dir / "last-message.md",
             )
-    return returncode
+    return CodexProcessResult(returncode=returncode, termination_reason=termination_reason)
 
 
 def launch_codex_for_packet(
@@ -573,7 +938,7 @@ def launch_codex_for_packet(
     timeout_seconds: int = 3600,
     logger: logging.Logger | None = None,
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
-    stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
+    stall_timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     config = load_agent_config()
     packet = find_record("packets", "packets", "packet_id", packet_id)
@@ -584,6 +949,8 @@ def launch_codex_for_packet(
     sandbox = str(execution_hints.get("sandbox") or role_defaults.get("sandbox") or "workspace-write")
     approval = str(role_defaults.get("approval") or "never")
     resume_strategy = _resolve_resume_strategy(packet, role_defaults)
+    effective_stall_timeout_seconds = _resolve_stall_timeout_seconds(packet, role_defaults, stall_timeout_seconds)
+    max_auto_resume_attempts = _resolve_max_auto_resume_attempts(packet, role_defaults)
     codex_binary = str(config.get("codex", {}).get("binary") or "codex1")
     shared_model = str(config.get("codex", {}).get("shared_model") or "gpt-5.4")
     configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
@@ -591,113 +958,184 @@ def launch_codex_for_packet(
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
 
-    run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{_sanitize_filename(packet_id)}"
-    run_dir = RUNS_DIR / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    prompt_path = run_dir / "prompt.md"
-    stdout_path = run_dir / "stdout.jsonl"
-    stderr_path = run_dir / "stderr.log"
-    last_message_path = run_dir / "last-message.md"
-    prompt_path.write_text(prompt, encoding="utf-8")
-
     existing_session = (
         _feature_role_session(str(packet.get("feature_id")), role)
         if resume_strategy == "feature_role"
         else None
     )
-    resumed_from_thread_id = None
-    session_mode = "exec"
-    if existing_session and str(existing_session.get("thread_id") or "").strip():
-        resumed_from_thread_id = str(existing_session.get("thread_id")).strip()
-        session_mode = "resume"
-        command = _build_resume_command(
-            codex_binary=codex_binary,
-            workdir=workdir,
-            shared_model=shared_model,
-            reasoning=reasoning,
-            approval=approval,
-            sandbox=sandbox,
-            thread_id=resumed_from_thread_id,
-            last_message_path=last_message_path,
-        )
-    else:
-        command = _build_exec_command(
-            codex_binary=codex_binary,
-            workdir=workdir,
-            shared_model=shared_model,
-            reasoning=reasoning,
-            approval=approval,
-            sandbox=sandbox,
-            last_message_path=last_message_path,
-        )
     env = os.environ.copy()
     env.pop("CODEX_FORCE_PROFILE_MODEL_PREFIX", None)
 
-    started_at = datetime.now(timezone.utc).isoformat()
-    if dry_run:
-        stdout_path.write_text(json.dumps({"dry_run": True, "command": command, "launcher": codex_binary, "routing": "cliproxy-via-wrapper"}) + "\n", encoding="utf-8")
-        stderr_path.write_text("", encoding="utf-8")
-        last_message_path.write_text("DRY RUN: Codex was not launched.\n", encoding="utf-8")
-        returncode = 0
-        if logger is not None:
-            logger.info(
-                "Codex dry-run packet=%s run_dir=%s stdout=%s stderr=%s last_message=%s",
-                packet_id,
-                run_dir,
-                stdout_path,
-                stderr_path,
-                last_message_path,
+    attempts: list[dict[str, Any]] = []
+    resume_thread_id = (
+        str(existing_session.get("thread_id") or "").strip()
+        if existing_session and str(existing_session.get("thread_id") or "").strip()
+        else None
+    )
+    attempt = 0
+    while True:
+        attempt += 1
+        run_id = (
+            f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            f"-{_sanitize_filename(packet_id)}-try{attempt}"
+        )
+        run_dir = RUNS_DIR / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        prompt_path = run_dir / "prompt.md"
+        stdout_path = run_dir / "stdout.jsonl"
+        stderr_path = run_dir / "stderr.log"
+        last_message_path = run_dir / "last-message.md"
+        prompt_path.write_text(prompt, encoding="utf-8")
+
+        resumed_from_thread_id = resume_thread_id or None
+        session_mode = "resume" if resumed_from_thread_id else "exec"
+        if resumed_from_thread_id:
+            command = _build_resume_command(
+                codex_binary=codex_binary,
+                workdir=workdir,
+                shared_model=shared_model,
+                reasoning=reasoning,
+                approval=approval,
+                sandbox=sandbox,
+                thread_id=resumed_from_thread_id,
+                last_message_path=last_message_path,
             )
-        thread_id = resumed_from_thread_id
-    else:
-        returncode = _run_codex_process(
-            command,
-            packet_id=packet_id,
-            prompt=prompt,
-            workdir=workdir,
-            env=env,
-            timeout_seconds=timeout_seconds,
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-            run_dir=run_dir,
-            logger=logger,
-            heartbeat_interval_seconds=heartbeat_interval_seconds,
-            stall_timeout_seconds=stall_timeout_seconds,
-        )
-        thread_id = _extract_thread_id(stdout_path) or resumed_from_thread_id
-    finished_at = datetime.now(timezone.utc).isoformat()
+        else:
+            command = _build_exec_command(
+                codex_binary=codex_binary,
+                workdir=workdir,
+                shared_model=shared_model,
+                reasoning=reasoning,
+                approval=approval,
+                sandbox=sandbox,
+                last_message_path=last_message_path,
+            )
 
-    if resume_strategy == "feature_role" and thread_id:
-        _store_feature_role_session(
-            feature_id=str(packet.get("feature_id")),
-            role=role,
-            thread_id=thread_id,
+        started_at = datetime.now(timezone.utc).isoformat()
+        termination_reason = "dry_run"
+        if dry_run:
+            stdout_path.write_text(
+                json.dumps(
+                    {"dry_run": True, "command": command, "launcher": codex_binary, "routing": "cliproxy-via-wrapper"}
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            stderr_path.write_text("", encoding="utf-8")
+            last_message_path.write_text("DRY RUN: Codex was not launched.\n", encoding="utf-8")
+            returncode = 0
+            if logger is not None:
+                logger.info(
+                    "Codex dry-run packet=%s attempt=%s run_dir=%s stdout=%s stderr=%s last_message=%s",
+                    packet_id,
+                    attempt,
+                    run_dir,
+                    stdout_path,
+                    stderr_path,
+                    last_message_path,
+                )
+            thread_id = resumed_from_thread_id
+        else:
+            process_result = _run_codex_process(
+                command,
+                packet_id=packet_id,
+                prompt=prompt,
+                workdir=workdir,
+                env=env,
+                timeout_seconds=timeout_seconds,
+                stdout_path=stdout_path,
+                stderr_path=stderr_path,
+                run_dir=run_dir,
+                logger=logger,
+                heartbeat_interval_seconds=heartbeat_interval_seconds,
+                stall_timeout_seconds=effective_stall_timeout_seconds,
+            )
+            if isinstance(process_result, CodexProcessResult):
+                returncode = process_result.returncode
+                termination_reason = process_result.termination_reason
+            else:
+                returncode = int(process_result)
+                termination_reason = "timeout" if returncode == 124 else ("completed" if returncode == 0 else "nonzero_exit")
+            thread_id = _extract_thread_id(stdout_path) or resumed_from_thread_id
+        finished_at = datetime.now(timezone.utc).isoformat()
+
+        if resume_strategy == "feature_role" and thread_id:
+            _store_feature_role_session(
+                feature_id=str(packet.get("feature_id")),
+                role=role,
+                thread_id=thread_id,
+                launcher=codex_binary,
+                packet_id=packet_id,
+                reasoning=reasoning,
+                sandbox=sandbox,
+                approval=approval,
+                model=shared_model,
+                session_mode=session_mode,
+                run_dir=run_dir,
+                resumed_from_thread_id=resumed_from_thread_id,
+            )
+
+        attempt_result = CodexLaunchResult(
+            packet_id=packet_id,
+            returncode=returncode,
             launcher=codex_binary,
-            packet_id=packet_id,
-            reasoning=reasoning,
-            sandbox=sandbox,
-            approval=approval,
-            model=shared_model,
+            command=command,
             session_mode=session_mode,
-            run_dir=run_dir,
+            resume_strategy=resume_strategy,
+            thread_id=thread_id,
             resumed_from_thread_id=resumed_from_thread_id,
-        )
+            stdout_path=str(stdout_path),
+            stderr_path=str(stderr_path),
+            last_message_path=str(last_message_path),
+            started_at=started_at,
+            finished_at=finished_at,
+            termination_reason=termination_reason,
+            attempt=attempt,
+            attempt_count=attempt,
+            attempts=[],
+        ).to_dict()
+        attempts.append(attempt_result)
 
-    result = CodexLaunchResult(
-        packet_id=packet_id,
-        returncode=returncode,
-        launcher=codex_binary,
-        command=command,
-        session_mode=session_mode,
-        resume_strategy=resume_strategy,
-        thread_id=thread_id,
-        resumed_from_thread_id=resumed_from_thread_id,
-        stdout_path=str(stdout_path),
-        stderr_path=str(stderr_path),
-        last_message_path=str(last_message_path),
-        started_at=started_at,
-        finished_at=finished_at,
-    ).to_dict()
+        should_auto_resume = (
+            not dry_run
+            and returncode != 0
+            and bool(thread_id)
+            and termination_reason in AUTO_RESUME_TERMINATION_REASONS
+            and attempt <= max_auto_resume_attempts
+        )
+        if should_auto_resume:
+            resume_thread_id = str(thread_id)
+            if logger is not None:
+                logger.warning(
+                    "Codex packet=%s attempt=%s rc=%s reason=%s thread=%s; scheduling automatic resume",
+                    packet_id,
+                    attempt,
+                    returncode,
+                    termination_reason,
+                    resume_thread_id,
+                )
+            continue
+
+        result = CodexLaunchResult(
+            packet_id=packet_id,
+            returncode=returncode,
+            launcher=codex_binary,
+            command=command,
+            session_mode=session_mode,
+            resume_strategy=resume_strategy,
+            thread_id=thread_id,
+            resumed_from_thread_id=resumed_from_thread_id,
+            stdout_path=str(stdout_path),
+            stderr_path=str(stderr_path),
+            last_message_path=str(last_message_path),
+            started_at=started_at,
+            finished_at=finished_at,
+            termination_reason=termination_reason,
+            attempt=attempt,
+            attempt_count=len(attempts),
+            attempts=attempts,
+        ).to_dict()
+        break
     update_record(
         "packets",
         "packets",
