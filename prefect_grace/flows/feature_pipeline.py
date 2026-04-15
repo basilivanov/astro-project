@@ -340,7 +340,7 @@ def mark_feature_in_progress_task(feature_id: str):
 def run_packet_task(packet_id: str, dry_run: bool, timeout_seconds: int):
     logger = get_run_logger()
     logger.info("Running packet %s dry_run=%s", packet_id, dry_run)
-    return launch_codex_for_packet(packet_id, dry_run=dry_run, timeout_seconds=timeout_seconds)
+    return launch_codex_for_packet(packet_id, dry_run=dry_run, timeout_seconds=timeout_seconds, logger=logger)
 
 
 @task(task_run_name="verifier:{packet_id}")

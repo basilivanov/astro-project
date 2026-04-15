@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -21,6 +22,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
 RUNS_DIR = Path(__file__).resolve().parents[1] / "state" / "runs"
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
+DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -213,15 +215,88 @@ def _pump_stream(stream: TextIO | None, sink_path: Path) -> None:
             sink.flush()
 
 
+def _extract_last_stdout_event(stdout_path: Path, *, max_bytes: int = 16384) -> dict[str, str] | None:
+    if not stdout_path.exists() or stdout_path.stat().st_size == 0:
+        return None
+    with stdout_path.open("rb") as handle:
+        size = handle.seek(0, os.SEEK_END)
+        read_size = min(size, max_bytes)
+        handle.seek(-read_size, os.SEEK_END)
+        tail = handle.read(read_size).decode("utf-8", errors="replace")
+    lines = [line.strip() for line in tail.splitlines() if line.strip()]
+    for line in reversed(lines):
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        event_type = str(payload.get("type") or "").strip()
+        item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+        status = str(item.get("status") or "").strip()
+        if event_type or status:
+            return {
+                "event_type": event_type or "unknown",
+                "status": status or "unknown",
+            }
+    return None
+
+
+def _heartbeat_payload(*, run_dir: Path, stdout_path: Path, process: subprocess.Popen[str]) -> dict[str, Any]:
+    event = _extract_last_stdout_event(stdout_path)
+    stdout_bytes = stdout_path.stat().st_size if stdout_path.exists() else 0
+    return {
+        "run_dir": str(run_dir),
+        "stdout_path": str(stdout_path),
+        "stdout_bytes": stdout_bytes,
+        "pid": process.pid,
+        "event_type": (event or {}).get("event_type", "none"),
+        "event_status": (event or {}).get("status", "none"),
+    }
+
+
+def _format_heartbeat_message(packet_id: str, payload: dict[str, Any]) -> str:
+    return (
+        "Codex heartbeat packet=%s pid=%s run_dir=%s stdout_bytes=%s last_event=%s/%s stdout=%s"
+        % (
+            packet_id,
+            payload.get("pid"),
+            payload.get("run_dir"),
+            payload.get("stdout_bytes"),
+            payload.get("event_type"),
+            payload.get("event_status"),
+            payload.get("stdout_path"),
+        )
+    )
+
+
+def _heartbeat_loop(
+    process: subprocess.Popen[str],
+    *,
+    packet_id: str,
+    run_dir: Path,
+    stdout_path: Path,
+    logger: logging.Logger,
+    interval_seconds: float,
+    stop_event: threading.Event,
+) -> None:
+    while not stop_event.wait(interval_seconds):
+        if process.poll() is not None:
+            break
+        logger.info(_format_heartbeat_message(packet_id, _heartbeat_payload(run_dir=run_dir, stdout_path=stdout_path, process=process)))
+
+
 def _run_codex_process(
     command: list[str],
     *,
+    packet_id: str,
     prompt: str,
     workdir: str,
     env: dict[str, str],
     timeout_seconds: int,
     stdout_path: Path,
     stderr_path: Path,
+    run_dir: Path,
+    logger: logging.Logger | None = None,
+    heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
 ) -> int:
     process = subprocess.Popen(
         command,
@@ -237,6 +312,31 @@ def _run_codex_process(
     stderr_thread = threading.Thread(target=_pump_stream, args=(process.stderr, stderr_path), daemon=True)
     stdout_thread.start()
     stderr_thread.start()
+    heartbeat_stop = threading.Event()
+    heartbeat_thread: threading.Thread | None = None
+    if logger is not None:
+        logger.info(
+            "Launching Codex packet=%s pid=%s run_dir=%s stdout=%s stderr=%s",
+            packet_id,
+            process.pid,
+            run_dir,
+            stdout_path,
+            stderr_path,
+        )
+        heartbeat_thread = threading.Thread(
+            target=_heartbeat_loop,
+            args=(process,),
+            kwargs={
+                "packet_id": packet_id,
+                "run_dir": run_dir,
+                "stdout_path": stdout_path,
+                "logger": logger,
+                "interval_seconds": heartbeat_interval_seconds,
+                "stop_event": heartbeat_stop,
+            },
+            daemon=True,
+        )
+        heartbeat_thread.start()
     try:
         assert process.stdin is not None
         process.stdin.write(prompt)
@@ -250,16 +350,36 @@ def _run_codex_process(
             sink.write(f"\nTimed out after {timeout_seconds} seconds.\n")
             sink.flush()
     finally:
+        heartbeat_stop.set()
+        if heartbeat_thread is not None:
+            heartbeat_thread.join(timeout=5)
         stdout_thread.join(timeout=5)
         stderr_thread.join(timeout=5)
         if process.stdout is not None:
             process.stdout.close()
         if process.stderr is not None:
             process.stderr.close()
+        if logger is not None:
+            logger.info(
+                "Codex finished packet=%s pid=%s rc=%s stdout_bytes=%s run_dir=%s last_message=%s",
+                packet_id,
+                process.pid,
+                returncode,
+                stdout_path.stat().st_size if stdout_path.exists() else 0,
+                run_dir,
+                run_dir / "last-message.md",
+            )
     return returncode
 
 
-def launch_codex_for_packet(packet_id: str, *, dry_run: bool = False, timeout_seconds: int = 3600) -> dict[str, Any]:
+def launch_codex_for_packet(
+    packet_id: str,
+    *,
+    dry_run: bool = False,
+    timeout_seconds: int = 3600,
+    logger: logging.Logger | None = None,
+    heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+) -> dict[str, Any]:
     config = load_agent_config()
     packet = find_record("packets", "packets", "packet_id", packet_id)
     role = str(packet.get("role") or "coder")
@@ -311,15 +431,28 @@ def launch_codex_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
         stderr_path.write_text("", encoding="utf-8")
         last_message_path.write_text("DRY RUN: Codex was not launched.\n", encoding="utf-8")
         returncode = 0
+        if logger is not None:
+            logger.info(
+                "Codex dry-run packet=%s run_dir=%s stdout=%s stderr=%s last_message=%s",
+                packet_id,
+                run_dir,
+                stdout_path,
+                stderr_path,
+                last_message_path,
+            )
     else:
         returncode = _run_codex_process(
             command,
+            packet_id=packet_id,
             prompt=prompt,
             workdir=workdir,
             env=env,
             timeout_seconds=timeout_seconds,
             stdout_path=stdout_path,
             stderr_path=stderr_path,
+            run_dir=run_dir,
+            logger=logger,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
         )
     finished_at = datetime.now(timezone.utc).isoformat()
 
