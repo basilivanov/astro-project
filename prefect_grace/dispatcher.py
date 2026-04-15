@@ -16,6 +16,7 @@ from prefect_grace.models import FeatureStatus
 from prefect_grace.runtime_config import load_runtime_config
 from prefect_grace.tasks.job_queue import claim_next_job, list_jobs, update_job
 from prefect_grace.tasks.state_store import find_record
+from prefect_grace.tasks.telegram_notify import notify_feature_event
 
 FEATURE_DEPLOYMENT_NAME = "prefect-grace-feature-pipeline/live-feature-pipeline"
 ACTIVE_JOB_STATUSES = {"dispatching", "submitted", "running"}
@@ -158,6 +159,7 @@ def sync_running_jobs() -> list[dict[str, Any]]:
                 "prefect_state_type": state_type,
                 "prefect_state_name": state_name,
             }
+            should_notify_completed = False
             if state_type in {"pending", "scheduled", "running"}:
                 updates["status"] = "running"
             elif state_type == "completed":
@@ -166,13 +168,32 @@ def sync_running_jobs() -> list[dict[str, Any]]:
                 updates["feature_status"] = feature_status
                 updates["finished_at"] = end_time.isoformat() if end_time else None
                 updates["error"] = None
+                should_notify_completed = str(job.get("status") or "") != domain_status
             elif state_type in {"failed", "crashed", "cancelled"}:
                 updates["status"] = "failed"
                 updates["finished_at"] = end_time.isoformat() if end_time else None
                 updates["error"] = f"Prefect flow run ended as {state_name}"
             else:
                 updates["status"] = "running"
-            results.append(update_job(str(job["job_id"]), **updates))
+            updated = update_job(str(job["job_id"]), **updates)
+            if should_notify_completed:
+                feature_id = str(job.get("feature_id") or "")
+                blockers: list[str] = []
+                try:
+                    feature = find_record("features", "features", "feature_id", feature_id)
+                    blockers = list(feature.get("blocker_reasons") or [])
+                except KeyError:
+                    pass
+                notify_feature_event(
+                    feature_id=feature_id,
+                    title=str(job.get("title") or ""),
+                    status=str(updates.get("feature_status") or updates.get("status") or ""),
+                    summary=str(job.get("summary") or ""),
+                    flow_run_id=str(job.get("flow_run_id") or ""),
+                    blockers=blockers,
+                    next_action="feature-complete" if updates.get("status") == "completed" else "inspect-domain-blocker",
+                )
+            results.append(updated)
     return results
 
 

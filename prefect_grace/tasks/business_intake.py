@@ -5,6 +5,7 @@ from typing import Any
 import yaml
 
 from prefect_grace.tasks.job_queue import enqueue_feature_job
+from prefect_grace.tasks.telegram_notify import notify_submission_event
 from prefect_grace.tasks.workdir import resolve_execution_workdir
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "business_feature_brief.yaml"
@@ -60,7 +61,7 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
         payload.get("requires_frontend_visual"),
         default=touches_frontend or bool(visual_expectations),
     )
-    execute = _normalize_bool(payload.get("execute"), default=False)
+    execute = _normalize_bool(payload.get("execute"), default=True)
     include_day_live_canary = _normalize_bool(payload.get("verifier", {}).get("include_day_live_canary"), default=False)
 
     implementation_title = str(
@@ -163,4 +164,10 @@ def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
         "non_goals": brief["non_goals"],
         "visual_expectations": brief["visual_expectations"],
     }
+    notify_submission_event(
+        feature_id=record["feature_id"],
+        title=record["title"],
+        execute=bool(record.get("execute")),
+        brief_path=str(Path(path)),
+    )
     return record

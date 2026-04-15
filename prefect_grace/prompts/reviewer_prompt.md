@@ -18,6 +18,7 @@ Rules:
 9. If the evidence failure is caused by a malformed pipeline contract, invalid verifier command schema, or missing orchestration wiring, block it as a pipeline issue in the reasons instead of treating the product change itself as incorrect.
 10. If the product change is implemented correctly but the verifier reports only missing evidence, missing visual captures, or `no-evidence-blocker`, prefer `rework_required` with `localized_rework` instead of `blocked`.
 11. Use `blocked` only when the packet cannot proceed without pipeline repair, environment repair, or an architect/business decision.
+12. If a localized rework packet still fails on the same observability or canonical-evidence blocker, do not request another localized rework; return `blocked` and name it as pipeline repair.
 
 Output sections:
 - Verdict

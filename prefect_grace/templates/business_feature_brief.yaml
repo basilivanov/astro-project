@@ -37,7 +37,7 @@ implementation:
   title: Live Implementation Packet
   summary: Optional packet summary override.
 
-execute: false
+execute: true
 timeout_seconds: 7200
 agent_workdir: /tmp/prefect_grace_feature_workdir
 agent_sandbox: danger-full-access

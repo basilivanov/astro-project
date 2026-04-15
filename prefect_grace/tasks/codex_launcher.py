@@ -32,6 +32,10 @@ class CodexLaunchResult:
     returncode: int
     launcher: str
     command: list[str]
+    session_mode: str
+    resume_strategy: str
+    thread_id: str | None
+    resumed_from_thread_id: str | None
     stdout_path: str
     stderr_path: str
     last_message_path: str
@@ -44,6 +48,10 @@ class CodexLaunchResult:
             "returncode": self.returncode,
             "launcher": self.launcher,
             "command": self.command,
+            "session_mode": self.session_mode,
+            "resume_strategy": self.resume_strategy,
+            "thread_id": self.thread_id,
+            "resumed_from_thread_id": self.resumed_from_thread_id,
             "stdout_path": self.stdout_path,
             "stderr_path": self.stderr_path,
             "last_message_path": self.last_message_path,
@@ -204,6 +212,169 @@ def role_prompt_for(role: str) -> str:
     if prompt_path.exists():
         return prompt_path.read_text(encoding="utf-8")
     return "You are a strict-GRACE agent. Follow the assigned packet exactly."
+
+
+def _normalize_resume_strategy(value: Any) -> str:
+    strategy = str(value or "none").strip().lower().replace("-", "_")
+    if strategy not in {"none", "feature_role"}:
+        return "none"
+    return strategy
+
+
+def _resolve_resume_strategy(packet: dict[str, Any], role_defaults: dict[str, Any]) -> str:
+    execution_hints = dict(packet.get("execution_hints") or {})
+    return _normalize_resume_strategy(execution_hints.get("resume_strategy") or role_defaults.get("resume_strategy"))
+
+
+def _feature_role_session(feature_id: str, role: str) -> dict[str, Any] | None:
+    try:
+        feature = find_record("features", "features", "feature_id", feature_id)
+    except KeyError:
+        return None
+    role_threads = feature.get("role_threads") or {}
+    session = role_threads.get(role)
+    if isinstance(session, dict):
+        return dict(session)
+    return None
+
+
+def _store_feature_role_session(
+    *,
+    feature_id: str,
+    role: str,
+    thread_id: str,
+    launcher: str,
+    packet_id: str,
+    reasoning: str,
+    sandbox: str,
+    approval: str,
+    model: str,
+    session_mode: str,
+    run_dir: Path,
+    resumed_from_thread_id: str | None,
+) -> dict[str, Any] | None:
+    try:
+        feature = find_record("features", "features", "feature_id", feature_id)
+    except KeyError:
+        return None
+    role_threads = dict(feature.get("role_threads") or {})
+    previous = role_threads.get(role) if isinstance(role_threads.get(role), dict) else {}
+    session = {
+        **previous,
+        "thread_id": thread_id,
+        "launcher": launcher,
+        "packet_id": packet_id,
+        "reasoning": reasoning,
+        "sandbox": sandbox,
+        "approval": approval,
+        "model": model,
+        "session_mode": session_mode,
+        "resumed_from_thread_id": resumed_from_thread_id,
+        "run_dir": str(run_dir),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    role_threads[role] = session
+    update_record(
+        "features",
+        "features",
+        "feature_id",
+        feature_id,
+        {"role_threads": role_threads},
+    )
+    return session
+
+
+def _extract_thread_id(stdout_path: Path) -> str | None:
+    if not stdout_path.exists():
+        return None
+    with stdout_path.open("r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            if str(payload.get("type") or "").strip() != "thread.started":
+                continue
+            thread_id = str(payload.get("thread_id") or "").strip()
+            if thread_id:
+                return thread_id
+    return None
+
+
+def _config_override_args(*, reasoning: str, approval: str, sandbox: str | None = None) -> list[str]:
+    args = ["-c", f'model_reasoning_effort="{reasoning}"']
+    if approval:
+        args.extend(["-c", f'approval_policy="{approval}"'])
+    if sandbox:
+        args.extend(["-c", f'sandbox_mode="{sandbox}"'])
+    return args
+
+
+def _uses_bypass_sandbox(sandbox: str, approval: str) -> bool:
+    return sandbox == "danger-full-access" and approval == "never"
+
+
+def _build_exec_command(
+    *,
+    codex_binary: str,
+    workdir: str,
+    shared_model: str,
+    reasoning: str,
+    approval: str,
+    sandbox: str,
+    last_message_path: Path,
+) -> list[str]:
+    command = [
+        codex_binary,
+        "exec",
+        "-C",
+        workdir,
+        "-m",
+        shared_model,
+        "--json",
+        "--output-last-message",
+        str(last_message_path),
+        *_config_override_args(reasoning=reasoning, approval=approval),
+    ]
+    if _uses_bypass_sandbox(sandbox, approval):
+        command.append("--dangerously-bypass-approvals-and-sandbox")
+    else:
+        command.extend(["--sandbox", sandbox])
+    command.append("-")
+    return command
+
+
+def _build_resume_command(
+    *,
+    codex_binary: str,
+    workdir: str,
+    shared_model: str,
+    reasoning: str,
+    approval: str,
+    sandbox: str,
+    thread_id: str,
+    last_message_path: Path,
+) -> list[str]:
+    command = [
+        codex_binary,
+        "exec",
+        "-C",
+        workdir,
+        "resume",
+        "--json",
+        "--output-last-message",
+        str(last_message_path),
+        "-m",
+        shared_model,
+        *_config_override_args(reasoning=reasoning, approval=approval, sandbox=sandbox),
+    ]
+    if _uses_bypass_sandbox(sandbox, approval):
+        command.append("--dangerously-bypass-approvals-and-sandbox")
+    command.extend([thread_id, "-"])
+    return command
 
 
 def _pump_stream(stream: TextIO | None, sink_path: Path) -> None:
@@ -412,6 +583,7 @@ def launch_codex_for_packet(
     reasoning = str(packet.get("reasoning") or role_defaults.get("reasoning") or ReasoningProfile.HIGH.value)
     sandbox = str(execution_hints.get("sandbox") or role_defaults.get("sandbox") or "workspace-write")
     approval = str(role_defaults.get("approval") or "never")
+    resume_strategy = _resolve_resume_strategy(packet, role_defaults)
     codex_binary = str(config.get("codex", {}).get("binary") or "codex1")
     shared_model = str(config.get("codex", {}).get("shared_model") or "gpt-5.4")
     configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
@@ -428,24 +600,36 @@ def launch_codex_for_packet(
     last_message_path = run_dir / "last-message.md"
     prompt_path.write_text(prompt, encoding="utf-8")
 
-    command = [
-        codex_binary,
-        "exec",
-        "-C",
-        workdir,
-        "-m",
-        shared_model,
-        "--json",
-        "--output-last-message",
-        str(last_message_path),
-        "--sandbox",
-        sandbox,
-        "-c",
-        f'model_reasoning_effort="{reasoning}"',
-        "-",
-    ]
-    if approval != "never":
-        command.extend(["--profile", approval])
+    existing_session = (
+        _feature_role_session(str(packet.get("feature_id")), role)
+        if resume_strategy == "feature_role"
+        else None
+    )
+    resumed_from_thread_id = None
+    session_mode = "exec"
+    if existing_session and str(existing_session.get("thread_id") or "").strip():
+        resumed_from_thread_id = str(existing_session.get("thread_id")).strip()
+        session_mode = "resume"
+        command = _build_resume_command(
+            codex_binary=codex_binary,
+            workdir=workdir,
+            shared_model=shared_model,
+            reasoning=reasoning,
+            approval=approval,
+            sandbox=sandbox,
+            thread_id=resumed_from_thread_id,
+            last_message_path=last_message_path,
+        )
+    else:
+        command = _build_exec_command(
+            codex_binary=codex_binary,
+            workdir=workdir,
+            shared_model=shared_model,
+            reasoning=reasoning,
+            approval=approval,
+            sandbox=sandbox,
+            last_message_path=last_message_path,
+        )
     env = os.environ.copy()
     env.pop("CODEX_FORCE_PROFILE_MODEL_PREFIX", None)
 
@@ -464,6 +648,7 @@ def launch_codex_for_packet(
                 stderr_path,
                 last_message_path,
             )
+        thread_id = resumed_from_thread_id
     else:
         returncode = _run_codex_process(
             command,
@@ -479,13 +664,34 @@ def launch_codex_for_packet(
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             stall_timeout_seconds=stall_timeout_seconds,
         )
+        thread_id = _extract_thread_id(stdout_path) or resumed_from_thread_id
     finished_at = datetime.now(timezone.utc).isoformat()
+
+    if resume_strategy == "feature_role" and thread_id:
+        _store_feature_role_session(
+            feature_id=str(packet.get("feature_id")),
+            role=role,
+            thread_id=thread_id,
+            launcher=codex_binary,
+            packet_id=packet_id,
+            reasoning=reasoning,
+            sandbox=sandbox,
+            approval=approval,
+            model=shared_model,
+            session_mode=session_mode,
+            run_dir=run_dir,
+            resumed_from_thread_id=resumed_from_thread_id,
+        )
 
     result = CodexLaunchResult(
         packet_id=packet_id,
         returncode=returncode,
         launcher=codex_binary,
         command=command,
+        session_mode=session_mode,
+        resume_strategy=resume_strategy,
+        thread_id=thread_id,
+        resumed_from_thread_id=resumed_from_thread_id,
         stdout_path=str(stdout_path),
         stderr_path=str(stderr_path),
         last_message_path=str(last_message_path),
@@ -500,6 +706,9 @@ def launch_codex_for_packet(
         {
             "last_codex_run": result,
             "last_execution_run": result,
+            "last_thread_id": thread_id,
+            "last_session_mode": session_mode,
+            "last_resume_strategy": resume_strategy,
             "status": "review" if returncode == 0 else "blocked",
         },
     )

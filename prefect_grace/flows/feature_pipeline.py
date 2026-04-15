@@ -37,6 +37,7 @@ from prefect_grace.tasks.review_router import (
     record_wave_review,
 )
 from prefect_grace.tasks.state_store import find_record, update_record
+from prefect_grace.tasks.telegram_notify import notify_feature_event, notify_packet_event, notify_wave_event
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
     append_unique_packet,
@@ -101,6 +102,16 @@ _TERMINAL_REVIEW_MARKERS = (
     "schema",
     "environment unavailable",
 )
+_OBSERVABILITY_REVIEW_MARKERS = (
+    "observability",
+    "no-evidence-blocker",
+    "canonical logs",
+    "canonical evidence",
+    "trace_id",
+    "correlation_id",
+    "request_id",
+    "report_id",
+)
 
 
 def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
@@ -119,6 +130,41 @@ def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
         "packet_verdict": ReviewVerdict.REWORK_REQUIRED.value,
         "follow_up_action": "localized_rework",
         "source": "pipeline_normalized_rework",
+    }
+
+
+def _escalate_repeated_observability_rework_for_pipeline(
+    decision: dict,
+    *,
+    target_packet_id: str,
+    packets_by_id: dict[str, dict],
+) -> dict:
+    if str(decision.get("packet_verdict") or "") != ReviewVerdict.REWORK_REQUIRED.value:
+        return decision
+    target_packet = dict(packets_by_id.get(str(target_packet_id)) or {})
+    parent_packet_id = str(target_packet.get("parent_packet_id") or "").strip()
+    if not parent_packet_id:
+        return decision
+    reasons = [str(item).strip() for item in list(decision.get("reasons") or []) if str(item).strip()]
+    if not reasons:
+        return decision
+    lowered = [reason.lower() for reason in reasons]
+    if any(any(marker in reason for marker in _TERMINAL_REVIEW_MARKERS) for reason in lowered):
+        return decision
+    if not any(any(marker in reason for marker in _OBSERVABILITY_REVIEW_MARKERS) for reason in lowered):
+        return decision
+    repeated_reason = (
+        f"Repeated observability-only rework for {parent_packet_id} still did not produce canonical evidence; "
+        "pipeline repair required before another coder packet."
+    )
+    if not any("pipeline repair" in reason.lower() for reason in reasons):
+        reasons = [*reasons, repeated_reason]
+    return {
+        **decision,
+        "packet_verdict": ReviewVerdict.BLOCKED.value,
+        "follow_up_action": "none",
+        "reasons": reasons,
+        "source": "pipeline_rework_escalation",
     }
 
 
@@ -387,7 +433,14 @@ def validate_planner_contract_task(
 def mark_feature_in_progress_task(feature_id: str):
     logger = get_run_logger()
     logger.info("Marking feature %s as in progress", feature_id)
-    return mark_feature_status(feature_id, FeatureStatus.IN_PROGRESS)
+    record = mark_feature_status(feature_id, FeatureStatus.IN_PROGRESS)
+    notify_feature_event(
+        feature_id=feature_id,
+        title=str(record.get("title") or ""),
+        status=FeatureStatus.IN_PROGRESS.value,
+        summary=str(record.get("summary") or ""),
+    )
+    return record
 
 
 @task(task_run_name="packet:{packet_id}")
@@ -409,7 +462,16 @@ def mark_packet_status_task(packet_id: str, status: str):
     logger = get_run_logger()
     PacketStatus(status)
     logger.info("Packet %s status=%s", packet_id, status)
-    return update_record("packets", "packets", "packet_id", packet_id, {"status": status})
+    record = update_record("packets", "packets", "packet_id", packet_id, {"status": status})
+    notify_packet_event(
+        feature_id=str(record.get("feature_id") or ""),
+        packet_id=packet_id,
+        role=str(record.get("role") or ""),
+        status=status,
+        wave_id=str(record.get("wave_id") or ""),
+        title=str(record.get("title") or ""),
+    )
+    return record
 
 
 @task(task_run_name="review-route:{coder_packet_id}")
@@ -451,6 +513,15 @@ def route_reviewer_verdict_task(
         mark_packet_status_task(reviewer_packet_id, PacketStatus.BLOCKED.value)
         mark_packet_status_task(coder_packet_id, PacketStatus.BLOCKED.value)
     logger.info("Reviewer routed verdict=%s for packet %s", verdict.value, coder_packet_id)
+    notify_packet_event(
+        feature_id=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("feature_id") or ""),
+        packet_id=coder_packet_id,
+        role=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("role") or ""),
+        status=verdict.value,
+        wave_id=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("wave_id") or ""),
+        title=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("title") or ""),
+        reasons=review_reasons,
+    )
     return {
         "review": review,
         "rework": rework,
@@ -485,6 +556,12 @@ def route_architect_wave_verdict_task(
     else:
         mark_packet_status_task(architect_packet_id, PacketStatus.BLOCKED.value)
     logger.info("Architect wave gate routed verdict=%s for %s/%s", verdict.value, feature_id, wave_id)
+    notify_wave_event(
+        feature_id=feature_id,
+        wave_id=wave_id,
+        verdict=verdict.value,
+        reasons=wave_reasons,
+    )
     return {
         "wave_review": review,
         "wave_verdict": verdict.value,
@@ -1036,6 +1113,11 @@ def feature_pipeline(
                         prefer_agent_output,
                     )
                     reviewer_decision = _normalize_reviewer_decision_for_pipeline(reviewer_decision)
+                    reviewer_decision = _escalate_repeated_observability_rework_for_pipeline(
+                        reviewer_decision,
+                        target_packet_id=target_packet_id,
+                        packets_by_id=packets_by_id,
+                    )
                     reviewer_decision_index += 1
                     with tags(f"wave:{wave_id}", "role:reviewer"):
                         review_route = route_reviewer_verdict_task(
@@ -1270,6 +1352,13 @@ def feature_pipeline(
             "has_failures": False,
             "next_action": "feature-complete",
         }
+        notify_feature_event(
+            feature_id=feature_id,
+            title=str(seeded["feature"].get("title") or title),
+            status=FeatureStatus.ACCEPTED.value,
+            summary=str(seeded["feature"].get("summary") or summary),
+            next_action="feature-complete",
+        )
         publish_feature_artifacts_task(
             seeded["feature"],
             packet_results,
