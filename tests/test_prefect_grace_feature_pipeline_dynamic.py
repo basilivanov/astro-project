@@ -19,6 +19,7 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
         prefer_agent_output=False,
         reviewer_verdict="accepted",
         wave_verdict="accepted",
+        verifier_observability_profile="today-week",
         planner_contract={
             "waves": [
                 {"wave_id": "W01", "title": "Wave 1", "objective": "Backend slice", "exit_conditions": ["accepted"]},
@@ -51,6 +52,7 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
                     "reasoning": "xhigh",
                     "summary": "Review backend slice",
                     "dependencies": ["coder_backend", "verifier_backend"],
+                    "review_target_key": "coder_backend",
                 },
                 {
                     "key": "architect_backend",
@@ -87,6 +89,7 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
                     "reasoning": "xhigh",
                     "summary": "Review frontend slice",
                     "dependencies": ["coder_frontend", "verifier_frontend"],
+                    "review_target_key": "coder_frontend",
                 },
                 {
                     "key": "architect_frontend",
@@ -124,6 +127,7 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
         reviewer_verdict_script=["rework_required", "accepted"],
         review_reasons_script=[["Fix boundary condition"], []],
         wave_verdict_script=["accepted"],
+        verifier_observability_profile="today-week",
         planner_contract={
             "waves": [
                 {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
@@ -155,6 +159,7 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
                     "reasoning": "xhigh",
                     "summary": "Review slice",
                     "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
                 },
                 {
                     "key": "architect_main",

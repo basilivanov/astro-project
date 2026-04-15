@@ -41,6 +41,15 @@ def test_feature_domain_outcome_maps_statuses(monkeypatch):
     assert dispatcher._feature_domain_outcome("F1") == ("blocked", FeatureStatus.BLOCKED.value)
 
 
+def test_feature_domain_outcome_maps_pipeline_invalid(monkeypatch):
+    monkeypatch.setattr(
+        dispatcher,
+        "find_record",
+        lambda *args, **kwargs: {"status": FeatureStatus.PIPELINE_INVALID.value},
+    )
+    assert dispatcher._feature_domain_outcome("F1") == ("blocked", FeatureStatus.PIPELINE_INVALID.value)
+
+
 def test_sync_running_jobs_maps_completed_to_domain(monkeypatch):
     job = {"job_id": "job-1", "status": "submitted", "flow_run_id": "fr-1", "feature_id": "FEAT-1"}
     monkeypatch.setattr(dispatcher, "list_jobs", lambda: [job])

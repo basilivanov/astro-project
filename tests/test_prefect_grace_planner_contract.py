@@ -65,6 +65,7 @@ def test_materialize_planner_contract_creates_packets(tmp_path: Path) -> None:
                     'reasoning': 'xhigh',
                     'summary': 'Review backend change',
                     'dependencies': ['coder_main', 'verifier_main'],
+                    'review_target_key': 'coder_main',
                 },
                 {
                     'key': 'architect_wave_gate',
@@ -133,6 +134,18 @@ def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_pat
                         'backend': 'not required',
                         'frontend': 'Run `corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx` and `./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts`',
                         'observability': 'Run `python3 tools/post_test_review.py --profile today-week --since 30m --report-format md`',
+                        'execution': {
+                            'frontend_commands': [
+                                'corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx',
+                                './scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts',
+                            ],
+                            'observability_commands': [
+                                'python3 tools/post_test_review.py --profile today-week --since 30m --report-format md'
+                            ],
+                            'touches_frontend': True,
+                            'requires_frontend_visual': True,
+                            'artifact_globs': ['frontend/test-results/**/*'],
+                        },
                     },
                 },
             ],
@@ -151,6 +164,32 @@ def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_pat
     assert hints['observability_commands'] == [
         'python3 tools/post_test_review.py --profile today-week --since 30m --report-format md'
     ]
+def test_materialize_planner_contract_sets_explicit_review_target(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / 'state'
+    packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-PLAN-REVIEW-TARGET'
+    if packets_dir.exists():
+        import shutil
+        shutil.rmtree(packets_dir)
+
+    seeded = seed_test_feature(
+        feature_id='FEAT-PLAN-REVIEW-TARGET',
+        title='Planner Review Target',
+        summary='Require explicit reviewer target',
+        implementation_title='Contract implementation',
+        implementation_summary='Implement from planner contract',
+        planner_contract={
+            'waves': [{'wave_id': 'W01', 'title': 'Wave 1', 'objective': 'Deliver slice', 'exit_conditions': ['accepted']}],
+            'packets': [
+                {'key': 'coder_main', 'wave_id': 'W01', 'title': 'Coder', 'role': 'coder', 'reasoning': 'high', 'summary': 'Do work', 'dependencies': []},
+                {'key': 'verifier_main', 'wave_id': 'W01', 'title': 'Verifier', 'role': 'verifier', 'reasoning': 'high', 'summary': 'Verify', 'dependencies': ['coder_main']},
+                {'key': 'reviewer_main', 'wave_id': 'W01', 'title': 'Reviewer', 'role': 'reviewer', 'reasoning': 'xhigh', 'summary': 'Review', 'dependencies': ['coder_main', 'verifier_main'], 'review_target_key': 'coder_main'},
+            ],
+        },
+    )
+    reviewer = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'reviewer')
+    coder = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'coder')
+    stored = find_record('packets', 'packets', 'packet_id', reviewer['packet_id'])
+    assert stored['review_target_packet_id'] == coder['packet_id']
 
 
 def test_normalize_planner_contract_rejects_unknown_dependency() -> None:

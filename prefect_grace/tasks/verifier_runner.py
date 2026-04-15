@@ -86,6 +86,33 @@ def build_verifier_plan(packet: dict[str, Any], config: dict[str, Any]) -> dict[
     }
 
 
+def validate_verifier_plan(packet: dict[str, Any], plan: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    hints = dict(packet.get("execution_hints") or {})
+
+    for key in ("backend_commands", "frontend_commands", "observability_commands"):
+        value = hints.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            issues.append(f"{key} must be a list of shell commands.")
+            continue
+        for item in value:
+            if not isinstance(item, str) or not item.strip():
+                issues.append(f"{key} contains an empty or non-string command.")
+            elif item.strip().startswith("{") or item.strip().startswith("["):
+                issues.append(f"{key} contains non-executable structured text instead of a shell command.")
+
+    if plan["touches_frontend"] and not any(step.phase == "frontend" for step in plan["steps"]):
+        issues.append("Frontend-touching verifier packet is missing explicit frontend commands.")
+    if plan["requires_frontend_visual"] and not plan.get("artifact_globs"):
+        issues.append("Frontend visual verification requires artifact globs for screenshot/video evidence.")
+    if not any(step.phase == "observability" for step in plan["steps"]):
+        issues.append("Verifier packet is missing explicit observability commands.")
+
+    return issues
+
+
 def build_verifier_message(
     *,
     commands_run: list[str],
@@ -198,6 +225,7 @@ def run_verifier_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
         raise ValueError(f"Packet {packet_id} is not a verifier packet")
     config = load_agent_config()
     plan = build_verifier_plan(packet, config)
+    plan_issues = validate_verifier_plan(packet, plan)
     execution_hints = dict(packet.get("execution_hints") or {})
     configured_workdir = str(execution_hints.get("workdir") or ROOT_DIR)
     workdir = resolve_execution_workdir(configured_workdir)
@@ -220,6 +248,45 @@ def run_verifier_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
         "observability_profile": plan["observability_profile"],
     }
     plan_path.write_text(json.dumps(plan_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if plan_issues:
+        message = build_verifier_message(
+            commands_run=[],
+            test_verdict=TestVerdict.FAILED.value,
+            observability_verdict=ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value,
+            frontend_visual_verdict=FrontendVisualVerdict.NOT_APPLICABLE.value,
+            evidence_paths=[str(plan_path)],
+            blocking_issues=plan_issues,
+        )
+        last_message_path.write_text(message, encoding="utf-8")
+        result = {
+            "packet_id": packet_id,
+            "returncode": 0,
+            "runner": "verifier",
+            "command": [],
+            "stdout_path": str(stdout_path),
+            "stderr_path": str(stderr_path),
+            "last_message_path": str(last_message_path),
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "steps": [],
+            "pipeline_invalid": True,
+            "pipeline_invalid_reasons": plan_issues,
+        }
+        stdout_path.write_text(json.dumps({"packet_id": packet_id, "pipeline_invalid": plan_issues}, ensure_ascii=False), encoding="utf-8")
+        stderr_path.write_text("\n".join(plan_issues), encoding="utf-8")
+        update_record(
+            "packets",
+            "packets",
+            "packet_id",
+            packet_id,
+            {
+                "last_verifier_run": result,
+                "last_execution_run": result,
+                "status": "blocked",
+            },
+        )
+        return result
 
     started_at = datetime.now(timezone.utc)
     command_results: list[dict[str, Any]] = []

@@ -51,6 +51,12 @@ def packet_result_key(prefix: str, packet_id: str) -> str:
 
 
 def reviewer_target_packet_id(reviewer_packet: dict[str, Any], packets_by_id: dict[str, dict[str, Any]]) -> str:
+    explicit_target = str(reviewer_packet.get("review_target_packet_id") or "").strip()
+    if explicit_target:
+        packet = packets_by_id.get(explicit_target)
+        if packet:
+            return explicit_target
+        raise ValueError(f"Reviewer packet {reviewer_packet.get('packet_id')} references unknown explicit review target {explicit_target}")
     dependencies = _dependencies(reviewer_packet)
     for dependency in dependencies:
         packet = packets_by_id.get(dependency)

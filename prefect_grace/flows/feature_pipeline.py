@@ -51,6 +51,35 @@ from prefect_grace.tasks.wave_executor import (
 )
 
 
+def _failure_status_for_category(category: str) -> FeatureStatus:
+    return {
+        "pipeline_invalid": FeatureStatus.PIPELINE_INVALID,
+        "verification_blocked": FeatureStatus.VERIFICATION_BLOCKED,
+        "environment_blocked": FeatureStatus.ENVIRONMENT_BLOCKED,
+        "product_blocked": FeatureStatus.PRODUCT_BLOCKED,
+    }.get(category, FeatureStatus.BLOCKED)
+
+
+def _final_failure(
+    *,
+    feature_id: str,
+    category: str,
+    next_action: str,
+    reasons: list[str] | None = None,
+) -> dict:
+    return {
+        "feature": mark_feature_status(
+            feature_id,
+            _failure_status_for_category(category),
+            blocker_reasons=list(reasons or []),
+        ),
+        "has_failures": True,
+        "next_action": next_action,
+        "failure_category": category,
+        "reasons": list(reasons or []),
+    }
+
+
 @task(task_run_name="bootstrap:{feature_id}")
 def bootstrap_task(feature_id: str, title: str, summary: str):
     logger = get_run_logger()
@@ -254,6 +283,50 @@ def materialize_planner_contract_task(
     )
     logger.info('Materialized planner contract with %s packets for %s', len(materialized['packets']), feature_id)
     return materialized
+
+
+@task(task_run_name="planner-contract:validate:{feature_id}")
+def validate_planner_contract_task(
+    feature_id: str,
+    materialized_contract: dict,
+):
+    logger = get_run_logger()
+    packets = list(materialized_contract.get("packets") or [])
+    packets_by_id = packet_map(packets)
+    issues: list[str] = []
+
+    for packet in packets:
+        packet_id = str(packet.get("packet_id") or "")
+        role = str(packet.get("role") or "")
+        if role == "reviewer":
+            explicit_target = str(packet.get("review_target_packet_id") or "").strip()
+            if not explicit_target:
+                issues.append(f"{packet_id}: reviewer packet is missing explicit review_target_packet_id")
+            elif explicit_target not in packets_by_id:
+                issues.append(f"{packet_id}: explicit review target does not resolve to a generated packet")
+        if role == "verifier":
+            hints = dict(packet.get("execution_hints") or {})
+            for key in ("backend_commands", "frontend_commands", "observability_commands"):
+                value = hints.get(key)
+                if value is None:
+                    continue
+                if not isinstance(value, list):
+                    issues.append(f"{packet_id}: {key} must be a list")
+                    continue
+                for item in value:
+                    if not isinstance(item, str) or not item.strip():
+                        issues.append(f"{packet_id}: {key} contains empty/non-string command")
+                    elif item.strip().startswith("{") or item.strip().startswith("["):
+                        issues.append(f"{packet_id}: {key} contains structured text instead of shell command")
+            if hints.get("touches_frontend") and not list(hints.get("frontend_commands") or []) and not hints.get("frontend_profile"):
+                issues.append(f"{packet_id}: frontend-touching verifier is missing explicit frontend execution lane")
+            if hints.get("touches_frontend") and hints.get("requires_frontend_visual") and not list(hints.get("artifact_globs") or []):
+                issues.append(f"{packet_id}: frontend visual verification requires artifact_globs")
+            if not list(hints.get("observability_commands") or []) and not hints.get("observability_profile"):
+                issues.append(f"{packet_id}: verifier is missing explicit observability execution lane")
+
+    logger.info("Planner contract validation for %s issues=%s", feature_id, len(issues))
+    return {"valid": not issues, "issues": issues}
 
 
 @task(task_run_name="feature-status:{feature_id}:in-progress")
@@ -578,11 +651,11 @@ def feature_pipeline(
             architect_run = run_packet_task(architect_packet_id, dry_run, timeout_seconds)
         packet_results["architect"] = architect_run
         if architect_run.get("returncode") != 0:
-            final_status = {
-                "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                "has_failures": True,
-                "next_action": "inspect-failed-architect",
-            }
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="environment_blocked",
+                next_action="inspect-failed-architect",
+            )
             publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
             return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
         with tags("wave:W00", "role:architect"):
@@ -604,11 +677,11 @@ def feature_pipeline(
             planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
         packet_results["planner"] = planner_run
         if planner_run.get("returncode") != 0:
-            final_status = {
-                "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                "has_failures": True,
-                "next_action": "inspect-failed-planner",
-            }
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="environment_blocked",
+                next_action="inspect-failed-planner",
+            )
             publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
             return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
         with tags("wave:W00", "role:planner"):
@@ -650,6 +723,17 @@ def feature_pipeline(
             verifier_include_day_live_canary,
         )
         packet_results["planner_materialized"] = materialized_contract
+        planner_validation = validate_planner_contract_task(feature_id, materialized_contract)
+        packet_results["planner_validation"] = planner_validation
+        if not planner_validation["valid"]:
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="pipeline_invalid",
+                next_action="fix-planner-contract",
+                reasons=list(planner_validation.get("issues") or []),
+            )
+            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
+            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
 
         generated_packets = list(materialized_contract["packets"])
         packets_by_id = packet_map(generated_packets)
@@ -689,11 +773,12 @@ def feature_pipeline(
                     queue_ids.add(packet_id)
                     idle_steps += 1
                     if idle_steps > max(len(queue_packets), 1) + 1:
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"dependency-deadlock:{packet_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="pipeline_invalid",
+                            next_action=f"dependency-deadlock:{packet_id}",
+                            reasons=list(missing_dependencies),
+                        )
                         packet_results[packet_result_key("dependency_error", packet_id)] = {
                             "packet_id": packet_id,
                             "missing_dependencies": missing_dependencies,
@@ -724,11 +809,11 @@ def feature_pipeline(
                         packet_run = run_packet_task(packet_id, dry_run, timeout_seconds)
                     packet_results[packet_result_key("run", packet_id)] = packet_run
                     if packet_run.get("returncode") != 0:
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"inspect-failed-packet:{packet_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="environment_blocked",
+                            next_action=f"inspect-failed-packet:{packet_id}",
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -761,11 +846,11 @@ def feature_pipeline(
                         verifier_run = run_verifier_packet_task(packet_id, dry_run, timeout_seconds)
                     packet_results[packet_result_key("verifier-run", packet_id)] = verifier_run
                     if verifier_run.get("returncode") != 0:
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"inspect-failed-verifier:{packet_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="environment_blocked",
+                            next_action=f"inspect-failed-verifier:{packet_id}",
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -797,11 +882,12 @@ def feature_pipeline(
                     if verifier_result.get("source") == "parse_error":
                         with tags(f"wave:{wave_id}", "role:verifier"):
                             mark_packet_status_task(packet_id, PacketStatus.BLOCKED.value)
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"inspect-verifier-parse-error:{packet_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="pipeline_invalid",
+                            next_action=f"inspect-verifier-parse-error:{packet_id}",
+                            reasons=list(verifier_result.get("blocking_issues") or []),
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -895,11 +981,11 @@ def feature_pipeline(
                             feature_status = FeatureStatus.IN_PROGRESS
                             next_action = "run-rework-packet"
                             continue
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"missing-rework-packet:{packet_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="pipeline_invalid",
+                            next_action=f"missing-rework-packet:{packet_id}",
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -941,11 +1027,19 @@ def feature_pipeline(
                             "final_status": final_status,
                         }
                     if review_route["reviewer_verdict"] == ReviewVerdict.BLOCKED.value:
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"inspect-review-blockers:{packet_id}",
-                        }
+                        reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                        category = "verification_blocked"
+                        if any(
+                            "pipeline" in reason.lower() or "verifier packet is missing" in reason.lower() or "structured text" in reason.lower()
+                            for reason in reasons
+                        ):
+                            category = "pipeline_invalid"
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category=category,
+                            next_action=f"inspect-review-blockers:{packet_id}",
+                            reasons=reasons,
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -1002,11 +1096,12 @@ def feature_pipeline(
                             "next_action": f"architect-wave-rework-required:{wave_id}",
                         }
                     else:
-                        final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                            "has_failures": True,
-                            "next_action": f"architect-wave-blocked:{wave_id}",
-                        }
+                        final_status = _final_failure(
+                            feature_id=feature_id,
+                            category="product_blocked",
+                            next_action=f"architect-wave-blocked:{wave_id}",
+                            reasons=list((wave_route.get("wave_review") or {}).get("reasons") or []),
+                        )
                     publish_feature_artifacts_task(
                         seeded["feature"],
                         packet_results,
@@ -1026,11 +1121,11 @@ def feature_pipeline(
                     }
 
             if wave_route is None:
-                final_status = {
-                    "feature": mark_feature_status(feature_id, FeatureStatus.BLOCKED),
-                    "has_failures": True,
-                    "next_action": f"missing-architect-wave-gate:{wave_id}",
-                }
+                final_status = _final_failure(
+                    feature_id=feature_id,
+                    category="pipeline_invalid",
+                    next_action=f"missing-architect-wave-gate:{wave_id}",
+                )
                 publish_feature_artifacts_task(
                     seeded["feature"],
                     packet_results,

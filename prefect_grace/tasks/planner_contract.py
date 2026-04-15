@@ -207,6 +207,7 @@ def normalize_wave_plan_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 "dependencies": _string_list(packet.get("dependencies")),
                 "notes": _string_list(packet.get("notes")),
                 "execution_hints": dict(packet.get("execution_hints") or {}),
+                "review_target_key": str(packet.get("review_target_key") or "").strip(),
             }
         )
 
@@ -264,6 +265,15 @@ def materialize_planner_contract(
             execution_hints=execution_hints,
             status=PacketStatus.READY,
         )
+        review_target_key = str(packet_spec.get("review_target_key") or "").strip()
+        if review_target_key:
+            packet = update_record(
+                "packets",
+                "packets",
+                "packet_id",
+                packet["packet_id"],
+                {"review_target_packet_id": key_to_packet_id.get(review_target_key, "")},
+            )
         key_to_packet_id[packet_spec["key"]] = packet["packet_id"]
         materialized.append(packet)
 
@@ -420,25 +430,28 @@ def _resolve_execution_hints(
     hints: dict[str, Any] = {**base_execution_hints, **verifier_defaults, **packet_hints}
     hints.setdefault("runner", "verifier")
 
-    verification_profile = dict(packet_spec.get("verification_profile") or {})
-    backend_commands = _extract_commands(verification_profile.get("backend"))
-    frontend_commands = _extract_commands(verification_profile.get("frontend"))
-    observability_commands = _extract_commands(verification_profile.get("observability"))
-
-    if backend_commands:
-        hints["backend_commands"] = backend_commands
-        hints.pop("backend_profile", None)
-    if frontend_commands:
-        hints["frontend_commands"] = frontend_commands
-        hints.pop("frontend_profile", None)
-    if observability_commands:
-        hints["observability_commands"] = observability_commands
-        hints.pop("observability_profile", None)
-
-    if "touches_frontend" not in packet_hints:
-        hints["touches_frontend"] = bool(hints.get("touches_frontend")) or bool(frontend_commands)
-    if "requires_frontend_visual" not in packet_hints:
-        hints["requires_frontend_visual"] = bool(hints.get("requires_frontend_visual")) or bool(frontend_commands)
+    verifier_execution = dict(packet_spec.get("verification_profile") or {}).get("execution")
+    if isinstance(verifier_execution, dict):
+        backend_commands = _extract_commands(verifier_execution.get("backend_commands"))
+        frontend_commands = _extract_commands(verifier_execution.get("frontend_commands"))
+        observability_commands = _extract_commands(verifier_execution.get("observability_commands"))
+        if backend_commands:
+            hints["backend_commands"] = backend_commands
+            hints.pop("backend_profile", None)
+        if frontend_commands:
+            hints["frontend_commands"] = frontend_commands
+            hints.pop("frontend_profile", None)
+        if observability_commands:
+            hints["observability_commands"] = observability_commands
+            hints.pop("observability_profile", None)
+        if "touches_frontend" not in packet_hints and "touches_frontend" in verifier_execution:
+            hints["touches_frontend"] = bool(verifier_execution.get("touches_frontend"))
+        if "requires_frontend_visual" not in packet_hints and "requires_frontend_visual" in verifier_execution:
+            hints["requires_frontend_visual"] = bool(verifier_execution.get("requires_frontend_visual"))
+        if "artifact_globs" not in packet_hints and verifier_execution.get("artifact_globs") is not None:
+            hints["artifact_globs"] = _string_list(verifier_execution.get("artifact_globs"))
+        if "include_day_live_canary" not in packet_hints and "include_day_live_canary" in verifier_execution:
+            hints["include_day_live_canary"] = bool(verifier_execution.get("include_day_live_canary"))
 
     return hints
 

@@ -72,7 +72,13 @@ def _feature_domain_outcome(feature_id: str) -> tuple[str, str | None]:
     feature_status = str(feature.get("status") or "")
     if feature_status == FeatureStatus.ACCEPTED.value:
         return "completed", feature_status
-    if feature_status == FeatureStatus.BLOCKED.value:
+    if feature_status in {
+        FeatureStatus.BLOCKED.value,
+        FeatureStatus.PRODUCT_BLOCKED.value,
+        FeatureStatus.VERIFICATION_BLOCKED.value,
+        FeatureStatus.PIPELINE_INVALID.value,
+        FeatureStatus.ENVIRONMENT_BLOCKED.value,
+    }:
         return "blocked", feature_status
     if feature_status == FeatureStatus.ARCHITECT_READY.value:
         return "awaiting_architect", feature_status

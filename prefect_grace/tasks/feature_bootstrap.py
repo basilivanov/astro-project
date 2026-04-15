@@ -191,8 +191,24 @@ def bootstrap_feature(
         return record
 
 
-def mark_feature_status(feature_id: str, status: FeatureStatus) -> dict[str, Any]:
-    return update_record("features", "features", "feature_id", feature_id, {"status": status.value})
+def mark_feature_status(
+    feature_id: str,
+    status: FeatureStatus,
+    *,
+    blocker_reasons: list[str] | None = None,
+) -> dict[str, Any]:
+    updates: dict[str, Any] = {"status": status.value}
+    if blocker_reasons is not None:
+        updates["blocker_reasons"] = list(blocker_reasons)
+    elif status not in {
+        FeatureStatus.BLOCKED,
+        FeatureStatus.PRODUCT_BLOCKED,
+        FeatureStatus.VERIFICATION_BLOCKED,
+        FeatureStatus.PIPELINE_INVALID,
+        FeatureStatus.ENVIRONMENT_BLOCKED,
+    }:
+        updates["blocker_reasons"] = []
+    return update_record("features", "features", "feature_id", feature_id, updates)
 
 
 def create_packet(

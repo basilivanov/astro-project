@@ -5,6 +5,7 @@ from prefect_grace.tasks.verifier_runner import (
     _collect_artifacts,
     build_verifier_message,
     build_verifier_plan,
+    validate_verifier_plan,
 )
 
 
@@ -62,3 +63,24 @@ def test_collect_artifacts_respects_root_dir(tmp_path: Path) -> None:
     evidence, visual = _collect_artifacts(["artifacts/**/*"], root_dir=tmp_path, started_at=__import__("datetime").datetime.now())
     assert str(artifact.resolve()) in evidence
     assert str(artifact.resolve()) in visual
+
+
+def test_validate_verifier_plan_rejects_structured_command_text() -> None:
+    packet = {
+        "execution_hints": {
+            "frontend_commands": ["{'required_commands': ['bad']}"],
+            "touches_frontend": True,
+            "requires_frontend_visual": True,
+            "artifact_globs": ["artifacts/**/*"],
+            "observability_commands": ["python3 tools/post_test_review.py --profile today-week --report-format json"],
+        }
+    }
+    plan = {
+        "steps": [],
+        "touches_frontend": True,
+        "requires_frontend_visual": True,
+        "artifact_globs": ["artifacts/**/*"],
+        "observability_profile": "today-week",
+    }
+    issues = validate_verifier_plan(packet, plan)
+    assert any("structured text" in issue for issue in issues)

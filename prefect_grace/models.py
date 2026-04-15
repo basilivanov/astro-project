@@ -14,6 +14,10 @@ class FeatureStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     ACCEPTED = "accepted"
     BLOCKED = "blocked"
+    PRODUCT_BLOCKED = "product_blocked"
+    VERIFICATION_BLOCKED = "verification_blocked"
+    PIPELINE_INVALID = "pipeline_invalid"
+    ENVIRONMENT_BLOCKED = "environment_blocked"
 
 
 class PacketStatus(str, Enum):

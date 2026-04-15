@@ -22,6 +22,11 @@ Rules:
 8. Keep W00 for architect/planner only; execution packets start at W01 unless a stronger reason is stated.
 9. Treat the architect-produced slice docs and architect_manifest as the source of truth for impacted modules, scope boundaries, verification lanes, and frozen scope.
 10. Do not invent or widen slice boundaries that are not present in architect artifacts. If architect artifacts are incomplete, return a blocker packet graph rather than guessing.
+11. Every reviewer packet must include an explicit `review_target_key` pointing to the coder packet it accepts or rejects.
+12. Every verifier packet must provide machine-executable commands only in `verification_profile.execution`, not in prose fields.
+13. `verification_profile.backend`, `verification_profile.frontend`, and `verification_profile.observability` are human-readable only.
+14. If UI is touched, verifier execution must include explicit frontend commands, visual evidence requirements, and artifact globs.
+15. If observability is required, provide explicit `observability_commands` or an observability profile that resolves without inference.
 
 Return this exact envelope:
 
@@ -49,11 +54,20 @@ FINAL_GRACE_WAVE_PLAN_JSON
       "verification_profile": {
         "backend": "...",
         "frontend": "...",
-        "observability": "..."
+        "observability": "...",
+        "execution": {
+          "backend_commands": ["..."],
+          "frontend_commands": ["..."],
+          "observability_commands": ["..."],
+          "touches_frontend": true,
+          "requires_frontend_visual": true,
+          "artifact_globs": ["..."]
+        }
       },
       "reviewer_gate": ["..."],
       "dependencies": [],
-      "notes": ["..."]
+      "notes": ["..."],
+      "review_target_key": "coder_main"
     }
   ]
 }
