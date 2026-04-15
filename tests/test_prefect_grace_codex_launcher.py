@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 import logging
 import threading
 import time
@@ -90,3 +91,63 @@ def test_heartbeat_loop_logs_progress_until_stop(tmp_path: Path) -> None:
     thread.join(timeout=1)
 
     assert any("Codex heartbeat packet=PKT-2" in message for message in handler.messages)
+
+
+def test_heartbeat_loop_kills_stalled_process(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    stdout_path = run_dir / "stdout.jsonl"
+    stdout_path.write_text("", encoding="utf-8")
+    handler = _ListHandler()
+    logger = logging.getLogger("test_prefect_grace_codex_launcher_stall")
+    logger.handlers = []
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+    class _Proc:
+        def __init__(self) -> None:
+            self.pid = 321
+            self.killed = False
+
+        def poll(self):
+            return None if not self.killed else -9
+
+        def kill(self):
+            self.killed = True
+
+    process = _Proc()
+    stop_event = threading.Event()
+    fake_now = datetime(2026, 4, 15, 8, 0, 0, tzinfo=timezone.utc)
+
+    class _FakeDateTime:
+        current = fake_now
+
+        @classmethod
+        def now(cls, tz=None):
+            value = cls.current
+            cls.current = value + timedelta(seconds=1)
+            return value
+
+    with patch("prefect_grace.tasks.codex_launcher.datetime", _FakeDateTime):
+        thread = threading.Thread(
+            target=_heartbeat_loop,
+            args=(process,),
+            kwargs={
+                "packet_id": "PKT-STALL",
+                "run_dir": run_dir,
+                "stdout_path": stdout_path,
+                "logger": logger,
+                "interval_seconds": 0.01,
+                "stop_event": stop_event,
+                "stall_timeout_seconds": 2.0,
+            },
+            daemon=True,
+        )
+        thread.start()
+        time.sleep(0.05)
+        stop_event.set()
+        thread.join(timeout=1)
+
+    assert process.killed is True
+    assert any("Codex stall detected packet=PKT-STALL" in message for message in handler.messages)

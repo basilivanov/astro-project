@@ -23,6 +23,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
 RUNS_DIR = Path(__file__).resolve().parents[1] / "state" / "runs"
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
+DEFAULT_STALL_TIMEOUT_SECONDS = 900.0
 
 
 @dataclass(frozen=True)
@@ -277,11 +278,31 @@ def _heartbeat_loop(
     logger: logging.Logger,
     interval_seconds: float,
     stop_event: threading.Event,
+    stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
 ) -> None:
+    last_size = stdout_path.stat().st_size if stdout_path.exists() else 0
+    last_progress_at = datetime.now(timezone.utc)
     while not stop_event.wait(interval_seconds):
         if process.poll() is not None:
             break
-        logger.info(_format_heartbeat_message(packet_id, _heartbeat_payload(run_dir=run_dir, stdout_path=stdout_path, process=process)))
+        size = stdout_path.stat().st_size if stdout_path.exists() else 0
+        if size > last_size:
+            last_size = size
+            last_progress_at = datetime.now(timezone.utc)
+        payload = _heartbeat_payload(run_dir=run_dir, stdout_path=stdout_path, process=process)
+        idle_seconds = max(0.0, (datetime.now(timezone.utc) - last_progress_at).total_seconds())
+        logger.info("%s idle_seconds=%.1f", _format_heartbeat_message(packet_id, payload), idle_seconds)
+        if stall_timeout_seconds and idle_seconds >= stall_timeout_seconds and process.poll() is None:
+            logger.warning(
+                "Codex stall detected packet=%s pid=%s idle_seconds=%.1f run_dir=%s stdout=%s; terminating process",
+                packet_id,
+                process.pid,
+                idle_seconds,
+                run_dir,
+                stdout_path,
+            )
+            process.kill()
+            break
 
 
 def _run_codex_process(
@@ -297,6 +318,7 @@ def _run_codex_process(
     run_dir: Path,
     logger: logging.Logger | None = None,
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+    stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
 ) -> int:
     process = subprocess.Popen(
         command,
@@ -333,6 +355,7 @@ def _run_codex_process(
                 "logger": logger,
                 "interval_seconds": heartbeat_interval_seconds,
                 "stop_event": heartbeat_stop,
+                "stall_timeout_seconds": stall_timeout_seconds,
             },
             daemon=True,
         )
@@ -379,6 +402,7 @@ def launch_codex_for_packet(
     timeout_seconds: int = 3600,
     logger: logging.Logger | None = None,
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
+    stall_timeout_seconds: float | None = DEFAULT_STALL_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     config = load_agent_config()
     packet = find_record("packets", "packets", "packet_id", packet_id)
@@ -453,6 +477,7 @@ def launch_codex_for_packet(
             run_dir=run_dir,
             logger=logger,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
+            stall_timeout_seconds=stall_timeout_seconds,
         )
     finished_at = datetime.now(timezone.utc).isoformat()
 
