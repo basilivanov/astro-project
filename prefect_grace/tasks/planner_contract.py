@@ -134,6 +134,7 @@ def default_wave_plan_contract(
                 "reviewer_gate": ["Do not invent new scope.", "Do not accept missing evidence."],
                 "dependencies": [coder_key, verifier_key],
                 "notes": ["Escalate to architect when the blocker changes decomposition or business semantics."],
+                "review_target_key": coder_key,
             },
             {
                 "key": architect_key,
