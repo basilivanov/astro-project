@@ -13,6 +13,8 @@ VERIFIER_EVIDENCE_START = "FINAL_VERIFIER_EVIDENCE_JSON"
 VERIFIER_EVIDENCE_END = "END_FINAL_VERIFIER_EVIDENCE_JSON"
 PLANNER_WAVE_PLAN_START = "FINAL_GRACE_WAVE_PLAN_JSON"
 PLANNER_WAVE_PLAN_END = "END_FINAL_GRACE_WAVE_PLAN_JSON"
+ARCHITECT_ARTIFACT_PLAN_START = "FINAL_ARCHITECT_ARTIFACT_PLAN_JSON"
+ARCHITECT_ARTIFACT_PLAN_END = "END_FINAL_ARCHITECT_ARTIFACT_PLAN_JSON"
 
 REVIEWER_VERDICTS = {"accepted", "rework_required", "blocked", "escalate_to_architect"}
 WAVE_VERDICTS = {"accepted", "rework_required", "blocked"}
@@ -191,6 +193,17 @@ def parse_planner_wave_plan_message(text: str) -> dict[str, Any]:
         raise ValueError("Planner wave plan JSON markers were not found")
     if not isinstance(payload, dict):
         raise ValueError("Planner wave plan payload must be a JSON object")
+    return payload
+
+
+def parse_architect_artifact_plan_message(text: str) -> dict[str, Any]:
+    payload = _extract_json_payload(text, ARCHITECT_ARTIFACT_PLAN_START, ARCHITECT_ARTIFACT_PLAN_END)
+    if payload is None:
+        payload = _extract_json_from_fences(text, {"slice_id", "impacted_modules", "waves"})
+    if payload is None:
+        raise ValueError("Architect artifact plan JSON markers were not found")
+    if not isinstance(payload, dict):
+        raise ValueError("Architect artifact plan payload must be a JSON object")
     return payload
 
 

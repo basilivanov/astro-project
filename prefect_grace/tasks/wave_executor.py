@@ -57,6 +57,10 @@ def reviewer_target_packet_id(reviewer_packet: dict[str, Any], packets_by_id: di
         if packet and _role(packet) == "coder":
             return dependency
     for dependency in dependencies:
+        target = _first_upstream_coder_packet_id(dependency, packets_by_id, seen=set())
+        if target:
+            return target
+    for dependency in dependencies:
         packet = packets_by_id.get(dependency)
         if packet and _role(packet) not in {"verifier", "reviewer", "architect"}:
             return dependency
@@ -127,3 +131,24 @@ def _wave_sort_key(wave_id: str) -> tuple[str, int, str]:
     if not match:
         return (wave_id, 0, wave_id)
     return (match.group(1), int(match.group(2)), wave_id)
+
+
+def _first_upstream_coder_packet_id(
+    packet_id: str,
+    packets_by_id: dict[str, dict[str, Any]],
+    *,
+    seen: set[str],
+) -> str | None:
+    if packet_id in seen:
+        return None
+    seen.add(packet_id)
+    packet = packets_by_id.get(packet_id)
+    if not packet:
+        return None
+    if _role(packet) == "coder":
+        return packet_id
+    for dependency in _dependencies(packet):
+        target = _first_upstream_coder_packet_id(dependency, packets_by_id, seen=seen)
+        if target:
+            return target
+    return None

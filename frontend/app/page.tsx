@@ -6,8 +6,6 @@ import { useTelegram } from "../hooks/useTelegram";
 import { LandingContent } from "../components/landing/LandingContent";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui-states";
 import {
-  ConsumerHero,
-  ConsumerMetaPill,
   ConsumerPageShell,
   ConsumerPanel,
 } from "../components/consumer-page-shell";
@@ -15,6 +13,7 @@ import { HOME_FLOW_ID, ensureHomeCorrelation, homeFetch, makeHomeTrace, trackHom
 import { normalizeDayBriefPayload, type TodayViewModel } from "../lib/day-brief";
 import {
   TodayCtaPanel,
+  DayRuntimeDiagnosticsDisclosure,
   TodayScores,
   TodayVerdict,
 } from "../components/today/daybrief-sections";
@@ -63,6 +62,8 @@ type FeedLayoutProps = {
   dateLabel?: string;
   today?: TodayViewModel | null;
   renderPath?: "canonical" | "error" | "no_data" | "empty";
+  mode?: ReturnType<typeof useTelegram>["mode"];
+  bootstrapOutcome?: ReturnType<typeof useTelegram>["bootstrapOutcome"];
 };
 
 const HOME_CONTRACTS = {
@@ -134,9 +135,7 @@ function toErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: FeedLayoutProps) {
-  const heroLabel = today?.brief.hero?.title ?? "";
-  const shouldRenderHero = Boolean(today?.brief.hero);
+function FeedLayout({ children, state, renderPath, mode, bootstrapOutcome }: FeedLayoutProps) {
   return (
     <ConsumerPageShell
       testId="home-feed-page"
@@ -150,16 +149,16 @@ function FeedLayout({ children, profile, state, dateLabel, today, renderPath }: 
       }}
     >
       {process.env.NODE_ENV !== "production" ? (
-        <div hidden data-testid="today-render-path" data-render-path={renderPath ?? "empty"}>
-          {renderPath ?? "empty"}
-        </div>
-      ) : null}
-      {shouldRenderHero ? (
-        <ConsumerHero
-          eyebrow={dateLabel ?? ""}
-          title={heroLabel}
-          meta={<ConsumerMetaPill label="Дата" value={dateLabel ?? ""} />}
-        />
+        <>
+          <div hidden data-testid="today-render-path" data-render-path={renderPath ?? "empty"}>
+            {renderPath ?? "empty"}
+          </div>
+          <DayRuntimeDiagnosticsDisclosure
+            renderPath={renderPath}
+            bootstrapOutcome={bootstrapOutcome}
+            mode={mode}
+          />
+        </>
       ) : null}
       {children}
     </ConsumerPageShell>
@@ -384,7 +383,7 @@ export default function FeedPage() {
   if (!isReady || loading) {
     const shouldShowBootstrapDebug = !isReady && bootstrapTimedOut;
     return (
-      <FeedLayout state="loading" profile={profile} today={today} renderPath="empty">
+      <FeedLayout state="loading" profile={profile} today={today} renderPath="empty" mode={mode} bootstrapOutcome={bootstrapOutcome}>
         <ConsumerPanel className="p-5">
           {shouldShowBootstrapDebug ? (
             <EmptyState
@@ -425,7 +424,7 @@ export default function FeedPage() {
 
   if (error) {
     return (
-      <FeedLayout state="error" profile={profile} today={today} renderPath="error">
+      <FeedLayout state="error" profile={profile} today={today} renderPath="error" mode={mode} bootstrapOutcome={bootstrapOutcome}>
         <ConsumerPanel className="p-5">
           <ErrorState compact error={error} />
         </ConsumerPanel>
@@ -435,7 +434,7 @@ export default function FeedPage() {
 
   if (!today) {
     return (
-      <FeedLayout state={feedState} profile={profile} today={today} renderPath="empty">
+      <FeedLayout state={feedState} profile={profile} today={today} renderPath="empty" mode={mode} bootstrapOutcome={bootstrapOutcome}>
         <ConsumerPanel className="p-5">
           <EmptyState
             compact
@@ -449,7 +448,7 @@ export default function FeedPage() {
 
   if (today.state === "error") {
     return (
-      <FeedLayout state="error" profile={profile} dateLabel={today.brief.date} today={today} renderPath="error">
+      <FeedLayout state="error" profile={profile} dateLabel={today.brief.date} today={today} renderPath="error" mode={mode} bootstrapOutcome={bootstrapOutcome}>
         <ConsumerPanel className="p-5" data-testid="today-error-state">
           <EmptyState
             compact
@@ -466,7 +465,7 @@ export default function FeedPage() {
 
   if (today.state === "no_data") {
     return (
-      <FeedLayout state="empty" profile={profile} dateLabel={today.brief.date} today={today} renderPath="no_data">
+      <FeedLayout state="empty" profile={profile} dateLabel={today.brief.date} today={today} renderPath="no_data" mode={mode} bootstrapOutcome={bootstrapOutcome}>
         <ConsumerPanel className="p-5" data-testid="today-no-data-state">
           <EmptyState
             compact
@@ -488,6 +487,8 @@ export default function FeedPage() {
       dateLabel={today.brief.date}
       today={today}
       renderPath="canonical"
+      mode={mode}
+      bootstrapOutcome={bootstrapOutcome}
     >
       <div className="space-y-4">
         <TodayVerdict brief={today.brief} />

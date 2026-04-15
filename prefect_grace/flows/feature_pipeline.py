@@ -11,12 +11,14 @@ from prefect_grace.models import (
 )
 from prefect_grace.prefect_compat import flow, get_run_logger, tags, task
 from prefect_grace.tasks.agent_output_parser import (
+    parse_architect_artifact_plan_message,
     parse_planner_wave_plan_message,
     read_agent_message,
     resolve_reviewer_decision,
     resolve_verifier_result,
     resolve_wave_decision,
 )
+from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan, write_architect_artifacts
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, mark_feature_status, seed_test_feature
 from prefect_grace.tasks.planner_contract import (
@@ -157,6 +159,53 @@ def resolve_planner_contract_task(
     return {'contract': contract, 'source': source, 'parser_error': parser_error}
 
 
+@task(task_run_name="architect-artifacts:resolve:{feature_id}")
+def resolve_architect_artifact_plan_task(
+    architect_run: dict,
+    *,
+    feature_id: str,
+    title: str,
+    summary: str,
+    business_context: dict | None,
+    prefer_agent_output: bool,
+) -> dict:
+    logger = get_run_logger()
+    parser_error = None
+    payload = None
+    if prefer_agent_output:
+        try:
+            payload = parse_architect_artifact_plan_message(
+                read_agent_message(architect_run.get("last_message_path"), architect_run.get("stdout_path"))
+            )
+            source = "agent_output"
+        except ValueError as exc:
+            parser_error = str(exc)
+    if payload is None:
+        payload = default_architect_artifact_plan(
+            feature_id=feature_id,
+            title=title,
+            summary=summary,
+            business_context=business_context,
+        )
+        source = "fallback"
+    logger.info("Resolved architect artifact plan source=%s parser_error=%s", source, parser_error)
+    return {"payload": payload, "source": source, "parser_error": parser_error}
+
+
+@task(task_run_name="architect-artifacts:write:{feature_id}")
+def write_architect_artifacts_task(
+    feature_id: str,
+    architect_artifact_plan: dict,
+) -> dict:
+    logger = get_run_logger()
+    written = write_architect_artifacts(
+        feature_id=feature_id,
+        architect_payload=architect_artifact_plan["payload"],
+    )
+    logger.info("Wrote architect slice docs for %s at %s", feature_id, written.get("slice_dir"))
+    return written
+
+
 @task(task_run_name="planner-contract:materialize:{feature_id}")
 def materialize_planner_contract_task(
     feature_id: str,
@@ -165,6 +214,15 @@ def materialize_planner_contract_task(
     planner_contract_result: dict,
     agent_workdir: str | None,
     agent_sandbox: str | None,
+    verifier_backend_profile: str | None,
+    verifier_frontend_profile: str | None,
+    verifier_frontend_commands: list[str] | None,
+    verifier_observability_profile: str | None,
+    verifier_observability_commands: list[str] | None,
+    verifier_artifact_globs: list[str] | None,
+    verifier_touches_frontend: bool,
+    verifier_requires_frontend_visual: bool,
+    verifier_include_day_live_canary: bool,
 ):
     logger = get_run_logger()
     base_execution_hints = {
@@ -181,6 +239,18 @@ def materialize_planner_contract_task(
         architect_packet_id=architect_packet_id,
         contract=planner_contract_result['contract'],
         base_execution_hints=base_execution_hints,
+        default_verifier_execution_hints={
+            "runner": "verifier",
+            "backend_profile": verifier_backend_profile,
+            "frontend_profile": verifier_frontend_profile,
+            "frontend_commands": verifier_frontend_commands or [],
+            "observability_profile": verifier_observability_profile,
+            "observability_commands": verifier_observability_commands or [],
+            "artifact_globs": verifier_artifact_globs or [],
+            "touches_frontend": verifier_touches_frontend,
+            "requires_frontend_visual": verifier_requires_frontend_visual,
+            "include_day_live_canary": verifier_include_day_live_canary,
+        },
     )
     logger.info('Materialized planner contract with %s packets for %s', len(materialized['packets']), feature_id)
     return materialized
@@ -518,6 +588,18 @@ def feature_pipeline(
         with tags("wave:W00", "role:architect"):
             mark_packet_status_task(architect_packet_id, PacketStatus.ACCEPTED.value)
 
+        architect_artifact_plan = resolve_architect_artifact_plan_task(
+            architect_run,
+            feature_id=feature_id,
+            title=title,
+            summary=summary,
+            business_context=business_context,
+            prefer_agent_output=prefer_agent_output,
+        )
+        packet_results["architect_artifact_plan"] = architect_artifact_plan
+        architect_artifacts = write_architect_artifacts_task(feature_id, architect_artifact_plan)
+        packet_results["architect_artifacts"] = architect_artifacts
+
         with tags("wave:W00", "role:planner"):
             planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
         packet_results["planner"] = planner_run
@@ -557,6 +639,15 @@ def feature_pipeline(
             planner_contract_result,
             agent_workdir,
             agent_sandbox,
+            verifier_backend_profile,
+            verifier_frontend_profile,
+            verifier_frontend_commands,
+            verifier_observability_profile,
+            verifier_observability_commands,
+            verifier_artifact_globs,
+            verifier_touches_frontend,
+            verifier_requires_frontend_visual,
+            verifier_include_day_live_canary,
         )
         packet_results["planner_materialized"] = materialized_contract
 

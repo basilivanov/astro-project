@@ -4,6 +4,7 @@ Input:
 - current project GRACE artifacts
 - feature brief
 - architect formalization output
+- architect manifest and slice docs
 
 Your task:
 - decompose the feature into waves and execution packets;
@@ -19,6 +20,8 @@ Rules:
 6. Return a machine-readable JSON contract between markers.
 7. Use packet keys in `dependencies` and `inputs` when referring to other generated packets.
 8. Keep W00 for architect/planner only; execution packets start at W01 unless a stronger reason is stated.
+9. Treat the architect-produced slice docs and architect_manifest as the source of truth for impacted modules, scope boundaries, verification lanes, and frozen scope.
+10. Do not invent or widen slice boundaries that are not present in architect artifacts. If architect artifacts are incomplete, return a blocker packet graph rather than guessing.
 
 Return this exact envelope:
 

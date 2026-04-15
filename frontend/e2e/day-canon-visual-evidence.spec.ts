@@ -18,6 +18,7 @@ type DayBriefDomain = {
 };
 
 const OUT_DIR = '/app/docs/review_evidence/front/day-week/2026-04-10-d479771';
+const PROD_BASE_URL = process.env.E2E_PROD_BASE_URL || 'http://astro-project-frontend-1:3000';
 
 async function ensureOutDir() {
   await fs.mkdir(OUT_DIR, { recursive: true });
@@ -89,6 +90,67 @@ async function mountMock(page: Parameters<typeof test>[0]['page'], dayBrief: Rec
 }
 
 test.describe('day canon branch-visible visual evidence', () => {
+  test('captures dev runtime indicator collapsed and expanded states', async ({ page }) => {
+    await ensureOutDir();
+    await mountMock(page, {
+      version: 'day_brief_canon_v1',
+      status: 'complete',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: {
+        title: 'Держите день в одном векторе.',
+        subtitle: 'Главный результат сегодня приходит через собранный темп и спокойные решения без перегруза.',
+        day_type: 'deep_focus',
+        tone: 'steady',
+      },
+      domains: canonicalDomains(),
+      cta: {
+        primary: { type: 'open_week', label: 'Открыть неделю', href: '/week' },
+        secondary: { type: 'open_history', label: 'История разборов', href: '/reports/history' },
+      },
+      premium: { subscription_active: true, subscription_active_until: '2026-04-30T00:00:00.000Z' },
+    });
+
+    await page.goto('/?mock=1', { waitUntil: 'networkidle' });
+    await expectNoCrash(page);
+    await expect(page.getByTestId('runtime-environment-badge')).toHaveText('DEV');
+    await expect(page.getByTestId('day-runtime-diagnostics-disclosure')).toHaveCount(0);
+
+    await writeShot(page, 'today-dev-indicator-collapsed.png');
+
+    await page.getByTestId('runtime-environment-badge').click();
+    await expect(page.getByTestId('day-runtime-diagnostics-disclosure')).toBeVisible();
+    await writeShot(page, 'today-dev-indicator-expanded.png');
+  });
+
+  test('captures production runtime indicator unchanged state', async ({ page }) => {
+    await ensureOutDir();
+    await mountMock(page, {
+      version: 'day_brief_canon_v1',
+      status: 'complete',
+      date: '2026-04-10',
+      personalization_level: 'personalized_v2',
+      hero: {
+        title: 'Держите день в одном векторе.',
+        subtitle: 'Главный результат сегодня приходит через собранный темп и спокойные решения без перегруза.',
+        day_type: 'deep_focus',
+        tone: 'steady',
+      },
+      domains: canonicalDomains(),
+      cta: {
+        primary: { type: 'open_week', label: 'Открыть неделю', href: '/week' },
+        secondary: { type: 'open_history', label: 'История разборов', href: '/reports/history' },
+      },
+      premium: { subscription_active: true, subscription_active_until: '2026-04-30T00:00:00.000Z' },
+    });
+
+    await page.goto(`${PROD_BASE_URL}/?mock=1`, { waitUntil: 'networkidle' });
+    await expectNoCrash(page);
+    await expect(page.locator('body > div.fixed.right-2.top-2').first()).toHaveText('PROD');
+    await expect(page.getByTestId('day-runtime-diagnostics-disclosure')).toHaveCount(0);
+    await writeShot(page, 'today-prod-indicator-inert.png');
+  });
+
   test('refreshes canonical Today screenshots', async ({ page }) => {
     await ensureOutDir();
     await mountMock(page, {

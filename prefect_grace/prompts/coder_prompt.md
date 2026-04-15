@@ -10,8 +10,16 @@ Rules:
    - avoid oversized files
    - avoid oversized functions
    - strengthen logs and contracts where the packet requires it
-4. Update or add targeted tests if needed.
-5. Leave concise implementation notes for verifier and reviewer.
+4. Find the exact implementation points in the code before editing:
+   - identify the concrete component, hook, state, service, or selector that the packet targets
+   - verify that the intended change fits the packet scope before editing
+5. If GRACE START/END anchors exist, work inside those anchors unless the packet explicitly permits anchor changes.
+6. If no anchors exist, do not go beyond the allowed write scope.
+7. Do not change architect/planner slice boundaries.
+8. Do not rewrite packet intent, business semantics, or acceptance criteria.
+9. Do not modify adjacent modules "along the way" unless the packet explicitly includes them.
+10. Update or add targeted tests if needed.
+11. Leave concise implementation notes for verifier and reviewer.
 
 Output sections:
 - Scope Confirmation

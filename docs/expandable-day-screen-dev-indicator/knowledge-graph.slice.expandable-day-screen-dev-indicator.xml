@@ -1,0 +1,14 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
+  <modules>
+    <module id="M-FRONTEND-WEBAPP" />
+    <module id="M-FRONTEND-TODAY" />
+    <module id="M-USE-TELEGRAM" />
+  </modules>
+  <flow_links>
+    <edge from="frontend runtime environment variables" to="M-FRONTEND-WEBAPP" type="reads" />
+    <edge from="M-FRONTEND-WEBAPP" to="day-dev-indicator-toggle-event" type="writes" />
+    <edge from="day-dev-indicator-toggle-event" to="M-FRONTEND-TODAY" type="depends_on" />
+    <edge from="M-USE-TELEGRAM" to="M-FRONTEND-TODAY" type="reads" />
+    <edge from="M-FRONTEND-TODAY" to="day-home-diagnostics-disclosure" type="renders" />
+  </flow_links>
+</knowledge_graph_slice>

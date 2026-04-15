@@ -1,4 +1,4 @@
-<technology project="astro-project" mode="strict-grace" updated_at="2026-03-27">
+<technology project="astro-project" mode="strict-grace" updated_at="2026-04-15">
   <repo_boundary>
     <root>/opt/astro-project</root>
     <git_snapshot commit="0cba3cf07ea563306bdd6e887d7b9256c3edc190" tag="prod-release-20260327" worktree_state="dirty" strict_grace_status="in_progress" captured_at="2026-03-27" />
@@ -35,6 +35,7 @@
     <constraint>Backend startup performs additive runtime migrations and starts the in-process scheduler; schema drift must be treated cautiously.</constraint>
     <constraint>Frontend proxy routes depend on INTERNAL_API_URL or NEXT_PUBLIC_API_URL resolving to backend.</constraint>
     <constraint>Playwright browsers are not installed in the normal frontend dev container; canonical E2E runs only through the Playwright container wrapper.</constraint>
+    <constraint>The Day/home environment badge is resolved from frontend runtime env variables in `frontend/app/layout.tsx`; any diagnostics disclosure attached to that badge must stay client-local and must not add new backend or proxy dependencies.</constraint>
     <constraint>Notification delivery is best-effort over the bot internal HTTP service and must not be a hard dependency for transaction completion.</constraint>
     <constraint>Weekly horary quota depends on user-local timezone calculation, falling back to UTC when timezone is absent or invalid.</constraint>
     <constraint>Admin server actions currently have auth gaps in the snapshot; treat admin UI changes as high-risk until DEFECT-ADMIN-SERVER-AUTH is resolved.</constraint>
@@ -51,6 +52,8 @@
     <verification_command profile="backend:quick">docker exec astro-project-backend-1 python3 scripts/pipeline.py</verification_command>
     <verification_command profile="frontend:quick">./scripts/run_e2e.sh --last-failed</verification_command>
     <verification_command profile="frontend:targeted">./scripts/run_e2e.sh e2e/&lt;file&gt;.spec.ts -g "&lt;case&gt;"</verification_command>
+    <verification_command profile="frontend:day-dev-indicator">./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts</verification_command>
+    <verification_command profile="frontend:day-dev-indicator-unit">corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx</verification_command>
     <verification_command profile="smoke">./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/core-ux.spec.ts e2e/report-create.spec.ts e2e/quality.spec.ts</verification_command>
     <verification_command profile="full-regression">./scripts/run_e2e.sh</verification_command>
     <verification_command profile="ops">POST /api/diagnostics/run and inspect trace logs</verification_command>

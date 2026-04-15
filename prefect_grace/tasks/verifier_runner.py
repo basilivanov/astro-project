@@ -11,6 +11,7 @@ import yaml
 
 from prefect_grace.models import FrontendVisualVerdict, ObservabilityVerdict, TestVerdict
 from prefect_grace.tasks.state_store import find_record, update_record
+from prefect_grace.tasks.workdir import resolve_execution_workdir
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
@@ -44,9 +45,9 @@ def build_verifier_plan(packet: dict[str, Any], config: dict[str, Any]) -> dict[
     frontend_profiles = dict(verification_cfg.get("frontend_profiles") or {})
     observability_profiles = dict(verification_cfg.get("observability_profiles") or {})
 
-    backend_commands: list[str] = []
+    backend_commands = list(hints.get("backend_commands") or [])
     backend_profile = hints.get("backend_profile")
-    if backend_profile:
+    if backend_profile and not backend_commands:
         command = backend_profiles.get(str(backend_profile))
         if command:
             backend_commands.append(str(command))
@@ -198,7 +199,8 @@ def run_verifier_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
     config = load_agent_config()
     plan = build_verifier_plan(packet, config)
     execution_hints = dict(packet.get("execution_hints") or {})
-    workdir = Path(str(execution_hints.get("workdir") or ROOT_DIR)).resolve()
+    configured_workdir = str(execution_hints.get("workdir") or ROOT_DIR)
+    workdir = resolve_execution_workdir(configured_workdir)
 
     run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{_sanitize_filename(packet_id)}"
     run_dir = RUNS_DIR / run_id

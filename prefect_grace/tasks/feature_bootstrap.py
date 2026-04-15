@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from prefect_grace.models import FeatureRecord, FeatureStatus, PacketRecord, PacketStatus, ReasoningProfile, slugify
+from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan
 from prefect_grace.tasks.planner_contract import default_wave_plan_contract, materialize_planner_contract
 from prefect_grace.tasks.state_store import append_record, find_record, update_record
 
@@ -107,63 +108,61 @@ def bootstrap_feature(
     (feature_dir / "evidence").mkdir(exist_ok=True)
 
     brief_path = feature_dir / "feature-brief.md"
-    if not brief_path.exists():
-        brief_path.write_text(
-            _render_template(
-                "feature_brief.md",
-                {
-                    "feature_id": feature_id,
-                    "business_intent": summary,
-                    "desired_outcome": title,
-                    "in_scope": _bullet_lines(
-                        list((business_context or {}).get("scope") or [
-                            "Formalize the feature into GRACE artifacts.",
-                            "Slice the feature into bounded execution packets.",
-                            "Prepare implementation, verification, and review flow.",
-                        ])
-                    ),
-                    "out_of_scope": _bullet_lines(
-                        list((business_context or {}).get("non_goals") or [
-                            "Full production rollout of the feature.",
-                            "Unbounded refactors outside the packet scopes.",
-                        ])
-                    ),
-                    "impacted_surfaces": _bullet_lines(
-                        list((business_context or {}).get("impacted_surfaces") or [
-                            "backend: packet orchestration and state tracking.",
-                            "frontend: define visual verification requirements when UI is touched.",
-                            "automation: Prefect flows and Codex launcher integration.",
-                            "observability: logs, evidence, and reviewer verdict routing.",
-                        ])
-                    ),
-                    "impacted_grace_artifacts": _bullet_lines(
-                        list((business_context or {}).get("impacted_grace_artifacts") or [
-                            "requirements.xml: feature scope and invariants if they change.",
-                            "technology.xml: runtime or toolchain updates if they change.",
-                            "development-plan.xml: execution topology and packet model.",
-                            "knowledge-graph.xml: impacted modules and flow links.",
-                            "verification-matrix.md: required tests and evidence gates.",
-                        ])
-                    ),
-                    "wave_proposal": _numbered_lines(
-                        list((business_context or {}).get("wave_proposal") or [
-                            "Architect formalizes the feature and impacted GRACE deltas.",
-                            "Planner slices execution into waves and packets.",
-                            "Coder, verifier, reviewer, and architect execute W01.",
-                        ])
-                    ),
-                    "open_decisions": _bullet_lines(
-                        list((business_context or {}).get("open_decisions") or [
-                            "Confirm whether the feature needs frontend visual proof.",
-                            "Confirm whether the first execution should stay dry-run or use real Codex runs.",
-                        ])
-                    ),
-                    "acceptance_criteria": _bullet_lines(list((business_context or {}).get("acceptance_criteria") or [])),
-                    "visual_expectations": _bullet_lines(list((business_context or {}).get("visual_expectations") or [])),
-                },
+    brief_text = _render_template(
+        "feature_brief.md",
+        {
+            "feature_id": feature_id,
+            "business_intent": summary,
+            "desired_outcome": title,
+            "in_scope": _bullet_lines(
+                list((business_context or {}).get("scope") or [
+                    "Formalize the feature into GRACE artifacts.",
+                    "Slice the feature into bounded execution packets.",
+                    "Prepare implementation, verification, and review flow.",
+                ])
             ),
-            encoding="utf-8",
-        )
+            "out_of_scope": _bullet_lines(
+                list((business_context or {}).get("non_goals") or [
+                    "Full production rollout of the feature.",
+                    "Unbounded refactors outside the packet scopes.",
+                ])
+            ),
+            "impacted_surfaces": _bullet_lines(
+                list((business_context or {}).get("impacted_surfaces") or [
+                    "backend: packet orchestration and state tracking.",
+                    "frontend: define visual verification requirements when UI is touched.",
+                    "automation: Prefect flows and Codex launcher integration.",
+                    "observability: logs, evidence, and reviewer verdict routing.",
+                ])
+            ),
+            "impacted_grace_artifacts": _bullet_lines(
+                list((business_context or {}).get("impacted_grace_artifacts") or [
+                    "requirements.xml: feature scope and invariants if they change.",
+                    "technology.xml: runtime or toolchain updates if they change.",
+                    "development-plan.xml: execution topology and packet model.",
+                    "knowledge-graph.xml: impacted modules and flow links.",
+                    "verification-matrix.md: required tests and evidence gates.",
+                ])
+            ),
+            "wave_proposal": _numbered_lines(
+                list((business_context or {}).get("wave_proposal") or [
+                    "Architect formalizes the feature and impacted GRACE deltas.",
+                    "Planner slices execution into waves and packets.",
+                    "Coder, verifier, reviewer, and architect execute W01.",
+                ])
+            ),
+            "open_decisions": _bullet_lines(
+                list((business_context or {}).get("open_decisions") or [
+                    "Confirm whether the feature needs frontend visual proof.",
+                    "Confirm whether the first execution should stay dry-run or use real Codex runs.",
+                ])
+            ),
+            "acceptance_criteria": _bullet_lines(list((business_context or {}).get("acceptance_criteria") or [])),
+            "visual_expectations": _bullet_lines(list((business_context or {}).get("visual_expectations") or [])),
+        },
+    )
+    if not brief_path.exists() or business_context:
+        brief_path.write_text(brief_text, encoding="utf-8")
 
     try:
         find_record("features", "features", "feature_id", feature_id)
@@ -286,6 +285,13 @@ def seed_test_feature(
     planner_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context)
+    business_context = dict(business_context or {})
+    architect_artifact_plan = default_architect_artifact_plan(
+        feature_id=feature_id,
+        title=title,
+        summary=summary,
+        business_context=business_context,
+    )
     base_execution_hints = {
         key: value
         for key, value in {
@@ -312,6 +318,7 @@ def seed_test_feature(
         ],
         acceptance_criteria=[
             "Impacted artifacts are explicitly identified.",
+            "Architect produces slice-local GRACE docs before planning.",
             "Open decisions are separated from execution-ready facts.",
             "Wave boundaries are concrete enough for planner handoff.",
         ],
@@ -326,7 +333,9 @@ def seed_test_feature(
         ],
         notes=[
             "Patch existing GRACE files incrementally.",
+            "Write slice-local GRACE docs and architect manifest before planner handoff.",
             "Keep frontend verification explicit if UI is touched.",
+            "Return FINAL_ARCHITECT_ARTIFACT_PLAN_JSON markers.",
         ],
         execution_hints=base_execution_hints,
     )
@@ -344,6 +353,7 @@ def seed_test_feature(
         ],
         inputs=[
             architect_packet["packet_id"],
+            "Architect manifest and handoff.",
             f"Feature brief `{feature_id}/feature-brief.md`.",
         ],
         acceptance_criteria=[
@@ -390,6 +400,18 @@ def seed_test_feature(
         architect_packet_id=architect_packet["packet_id"],
         contract=contract,
         base_execution_hints=base_execution_hints,
+        default_verifier_execution_hints={
+            "runner": "verifier",
+            "backend_profile": verifier_backend_profile,
+            "frontend_profile": verifier_frontend_profile,
+            "frontend_commands": verifier_frontend_commands or [],
+            "observability_profile": verifier_observability_profile,
+            "observability_commands": verifier_observability_commands or [],
+            "artifact_globs": verifier_artifact_globs or [],
+            "touches_frontend": verifier_touches_frontend,
+            "requires_frontend_visual": verifier_requires_frontend_visual,
+            "include_day_live_canary": verifier_include_day_live_canary,
+        },
     )
 
     packets = [architect_packet, planner_packet, *materialized["packets"]]

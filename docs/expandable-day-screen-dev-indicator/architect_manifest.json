@@ -1,0 +1,88 @@
+{
+  "feature_id": "FEAT-DEV-RUNTIME-INDICATOR",
+  "title": "Expandable dev indicator on Day screen",
+  "slice_id": "SLICE-FEAT-DAY-DEV-INDICATOR",
+  "slice_slug": "expandable-day-screen-dev-indicator",
+  "slice_dir": "/opt/astro-project/docs/expandable-day-screen-dev-indicator",
+  "requirements_slice_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/requirements.slice.expandable-day-screen-dev-indicator.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/development-plan.slice.expandable-day-screen-dev-indicator.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/verification-matrix.slice.expandable-day-screen-dev-indicator.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/knowledge-graph.slice.expandable-day-screen-dev-indicator.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/expandable-day-screen-dev-indicator/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-FRONTEND-WEBAPP",
+    "M-FRONTEND-TODAY",
+    "M-USE-TELEGRAM"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Implement and accept Day dev runtime disclosure",
+      "goal": "Land the bounded frontend slice, prove dev-expanded and prod-inert behavior, and close with verifier, reviewer, and architect evidence.",
+      "module_refs": [
+        "M-FRONTEND-WEBAPP",
+        "M-FRONTEND-TODAY",
+        "M-USE-TELEGRAM"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/frontend/app/layout.tsx",
+        "/opt/astro-project/frontend/app/page.tsx",
+        "/opt/astro-project/frontend/components/today/*",
+        "/opt/astro-project/frontend/hooks/useTelegram.ts",
+        "/opt/astro-project/frontend/lib/telegram-runtime.ts",
+        "/opt/astro-project/frontend/test/app/home-page.test.tsx",
+        "/opt/astro-project/frontend/e2e/day-dev-indicator.spec.ts",
+        "/opt/astro-project/frontend/e2e/day-canon-visual-evidence.spec.ts",
+        "/opt/astro-project/frontend/e2e/telegram-signed-auth.spec.ts"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/app/week/**",
+        "/opt/astro-project/frontend/components/week/**",
+        "/opt/astro-project/frontend/lib/day-brief.ts"
+      ],
+      "verification_commands": [
+        "corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx",
+        "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts",
+        "./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g \"runtime indicator\"",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Compact DEV chip remains local and non-banner-like in collapsed state.",
+        "On `/` in non-production, tapping the chip expands and collapses a disclosure with render path, bootstrap result, and current mode only.",
+        "Production branch remains inert and visually unchanged.",
+        "Verifier evidence includes dev-collapsed and dev-expanded screenshots plus an explicit observability verdict."
+      ],
+      "deferred_work": [
+        "Any broader shell diagnostics surface beyond the Day route.",
+        "Any additional runtime fields beyond render path, bootstrap result, and current mode."
+      ]
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/expandable-day-screen-dev-indicator/requirements.slice.expandable-day-screen-dev-indicator.xml",
+    "/opt/astro-project/docs/expandable-day-screen-dev-indicator/development-plan.slice.expandable-day-screen-dev-indicator.xml",
+    "/opt/astro-project/docs/expandable-day-screen-dev-indicator/verification-matrix.slice.expandable-day-screen-dev-indicator.md",
+    "/opt/astro-project/docs/expandable-day-screen-dev-indicator/knowledge-graph.slice.expandable-day-screen-dev-indicator.xml",
+    "/opt/astro-project/docs/expandable-day-screen-dev-indicator/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [
+      "No patch required; existing SCN-DAY-DEV-RUNTIME-INDICATOR and helper-only invariants/failure handling already matched the audited Day disclosure slice."
+    ],
+    "technology.xml": [
+      "Updated the dedicated Day dev-indicator verification command to `./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts`."
+    ],
+    "development-plan.xml": [
+      "Added `M-USE-TELEGRAM`, refined `M-FRONTEND-WEBAPP` shell-badge responsibility, updated `FLOW-DAY-DEV-RUNTIME-INDICATOR`, and aligned packet dependencies to the helper-only Day slice."
+    ],
+    "knowledge-graph.xml": [
+      "Added `M-USE-TELEGRAM`, disclosure exports, runtime-flow edges, and links to the slice-local plan/verification/graph artifacts."
+    ],
+    "verification-matrix.md": [
+      "No patch required; `VM-DAY-DEV-RUNTIME-INDICATOR` already matched the audited unit, Playwright, and observability verification lane."
+    ]
+  },
+  "updated_at": "2026-04-15T05:01:11.424401+00:00"
+}

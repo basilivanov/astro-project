@@ -89,6 +89,70 @@ def test_materialize_planner_contract_creates_packets(tmp_path: Path) -> None:
     assert find_record('packets', 'packets', 'packet_id', coder['packet_id'])['status'] == PacketStatus.READY.value
 
 
+def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / 'state'
+    packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-PLAN-HINTS'
+    if packets_dir.exists():
+        import shutil
+        shutil.rmtree(packets_dir)
+
+    seeded = seed_test_feature(
+        feature_id='FEAT-PLAN-HINTS',
+        title='Planner Hints Feature',
+        summary='Infer verifier execution hints from planner profile text',
+        implementation_title='Contract implementation',
+        implementation_summary='Implement from planner contract',
+        verifier_frontend_profile='frontend_quick',
+        verifier_observability_profile='today-week',
+        verifier_touches_frontend=True,
+        verifier_requires_frontend_visual=True,
+        verifier_artifact_globs=['frontend/test-results/**/*'],
+        planner_contract={
+            'waves': [
+                {'wave_id': 'W01', 'title': 'Wave 1', 'objective': 'Deliver first slice', 'exit_conditions': ['accepted']},
+            ],
+            'packets': [
+                {
+                    'key': 'coder_main',
+                    'wave_id': 'W01',
+                    'title': 'Backend packet',
+                    'role': 'coder',
+                    'reasoning': 'high',
+                    'summary': 'Implement backend change',
+                    'dependencies': [],
+                },
+                {
+                    'key': 'verifier_main',
+                    'wave_id': 'W01',
+                    'title': 'Verifier Evidence',
+                    'role': 'verifier',
+                    'reasoning': 'high',
+                    'summary': 'Verify backend change',
+                    'dependencies': ['coder_main'],
+                    'verification_profile': {
+                        'backend': 'not required',
+                        'frontend': 'Run `corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx` and `./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts`',
+                        'observability': 'Run `python3 tools/post_test_review.py --profile today-week --since 30m --report-format md`',
+                    },
+                },
+            ],
+        },
+    )
+    verifier = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'verifier')
+    hints = verifier['execution_hints']
+    assert hints['runner'] == 'verifier'
+    assert hints['touches_frontend'] is True
+    assert hints['requires_frontend_visual'] is True
+    assert hints['artifact_globs'] == ['frontend/test-results/**/*']
+    assert hints['frontend_commands'] == [
+        'corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx',
+        './scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts',
+    ]
+    assert hints['observability_commands'] == [
+        'python3 tools/post_test_review.py --profile today-week --since 30m --report-format md'
+    ]
+
+
 def test_normalize_planner_contract_rejects_unknown_dependency() -> None:
     contract = default_wave_plan_contract(
         feature_id='FEAT-X',

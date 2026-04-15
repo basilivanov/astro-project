@@ -5,6 +5,7 @@ from typing import Any
 import yaml
 
 from prefect_grace.tasks.job_queue import enqueue_feature_job
+from prefect_grace.tasks.workdir import resolve_execution_workdir
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "templates" / "business_feature_brief.yaml"
 
@@ -82,6 +83,8 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
     if not implementation_summary:
         implementation_summary = "Execute the feature through architect, planner, coder, verifier, reviewer, and architect wave gate."
 
+    requested_agent_workdir = str(payload.get("agent_workdir") or "").strip() or None
+
     return {
         "feature_id": str(payload["feature_id"]).strip(),
         "title": str(payload["title"]).strip(),
@@ -96,7 +99,7 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
         "implementation_summary": implementation_summary,
         "execute": execute,
         "timeout_seconds": int(payload.get("timeout_seconds") or 7200),
-        "agent_workdir": str(payload.get("agent_workdir") or "").strip() or None,
+        "agent_workdir": str(resolve_execution_workdir(requested_agent_workdir)),
         "agent_sandbox": str(payload.get("agent_sandbox") or "").strip() or None,
         "impacted_surfaces": _as_list(payload.get("impacted_surfaces")),
         "impacted_grace_artifacts": _as_list(payload.get("impacted_grace_artifacts")),

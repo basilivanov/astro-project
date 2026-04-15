@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -228,6 +229,7 @@ def materialize_planner_contract(
     architect_packet_id: str,
     contract: dict[str, Any],
     base_execution_hints: dict[str, Any] | None = None,
+    default_verifier_execution_hints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     normalized = normalize_wave_plan_contract(contract)
     key_to_packet_id: dict[str, str] = {}
@@ -238,7 +240,11 @@ def materialize_planner_contract(
         dependencies = [key_to_packet_id[key] for key in packet_spec["dependencies"]]
         if packet_spec["role"] == "coder" and not dependencies:
             dependencies = [planner_packet_id]
-        execution_hints = {**base_hints, **dict(packet_spec.get("execution_hints") or {})}
+        execution_hints = _resolve_execution_hints(
+            packet_spec,
+            base_execution_hints=base_hints,
+            default_verifier_execution_hints=default_verifier_execution_hints,
+        )
         from prefect_grace.tasks.feature_bootstrap import create_packet
 
         packet = create_packet(
@@ -395,3 +401,63 @@ def _markdown_bullets(items: list[str]) -> str:
 def _markdown_numbered(items: list[str]) -> str:
     cleaned = [item.strip() for item in items if item and item.strip()]
     return "\n".join(f"{index}. {item}" for index, item in enumerate(cleaned, start=1)) if cleaned else "1."
+
+
+COMMAND_PATTERN = re.compile(r"`([^`\n]+)`")
+
+
+def _resolve_execution_hints(
+    packet_spec: dict[str, Any],
+    *,
+    base_execution_hints: dict[str, Any],
+    default_verifier_execution_hints: dict[str, Any] | None,
+) -> dict[str, Any]:
+    packet_hints = dict(packet_spec.get("execution_hints") or {})
+    if packet_spec["role"] != "verifier":
+        return {**base_execution_hints, **packet_hints}
+
+    verifier_defaults = dict(default_verifier_execution_hints or {})
+    hints: dict[str, Any] = {**base_execution_hints, **verifier_defaults, **packet_hints}
+    hints.setdefault("runner", "verifier")
+
+    verification_profile = dict(packet_spec.get("verification_profile") or {})
+    backend_commands = _extract_commands(verification_profile.get("backend"))
+    frontend_commands = _extract_commands(verification_profile.get("frontend"))
+    observability_commands = _extract_commands(verification_profile.get("observability"))
+
+    if backend_commands:
+        hints["backend_commands"] = backend_commands
+        hints.pop("backend_profile", None)
+    if frontend_commands:
+        hints["frontend_commands"] = frontend_commands
+        hints.pop("frontend_profile", None)
+    if observability_commands:
+        hints["observability_commands"] = observability_commands
+        hints.pop("observability_profile", None)
+
+    if "touches_frontend" not in packet_hints:
+        hints["touches_frontend"] = bool(hints.get("touches_frontend")) or bool(frontend_commands)
+    if "requires_frontend_visual" not in packet_hints:
+        hints["requires_frontend_visual"] = bool(hints.get("requires_frontend_visual")) or bool(frontend_commands)
+
+    return hints
+
+
+def _extract_commands(value: Any) -> list[str]:
+    if value in (None, "", []):
+        return []
+    if isinstance(value, list):
+        commands: list[str] = []
+        for item in value:
+            commands.extend(_extract_commands(item))
+        return commands
+    text = str(value)
+    commands = [match.strip() for match in COMMAND_PATTERN.findall(text) if match.strip()]
+    if commands:
+        return commands
+    stripped = text.strip()
+    if not stripped or "not required" in stripped.lower():
+        return []
+    if any(token in stripped for token in ("./", "python", "pnpm", "npm", "docker ", "docker exec", "bash ", "corepack ")):
+        return [stripped]
+    return []

@@ -24,6 +24,7 @@
     <scenario id="SCN-REFERRAL-SIGNUP" />
     <scenario id="SCN-REFERRAL-PARTNER-REWARD" />
     <scenario id="SCN-FEED-TODAY" />
+    <scenario id="SCN-DAY-DEV-RUNTIME-INDICATOR" />
     <scenario id="SCN-ADMIN-REPORT-VIEW" />
     <scenario id="SCN-ADMIN-DIAGNOSTICS" />
     <scenario id="SCN-BOT-NOTIFY" />
@@ -56,6 +57,7 @@
     <flow id="FLOW-FORECAST-CATALOG" name="Forecast ladder catalog" />
     <flow id="FLOW-HOME-FEED" name="Start gateway and home feed routing" />
     <flow id="FLOW-TODAY-PREMIUM" name="Today premium top layer" />
+    <flow id="FLOW-DAY-DEV-RUNTIME-INDICATOR" name="Day dev runtime disclosure" />
     <flow id="FLOW-WEEK-BRIEF" name="Week brief and map" />
     <flow id="FLOW-READ-SURFACE" name="Read surface and fallback" />
 
@@ -68,10 +70,17 @@
     <artifact id="A-REGRESSION-MAP" path="docs/REGRESSION_MAP.md" />
     <artifact id="A-FIXTURE-MANIFEST" path="docs/regression_fixtures/canonical_astrology_fixture_manifest.v1.json" />
     <artifact id="A-TODAY-PACKET" path="docs/today_screen_packet/requirements.slice.today-screen.xml" />
+    <artifact id="A-DAY-DEV-INDICATOR-SLICE" path="docs/expandable-day-screen-dev-indicator/requirements.slice.expandable-day-screen-dev-indicator.xml" />
+    <artifact id="A-DAY-DEV-INDICATOR-PLAN" path="docs/expandable-day-screen-dev-indicator/development-plan.slice.expandable-day-screen-dev-indicator.xml" />
+    <artifact id="A-DAY-DEV-INDICATOR-VM" path="docs/expandable-day-screen-dev-indicator/verification-matrix.slice.expandable-day-screen-dev-indicator.md" />
+    <artifact id="A-DAY-DEV-INDICATOR-KG" path="docs/expandable-day-screen-dev-indicator/knowledge-graph.slice.expandable-day-screen-dev-indicator.xml" />
     <artifact id="A-WEEK-PACKET" path="docs/week_ui_packet/requirements.slice.week-ui.xml" />
     <artifact id="A-NATAL-DAILY-PACKET" path="docs/natal_daily_backend_packet/requirements.slice.natal-daily-backend.xml" />
+    <artifact id="A-TODAY-WEEK-DETAIL-LAYER-PLAN" path="docs/TODAY_WEEK_DETAIL_LAYER_REFACTOR_PLAN.md" />
+    <artifact id="A-POST-TEST-OBSERVABILITY-MEMO" path="docs/POST_TEST_OBSERVABILITY_REVIEW_2026-04-01.md" />
     <artifact id="A-FRONTEND-RELIABILITY-PACKET" path="docs/frontend_functional_reliability_packet/verification-matrix.slice.frontend-functional-reliability.md" />
     <artifact id="A-FRONTEND-HARDENING-PACKET" path="docs/frontend_test_hardening_packet/verification-matrix.slice.frontend-test-hardening.md" />
+    <artifact id="A-RENDERED-GATE-PASS-MATRIX-SYNC" path="docs/RENDERED_GATE_PASS_MATRIX_SYNC.md" />
 
     <module id="M-API-GATEWAY" path="backend/app/main.py;backend/app/routers/billing.py">
       <export>create_report_async</export>
@@ -210,6 +219,7 @@
       <export>TodayWindowsPanel</export>
       <export>TodayActionPlanPanel</export>
       <export>TodayExplainabilityPanel</export>
+      <export>DayRuntimeDiagnosticsDisclosure</export>
       <export>DayBriefDto</export>
       <export>TodayViewModel</export>
     </module>
@@ -220,6 +230,13 @@
       <export>WeekExplainabilityPanel</export>
       <export>WeekBrief</export>
       <export>WeekBriefEnvelope</export>
+    </module>
+    <module id="M-TODAY-WEEK-DETAIL-LAYER" path="frontend/lib/detail-layer.ts;frontend/lib/day-brief*.ts;frontend/lib/week-brief.ts;frontend/components/today/*;frontend/components/week/*">
+      <export>detail-layer view models</export>
+      <export>Today detail packets</export>
+      <export>Week detail packets</export>
+      <export>Today score disclosure quality contract</export>
+      <export>Week day-card detail system</export>
     </module>
     <module id="M-FRONTEND-READ" path="frontend/app/read/[id]/page.tsx;frontend/components/blocks/report-renderer.tsx;frontend/lib/product-billing.ts">
       <export>/read/[id]</export>
@@ -232,7 +249,7 @@
       <export>get_daily_feed</export>
       <export>normalize_daily_vibe_text</export>
     </module>
-    <module id="M-FRONTEND-WEBAPP" path="frontend/app/page.tsx;frontend/app/start/page.tsx;frontend/app/onboarding/profile/page.tsx;frontend/app/create/page.tsx;frontend/app/billing/complete/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/profile/page.tsx;frontend/app/reports/page.tsx;frontend/app/reports/history/page.tsx;frontend/app/week/page.tsx;frontend/components/consumer-page-shell.tsx;frontend/lib/product-billing.ts;frontend/app/api/*">
+    <module id="M-FRONTEND-WEBAPP" path="frontend/app/layout.tsx;frontend/app/page.tsx;frontend/app/start/page.tsx;frontend/app/onboarding/profile/page.tsx;frontend/app/create/page.tsx;frontend/app/billing/complete/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/profile/page.tsx;frontend/app/reports/page.tsx;frontend/app/reports/history/page.tsx;frontend/app/week/page.tsx;frontend/components/consumer-page-shell.tsx;frontend/lib/product-billing.ts;frontend/app/api/*">
       <export>/</export>
       <export>/start</export>
       <export>/onboarding/profile</export>
@@ -243,6 +260,13 @@
       <export>/reports</export>
       <export>/reports/history</export>
       <export>ConsumerPageShell</export>
+      <export>RuntimeEnvironmentBadge</export>
+    </module>
+    <module id="M-USE-TELEGRAM" path="frontend/hooks/useTelegram.ts;frontend/lib/telegram-runtime.ts">
+      <export>useTelegram</export>
+      <export>waitForTelegramWebAppRuntime</export>
+      <export>TelegramBootstrapOutcome</export>
+      <export>TelegramBootstrapDiagnostics</export>
     </module>
     <module id="M-READ-RESILIENCE-SURFACE" path="frontend/app/create/page.tsx;frontend/app/read/[id]/page.tsx;frontend/app/week/page.tsx;frontend/components/blocks/report-renderer.tsx">
       <export>/create</export>
@@ -302,9 +326,13 @@
     <verification id="VM-ADMIN-OPS" />
     <verification id="VM-BOT-DELIVERY" />
     <verification id="VM-TODAY-SURFACE" />
+    <verification id="VM-DAY-DEV-RUNTIME-INDICATOR" />
     <verification id="VM-WEEK-SURFACE" />
     <verification id="VM-READ-SURFACE" />
     <verification id="VM-FRONTEND-CANONICAL" />
+    <verification id="VM-POST-TEST-OBSERVABILITY" />
+    <verification id="VM-FRONTEND-FUNCTIONAL-RELIABILITY" />
+    <verification id="VM-FRONTEND-TEST-HARDENING" />
 
     <defect id="DEFECT-REFERRAL-POLICY-DRIFT" />
     <defect id="DEFECT-FEED-LLM-TUPLE" />
@@ -324,6 +352,7 @@
     <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-SIGNUP" type="contains" />
     <edge from="UC-REFERRAL-REWARD" to="SCN-REFERRAL-PARTNER-REWARD" type="contains" />
     <edge from="UC-FEED-DAILY" to="SCN-FEED-TODAY" type="contains" />
+    <edge from="UC-FEED-DAILY" to="SCN-DAY-DEV-RUNTIME-INDICATOR" type="contains" />
     <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-REPORT-VIEW" type="contains" />
     <edge from="UC-ADMIN-OPERATIONS" to="SCN-ADMIN-DIAGNOSTICS" type="contains" />
     <edge from="UC-BOT-DELIVERY" to="SCN-BOT-NOTIFY" type="contains" />
@@ -349,9 +378,14 @@
     <edge from="FLOW-TODAY-PREMIUM" to="UC-FEED-DAILY" type="covers" />
     <edge from="FLOW-TODAY-PREMIUM" to="PHASE-DAY-BRIEF" type="depends_on" />
     <edge from="FLOW-TODAY-PREMIUM" to="PHASE-FRONTEND-TODAY" type="depends_on" />
+    <edge from="FLOW-TODAY-PREMIUM" to="M-TODAY-WEEK-DETAIL-LAYER" type="implemented_by" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="UC-FEED-DAILY" type="covers" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="SCN-DAY-DEV-RUNTIME-INDICATOR" type="covers" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="PHASE-FRONTEND-TODAY" type="depends_on" />
     <edge from="FLOW-WEEK-BRIEF" to="UC-REPORT-ASYNC" type="covers" />
     <edge from="FLOW-WEEK-BRIEF" to="PHASE-WEEK-BRIEF" type="depends_on" />
     <edge from="FLOW-WEEK-BRIEF" to="PHASE-FRONTEND-WEEK" type="depends_on" />
+    <edge from="FLOW-WEEK-BRIEF" to="M-TODAY-WEEK-DETAIL-LAYER" type="implemented_by" />
     <edge from="FLOW-READ-SURFACE" to="UC-REPORT-ASYNC" type="covers" />
     <edge from="FLOW-READ-SURFACE" to="UC-BILLING-ACCESS" type="covers" />
     <edge from="FLOW-READ-SURFACE" to="PHASE-READOUT" type="depends_on" />
@@ -384,6 +418,7 @@
     <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-WORKFLOW-INIT" type="gated_by" />
     <edge from="SCN-BILLING-ONE-OFF-PHASE2" to="PHASE-READOUT" type="gated_by" />
     <edge from="SCN-FEED-TODAY" to="PHASE-READOUT" type="gated_by" />
+    <edge from="SCN-DAY-DEV-RUNTIME-INDICATOR" to="PHASE-FRONTEND-TODAY" type="gated_by" />
     <edge from="SCN-ADMIN-DIAGNOSTICS" to="PHASE-READOUT" type="gated_by" />
     <edge from="SCN-START-GUEST-AUTH-GATE" to="PHASE-IDENTITY" type="gated_by" />
     <edge from="SCN-START-MOCK-FEED-REDIRECT" to="PHASE-WORKFLOW-INIT" type="gated_by" />
@@ -394,7 +429,9 @@
     <edge from="SCN-CREATE-PRODUCT-INPUT-HYDRATION" to="PHASE-WORKFLOW-INIT" type="gated_by" />
 
     <edge from="UC-AUTH-PROFILE" to="M-FRONTEND-WEBAPP" type="entered_via" />
+    <edge from="UC-AUTH-PROFILE" to="EXT-TELEGRAM-WEBAPP" type="entered_via" />
     <edge from="UC-AUTH-PROFILE" to="M-BOT-CHANNEL" type="entered_via" />
+    <edge from="UC-AUTH-PROFILE" to="EXT-TELEGRAM-BOT-API" type="integrates_with" />
     <edge from="UC-AUTH-PROFILE" to="M-AUTH-IDENTITY" type="implemented_by" />
     <edge from="UC-AUTH-PROFILE" to="M-DATA-PERSISTENCE" type="persists_in" />
     <edge from="UC-AUTH-PROFILE" to="M-ACCESS-COMMERCE" type="loads_from" />
@@ -435,6 +472,9 @@
     <edge from="FLOW-TODAY-PREMIUM" to="M-FACTS-CALC" type="uses" />
     <edge from="FLOW-TODAY-PREMIUM" to="M-DAY-BRIEF-SERVICE" type="uses" />
     <edge from="FLOW-TODAY-PREMIUM" to="M-FRONTEND-TODAY" type="rendered_by" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="M-FRONTEND-WEBAPP" type="uses" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="M-USE-TELEGRAM" type="reads" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="M-FRONTEND-TODAY" type="rendered_by" />
     <edge from="FLOW-WEEK-BRIEF" to="M-REPORT-WORKFLOW" type="uses" />
     <edge from="FLOW-WEEK-BRIEF" to="M-WEEK-BRIEF-SERVICE" type="uses" />
     <edge from="FLOW-WEEK-BRIEF" to="M-FRONTEND-WEEK" type="rendered_by" />
@@ -453,6 +493,7 @@
     <edge from="UC-BOT-DELIVERY" to="M-BOT-CHANNEL" type="implemented_by" />
     <edge from="M-BOT-CHANNEL" to="EXT-TELEGRAM-BOT-API" type="integrates_with" />
     <edge from="M-AUTH-IDENTITY" to="EXT-TELEGRAM-WEBAPP" type="validates" />
+    <edge from="M-USE-TELEGRAM" to="EXT-TELEGRAM-WEBAPP" type="reads_runtime" />
     <edge from="M-DATA-PERSISTENCE" to="EXT-POSTGRESQL" type="stores_in" />
     <edge from="M-API-GATEWAY" to="EXT-GEONAMES" type="proxies_to" />
 
@@ -472,6 +513,7 @@
     <edge from="UC-ADMIN-OPERATIONS" to="VM-ADMIN-OPS" type="verified_by" />
     <edge from="UC-BOT-DELIVERY" to="VM-BOT-DELIVERY" type="verified_by" />
     <edge from="FLOW-TODAY-PREMIUM" to="VM-TODAY-SURFACE" type="verified_by" />
+    <edge from="FLOW-DAY-DEV-RUNTIME-INDICATOR" to="VM-DAY-DEV-RUNTIME-INDICATOR" type="verified_by" />
     <edge from="FLOW-WEEK-BRIEF" to="VM-WEEK-SURFACE" type="verified_by" />
     <edge from="FLOW-READ-SURFACE" to="VM-READ-SURFACE" type="verified_by" />
     <edge from="M-FRONTEND-TODAY" to="VM-FRONTEND-CANONICAL" type="verified_by" />
@@ -494,11 +536,29 @@
     <edge from="A-REGRESSION-MAP" to="VM-WEEK-SURFACE" type="documents" />
     <edge from="A-REGRESSION-MAP" to="VM-READ-SURFACE" type="documents" />
     <edge from="A-TODAY-PACKET" to="FLOW-TODAY-PREMIUM" type="specifies" />
+    <edge from="A-DAY-DEV-INDICATOR-SLICE" to="FLOW-DAY-DEV-RUNTIME-INDICATOR" type="specifies" />
+    <edge from="A-DAY-DEV-INDICATOR-SLICE" to="M-FRONTEND-TODAY" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-SLICE" to="M-FRONTEND-WEBAPP" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-PLAN" to="FLOW-DAY-DEV-RUNTIME-INDICATOR" type="specifies" />
+    <edge from="A-DAY-DEV-INDICATOR-PLAN" to="M-USE-TELEGRAM" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-VM" to="VM-DAY-DEV-RUNTIME-INDICATOR" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-KG" to="FLOW-DAY-DEV-RUNTIME-INDICATOR" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-KG" to="M-FRONTEND-WEBAPP" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-KG" to="M-FRONTEND-TODAY" type="documents" />
+    <edge from="A-DAY-DEV-INDICATOR-KG" to="M-USE-TELEGRAM" type="documents" />
     <edge from="A-WEEK-PACKET" to="FLOW-WEEK-BRIEF" type="specifies" />
     <edge from="A-NATAL-DAILY-PACKET" to="M-NATAL-CONTEXT-ENGINE" type="specifies" />
     <edge from="A-NATAL-DAILY-PACKET" to="M-NATAL-PROMPT-CONTRACT" type="specifies" />
     <edge from="A-FRONTEND-RELIABILITY-PACKET" to="VM-FRONTEND-CANONICAL" type="documents" />
     <edge from="A-FRONTEND-HARDENING-PACKET" to="VM-FRONTEND-CANONICAL" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="A-REGRESSION-MAP" type="indexes" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="A-POST-TEST-OBSERVABILITY-MEMO" type="indexes" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="FLOW-TODAY-PREMIUM" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="FLOW-WEEK-BRIEF" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="FLOW-READ-SURFACE" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="M-FRONTEND-TODAY" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="M-FRONTEND-WEEK" type="documents" />
+    <edge from="A-RENDERED-GATE-PASS-MATRIX-SYNC" to="M-FRONTEND-READ" type="documents" />
 
     <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="UC-REFERRAL-REWARD" type="violates" />
     <edge from="DEFECT-REFERRAL-POLICY-DRIFT" to="M-ACCESS-COMMERCE" type="impacts" />

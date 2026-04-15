@@ -15,6 +15,7 @@ import yaml
 from prefect_grace.models import ReasoningProfile
 from prefect_grace.tasks.agent_output_parser import read_agent_message
 from prefect_grace.tasks.state_store import find_record, update_record
+from prefect_grace.tasks.workdir import resolve_execution_workdir
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
@@ -86,6 +87,23 @@ def _feature_context_blocks(packet: dict[str, Any]) -> list[str]:
         ("feature_brief", feature_dir / "feature-brief.md"),
         ("wave_plan", feature_dir / "wave-plan.md"),
     ):
+        text = _read_text(path)
+        if text:
+            blocks.append(f"<{tag} path=\"{path}\">\n{text}\n</{tag}>")
+    try:
+        feature = find_record("features", "features", "feature_id", str(packet.get("feature_id")))
+    except KeyError:
+        feature = {}
+    for tag, key in (
+        ("architect_manifest", "architect_manifest_path"),
+        ("architect_handoff", "architect_handoff_path"),
+        ("execution_packet", "execution_packet_path"),
+        ("requirements_slice", "requirements_slice_path"),
+        ("development_plan_slice", "development_plan_slice_path"),
+        ("verification_matrix_slice", "verification_matrix_slice_path"),
+        ("knowledge_graph_slice", "knowledge_graph_slice_path"),
+    ):
+        path = feature.get(key)
         text = _read_text(path)
         if text:
             blocks.append(f"<{tag} path=\"{path}\">\n{text}\n</{tag}>")
@@ -252,7 +270,8 @@ def launch_codex_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
     approval = str(role_defaults.get("approval") or "never")
     codex_binary = str(config.get("codex", {}).get("binary") or "codex1")
     shared_model = str(config.get("codex", {}).get("shared_model") or "gpt-5.4")
-    workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
+    configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
+    workdir = str(resolve_execution_workdir(configured_workdir))
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
 

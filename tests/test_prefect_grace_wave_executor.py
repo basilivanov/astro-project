@@ -29,3 +29,12 @@ def test_reviewer_target_packet_id_prefers_coder_dependency() -> None:
         "REV": {"packet_id": "REV", "role": "reviewer", "dependencies": ["VER", "CODER"]},
     }
     assert reviewer_target_packet_id(packets["REV"], packets) == "CODER"
+
+
+def test_reviewer_target_packet_id_traces_upstream_coder() -> None:
+    packets = {
+        "CODER": {"packet_id": "CODER", "role": "coder", "dependencies": []},
+        "VER": {"packet_id": "VER", "role": "verifier", "dependencies": ["CODER"]},
+        "REV": {"packet_id": "REV", "role": "reviewer", "dependencies": ["VER"]},
+    }
+    assert reviewer_target_packet_id(packets["REV"], packets) == "CODER"

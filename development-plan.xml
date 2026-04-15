@@ -1,4 +1,4 @@
-<development_plan project="astro-project" mode="strict-grace" updated_at="2026-03-27">
+<development_plan project="astro-project" mode="strict-grace" updated_at="2026-04-15">
   <assumptions>
     <assumption local_adaptation="true">Consumer mini-app keeps App Router shell + BottomNav; product changes happen via DTO adapters, not structural rewrites.</assumption>
     <assumption local_adaptation="true">Day/Week DTOs follow current canonical adapters and validators; frontend cannot synthesize user-facing Day sections beyond the canonical DayBrief contract.</assumption>
@@ -81,9 +81,9 @@
     </module>
     <module id="M-FRONTEND-TODAY">
       <owned_paths>frontend/app/page.tsx; frontend/components/today/*; frontend/lib/day-brief.ts</owned_paths>
-      <responsibility>Render the canonical Day surface through TodayVerdict, TodayScores, and TodayCtaPanel, keep honest ready|no_data|error states, and wire telemetry/CTA without legacy reconstruction.</responsibility>
+      <responsibility>Render the canonical Day surface through TodayVerdict, TodayScores, and TodayCtaPanel, keep honest ready|no_data|error states, wire telemetry/CTA without legacy reconstruction, and host any dev-only runtime disclosure attached to the existing Day/home environment chip using already-available client runtime state.</responsibility>
       <public_interfaces>/</public_interfaces>
-      <depends_on>M-API-GATEWAY</depends_on>
+      <depends_on>M-API-GATEWAY M-FRONTEND-WEBAPP</depends_on>
       <write_scope>none</write_scope>
     </module>
     <module id="M-FRONTEND-WEEK">
@@ -94,10 +94,17 @@
       <write_scope>none</write_scope>
     </module>
     <module id="M-FRONTEND-WEBAPP">
-      <owned_paths>frontend/app/* (shell); frontend/lib/*</owned_paths>
-      <responsibility>Maintain Consumer shell, navigation, billing/profile surfaces.</responsibility>
+      <owned_paths>frontend/app/layout.tsx; frontend/app/* (shell); frontend/lib/*</owned_paths>
+      <responsibility>Maintain Consumer shell, navigation, billing/profile surfaces, and environment/runtime shell affordances such as the global route-gated DEV/PROD badge.</responsibility>
       <public_interfaces>/start; /create; /reports; /profile; /billing/complete; /support; /share</public_interfaces>
       <depends_on>M-API-GATEWAY</depends_on>
+      <write_scope>none</write_scope>
+    </module>
+    <module id="M-USE-TELEGRAM">
+      <owned_paths>frontend/hooks/useTelegram.ts; frontend/lib/telegram-runtime.ts</owned_paths>
+      <responsibility>Normalize Telegram, mock, guest, and absent runtime state into stable client fields including mode, bootstrap outcome, and bootstrap diagnostics for consumer surfaces.</responsibility>
+      <public_interfaces>useTelegram; waitForTelegramWebAppRuntime</public_interfaces>
+      <depends_on>EXT-TELEGRAM-WEBAPP</depends_on>
       <write_scope>none</write_scope>
     </module>
     <module id="M-OPS-AUTOMATION">
@@ -117,6 +124,10 @@
       <path>M-FACTS-CALC -&gt; M-DAY-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-TODAY.</path>
       <scope>Aggregate scores, compose distinct domain description and personalized why_astro_text layers, validate payload-driven hero/CTA canonical Day DTO completeness, and expose trace/log evidence via /api/feed/today.</scope>
     </flow>
+    <flow id="FLOW-DAY-DEV-RUNTIME-INDICATOR" name="Day dev runtime disclosure">
+      <path>M-FRONTEND-WEBAPP + M-USE-TELEGRAM -&gt; M-FRONTEND-TODAY.</path>
+      <scope>Reuse the existing DEV/PROD shell badge plus `useTelegram` and Day render-path state to expose a dev-only local disclosure; production remains visually and behaviorally inert.</scope>
+    </flow>
     <flow id="FLOW-WEEK-BRIEF" name="Week map DTO">
       <path>M-REPORT-WORKFLOW -&gt; M-WEEK-BRIEF-SERVICE -&gt; M-API-GATEWAY -&gt; M-FRONTEND-WEEK.</path>
       <scope>Attach WeekBrief to /api/reports/{id} for week_forecast, keep envelope for polling.</scope>
@@ -129,6 +140,7 @@
   <sequencing_rules>
     <rule>Introduce new DTO fields only after updating schemas in tmp/, pydantic models, backend validators, telemetry, and adapters together.</rule>
     <rule>Frontend may switch to DayBrief/WeekBrief only once backend returns validated payloads; Day no longer depends on legacy adapters as intended product behavior.</rule>
+    <rule>Dev-only runtime disclosures on Day must reuse existing client state and environment labels; they must not request new backend payload fields, alter DayBrief content hierarchy, or create a second top-of-screen banner.</rule>
     <rule>LLM prompt changes must ship with deterministic fallback templates and logging updates.</rule>
     <rule>Slow background factors (progressions/solar/profection) must be computed before WeekBrief reads them; do not stub them on frontend.</rule>
   </sequencing_rules>
@@ -154,6 +166,10 @@
     <packet id="PKT-DAY-CANON-EVIDENCE-CLOSEOUT">
       <goal>Close Day only with signed Telegram proof and truthful observability evidence.</goal>
       <depends_on>PKT-DAY-CANON-FRONTEND-CUTOVER</depends_on>
+    </packet>
+    <packet id="PKT-DAY-DEV-RUNTIME-INDICATOR">
+      <goal>Convert the existing Day/home DEV chip into a bounded dev-only runtime disclosure without changing Day content or production behavior.</goal>
+      <depends_on>M-FRONTEND-TODAY M-FRONTEND-WEBAPP M-USE-TELEGRAM</depends_on>
     </packet>
   </execution_packets>
 </development_plan>

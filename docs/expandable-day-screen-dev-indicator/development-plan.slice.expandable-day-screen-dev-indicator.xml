@@ -1,0 +1,46 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
+  <phase id="PHASE-SLICE">
+    <goal>Reuse the existing compact Day/home DEV chip as a dev-only runtime diagnostics disclosure without changing DayBrief contracts, backend traffic, or production behavior.</goal>
+
+    <wave id="W01">
+      <goal>Land the bounded frontend slice, prove dev-expanded and prod-inert behavior, and close with verifier, reviewer, and architect evidence.</goal>
+      <module_ref id="M-FRONTEND-WEBAPP" />
+      <module_ref id="M-FRONTEND-TODAY" />
+      <module_ref id="M-USE-TELEGRAM" />
+      <allowed_write_scope>
+        <file>/opt/astro-project/frontend/app/layout.tsx</file>
+        <file>/opt/astro-project/frontend/app/page.tsx</file>
+        <file>/opt/astro-project/frontend/components/today/*</file>
+        <file>/opt/astro-project/frontend/hooks/useTelegram.ts</file>
+        <file>/opt/astro-project/frontend/lib/telegram-runtime.ts</file>
+        <file>/opt/astro-project/frontend/test/app/home-page.test.tsx</file>
+        <file>/opt/astro-project/frontend/e2e/day-dev-indicator.spec.ts</file>
+        <file>/opt/astro-project/frontend/e2e/day-canon-visual-evidence.spec.ts</file>
+        <file>/opt/astro-project/frontend/e2e/telegram-signed-auth.spec.ts</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>/opt/astro-project/backend/**</file>
+        <file>/opt/astro-project/frontend/app/week/**</file>
+        <file>/opt/astro-project/frontend/components/week/**</file>
+        <file>/opt/astro-project/frontend/lib/day-brief.ts</file>
+      </frozen_scope>
+      <verification>
+        <command>corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx</command>
+        <command>./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts</command>
+        <command>./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g &quot;runtime indicator&quot;</command>
+        <command>python3 tools/post_test_review.py --profile today-week --since 30m --report-format md</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Compact DEV chip remains local and non-banner-like in collapsed state.</criterion>
+        <criterion>On `/` in non-production, tapping the chip expands and collapses a disclosure with render path, bootstrap result, and current mode only.</criterion>
+        <criterion>Production branch remains inert and visually unchanged.</criterion>
+        <criterion>Verifier evidence includes dev-collapsed and dev-expanded screenshots plus an explicit observability verdict.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Any broader shell diagnostics surface beyond the Day route.</item>
+        <item>Any additional runtime fields beyond render path, bootstrap result, and current mode.</item>
+      </deferred_work>
+    </wave>
+
+  </phase>
+</development_plan_slice>
