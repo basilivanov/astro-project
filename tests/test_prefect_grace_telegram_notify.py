@@ -38,6 +38,36 @@ def test_notify_packet_event_renders_prefect_links(monkeypatch) -> None:
     assert "Open feature run" in sent[0]
 
 
+def test_notify_packet_event_filters_non_major_statuses_by_default(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.delenv("GRACE_NOTIFY_PACKET_STATUSES", raising=False)
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    assert telegram_notify.notify_packet_event(
+        feature_id="FEAT-1",
+        packet_id="FEAT-1-W01-CODER",
+        role="coder",
+        status="accepted",
+        wave_id="W01",
+    ) is False
+    assert sent == []
+
+
+def test_notify_packet_event_allows_status_override(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setenv("GRACE_NOTIFY_PACKET_STATUSES", "all")
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    assert telegram_notify.notify_packet_event(
+        feature_id="FEAT-1",
+        packet_id="FEAT-1-W01-CODER",
+        role="coder",
+        status="accepted",
+        wave_id="W01",
+    ) is True
+    assert "Packet accepted" in sent[0]
+
+
 def test_notify_chat_id_falls_back_to_last_bot_admin_id_from_env(monkeypatch) -> None:
     monkeypatch.delenv("GRACE_NOTIFY_CHAT_ID", raising=False)
     monkeypatch.delenv("SUPERVISOR_NOTIFY_CHAT_ID", raising=False)

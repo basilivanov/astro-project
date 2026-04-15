@@ -12,6 +12,26 @@ from prefect_grace.runtime_config import load_runtime_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+DEFAULT_FEATURE_NOTIFY_STATUSES = {
+    "in_progress",
+    "accepted",
+    "blocked",
+    "pipeline_invalid",
+    "verification_blocked",
+    "environment_blocked",
+    "product_blocked",
+}
+DEFAULT_PACKET_NOTIFY_STATUSES = {
+    "rework_required",
+    "blocked",
+    "escalate_to_architect",
+}
+DEFAULT_WAVE_NOTIFY_VERDICTS = {
+    "accepted",
+    "rework_required",
+    "blocked",
+}
+
 
 def _env_file_value(key: str) -> str | None:
     env_path = PROJECT_ROOT / ".env"
@@ -50,6 +70,45 @@ def _parse_int_list(raw: object) -> list[int]:
         if parsed is not None:
             values.append(parsed)
     return values
+
+
+def _parse_csv_set(raw: object) -> set[str]:
+    if raw in (None, ""):
+        return set()
+    values: set[str] = set()
+    for item in str(raw).split(","):
+        normalized = item.strip().lower()
+        if normalized:
+            values.add(normalized)
+    return values
+
+
+def _status_filter(name: str, default: set[str]) -> set[str] | None:
+    env_value = os.environ.get(name)
+    file_value = _env_file_value(name)
+    configured = _parse_csv_set(env_value or file_value)
+    if not configured:
+        return set(default)
+    if "all" in configured:
+        return None
+    if "none" in configured:
+        return set()
+    return configured
+
+
+def _feature_status_allowed(status: str) -> bool:
+    allowed = _status_filter("GRACE_NOTIFY_FEATURE_STATUSES", DEFAULT_FEATURE_NOTIFY_STATUSES)
+    return allowed is None or status in allowed
+
+
+def _packet_status_allowed(status: str) -> bool:
+    allowed = _status_filter("GRACE_NOTIFY_PACKET_STATUSES", DEFAULT_PACKET_NOTIFY_STATUSES)
+    return allowed is None or status in allowed
+
+
+def _wave_verdict_allowed(verdict: str) -> bool:
+    allowed = _status_filter("GRACE_NOTIFY_WAVE_VERDICTS", DEFAULT_WAVE_NOTIFY_VERDICTS)
+    return allowed is None or verdict in allowed
 
 
 def _telegram_bot_token() -> str | None:
@@ -186,6 +245,9 @@ def notify_feature_event(
     blockers: list[str] | None = None,
     next_action: str | None = None,
 ) -> bool:
+    normalized_status = str(status).strip().lower()
+    if not _feature_status_allowed(normalized_status):
+        return False
     icon = {
         "in_progress": "🚀",
         "accepted": "🏁",
@@ -196,9 +258,9 @@ def notify_feature_event(
         "environment_blocked": "🛠",
         "product_blocked": "📌",
         "architect_ready": "🧠",
-    }.get(status, "📣")
+    }.get(normalized_status, "📣")
     lines = [
-        f"{icon} <b>Feature {escape(status)}</b>",
+        f"{icon} <b>Feature {escape(normalized_status)}</b>",
         f"<b>{escape(feature_id)}</b>" + (f" — {escape(title)}" if title else ""),
     ]
     if wave_id:
@@ -228,6 +290,9 @@ def notify_packet_event(
     task_run_id: str | None = None,
     flow_run_id: str | None = None,
 ) -> bool:
+    normalized_status = str(status).strip().lower()
+    if not _packet_status_allowed(normalized_status):
+        return False
     icon = {
         "accepted": "✅",
         "review": "🧪",
@@ -235,9 +300,9 @@ def notify_packet_event(
         "blocked": "⛔",
         "escalate_to_architect": "🧠",
         "running": "🏃",
-    }.get(status, "📦")
+    }.get(normalized_status, "📦")
     lines = [
-        f"{icon} <b>Packet {escape(status)}</b>",
+        f"{icon} <b>Packet {escape(normalized_status)}</b>",
         f"Feature: <b>{escape(feature_id)}</b>",
         f"Wave: <b>{escape(wave_id or '-')}</b>",
         f"Role: <b>{escape(role)}</b>",
@@ -265,13 +330,16 @@ def notify_wave_event(
     reasons: list[str] | None = None,
     flow_run_id: str | None = None,
 ) -> bool:
+    normalized_verdict = str(verdict).strip().lower()
+    if not _wave_verdict_allowed(normalized_verdict):
+        return False
     icon = {
         "accepted": "🌊",
         "rework_required": "🔁",
         "blocked": "⛔",
-    }.get(verdict, "🌊")
+    }.get(normalized_verdict, "🌊")
     lines = [
-        f"{icon} <b>Wave {escape(verdict)}</b>",
+        f"{icon} <b>Wave {escape(normalized_verdict)}</b>",
         f"Feature: <b>{escape(feature_id)}</b>",
         f"Wave: <b>{escape(wave_id)}</b>",
     ]
