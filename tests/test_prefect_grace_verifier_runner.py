@@ -3,6 +3,8 @@ from pathlib import Path
 from prefect_grace.tasks.verifier_runner import (
     POST_TEST_REVIEW_MAP,
     _collect_artifacts,
+    _message_evidence_paths,
+    _observability_from_stdout,
     build_verifier_message,
     build_verifier_plan,
     validate_verifier_plan,
@@ -84,3 +86,27 @@ def test_validate_verifier_plan_rejects_structured_command_text() -> None:
     }
     issues = validate_verifier_plan(packet, plan)
     assert any("structured text" in issue for issue in issues)
+
+
+def test_observability_from_markdown_gate_summary() -> None:
+    verdict, evidence, issues = _observability_from_stdout(
+        "# Post-test observability gate — FAIL_NO_EVIDENCE\n\n## FLOW-TODAY-WEEK-TODAY — no-evidence-blocker\n- sample_trace_id: `None`\n- alerts: no recent today/day brief evidence\n"
+    )
+    assert verdict == "no-evidence-blocker"
+    assert any("FLOW-TODAY-WEEK-TODAY" in item for item in evidence)
+    assert any("no recent today/day brief evidence" in item for item in issues)
+
+
+def test_message_evidence_paths_extracts_visual_paths(tmp_path: Path) -> None:
+    image = tmp_path / "proof.png"
+    image.write_text("img", encoding="utf-8")
+    last_message = tmp_path / "last-message.md"
+    last_message.write_text(f"- [proof]({image})\n", encoding="utf-8")
+    packet = {
+        "last_execution_run": {
+            "last_message_path": str(last_message),
+            "stdout_path": None,
+        }
+    }
+    paths = _message_evidence_paths(packet)
+    assert str(image) in paths

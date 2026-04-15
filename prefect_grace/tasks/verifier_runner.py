@@ -5,11 +5,13 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
 import yaml
 
 from prefect_grace.models import FrontendVisualVerdict, ObservabilityVerdict, TestVerdict
+from prefect_grace.tasks.agent_output_parser import read_agent_message
 from prefect_grace.tasks.state_store import find_record, update_record
 from prefect_grace.tasks.workdir import resolve_execution_workdir
 
@@ -190,12 +192,41 @@ def _collect_artifacts(globs: list[str], *, root_dir: Path, started_at: datetime
 
 
 def _observability_from_stdout(stdout_text: str) -> tuple[str, list[str], list[str]]:
-    if not stdout_text.strip():
+    text = stdout_text.strip()
+    if not text:
         return ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value, [], ["Observability review produced no output."]
+    if text.startswith("# Post-test observability gate"):
+        verdict = ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value
+        issues: list[str] = []
+        evidence: list[str] = []
+        first_line = text.splitlines()[0].strip()
+        if "PASS_CLEAN" in first_line:
+            verdict = ObservabilityVerdict.CLEAN.value
+        elif "PASS_WITH_EXPECTED_DEGRADATION" in first_line or "PASS_PRIMARY_LIVE_CLEAN_WRAPPER_NOISE" in first_line:
+            verdict = ObservabilityVerdict.DEGRADED_BUT_EXPECTED.value
+        elif "FAIL_OBSERVABILITY_GATE" in first_line or "FAIL_PRIMARY_LIVE_SESSION_MISMATCH" in first_line:
+            verdict = ObservabilityVerdict.UNEXPECTED_DEGRADATION.value
+        elif "FAIL_NO_EVIDENCE" in first_line:
+            verdict = ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value
+        current_flow = ""
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if line.startswith('## FLOW-'):
+                current_flow = line.replace('## ', '').strip()
+                evidence.append(current_flow)
+            elif line.startswith('- alerts:'):
+                alert = line.removeprefix('- alerts:').strip()
+                if alert and alert != '-':
+                    issues.append(f"{current_flow or 'observability'}: {alert}")
+            elif line.startswith('- sample_trace_id:') or line.startswith('- sample_request_id:') or line.startswith('- sample_report_id:'):
+                value = line.split(':', 1)[1].strip().strip('`')
+                if value and value != 'None':
+                    evidence.append(f"{current_flow or 'observability'}:{line[2:]}")
+        return verdict, evidence, issues
     try:
-        payload = json.loads(stdout_text)
+        payload = json.loads(text)
     except json.JSONDecodeError:
-        return ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value, [], ["Observability review output is not valid JSON."]
+        return ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value, [], ["Observability review output is not valid JSON or markdown gate summary."]
     verdict = POST_TEST_REVIEW_MAP.get(str(payload.get("verdict") or "").strip(), ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value)
     evidence: list[str] = []
     issues: list[str] = []
@@ -217,6 +248,27 @@ def _observability_from_stdout(stdout_text: str) -> tuple[str, list[str], list[s
             if alert:
                 issues.append(f"{flow_id}: {alert}")
     return verdict, evidence, issues
+
+
+def _message_evidence_paths(packet: dict[str, Any]) -> list[str]:
+    related_runs: list[dict[str, Any]] = []
+    if isinstance(packet.get("last_execution_run"), dict):
+        related_runs.append(dict(packet.get("last_execution_run") or {}))
+    if isinstance(packet.get("last_codex_run"), dict):
+        related_runs.append(dict(packet.get("last_codex_run") or {}))
+    paths: list[str] = []
+    for run in related_runs:
+        message = read_agent_message(run.get("last_message_path"), run.get("stdout_path"))
+        if not message:
+            continue
+        for match in re.findall(r"\(([^)]+\.(?:png|jpg|jpeg|webp|html))\)", message):
+            if Path(match).exists() and match not in paths:
+                paths.append(match)
+        for match in re.findall(r"(/[^\s]+\.(?:png|jpg|jpeg|webp|html))", message):
+            clean = match.rstrip('.,')
+            if Path(clean).exists() and clean not in paths:
+                paths.append(clean)
+    return paths
 
 
 def run_verifier_for_packet(packet_id: str, *, dry_run: bool = False, timeout_seconds: int = 3600) -> dict[str, Any]:
@@ -363,11 +415,16 @@ def run_verifier_for_packet(packet_id: str, *, dry_run: bool = False, timeout_se
         root_dir=workdir,
         started_at=started_at,
     )
+    explicit_visual_paths = _message_evidence_paths(packet)
     for path in artifact_evidence:
         if path not in evidence_paths:
             evidence_paths.append(path)
     visual_paths.extend(path for path in collected_visual_paths if path not in visual_paths)
+    visual_paths.extend(path for path in explicit_visual_paths if path not in visual_paths)
     for item in observability_evidence:
+        if item not in evidence_paths:
+            evidence_paths.append(item)
+    for item in explicit_visual_paths:
         if item not in evidence_paths:
             evidence_paths.append(item)
 
