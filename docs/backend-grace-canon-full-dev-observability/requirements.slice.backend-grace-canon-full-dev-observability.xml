@@ -1,0 +1,53 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS">
+  <system_goal>Upgrade the existing backend active slice from partial GRACE structure to dense, trace-first development observability without changing business semantics.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Patch the existing backend active-slice module cluster for remaining module contract, module map, function contract, and semantic block gaps.</item>
+      <item>Add dense development-phase structured observability on exported, orchestration, and side-effect boundaries in backend/app/main.py, backend/app/logging_utils.py, backend/app/middleware/correlation.py, backend/app/services/day_brief.py, backend/app/services/day_brief_validators.py, backend/app/services/week_brief_service.py, backend/app/services/scheduler.py, and backend/app/services/analytics.py.</item>
+      <item>Keep packet-local read-only evidence separate from the final canonical today-week observability lane.</item>
+      <item>Materialize feature-local slice docs and replace the oversized single-wave feature packet graph.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Changing DayBrief, WeekBrief, report-read, scheduler, analytics, scoring, auth, billing, or referral business semantics.</item>
+      <item>Frontend or visual work.</item>
+      <item>Deep decomposition of backend/app/services/report_workflow.py.</item>
+      <item>Repo-wide logging cleanup or a new logging transport.</item>
+      <item>Retroactive full decomposition of backend/app/main.py beyond the approved active-slice blocks.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-BACKEND-GRACE-CANON-FULL-DEV-OBS" actor="architect_or_backend_engineer">
+      <summary>Prepare the existing backend active slice for deep refactor by closing strict-GRACE structure gaps and making runtime evidence trace-first and reviewable.</summary>
+      <scenario id="SCN-SLICE-BACKEND-CANON-ADDRESSABILITY">Targeted backend active-slice files expose stable module contracts, module maps, function contracts where required, and semantic START/END blocks.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-DAY-WEEK-TRACE-DENSITY">Day, Week, gateway, and report-read execution paths emit dense structured markers on entry, major steps, fallbacks, validation boundaries, exception conversion, and closeout.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-SCHEDULER-ANALYTICS-TRACE-DENSITY">Scheduler and analytics paths emit attributable persistence, branch, and failure markers when exercised, or the non-emission gap is explicitly classified.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-FINAL-TRACE-RECONSTRUCTION">Verifier and reviewer can reconstruct the relevant scenario history from module/function/block names plus correlation and trace identifiers without guesswork.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>No DayBrief, WeekBrief, report-read, scheduler, analytics, auth, billing, or scoring business semantics change in this slice.</invariant>
+    <invariant>Within backend/app/main.py only API_GATEWAY_APP_INIT, API_GATEWAY_REPORT_ORCHESTRATION, API_REPORT_DETAIL_ROUTE, API_TODAY_ROUTE, API_DAY_BRIEF_ROUTE, and API_B2C_REPORT_ROUTE are in scope.</invariant>
+    <invariant>Structured observability must reuse log_grace_event(...) and build_grace_log_payload(...) with the current correlation/header model; no new transport or envelope is allowed.</invariant>
+    <invariant>Dense logging is required on exported, orchestration, and side-effect boundaries, not as blanket noise in every pure helper.</invariant>
+    <invariant>backend/app/services/day_brief_validators.py remains a pure validation/repair helper; caller boundaries own observability for validation entry and failure.</invariant>
+    <invariant>Packet-local read-only evidence cannot close the slice; the final canonical today-week lane owns the wave-final observability verdict.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>Logging emission or JSONL routing failure must not block API, service, or scheduler completion.</item>
+    <item>Validation, fallback, retry, persistence-boundary, exception-conversion, and closeout branches must emit explicit markers without changing response semantics.</item>
+    <item>If packet-local runs do not naturally emit scheduler or analytics paths, the packet must record the evidence gap explicitly instead of claiming clean coverage.</item>
+    <item>W03 is blocked on no-evidence-blocker or unexpected-degradation from the canonical today-week observability review.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-BACKEND-ACTIVE-CANON-GAPS</defect>
+    <defect id="DEFECT-SLICE-2">DEFECT-BACKEND-ACTIVE-DEV-OBS-GAPS</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">Remaining contract, map, function-contract, and semantic-block gaps are closed across the targeted backend active-slice files without widening scope.</criterion>
+    <criterion id="SC-SLICE-2">Development-critical entry, major-step, branch, fallback, retry, persistence, exception-conversion, and closeout markers exist on the targeted runtime boundaries.</criterion>
+    <criterion id="SC-SLICE-3">backend:quick and the targeted active-slice pytest bundle remain green.</criterion>
+    <criterion id="SC-SLICE-4">Packet-local read-only review can follow emitted Day, Week, report-read, scheduler, and analytics traces by module, function, block, event, correlation_id, and trace_id where those paths are exercised.</criterion>
+    <criterion id="SC-SLICE-5">The final canonical today-week review returns clean or degraded-but-expected with explicit rationale; unexpected-degradation or no-evidence-blocker blocks acceptance.</criterion>
+    <criterion id="SC-SLICE-6">Scheduler or analytics non-emission, when a canonical run does not exercise those paths, is explicit and reviewer-visible rather than silent.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -1,0 +1,226 @@
+{
+  "feature_id": "FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS",
+  "title": "Backend GRACE Canon Sync and Full Dev Observability",
+  "slice_id": "SLICE-FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS",
+  "slice_slug": "backend-grace-canon-full-dev-observability",
+  "slice_dir": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability",
+  "requirements_slice_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/requirements.slice.backend-grace-canon-full-dev-observability.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/development-plan.slice.backend-grace-canon-full-dev-observability.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/verification-matrix.slice.backend-grace-canon-full-dev-observability.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/knowledge-graph.slice.backend-grace-canon-full-dev-observability.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-API-GATEWAY",
+    "M-TRACE-LOGGING",
+    "M-DAY-BRIEF-SERVICE",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-ANALYTICS-EVENTS",
+    "M-OPS-AUTOMATION"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Backend Active Slice Canon Gap Closure",
+      "goal": "Close the remaining strict-GRACE contract, map, function-contract, and semantic-block gaps on the existing backend active slice before densifying observability.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/middleware/correlation.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/day_brief_validators.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_day_brief_schema.py",
+        "/opt/astro-project/tests/test_week_brief_service.py",
+        "/opt/astro-project/tests/test_week_brief_api.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/frontend/**",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/backend/app/services/feed_service.py",
+        "/opt/astro-project/backend/app/services/personalized_daily.py",
+        "/opt/astro-project/backend/app/services/access_control.py",
+        "/opt/astro-project/backend/app/services/billing.py",
+        "/opt/astro-project/backend/app/services/referral_service.py",
+        "/opt/astro-project/backend/app/models.py",
+        "/opt/astro-project/backend/app/db.py",
+        "/opt/astro-project/backend/app/catalog_logging.py",
+        "/opt/astro-project/backend/app/diagnostics.py"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Targeted active-slice files expose stable strict-GRACE contracts, module maps, function contracts where required, and semantic START/END blocks.",
+        "No Day, Week, report-read, scheduler, or analytics business semantics change.",
+        "backend:quick and the targeted active-slice pytest bundle remain green.",
+        "Packet-local evidence is attributable enough for W02 to start without claiming canonical closeout."
+      ],
+      "deferred_work": [
+        "Dense development-phase observability coverage.",
+        "Canonical today-week closeout.",
+        "Any deeper main.py or report_workflow decomposition."
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "Backend Active Slice Dev Observability Densification",
+      "goal": "Add dense development-phase structured observability to the same bounded backend active-slice files using the existing GRACE envelope and correlation model.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/middleware/correlation.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/day_brief_validators.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_day_brief_schema.py",
+        "/opt/astro-project/tests/test_week_brief_service.py",
+        "/opt/astro-project/tests/test_week_brief_api.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/frontend/**",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/backend/app/services/feed_service.py",
+        "/opt/astro-project/backend/app/services/personalized_daily.py",
+        "/opt/astro-project/backend/app/services/access_control.py",
+        "/opt/astro-project/backend/app/services/billing.py",
+        "/opt/astro-project/backend/app/services/referral_service.py",
+        "/opt/astro-project/backend/app/models.py",
+        "/opt/astro-project/backend/app/db.py",
+        "/opt/astro-project/backend/app/catalog_logging.py",
+        "/opt/astro-project/backend/app/diagnostics.py"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Development-critical entry, step, branch, fallback, retry, persistence, exception-conversion, and closeout markers are added on the targeted runtime boundaries.",
+        "Structured logs stay attributable by module, function, block, event, correlation_id, and trace_id using the existing envelope.",
+        "No new logging transport, envelope, or business-semantic drift is introduced.",
+        "Packet-local read-only evidence returns an explicit clean or degraded-but-expected interpretation and documents any scheduler or analytics non-emission."
+      ],
+      "deferred_work": [
+        "Canonical today-week closeout.",
+        "Maximal logging rewrite.",
+        "Repo-wide cleanup outside the backend active slice."
+      ]
+    },
+    {
+      "wave_id": "W03",
+      "title": "Final Backend Active Slice Verification And Gate",
+      "goal": "Own the canonical runtime closeout for the completed backend active-slice canon and dev-observability work.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS/evidence",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS/reviews",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CANON-FULL-DEV-OBS/decisions"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/**"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py"
+      ],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_service.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Final verifier records backend quick, targeted pytest, and canonical today-week observability outcomes.",
+        "The observability verdict is explicit and limited to clean, degraded-but-expected, unexpected-degradation, or no-evidence-blocker.",
+        "Reviewer confirms frozen-scope containment and behavior preservation before architect acceptance.",
+        "Architect gate accepts only if the backend active-slice structure and dev-observability lanes remain coherent and no unexpected-degradation or no-evidence-blocker remains."
+      ],
+      "deferred_work": [
+        "Any frontend/UI work.",
+        "Any deeper main.py or report_workflow decomposition.",
+        "Any repo-wide logging redesign."
+      ]
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/requirements.slice.backend-grace-canon-full-dev-observability.xml",
+    "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/development-plan.slice.backend-grace-canon-full-dev-observability.xml",
+    "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/verification-matrix.slice.backend-grace-canon-full-dev-observability.md",
+    "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/knowledge-graph.slice.backend-grace-canon-full-dev-observability.xml",
+    "/opt/astro-project/docs/backend-grace-canon-full-dev-observability/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [
+      "Added a backend active-slice dev-observability invariant requiring dense structured markers on entry, major step, branch, fallback, retry, persistence, exception-conversion, and closeout while preserving business semantics.",
+      "Added explicit failure-handling language that packet-local read-only evidence cannot close the slice and that final today-week no-evidence-blocker or unexpected-degradation blocks acceptance.",
+      "Added DEFECT-BACKEND-ACTIVE-DEV-OBS-GAPS and a success criterion for trace reconstruction by module/function/block plus correlation identifiers."
+    ],
+    "technology.xml": [
+      "Clarified that this feature reuses the current GRACE logging envelope and correlation model only across main.py, logging_utils.py, middleware/correlation.py, day_brief.py, day_brief_validators.py, week_brief_service.py, scheduler.py, and analytics.py.",
+      "Added the read-only post-test review command and codified read-only review as packet-local versus today-week review as wave-final.",
+      "Added verification guidance that the latest emitted trace, request, and report identifiers must make the scenario reconstructable without widening into a logging transport rewrite."
+    ],
+    "development-plan.xml": [
+      "Added FLOW-BACKEND-ACTIVE-DEV-OBS and sequenced dense observability after stable contract naming on the same bounded module cluster.",
+      "Added a distinct backend active-slice dev-observability execution packet after canon gap closure and before the final gate.",
+      "Clarified that day_brief_validators.py remains a pure helper and that caller boundaries, not every pure helper, own dense observability."
+    ],
+    "knowledge-graph.xml": [
+      "Added a feature-local slice artifact node set for backend-grace-canon-full-dev-observability and linked it to the existing backend active-slice module cluster.",
+      "Recorded upstream and downstream edges for API gateway, trace logging, DayBrief, WeekBrief, scheduler, analytics, structured logs, and analytics_events under the new dev-observability flow.",
+      "Added the dev-observability verifier lanes to the existing backend active-slice flow."
+    ],
+    "verification-matrix.md": [
+      "Added packet-local VM rows for W01 canon gap closure and W02 dev-observability densification using read-only post-test review.",
+      "Added a wave-final VM requiring backend quick, targeted pytest, and today-week review with explicit clean, degraded-but-expected, unexpected-degradation, or no-evidence-blocker verdict.",
+      "Documented that scheduler or analytics non-emission may only be accepted when explicitly classified, not silently ignored."
+    ]
+  },
+  "updated_at": "2026-04-16T18:07:54.671266+00:00"
+}

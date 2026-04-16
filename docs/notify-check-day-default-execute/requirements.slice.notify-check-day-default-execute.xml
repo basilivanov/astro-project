@@ -1,0 +1,44 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-NOTIFY-CHECK">
+  <system_goal>Determine whether FEAT-NOTIFY-CHECK can implement Day-slice-only execute=true defaulting, and stop on contract mismatch if the current repo lacks a Day-owned Notify-check intake/default/dispatch surface.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Existing Day dev runtime indicator binding scan</item>
+      <item>Frontend repository probe for Day-owned Notify-check intake/default/dispatch files</item>
+      <item>Feature-local GRACE docs and packet-local evidence for the contract verdict</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Inventing a new Day Notify-check product surface without a separate architect decision</item>
+      <item>Backend notify execution semantics</item>
+      <item>Prefect orchestration changes</item>
+      <item>Non-Day frontend flows</item>
+      <item>Canonical Today/Week runtime closeout evidence</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-FEAT-NOTIFY-CHECK-CONTRACT-PROBE" actor="developer">
+      <summary>Determine whether the current Day frontend has an implementable Notify-check intake/default/dispatch path.</summary>
+      <scenario id="SCN-FEAT-NOTIFY-CHECK-BINDING-PROBE">Worker binds the adjacent Day runtime-indicator files and records that they are only adjacent evidence unless a concrete Notify-check surface is also present.</scenario>
+      <scenario id="SCN-FEAT-NOTIFY-CHECK-CONTRACT-MISMATCH">If no Day-owned Notify-check intake/default/dispatch file exists, worker records contract-mismatch-no-day-notify-surface and does not edit adjacent runtime-indicator files to simulate the feature.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>Original intended behavior remains execute=true by default for a Day Notify-check intake, with explicit execute=false preserved, but it is not implementable in the current repo without a concrete Day Notify-check surface.</invariant>
+    <invariant>Day runtime-indicator disclosure evidence cannot be treated as Notify-check acceptance proof.</invariant>
+    <invariant>No backend, Prefect, or non-Day frontend scope may be introduced by this feature packet.</invariant>
+    <invariant>If the business still requires Notify check, the next architect decision must either create a new Day Notify-check surface or reslice the request away from the nonexistent surface.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If the Notify-check surface is absent, stop with contract-mismatch-no-day-notify-surface instead of widening scope.</item>
+    <item>If a shared helper is discovered, stop for architect reslicing unless the helper can be proven Day-owned.</item>
+    <item>If runtime-indicator-only tests pass, record them as adjacent smoke evidence only.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-DAY-NOTIFY-CHECK-SURFACE-MISSING: the current repo scan finds the Day runtime-indicator surface but no Day-owned frontend Notify-check intake/default/dispatch path.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">Concrete Day runtime-indicator bindings are recorded.</criterion>
+    <criterion id="SC-SLICE-2">The absence or presence of Day Notify-check intake/default/dispatch bindings is recorded with exact command evidence.</criterion>
+    <criterion id="SC-SLICE-3">If the bindings are absent, W01 exits as contract mismatch and does not claim implementation success.</criterion>
+    <criterion id="SC-SLICE-4">Packet-local evidence is sufficient for reviewer and architect to decide without canonical Today/Week observability closeout.</criterion>
+  </success_criteria>
+</requirements_slice>

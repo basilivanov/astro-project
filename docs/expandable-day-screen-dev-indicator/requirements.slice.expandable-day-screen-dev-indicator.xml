@@ -1,51 +1,59 @@
-<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
-  <system_goal>Reuse the existing compact Day/home DEV chip as a dev-only runtime diagnostics disclosure without changing DayBrief contracts, backend traffic, or production behavior.</system_goal>
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
+  <system_goal>Rerun the existing compact Day/home DEV chip diagnostics disclosure through bounded frontend verification and packet-local evidence without changing DayBrief contracts, backend traffic, or production behavior</system_goal>
   <scope>
     <in_scope>
-      <item>Keep the existing Day/home dev/prod chip visually compact.</item>
-      <item>In dev mode only on `/`, tapping the chip expands a lightweight local diagnostics block.</item>
-      <item>Show only render path, bootstrap result, and current mode from existing runtime/debug state.</item>
-      <item>Keep the diagnostics block local to the chip area with minimal layout shift.</item>
-      <item>Add targeted frontend verification and visual evidence for dev-expanded and prod-unchanged states.</item>
+      <item>Reuse the existing Day/home dev/prod chip on `/` as the only runtime-disclosure entry point.</item>
+      <item>Keep the collapsed DEV chip visually compact and local to the Day hero area.</item>
+      <item>In non-production only, expand and collapse a local disclosure that shows render path, bootstrap result, and current mode from existing client state.</item>
+      <item>Re-run the targeted unit, Playwright, visual, and packet-local read-only observability lanes through the live pipeline.</item>
+      <item>Publish Prefect artifacts for the rerun wave so verifier, reviewer, and architect evidence is inspectable.</item>
     </in_scope>
     <out_of_scope>
-      <item>No backend changes.</item>
-      <item>No new payload fields.</item>
-      <item>No new top-level debug banner or separate diagnostics screen.</item>
-      <item>No correlation, trace, or payload diagnostics in user-facing UI.</item>
-      <item>No changes to Week screen or other product surfaces.</item>
+      <item>Any backend change.</item>
+      <item>Any new payload field, scoring change, explainability change, or business-logic change.</item>
+      <item>Any new top-level banner, separate diagnostics screen, or Week or other-surface expansion.</item>
+      <item>Any diagnostics field beyond render path, bootstrap result, and current mode.</item>
+      <item>Any new slice definition separate from the existing Day dev-indicator slice.</item>
+      <item>Any canonical Today/Week closeout claim or runtime emitter ownership from this frontend-only helper wave.</item>
     </out_of_scope>
   </scope>
   <use_cases>
-    <use_case id="UC-SLICE-DAY-DEV-INDICATOR" actor="developer_or_reviewer">
-      <summary>Inspect the active Day runtime lane from the existing compact chip without leaving the Day surface.</summary>
+    <use_case id="UC-SLICE-DAY-DEV-INDICATOR-RERUN" actor="developer_or_reviewer">
+      <summary>Re-run the existing Day runtime disclosure slice and verify both product behavior and evidence publication.</summary>
       <scenario id="SCN-SLICE-DEV-EXPAND">On `/` in non-production, tapping the compact chip expands a local disclosure with render path, bootstrap result, and runtime mode.</scenario>
       <scenario id="SCN-SLICE-DEV-COLLAPSE">Tapping the chip again collapses the disclosure and restores the compact local state.</scenario>
-      <scenario id="SCN-SLICE-PROD-INERT">In production, the chip remains visually unchanged and inert and no diagnostics block appears.</scenario>
+      <scenario id="SCN-SLICE-PROD-INERT">In production and on non-home routes, the chip remains visually unchanged and inert and no diagnostics block appears.</scenario>
+      <scenario id="SCN-SLICE-RERUN-EVIDENCE">The live rerun publishes verifier, reviewer, and architect evidence artifacts and records an explicit packet-local read-only observability verdict.</scenario>
     </use_case>
   </use_cases>
   <business_invariants>
     <invariant>The disclosure is client-local helper UI only and must not add backend requests or payload fields.</invariant>
     <invariant>Only render path, bootstrap result, and current mode may appear in the visible disclosure body.</invariant>
-    <invariant>Production behavior remains inert and visually unchanged.</invariant>
-    <invariant>DayBrief hero, domains, CTA, scoring, and readiness semantics remain unchanged.</invariant>
-    <invariant>The disclosure must stay visually subordinate to the Day hero and must not become a banner.</invariant>
+    <invariant>Interactive behavior is limited to non-production on `/`.</invariant>
+    <invariant>Production behavior and non-home routes remain inert and visually unchanged.</invariant>
+    <invariant>DayBrief hero, domains, CTA, scoring, readiness semantics, and backend behavior remain unchanged.</invariant>
+    <invariant>The rerun reuses the existing Day dev-indicator slice and must not broaden it into a new diagnostics surface.</invariant>
+    <invariant>Evidence ownership for this frontend-only helper wave is packet_local only; no canonical_flow_commands are owned here.</invariant>
   </business_invariants>
   <expected_failure_handling>
     <item>If any diagnostics source is absent, render a stable unknown or unavailable value instead of blocking the Day screen.</item>
+    <item>If the shell-owned badge leaks interaction outside `/`, stop and route to rework rather than widening the feature.</item>
     <item>If the implementation causes a crash, hydration issue, or 500, add or update the smallest reproduction test before claiming green.</item>
-    <item>If the shell badge cannot be reused safely, escalate before widening behavior outside the Day route.</item>
-    <item>If the current route is not `/`, no new disclosure behavior should appear.</item>
+    <item>If packet-local evidence lacks canonical Today/Week emission, the verdict may be degraded-but-expected when local visual, command, and read-only evidence remain attributable.</item>
+    <item>If packet-local evidence is missing entirely or shows unexpected Day degradation, the wave remains blocked and cannot be accepted.</item>
+    <item>If no dedicated production Playwright host is available, deterministic unit proof is the minimum acceptable production-inert lane.</item>
   </expected_failure_handling>
   <known_defects>
-    <defect id="DEFECT-SLICE-1">The chip is shell-owned and fixed-position in layout.tsx, so route-gating the interaction to `/` without leaking disclosure behavior into other routes remains the main implementation risk.</defect>
-    <defect id="DEFECT-SLICE-2">Production visual proof depends on a dedicated prod host or deterministic production-inert unit coverage because the active Playwright stack normally runs against the non-production frontend.</defect>
+    <defect id="DEFECT-SLICE-1">The prior verifier closeout over-required canonical Today/Week evidence for a frontend-only helper; this rerun closes packet-local evidence without redesigning the slice or claiming canonical runtime emission.</defect>
+    <defect id="DEFECT-SLICE-2">Production visual proof depends on deterministic unit coverage when the active Playwright stack only exercises the non-production frontend.</defect>
   </known_defects>
   <success_criteria>
     <criterion id="SC-SLICE-1">The Day chip stays compact in collapsed state.</criterion>
     <criterion id="SC-SLICE-2">In non-production on `/`, tapping the chip expands and collapses a local disclosure.</criterion>
     <criterion id="SC-SLICE-3">The disclosure shows render path, bootstrap result, and current mode only.</criterion>
-    <criterion id="SC-SLICE-4">Production stays visually and behaviorally unchanged.</criterion>
-    <criterion id="SC-SLICE-5">Verifier evidence includes dev-collapsed and dev-expanded screenshots plus an explicit Today observability verdict.</criterion>
+    <criterion id="SC-SLICE-4">Production and non-home routes stay visually and behaviorally unchanged.</criterion>
+    <criterion id="SC-SLICE-5">Verifier evidence includes dev-collapsed, dev-expanded, and prod-inert proof.</criterion>
+    <criterion id="SC-SLICE-6">Packet-local read-only observability verdict is explicit, classified as clean or degraded-but-expected, and shows no unexpected Day degradation.</criterion>
+    <criterion id="SC-SLICE-7">Prefect artifacts are published for the rerun coder, verifier, reviewer, and architect packet chain.</criterion>
   </success_criteria>
 </requirements_slice>

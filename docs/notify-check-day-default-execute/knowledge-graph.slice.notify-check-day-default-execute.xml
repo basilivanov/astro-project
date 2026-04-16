@@ -1,0 +1,13 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-NOTIFY-CHECK">
+  <modules>
+    <module id="M-FE-DAY-RUNTIME-INDICATOR" />
+    <module id="M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS" />
+    <module id="M-FE-NOTIFY-CHECK-DISPATCH" />
+  </modules>
+  <flow_links>
+    <edge from="developer-on-Day-dev-surface" to="M-FE-DAY-RUNTIME-INDICATOR" type="renders" />
+    <edge from="FEAT-NOTIFY-CHECK contract probe" to="M-FE-DAY-RUNTIME-INDICATOR" type="reads" />
+    <edge from="FEAT-NOTIFY-CHECK contract probe" to="M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS" type="depends_on" />
+    <edge from="FEAT-NOTIFY-CHECK contract probe" to="M-FE-NOTIFY-CHECK-DISPATCH" type="depends_on" />
+  </flow_links>
+</knowledge_graph_slice>

@@ -1,0 +1,21 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-BACKEND-ACTIVE-SLICE-GRACE-CANON-SYNC">
+  <modules>
+    <module id="M-API-GATEWAY" />
+    <module id="M-TRACE-LOGGING" />
+    <module id="M-DAY-BRIEF-SERVICE" />
+    <module id="M-WEEK-BRIEF-SERVICE" />
+    <module id="M-ANALYTICS-EVENTS" />
+    <module id="M-OPS-AUTOMATION" />
+  </modules>
+  <flow_links>
+    <edge from="M-API-GATEWAY" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-DAY-BRIEF-SERVICE" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-WEEK-BRIEF-SERVICE" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-ANALYTICS-EVENTS" type="depends_on" />
+    <edge from="M-DAY-BRIEF-SERVICE" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-WEEK-BRIEF-SERVICE" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-OPS-AUTOMATION" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-ANALYTICS-EVENTS" to="analytics_events" type="writes" />
+    <edge from="M-TRACE-LOGGING" to="structured backend jsonl logs" type="writes" />
+  </flow_links>
+</knowledge_graph_slice>

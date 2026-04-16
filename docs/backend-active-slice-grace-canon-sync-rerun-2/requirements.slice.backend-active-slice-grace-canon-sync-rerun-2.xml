@@ -1,0 +1,48 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-BACKEND-ACTIVE-SLICE-GRACE-CANON-SYNC-RERUN-2">
+  <system_goal>Rerun backend active-slice strict-GRACE canon sync after the cancelled architect CLI, keeping packet-local implementation evidence separate from the final canonical backend observability lane.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Add and align strict-GRACE module contracts, module maps, function contracts, and semantic START/END blocks for backend/app/main.py, backend/app/logging_utils.py, backend/app/middleware/correlation.py, backend/app/services/day_brief.py, backend/app/services/day_brief_validators.py, backend/app/services/week_brief_service.py, backend/app/services/scheduler.py, and backend/app/services/analytics.py.</item>
+      <item>Reuse the existing backend active-slice module boundaries across M-API-GATEWAY, M-TRACE-LOGGING, M-DAY-BRIEF-SERVICE, M-WEEK-BRIEF-SERVICE, M-ANALYTICS-EVENTS, and M-OPS-AUTOMATION unless implementation discovers a concrete scope conflict.</item>
+      <item>Keep packet-local evidence ownership limited to backend quick, targeted active-slice tests, and read-only post-test review, while reserving canonical today-week observability for the final verifier lane.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Do not change scoring logic.</item>
+      <item>Do not change Day, Week, report-read, scheduler, or analytics business semantics.</item>
+      <item>Do not perform a maximal logging rewrite or middleware redesign.</item>
+      <item>Do not deeply split backend/app/services/report_workflow.py.</item>
+      <item>Do not change frontend/UI.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-BACKEND-ACTIVE-CANON-RERUN-2" actor="architect_or_backend_engineer">
+      <summary>Resume the backend active-slice canon-sync wave with explicit evidence-lane ownership and implementation-ready bounded write scope.</summary>
+      <scenario id="SCN-SLICE-BACKEND-MODULE-ADDRESSABILITY-RERUN-2">The bounded backend active-slice files expose explicit module contracts, module maps, and stable semantic blocks aligned with local strict-GRACE style.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-ENTRYPOINT-CONTRACTS-RERUN-2">Exported and orchestration entrypoints in the touched backend files keep or gain function contracts only where the local style requires them.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-PACKET-LOCAL-EVIDENCE-RERUN-2">The implementation wave can be verified with packet-local backend/read-only evidence without claiming canonical today-week closeout.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-WAVE-FINAL-EVIDENCE-RERUN-2">The final verifier lane owns canonical today-week observability and records an explicit verdict for the touched active-slice flows.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>Canon-sync edits may tighten strict-GRACE addressability only; they must not change DayBrief, WeekBrief, report-read, scheduler, analytics, or correlation header business semantics.</invariant>
+    <invariant>The active slice continues to span M-API-GATEWAY, M-TRACE-LOGGING, M-DAY-BRIEF-SERVICE, M-WEEK-BRIEF-SERVICE, M-ANALYTICS-EVENTS, and M-OPS-AUTOMATION; correlation middleware remains a child of the trace/logging slice rather than a standalone business slice.</invariant>
+    <invariant>Packet-local evidence and wave-final canonical observability are separate lanes: W01 owns read-only packet-local review, and W02 owns today-week canonical closeout.</invariant>
+    <invariant>Existing inline request-correlation binding in backend/app/main.py may remain in place for this rerun unless a concrete implementation blocker requires consolidation on CorrelationIdMiddleware.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If a target backend file cannot be aligned to the local strict-GRACE style without semantic risk, preserve behavior and document the remaining gap instead of widening the refactor.</item>
+    <item>If backend quick and targeted tests pass but read-only evidence is not attributable by module/function/block naming, W01 remains incomplete until markers or evidence notes are corrected.</item>
+    <item>If W02 canonical today-week evidence is absent, fragmented, or unexpectedly degraded, the rerun wave remains blocked even if W01 packet-local gates passed.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-BACKEND-ACTIVE-CANON-GAPS</defect>
+    <defect id="DEFECT-SLICE-2">The rerun-2 feature lacked feature-local slice artifacts, so planner handoff would otherwise rely on stale rerun metadata and miss the required packet-local versus wave-final evidence split.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">Backend active slice is formally addressable by module/function/block.</criterion>
+    <criterion id="SC-SLICE-2">Packet-local gates use packet-local evidence only.</criterion>
+    <criterion id="SC-SLICE-3">Final verifier lane owns the canonical backend runtime observability gate and records a clean, degraded-but-expected, unexpected-degradation, or no-evidence-blocker verdict.</criterion>
+    <criterion id="SC-SLICE-4">docker exec astro-project-backend-1 python3 scripts/pipeline.py remains green.</criterion>
+    <criterion id="SC-SLICE-5">Planner handoff has bounded write scope, frozen scope, and separate W01 implementation versus W02 final-verification responsibilities.</criterion>
+  </success_criteria>
+</requirements_slice>

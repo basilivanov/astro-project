@@ -1,0 +1,82 @@
+{
+  "feature_id": "FEAT-NOTIFY-CHECK",
+  "title": "Notify check",
+  "slice_id": "SLICE-FEAT-NOTIFY-CHECK",
+  "slice_slug": "notify-check-day-default-execute",
+  "slice_dir": "/opt/astro-project/docs/notify-check-day-default-execute",
+  "requirements_slice_path": "/opt/astro-project/docs/notify-check-day-default-execute/requirements.slice.notify-check-day-default-execute.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/notify-check-day-default-execute/development-plan.slice.notify-check-day-default-execute.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/notify-check-day-default-execute/verification-matrix.slice.notify-check-day-default-execute.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/notify-check-day-default-execute/knowledge-graph.slice.notify-check-day-default-execute.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/notify-check-day-default-execute/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/notify-check-day-default-execute/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-FE-DAY-RUNTIME-INDICATOR",
+    "M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS",
+    "M-FE-NOTIFY-CHECK-DISPATCH"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Day Notify-check Contract Probe",
+      "goal": "Bind existing Day runtime-indicator files, verify whether a Day-owned Notify-check intake/default/dispatch surface exists, and stop with a contract-mismatch verdict if absent.",
+      "module_refs": [
+        "M-FE-DAY-RUNTIME-INDICATOR",
+        "M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS",
+        "M-FE-NOTIFY-CHECK-DISPATCH"
+      ],
+      "allowed_write_scope": [
+        "prefect_grace/packets/FEAT-NOTIFY-CHECK/**",
+        "docs/notify-check-day-default-execute/**"
+      ],
+      "frozen_scope": [
+        "backend/**",
+        "prefect/**",
+        "frontend/**"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "rg -n --hidden -S \"notify check|notify-check|notifyCheck|notify_check|execute=true|execute false\" frontend/app frontend/components frontend/lib frontend/e2e",
+        "test -f docs/notify-check-day-default-execute/ARCHITECT_HANDOFF.md",
+        "test -f docs/notify-check-day-default-execute/EXECUTION_PACKET.md"
+      ],
+      "acceptance_criteria": [
+        "Exact Day runtime-indicator bindings are recorded.",
+        "The worker records whether Day Notify-check intake/default/dispatch bindings exist.",
+        "If no bindings exist, the packet records contract-mismatch-no-day-notify-surface and does not edit frontend behavior.",
+        "Runtime-indicator-only evidence is not misclassified as Notify-check acceptance proof."
+      ],
+      "deferred_work": [
+        "Creating a new Day Notify-check frontend surface",
+        "Implementing execute=true defaulting after a concrete surface is approved",
+        "Adding Day Notify-check Playwright tests after a concrete surface exists",
+        "Any backend defaulting change"
+      ]
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/notify-check-day-default-execute/requirements.slice.notify-check-day-default-execute.xml",
+    "/opt/astro-project/docs/notify-check-day-default-execute/development-plan.slice.notify-check-day-default-execute.xml",
+    "/opt/astro-project/docs/notify-check-day-default-execute/verification-matrix.slice.notify-check-day-default-execute.md",
+    "/opt/astro-project/docs/notify-check-day-default-execute/knowledge-graph.slice.notify-check-day-default-execute.xml",
+    "/opt/astro-project/docs/notify-check-day-default-execute/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [
+      "Add SCN-DAY-NOTIFY-CHECK-CONTRACT-MISMATCH plus a defect, invariant, failure policy, and success criterion that prevent accepting runtime-indicator evidence as Notify-check proof when no concrete Day surface exists."
+    ],
+    "technology.xml": [],
+    "development-plan.xml": [
+      "Add FLOW-DAY-NOTIFY-CHECK-CONTRACT-PROBE, a sequencing rule that forbids inferring Notify-check behavior from the Day runtime-indicator disclosure, and PKT-FEAT-NOTIFY-CHECK-CONTRACT-PROBE."
+    ],
+    "knowledge-graph.xml": [
+      "Record FEAT-NOTIFY-CHECK slice artifacts, M-FE-DAY-RUNTIME-INDICATOR bindings, missing M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS and M-FE-NOTIFY-CHECK-DISPATCH nodes, and blocked_by_contract_mismatch links."
+    ],
+    "verification-matrix.md": [
+      "Add VM-FEAT-NOTIFY-CHECK-CONTRACT-MISMATCH with packet-local evidence ownership and no canonical Today/Week closeout requirement."
+    ]
+  },
+  "updated_at": "2026-04-16T18:08:09.052522+00:00"
+}

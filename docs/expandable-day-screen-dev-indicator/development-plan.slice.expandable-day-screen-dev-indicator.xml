@@ -1,16 +1,17 @@
-<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
   <phase id="PHASE-SLICE">
-    <goal>Reuse the existing compact Day/home DEV chip as a dev-only runtime diagnostics disclosure without changing DayBrief contracts, backend traffic, or production behavior.</goal>
+    <goal>Rerun the existing compact Day/home DEV chip diagnostics disclosure through bounded frontend verification and packet-local evidence without changing DayBrief contracts, backend traffic, or production behavior</goal>
 
     <wave id="W01">
-      <goal>Land the bounded frontend slice, prove dev-expanded and prod-inert behavior, and close with verifier, reviewer, and architect evidence.</goal>
+      <goal>Inspect the existing implementation, repair only bounded drift if present, re-run targeted verification, publish Prefect artifacts, and close reviewer and architect gates without claiming canonical Today or Week runtime ownership.</goal>
       <module_ref id="M-FRONTEND-WEBAPP" />
       <module_ref id="M-FRONTEND-TODAY" />
       <module_ref id="M-USE-TELEGRAM" />
       <allowed_write_scope>
         <file>/opt/astro-project/frontend/app/layout.tsx</file>
         <file>/opt/astro-project/frontend/app/page.tsx</file>
-        <file>/opt/astro-project/frontend/components/today/*</file>
+        <file>/opt/astro-project/frontend/components/today/day-runtime-diagnostics-disclosure.tsx</file>
+        <file>/opt/astro-project/frontend/components/today/daybrief-sections.tsx</file>
         <file>/opt/astro-project/frontend/hooks/useTelegram.ts</file>
         <file>/opt/astro-project/frontend/lib/telegram-runtime.ts</file>
         <file>/opt/astro-project/frontend/test/app/home-page.test.tsx</file>
@@ -24,21 +25,29 @@
         <file>/opt/astro-project/frontend/components/week/**</file>
         <file>/opt/astro-project/frontend/lib/day-brief.ts</file>
       </frozen_scope>
+      <observability_scope>packet_local</observability_scope>
+      <allow_degraded_but_expected>true</allow_degraded_but_expected>
+      <canonical_flow_commands>
+        <command>-</command>
+      </canonical_flow_commands>
       <verification>
         <command>corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx</command>
         <command>./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts</command>
         <command>./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g &quot;runtime indicator&quot;</command>
-        <command>python3 tools/post_test_review.py --profile today-week --since 30m --report-format md</command>
+        <command>python3 tools/post_test_review.py --profile read-only --since 30m --report-format md</command>
+        <command>Review published Prefect artifacts for W01 coder verifier reviewer architect packet runs</command>
       </verification>
       <acceptance_criteria>
-        <criterion>Compact DEV chip remains local and non-banner-like in collapsed state.</criterion>
+        <criterion>Existing DEV chip remains compact and local in collapsed state.</criterion>
         <criterion>On `/` in non-production, tapping the chip expands and collapses a disclosure with render path, bootstrap result, and current mode only.</criterion>
-        <criterion>Production branch remains inert and visually unchanged.</criterion>
-        <criterion>Verifier evidence includes dev-collapsed and dev-expanded screenshots plus an explicit observability verdict.</criterion>
+        <criterion>Production branch and non-home routes remain inert and visually unchanged.</criterion>
+        <criterion>Verifier evidence includes dev-collapsed, dev-expanded, and prod-inert proof plus a packet-local read-only observability verdict classified as clean or degraded-but-expected.</criterion>
+        <criterion>Prefect artifacts are published for the rerun packet chain.</criterion>
       </acceptance_criteria>
       <deferred_work>
         <item>Any broader shell diagnostics surface beyond the Day route.</item>
         <item>Any additional runtime fields beyond render path, bootstrap result, and current mode.</item>
+        <item>Any separate wave that intentionally owns canonical Today or Week closeout.</item>
       </deferred_work>
     </wave>
 

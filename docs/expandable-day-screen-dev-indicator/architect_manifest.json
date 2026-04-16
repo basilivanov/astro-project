@@ -18,8 +18,8 @@
   "waves": [
     {
       "wave_id": "W01",
-      "title": "Implement and accept Day dev runtime disclosure",
-      "goal": "Land the bounded frontend slice, prove dev-expanded and prod-inert behavior, and close with verifier, reviewer, and architect evidence.",
+      "title": "Day packet-local rerun and acceptance",
+      "goal": "Inspect the existing implementation, repair only bounded drift if present, re-run targeted verification, publish Prefect artifacts, and close reviewer and architect gates without claiming canonical Today or Week runtime ownership.",
       "module_refs": [
         "M-FRONTEND-WEBAPP",
         "M-FRONTEND-TODAY",
@@ -28,7 +28,8 @@
       "allowed_write_scope": [
         "/opt/astro-project/frontend/app/layout.tsx",
         "/opt/astro-project/frontend/app/page.tsx",
-        "/opt/astro-project/frontend/components/today/*",
+        "/opt/astro-project/frontend/components/today/day-runtime-diagnostics-disclosure.tsx",
+        "/opt/astro-project/frontend/components/today/daybrief-sections.tsx",
         "/opt/astro-project/frontend/hooks/useTelegram.ts",
         "/opt/astro-project/frontend/lib/telegram-runtime.ts",
         "/opt/astro-project/frontend/test/app/home-page.test.tsx",
@@ -42,21 +43,27 @@
         "/opt/astro-project/frontend/components/week/**",
         "/opt/astro-project/frontend/lib/day-brief.ts"
       ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
       "verification_commands": [
         "corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx",
         "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts",
         "./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g \"runtime indicator\"",
-        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "Review published Prefect artifacts for W01 coder verifier reviewer architect packet runs"
       ],
       "acceptance_criteria": [
-        "Compact DEV chip remains local and non-banner-like in collapsed state.",
+        "Existing DEV chip remains compact and local in collapsed state.",
         "On `/` in non-production, tapping the chip expands and collapses a disclosure with render path, bootstrap result, and current mode only.",
-        "Production branch remains inert and visually unchanged.",
-        "Verifier evidence includes dev-collapsed and dev-expanded screenshots plus an explicit observability verdict."
+        "Production branch and non-home routes remain inert and visually unchanged.",
+        "Verifier evidence includes dev-collapsed, dev-expanded, and prod-inert proof plus a packet-local read-only observability verdict classified as clean or degraded-but-expected.",
+        "Prefect artifacts are published for the rerun packet chain."
       ],
       "deferred_work": [
         "Any broader shell diagnostics surface beyond the Day route.",
-        "Any additional runtime fields beyond render path, bootstrap result, and current mode."
+        "Any additional runtime fields beyond render path, bootstrap result, and current mode.",
+        "Any separate wave that intentionally owns canonical Today or Week closeout."
       ]
     }
   ],
@@ -69,20 +76,20 @@
   ],
   "root_deltas": {
     "requirements.xml": [
-      "No patch required; existing SCN-DAY-DEV-RUNTIME-INDICATOR and helper-only invariants/failure handling already matched the audited Day disclosure slice."
+      "No patch required; existing SCN-DAY-DEV-RUNTIME-INDICATOR, helper-only invariants, and failure handling already cover the approved Day helper behavior."
     ],
     "technology.xml": [
-      "Updated the dedicated Day dev-indicator verification command to `./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts`."
+      "No patch required; existing runtime-badge and targeted verification-lane constraints already align with the rerun."
     ],
     "development-plan.xml": [
-      "Added `M-USE-TELEGRAM`, refined `M-FRONTEND-WEBAPP` shell-badge responsibility, updated `FLOW-DAY-DEV-RUNTIME-INDICATOR`, and aligned packet dependencies to the helper-only Day slice."
+      "No patch required; existing FLOW-DAY-DEV-RUNTIME-INDICATOR and module dependency shape already cover the slice."
     ],
     "knowledge-graph.xml": [
-      "Added `M-USE-TELEGRAM`, disclosure exports, runtime-flow edges, and links to the slice-local plan/verification/graph artifacts."
+      "No patch required; existing flow, module, VM, and slice-artifact edges already cover the Day helper slice."
     ],
     "verification-matrix.md": [
-      "No patch required; `VM-DAY-DEV-RUNTIME-INDICATOR` already matched the audited unit, Playwright, and observability verification lane."
+      "Clarify VM-DAY-DEV-RUNTIME-INDICATOR so packet-local reruns use observability:read-only and reserve today-week for architect-authorized wave_final ownership."
     ]
   },
-  "updated_at": "2026-04-15T05:01:11.424401+00:00"
+  "updated_at": "2026-04-16T18:22:34.139165+00:00"
 }

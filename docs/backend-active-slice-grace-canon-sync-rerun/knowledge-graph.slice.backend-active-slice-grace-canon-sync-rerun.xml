@@ -1,0 +1,25 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-BACKEND-ACTIVE-SLICE-GRACE-CANON-SYNC-RERUN">
+  <modules>
+    <module id="M-API-GATEWAY" responsibility="FastAPI startup, inline request-correlation binding, feed/day/report routes, and active-slice service handoffs." owned_paths="/opt/astro-project/backend/app/main.py" />
+    <module id="M-TRACE-LOGGING" responsibility="Correlation context, request correlation middleware helpers, GRACE payload shaping, structlog configuration, and JSONL routing for backend evidence." owned_paths="/opt/astro-project/backend/app/logging_utils.py;/opt/astro-project/backend/app/middleware/correlation.py" />
+    <module id="M-DAY-BRIEF-SERVICE" responsibility="Canonical DayBrief payload assembly, telemetry, and validator handoff for Today routes." owned_paths="/opt/astro-project/backend/app/services/day_brief.py;/opt/astro-project/backend/app/services/day_brief_validators.py" />
+    <module id="M-WEEK-BRIEF-SERVICE" responsibility="Canonical WeekBrief payload and envelope assembly for report-detail Week flows." owned_paths="/opt/astro-project/backend/app/services/week_brief_service.py" />
+    <module id="M-ANALYTICS-EVENTS" responsibility="Allowed analytics event validation and analytics_events persistence for bounded backend telemetry." owned_paths="/opt/astro-project/backend/app/services/analytics.py" />
+    <module id="M-OPS-AUTOMATION" responsibility="Scheduler startup, birthday checks, and expired-subscription checks with stable job-level GRACE markers." owned_paths="/opt/astro-project/backend/app/services/scheduler.py" />
+  </modules>
+  <flow_links>
+    <edge from="M-API-GATEWAY" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-DAY-BRIEF-SERVICE" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-WEEK-BRIEF-SERVICE" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-ANALYTICS-EVENTS" type="depends_on" />
+    <edge from="M-API-GATEWAY" to="M-OPS-AUTOMATION" type="depends_on" />
+    <edge from="M-DAY-BRIEF-SERVICE" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-WEEK-BRIEF-SERVICE" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-ANALYTICS-EVENTS" to="analytics_events" type="writes" />
+    <edge from="M-OPS-AUTOMATION" to="M-TRACE-LOGGING" type="depends_on" />
+    <edge from="M-TRACE-LOGGING" to="structured backend jsonl logs" type="writes" />
+    <edge from="W01 implementation lane" to="VM-BACKEND-ACTIVE-CANON-PACKET-LOCAL-RERUN-2" type="verified_by" />
+    <edge from="VM-BACKEND-ACTIVE-CANON-PACKET-LOCAL-RERUN-2" to="W02 final verifier lane" type="precedes" />
+    <edge from="W02 final verifier lane" to="VM-BACKEND-ACTIVE-CANON-WAVE-FINAL-RERUN-2" type="verified_by" />
+  </flow_links>
+</knowledge_graph_slice>

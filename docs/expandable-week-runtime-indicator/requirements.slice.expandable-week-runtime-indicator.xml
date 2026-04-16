@@ -1,0 +1,56 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR">
+  <system_goal>Reuse the existing compact Week DEV chip as a dev-only runtime diagnostics disclosure without changing Week content, backend payloads, scoring, or production behavior.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Reuse the existing shell DEV/PROD chip on /week as the only runtime-disclosure entry point.</item>
+      <item>Keep the collapsed chip visually compact and local to the chip area.</item>
+      <item>In non-production on /week, expand and collapse a local disclosure that shows Week render path, bootstrap result, and current mode from existing page and runtime state.</item>
+      <item>Derive Week render-path labels from existing Week page states only: loading, auth_gate, empty, in_progress, error, canonical.</item>
+      <item>Add targeted unit, Playwright, visual, and packet-local read-only evidence for the dev-expanded and prod-unchanged Week states.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Any backend change.</item>
+      <item>Any new payload field, scoring change, Week explainability change, or business-logic change.</item>
+      <item>Any Day or multi-surface redesign.</item>
+      <item>Any new top-level banner or separate diagnostics screen.</item>
+      <item>Any diagnostics field beyond render path, bootstrap result, and current mode.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-WEEK-RUNTIME-INDICATOR" actor="developer_or_reviewer">
+      <summary>Inspect the active Week runtime lane from the existing compact chip without leaving the Week surface.</summary>
+      <scenario id="SCN-SLICE-WEEK-DEV-EXPAND">On /week in non-production, tapping the compact chip expands a local disclosure with Week render path, bootstrap result, and runtime mode.</scenario>
+      <scenario id="SCN-SLICE-WEEK-DEV-COLLAPSE">Tapping the chip again collapses the disclosure and restores the compact local state.</scenario>
+      <scenario id="SCN-SLICE-WEEK-PROD-INERT">In production and on non-Week routes, the chip remains visually unchanged and inert and no diagnostics block appears.</scenario>
+      <scenario id="SCN-SLICE-WEEK-OBS-CLOSEOUT">Targeted verification records packet-local evidence, including a read-only post-test verdict and the local artifact identifiers for the Week helper slice.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>The disclosure is client-local helper UI only and must not add backend requests or payload fields.</invariant>
+    <invariant>Only render path, bootstrap result, and current mode may appear in the visible disclosure body.</invariant>
+    <invariant>Interactive behavior is limited to non-production on /week; production and non-Week routes remain inert.</invariant>
+    <invariant>Week render-path labels are derived from existing page states rather than new backend DTO fields or diagnostics endpoints.</invariant>
+    <invariant>Week hero, day strip, day drawer, domain, actions, explainability, deep sections, CTA, and WeekBrief contracts remain unchanged.</invariant>
+    <invariant>This helper slice owns packet-local evidence only and does not claim canonical Today or Week runtime closeout.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If any diagnostics source is absent, render a stable unknown or unavailable value instead of blocking /week.</item>
+    <item>If the page is between Week states, the disclosure may show loading or unknown, but it must not crash or leak raw objects.</item>
+    <item>If the shared shell badge cannot stay bounded to / and /week without leaking interaction to other routes, stop and escalate before widening the feature.</item>
+    <item>If no dedicated production Playwright host is available, deterministic unit proof is the minimum acceptable production-inert lane.</item>
+    <item>If packet-local evidence is missing or the read-only post-test review ends as no-evidence-blocker, the wave remains blocked until the evidence bundle is attributable.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-SLICE-WEEK-1: The shared shell badge already emits a /week toggle request, but the Week-side helper contract is not yet fully aligned as a stable disclosure lane.</defect>
+    <defect id="DEFECT-SLICE-2">DEFECT-SLICE-WEEK-2: The current Week page does not expose a dedicated render-path helper label, so implementation must derive one from existing page states without redefining Week contracts.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">The Week chip stays compact in collapsed state.</criterion>
+    <criterion id="SC-SLICE-2">In non-production on /week, tapping the chip expands and collapses a local disclosure.</criterion>
+    <criterion id="SC-SLICE-3">The disclosure shows render path, bootstrap result, and current mode only.</criterion>
+    <criterion id="SC-SLICE-4">Week render-path labels stay stable across loading, auth_gate, empty, in_progress, error, and canonical branches.</criterion>
+    <criterion id="SC-SLICE-5">Production and non-Week routes stay visually and behaviorally unchanged.</criterion>
+    <criterion id="SC-SLICE-6">Verifier evidence includes dev-collapsed, dev-expanded, and prod-unchanged Week proof.</criterion>
+    <criterion id="SC-SLICE-7">Packet-local evidence is explicit, attributable to the Week helper lane, and the read-only post-test review is clean or degraded-but-expected.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -8,9 +8,10 @@ Slice id: `SLICE-FEAT-DAY-DEV-INDICATOR`
 
 | VM ID | Covers | Deterministic checks | Pass signal |
 | --- | --- | --- | --- |
-| `VM-DAY-DEV-INDICATOR-UNIT` | `SCN-SLICE-DEV-EXPAND, SCN-SLICE-DEV-COLLAPSE, SCN-SLICE-PROD-INERT` | corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx | Unit coverage proves the chip toggles only in non-production on `/`, falls back safely when state is absent, and keeps the production branch inert. |
-| `VM-DAY-DEV-INDICATOR-E2E` | `SCN-SLICE-DEV-EXPAND, SCN-SLICE-DEV-COLLAPSE, SCN-SLICE-PROD-INERT` | ./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts; ./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g "runtime indicator" | Playwright proves expand/collapse behavior in the active dev stack and records collapsed, expanded, and production-unchanged visual evidence. |
-| `VM-DAY-DEV-INDICATOR-OBS` | `Day disclosure slice closeout` | python3 tools/post_test_review.py --profile today-week --since 30m --report-format md | An explicit Today observability verdict is recorded after targeted verification and shows `clean` or an explained non-blocking degraded state. |
+| `VM-DAY-DEV-INDICATOR-UNIT` | `SCN-SLICE-DEV-EXPAND, SCN-SLICE-DEV-COLLAPSE, SCN-SLICE-PROD-INERT` | corepack pnpm --dir frontend exec jest --runInBand test/app/home-page.test.tsx | Unit coverage proves route gating, expand collapse behavior, safe fallback values, and production inertness. |
+| `VM-DAY-DEV-INDICATOR-E2E` | `SCN-SLICE-DEV-EXPAND, SCN-SLICE-DEV-COLLAPSE, SCN-SLICE-PROD-INERT` | ./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts; ./scripts/run_e2e.sh e2e/day-canon-visual-evidence.spec.ts -g "runtime indicator" | Playwright proves expand and collapse behavior in the active dev stack and captures dev-collapsed, dev-expanded, and prod-inert visual evidence. |
+| `VM-DAY-DEV-INDICATOR-OBS` | `SCN-SLICE-RERUN-EVIDENCE` | python3 tools/post_test_review.py --profile read-only --since 30m --report-format md | Packet-local post-test evidence is explicit, attributable to the Day helper rerun, and classified as clean or degraded-but-expected. |
+| `VM-DAY-DEV-INDICATOR-ARTIFACTS` | `SCN-SLICE-RERUN-EVIDENCE` | Review published Prefect artifacts for W01 coder verifier reviewer architect packet runs | All live rerun packet artifacts are published and inspectable. |
 
 ## Evidence rules
 

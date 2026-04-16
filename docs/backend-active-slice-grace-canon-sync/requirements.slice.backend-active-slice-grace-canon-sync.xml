@@ -1,0 +1,46 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-BACKEND-ACTIVE-SLICE-GRACE-CANON-SYNC">
+  <system_goal>Make the current backend active slice formally addressable through strict-GRACE module contracts, module maps, function contracts, and semantic START/END blocks before deeper backend refactor and maximal observability work.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Add and align module contracts, module maps, function contracts, and semantic START/END blocks for backend/app/main.py, backend/app/logging_utils.py, backend/app/middleware/correlation.py, backend/app/services/day_brief.py, backend/app/services/day_brief_validators.py, backend/app/services/week_brief_service.py, backend/app/services/scheduler.py, and backend/app/services/analytics.py.</item>
+      <item>Use existing well-marked backend modules as the local strict-GRACE style reference.</item>
+      <item>Make backend post-test evidence for Day, Week, report readout, scheduler, analytics, and correlation/logging glue readable by stable module/function/block names.</item>
+      <item>Separate W01 packet-local read-only evidence ownership from W02 wave-final canonical today-week observability ownership.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Scoring logic changes.</item>
+      <item>Day or Week business semantic changes.</item>
+      <item>Maximal logging rewrite or observability redesign.</item>
+      <item>Deep refactor or split of backend/app/services/report_workflow.py.</item>
+      <item>Frontend/UI changes.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-BACKEND-ACTIVE-CANON-SYNC" actor="architect_or_backend_engineer">
+      <summary>Prepare the current backend active slice for strict-GRACE packet execution and observability follow-on work by making module boundaries and runtime evidence formally addressable.</summary>
+      <scenario id="SCN-SLICE-BACKEND-MODULE-ADDRESSABILITY">Each touched active-slice module exposes an explicit module contract and module map aligned to the local repository style.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-ENTRYPOINT-CONTRACTS">Exported, orchestration, and side-effect entrypoints in the touched modules have function contracts where the local strict-GRACE style requires them.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-PACKET-LOCAL-EVIDENCE">W01 implementation packets can be evaluated with packet-local backend evidence and read-only post-test review without claiming canonical today-week closeout.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-EVIDENCE-READABILITY">W02 final post-test evidence for the touched Day, Week, report-read, scheduler, analytics, and correlation/logging paths is readable by module/function/block names without guesswork.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>Canon-sync edits may tighten GRACE addressability but must not change payload semantics for DayBrief, WeekBrief, report read endpoints, scheduler jobs, or analytics writes.</invariant>
+    <invariant>Correlation, module, function, and block naming must become more explicit without forcing a new logging transport or a full middleware architecture rewrite.</invariant>
+    <invariant>Packet-local implementation evidence and wave-final canonical observability are separate lanes and must not be conflated.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If a target file cannot be aligned to local strict-GRACE style without semantic risk, keep business behavior unchanged and record the remaining gap explicitly for follow-on refactor work.</item>
+    <item>If W01 packet-local verification passes but evidence lacks readable module/function/block attribution, implementation remains incomplete until the gap is corrected or explicitly documented.</item>
+    <item>If W02 canonical today-week evidence is absent, fragmented, or unexpectedly degraded, the wave blocks architect acceptance.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-BACKEND-ACTIVE-CANON-GAPS</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">The bounded active-slice files expose stable module contracts, module maps, and semantic block boundaries consistent with the existing local strict-GRACE style.</criterion>
+    <criterion id="SC-SLICE-2">Function contracts are added only where the active slice exports or orchestrates externally meaningful work; no untouched clean modules are rewritten just for consistency theater.</criterion>
+    <criterion id="SC-SLICE-3">W01 packet-local backend quick, targeted pytest, and read-only post-test review evidence can be attributed to the touched active-slice files by stable module/function/block naming without claiming final canonical observability.</criterion>
+    <criterion id="SC-SLICE-4">W02 final verifier evidence owns canonical today-week observability and records a clean, degraded-but-expected, unexpected-degradation, or no-evidence-blocker verdict before architect acceptance.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -1,4 +1,4 @@
-<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-DAY-DEV-INDICATOR">
   <modules>
     <module id="M-FRONTEND-WEBAPP" />
     <module id="M-FRONTEND-TODAY" />
@@ -6,9 +6,11 @@
   </modules>
   <flow_links>
     <edge from="frontend runtime environment variables" to="M-FRONTEND-WEBAPP" type="reads" />
-    <edge from="M-FRONTEND-WEBAPP" to="day-dev-indicator-toggle-event" type="writes" />
-    <edge from="day-dev-indicator-toggle-event" to="M-FRONTEND-TODAY" type="depends_on" />
-    <edge from="M-USE-TELEGRAM" to="M-FRONTEND-TODAY" type="reads" />
-    <edge from="M-FRONTEND-TODAY" to="day-home-diagnostics-disclosure" type="renders" />
+    <edge from="M-FRONTEND-WEBAPP" to="day-home runtime badge" type="renders" />
+    <edge from="M-FRONTEND-WEBAPP" to="day-dev-indicator-toggle-request" type="writes" />
+    <edge from="FeedPage renderPath state" to="M-FRONTEND-TODAY" type="reads" />
+    <edge from="M-USE-TELEGRAM" to="M-FRONTEND-TODAY" type="depends_on" />
+    <edge from="M-FRONTEND-TODAY" to="day-runtime-diagnostics-disclosure" type="renders" />
+    <edge from="W01 verifier reviewer architect packets" to="Prefect packet artifacts" type="writes" />
   </flow_links>
 </knowledge_graph_slice>

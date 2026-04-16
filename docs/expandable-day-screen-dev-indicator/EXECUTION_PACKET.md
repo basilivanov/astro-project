@@ -1,7 +1,7 @@
 # Execution Packet: Expandable dev indicator on Day screen
 
 ## Objective
-Reuse the existing compact Day/home DEV chip as a dev-only runtime diagnostics disclosure without changing DayBrief contracts, backend traffic, or production behavior.
+Rerun the existing compact Day/home DEV chip diagnostics disclosure through bounded frontend verification and packet-local evidence without changing DayBrief contracts, backend traffic, or production behavior
 
 ## Slice
 - slice_id: `SLICE-FEAT-DAY-DEV-INDICATOR`
@@ -25,7 +25,8 @@ Reuse the existing compact Day/home DEV chip as a dev-only runtime diagnostics d
 ## Allowed write scope
 - `/opt/astro-project/frontend/app/layout.tsx`
 - `/opt/astro-project/frontend/app/page.tsx`
-- `/opt/astro-project/frontend/components/today/*`
+- `/opt/astro-project/frontend/components/today/day-runtime-diagnostics-disclosure.tsx`
+- `/opt/astro-project/frontend/components/today/daybrief-sections.tsx`
 - `/opt/astro-project/frontend/hooks/useTelegram.ts`
 - `/opt/astro-project/frontend/lib/telegram-runtime.ts`
 - `/opt/astro-project/frontend/test/app/home-page.test.tsx`

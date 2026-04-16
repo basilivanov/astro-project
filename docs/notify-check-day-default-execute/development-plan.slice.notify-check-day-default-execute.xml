@@ -1,0 +1,44 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-NOTIFY-CHECK">
+  <phase id="PHASE-SLICE">
+    <goal>Determine whether FEAT-NOTIFY-CHECK can implement Day-slice-only execute=true defaulting, and stop on contract mismatch if the current repo lacks a Day-owned Notify-check intake/default/dispatch surface.</goal>
+
+    <wave id="W01">
+      <goal>Bind existing Day runtime-indicator files, verify whether a Day-owned Notify-check intake/default/dispatch surface exists, and stop with a contract-mismatch verdict if absent.</goal>
+      <module_ref id="M-FE-DAY-RUNTIME-INDICATOR" />
+      <module_ref id="M-FE-NOTIFY-CHECK-INTAKE-DEFAULTS" />
+      <module_ref id="M-FE-NOTIFY-CHECK-DISPATCH" />
+      <allowed_write_scope>
+        <file>prefect_grace/packets/FEAT-NOTIFY-CHECK/**</file>
+        <file>docs/notify-check-day-default-execute/**</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>backend/**</file>
+        <file>prefect/**</file>
+        <file>frontend/**</file>
+      </frozen_scope>
+      <observability_scope>packet_local</observability_scope>
+      <allow_degraded_but_expected>true</allow_degraded_but_expected>
+      <canonical_flow_commands>
+        <command>-</command>
+      </canonical_flow_commands>
+      <verification>
+        <command>rg -n --hidden -S &quot;notify check|notify-check|notifyCheck|notify_check|execute=true|execute false&quot; frontend/app frontend/components frontend/lib frontend/e2e</command>
+        <command>test -f docs/notify-check-day-default-execute/ARCHITECT_HANDOFF.md</command>
+        <command>test -f docs/notify-check-day-default-execute/EXECUTION_PACKET.md</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Exact Day runtime-indicator bindings are recorded.</criterion>
+        <criterion>The worker records whether Day Notify-check intake/default/dispatch bindings exist.</criterion>
+        <criterion>If no bindings exist, the packet records contract-mismatch-no-day-notify-surface and does not edit frontend behavior.</criterion>
+        <criterion>Runtime-indicator-only evidence is not misclassified as Notify-check acceptance proof.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Creating a new Day Notify-check frontend surface</item>
+        <item>Implementing execute=true defaulting after a concrete surface is approved</item>
+        <item>Adding Day Notify-check Playwright tests after a concrete surface exists</item>
+        <item>Any backend defaulting change</item>
+      </deferred_work>
+    </wave>
+
+  </phase>
+</development_plan_slice>
