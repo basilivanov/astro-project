@@ -11,6 +11,7 @@ WAVE_PLAN_MARKER_START = "FINAL_GRACE_WAVE_PLAN_JSON"
 WAVE_PLAN_MARKER_END = "END_FINAL_GRACE_WAVE_PLAN_JSON"
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
+OBSERVABILITY_SCOPES = {"none", "packet_local", "wave_final"}
 
 
 def default_wave_plan_contract(
@@ -106,6 +107,8 @@ def default_wave_plan_contract(
                     "frontend_commands": verifier_frontend_commands or [],
                     "observability_profile": verifier_observability_profile,
                     "observability_commands": verifier_observability_commands or [],
+                    "observability_scope": "packet_local",
+                    "canonical_flow_commands": [],
                     "touches_frontend": verifier_touches_frontend,
                     "requires_frontend_visual": verifier_requires_frontend_visual,
                     "artifact_globs": verifier_artifact_globs or [],
@@ -202,16 +205,25 @@ def normalize_wave_plan_contract(
                 "wave_id": str(packet.get("wave_id") or "W01").strip().upper(),
                 "title": str(packet.get("title") or key).strip(),
                 "role": role,
+                "packet_type": _infer_packet_type(
+                    role=role,
+                    title=str(packet.get("title") or key).strip(),
+                    wave_id=str(packet.get("wave_id") or "W01").strip().upper(),
+                    explicit=packet.get("packet_type"),
+                ),
                 "reasoning": reasoning,
                 "summary": str(packet.get("summary") or packet.get("title") or key).strip(),
                 "write_scope": _string_list(packet.get("write_scope")),
                 "inputs": _string_list(packet.get("inputs")),
                 "acceptance_criteria": _string_list(packet.get("acceptance_criteria")),
-                "verification_profile": dict(packet.get("verification_profile") or {}),
+                "verification_profile": _normalize_verification_profile(
+                    packet.get("verification_profile"),
+                    packet_key=key,
+                ),
                 "reviewer_gate": _string_list(packet.get("reviewer_gate")),
                 "dependencies": _string_list(packet.get("dependencies")),
                 "notes": _string_list(packet.get("notes")),
-                "execution_hints": dict(packet.get("execution_hints") or {}),
+                "execution_hints": _normalize_execution_hint_dict(packet.get("execution_hints")),
                 "review_target_key": str(packet.get("review_target_key") or "").strip(),
             }
         )
@@ -302,6 +314,7 @@ def materialize_planner_contract(
             reviewer_gate=packet_spec["reviewer_gate"],
             dependencies=dependencies,
             notes=packet_spec["notes"],
+            packet_type=packet_spec.get("packet_type"),
             execution_hints=execution_hints,
             status=PacketStatus.READY,
         )
@@ -320,6 +333,9 @@ def materialize_planner_contract(
                 packet["packet_id"],
                 {"review_target_packet_id": review_target_packet_id},
             )
+            from prefect_grace.tasks.feature_bootstrap import sync_packet_file
+
+            packet = sync_packet_file(packet)
         materialized.append(packet)
 
     wave_plan_path = _write_dynamic_wave_plan(feature_id, normalized["waves"], materialized)
@@ -362,6 +378,43 @@ def _default_reasoning_for_role(role: str) -> str:
     if role == "verifier":
         return ReasoningProfile.MEDIUM.value
     return ReasoningProfile.HIGH.value
+
+
+def _normalize_packet_type(value: Any) -> str:
+    packet_type = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "gate": "gate_decision",
+        "decision": "gate_decision",
+        "gate-decision": "gate_decision",
+        "rework": "rework",
+        "execution": "execution",
+    }
+    packet_type = aliases.get(packet_type, packet_type)
+    if packet_type not in {"execution", "rework", "gate_decision"}:
+        return "execution"
+    return packet_type
+
+
+def _infer_packet_type(
+    *,
+    role: str,
+    title: str,
+    wave_id: str,
+    explicit: Any = None,
+) -> str:
+    if explicit not in (None, ""):
+        return _normalize_packet_type(explicit)
+    lowered_title = str(title or "").strip().lower()
+    normalized_role = str(role or "").strip().lower()
+    if "rework" in lowered_title:
+        return "rework"
+    if normalized_role == "reviewer":
+        return "gate_decision"
+    if normalized_role == "architect" and str(wave_id or "").strip().upper() != "W00":
+        return "gate_decision"
+    if "gate" in lowered_title or "verdict" in lowered_title or "decision" in lowered_title:
+        return "gate_decision"
+    return "execution"
 
 
 def _string_list(value: Any) -> list[str]:
@@ -505,6 +558,7 @@ def _resolve_execution_hints(
         backend_commands = _extract_commands(verifier_execution.get("backend_commands"))
         frontend_commands = _extract_commands(verifier_execution.get("frontend_commands"))
         observability_commands = _extract_commands(verifier_execution.get("observability_commands"))
+        canonical_flow_commands = _extract_commands(verifier_execution.get("canonical_flow_commands"))
         if backend_commands:
             hints["backend_commands"] = backend_commands
             hints.pop("backend_profile", None)
@@ -514,6 +568,10 @@ def _resolve_execution_hints(
         if observability_commands:
             hints["observability_commands"] = observability_commands
             hints.pop("observability_profile", None)
+        if canonical_flow_commands:
+            hints["canonical_flow_commands"] = canonical_flow_commands
+        if "observability_scope" not in packet_hints and verifier_execution.get("observability_scope") not in (None, ""):
+            hints["observability_scope"] = _normalize_observability_scope(verifier_execution.get("observability_scope"))
         if "touches_frontend" not in packet_hints and "touches_frontend" in verifier_execution:
             hints["touches_frontend"] = bool(verifier_execution.get("touches_frontend"))
         if "requires_frontend_visual" not in packet_hints and "requires_frontend_visual" in verifier_execution:
@@ -536,6 +594,44 @@ def _resolve_execution_hints(
             hints[key] = value
 
     return hints
+
+
+def _normalize_verification_profile(value: Any, *, packet_key: str) -> dict[str, Any]:
+    profile = dict(value or {})
+    execution = profile.get("execution")
+    if execution is None:
+        return profile
+    if not isinstance(execution, dict):
+        raise ValueError(f"Packet {packet_key} verification_profile.execution must be an object")
+    normalized_execution = dict(execution)
+    if "observability_scope" in normalized_execution:
+        normalized_execution["observability_scope"] = _normalize_observability_scope(
+            normalized_execution.get("observability_scope")
+        )
+    if "canonical_flow_commands" in normalized_execution:
+        normalized_execution["canonical_flow_commands"] = _extract_commands(
+            normalized_execution.get("canonical_flow_commands")
+        )
+    profile["execution"] = normalized_execution
+    return profile
+
+
+def _normalize_execution_hint_dict(value: Any) -> dict[str, Any]:
+    hints = dict(value or {})
+    if "observability_scope" in hints:
+        hints["observability_scope"] = _normalize_observability_scope(hints.get("observability_scope"))
+    if "canonical_flow_commands" in hints:
+        hints["canonical_flow_commands"] = _extract_commands(hints.get("canonical_flow_commands"))
+    return hints
+
+
+def _normalize_observability_scope(value: Any) -> str:
+    scope = str(value or "").strip().lower().replace("-", "_")
+    if not scope:
+        return ""
+    if scope not in OBSERVABILITY_SCOPES:
+        raise ValueError(f"Unsupported observability_scope: {value}")
+    return scope
 
 
 def _extract_commands(value: Any) -> list[str]:

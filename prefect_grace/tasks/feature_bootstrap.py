@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,8 @@ from prefect_grace.tasks.state_store import append_record, find_record, update_r
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
+PACKET_CONTRACT_START = "FINAL_PACKET_CONTRACT_JSON"
+PACKET_CONTRACT_END = "END_FINAL_PACKET_CONTRACT_JSON"
 
 
 def _render_template(template_name: str, replacements: dict[str, str]) -> str:
@@ -78,6 +81,141 @@ def _execution_hint_lines(hints: dict[str, Any] | None) -> str:
         else:
             lines.append(f"- {key}: {value}")
     return "\n".join(lines) if lines else "-"
+
+
+def _normalize_packet_type(value: Any) -> str:
+    packet_type = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "gate": "gate_decision",
+        "decision": "gate_decision",
+        "gate_decision": "gate_decision",
+        "gate-decision": "gate_decision",
+        "rework": "rework",
+        "execution": "execution",
+    }
+    packet_type = aliases.get(packet_type, packet_type)
+    if packet_type not in {"execution", "rework", "gate_decision"}:
+        return "execution"
+    return packet_type
+
+
+def infer_packet_type(
+    *,
+    role: str,
+    title: str,
+    wave_id: str,
+    parent_packet_id: str | None = None,
+    explicit: Any = None,
+) -> str:
+    normalized = _normalize_packet_type(explicit)
+    if explicit not in (None, ""):
+        return normalized
+    lowered_title = str(title or "").strip().lower()
+    normalized_role = str(role or "").strip().lower()
+    if parent_packet_id or "rework" in lowered_title:
+        return "rework"
+    if normalized_role == "reviewer":
+        return "gate_decision"
+    if normalized_role == "architect" and str(wave_id or "").strip().upper() != "W00":
+        return "gate_decision"
+    if "gate" in lowered_title or "verdict" in lowered_title or "decision" in lowered_title:
+        return "gate_decision"
+    return normalized
+
+
+def _packet_contract_payload(packet: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "packet_id": str(packet.get("packet_id") or ""),
+        "feature_id": str(packet.get("feature_id") or ""),
+        "wave_id": str(packet.get("wave_id") or ""),
+        "packet_type": infer_packet_type(
+            role=str(packet.get("role") or ""),
+            title=str(packet.get("title") or ""),
+            wave_id=str(packet.get("wave_id") or ""),
+            parent_packet_id=packet.get("parent_packet_id"),
+            explicit=packet.get("packet_type"),
+        ),
+        "role": str(packet.get("role") or ""),
+        "reasoning": str(packet.get("reasoning") or ""),
+        "title": str(packet.get("title") or ""),
+        "summary": str(packet.get("summary") or ""),
+        "write_scope": list(packet.get("write_scope") or []),
+        "inputs": list(packet.get("inputs") or []),
+        "acceptance_criteria": list(packet.get("acceptance_criteria") or []),
+        "verification_profile": dict(packet.get("verification_profile") or {}),
+        "execution_hints": dict(packet.get("execution_hints") or {}),
+        "reviewer_gate": list(packet.get("reviewer_gate") or []),
+        "dependencies": list(packet.get("dependencies") or []),
+        "notes": list(packet.get("notes") or []),
+        "parent_packet_id": packet.get("parent_packet_id"),
+        "review_target_packet_id": packet.get("review_target_packet_id"),
+        "route_classification": packet.get("route_classification"),
+        "requested_rework_mode": packet.get("requested_rework_mode"),
+        "rework_mode": packet.get("rework_mode"),
+    }
+
+
+def render_packet_markdown(packet: dict[str, Any]) -> str:
+    grace_refs = {
+        "grace_feature_ref": str(packet.get("grace_feature_ref") or ""),
+        "grace_wave_ref": str(packet.get("grace_wave_ref") or ""),
+        "grace_packet_ref": str(packet.get("grace_packet_ref") or ""),
+    }
+    contract_payload = _packet_contract_payload(packet)
+    return _render_template(
+        "packet.md",
+        {
+            "packet_id": str(packet.get("packet_id") or ""),
+            "title": str(packet.get("title") or packet.get("packet_id") or ""),
+            "grace_ids": _bullet_lines(
+                [
+                    f"feature_ref: `{grace_refs['grace_feature_ref']}`",
+                    f"wave_ref: `{grace_refs['grace_wave_ref']}`",
+                    f"packet_ref: `{grace_refs['grace_packet_ref']}`",
+                ]
+            ),
+            "packet_type": infer_packet_type(
+                role=str(packet.get("role") or ""),
+                title=str(packet.get("title") or ""),
+                wave_id=str(packet.get("wave_id") or ""),
+                parent_packet_id=packet.get("parent_packet_id"),
+                explicit=packet.get("packet_type"),
+            ),
+            "summary": str(packet.get("summary") or ""),
+            "wave_id": str(packet.get("wave_id") or ""),
+            "role": str(packet.get("role") or ""),
+            "reasoning": str(packet.get("reasoning") or ""),
+            "parent_packet_id": (
+                f"`{packet['parent_packet_id']}`"
+                if str(packet.get("parent_packet_id") or "").strip()
+                else "-"
+            ),
+            "review_target_packet_id": (
+                f"`{packet['review_target_packet_id']}`"
+                if str(packet.get("review_target_packet_id") or "").strip()
+                else "-"
+            ),
+            "write_scope": _bullet_lines(list(packet.get("write_scope") or [])),
+            "inputs": _bullet_lines(list(packet.get("inputs") or [])),
+            "acceptance_criteria": _bullet_lines(list(packet.get("acceptance_criteria") or [])),
+            "verification_profile": _verification_lines(dict(packet.get("verification_profile") or {})),
+            "execution_hints": _execution_hint_lines(dict(packet.get("execution_hints") or {})),
+            "reviewer_gate": _bullet_lines(list(packet.get("reviewer_gate") or [])),
+            "dependencies": _bullet_lines(list(packet.get("dependencies") or [])),
+            "notes": _bullet_lines(list(packet.get("notes") or [])),
+            "contract_json": json.dumps(contract_payload, ensure_ascii=False, indent=2),
+        },
+    )
+
+
+def sync_packet_file(packet: dict[str, Any]) -> dict[str, Any]:
+    raw_path = str(packet.get("packet_path") or "").strip()
+    if not raw_path:
+        return packet
+    packet_path = Path(raw_path)
+    packet_path.parent.mkdir(parents=True, exist_ok=True)
+    packet_path.write_text(render_packet_markdown(packet), encoding="utf-8")
+    return packet
 
 
 def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: list[dict[str, Any]]) -> str:
@@ -251,6 +389,8 @@ def create_packet(
     dependencies: list[str] | None = None,
     notes: list[str] | None = None,
     parent_packet_id: str | None = None,
+    review_target_packet_id: str | None = None,
+    packet_type: str | None = None,
     execution_hints: dict[str, Any] | None = None,
     status: PacketStatus = PacketStatus.READY,
 ) -> dict[str, Any]:
@@ -261,34 +401,6 @@ def create_packet(
     packet_dir = feature_dir / "packets"
     packet_dir.mkdir(parents=True, exist_ok=True)
     packet_path = packet_dir / f"{packet_id}.md"
-    packet_path.write_text(
-        _render_template(
-            "packet.md",
-            {
-                "packet_id": packet_id,
-                "grace_ids": _bullet_lines(
-                    [
-                        f"feature_ref: `{grace_refs['grace_feature_ref']}`",
-                        f"wave_ref: `{grace_refs['grace_wave_ref']}`",
-                        f"packet_ref: `{grace_refs['grace_packet_ref']}`",
-                    ]
-                ),
-                "summary": summary,
-                "wave_id": wave_id,
-                "role": role,
-                "reasoning": reasoning.value,
-                "write_scope": _bullet_lines(write_scope),
-                "inputs": _bullet_lines(inputs),
-                "acceptance_criteria": _bullet_lines(acceptance_criteria),
-                "verification_profile": _verification_lines(verification_profile),
-                "execution_hints": _execution_hint_lines(execution_hints),
-                "reviewer_gate": _bullet_lines(reviewer_gate),
-                "dependencies": _bullet_lines(dependencies),
-                "notes": _bullet_lines(notes),
-            },
-        ),
-        encoding="utf-8",
-    )
     record = PacketRecord(
         packet_id=packet_id,
         feature_id=feature_id,
@@ -301,18 +413,32 @@ def create_packet(
         role=role,
         reasoning=reasoning,
         status=status,
+        packet_type=infer_packet_type(
+            role=role,
+            title=title,
+            wave_id=wave_id,
+            parent_packet_id=parent_packet_id,
+            explicit=packet_type,
+        ),
+        write_scope=list(write_scope or []),
+        inputs=list(inputs or []),
+        acceptance_criteria=list(acceptance_criteria or []),
+        reviewer_gate=list(reviewer_gate or []),
+        notes=list(notes or []),
         dependencies=dependencies or [],
         parent_packet_id=parent_packet_id,
+        review_target_packet_id=review_target_packet_id,
         verification_profile=verification_profile or {},
         execution_hints=execution_hints or {},
         packet_path=str(packet_path),
     ).to_dict()
     try:
         find_record("packets", "packets", "packet_id", packet_id)
-        return update_record("packets", "packets", "packet_id", packet_id, record)
+        stored = update_record("packets", "packets", "packet_id", packet_id, record)
     except KeyError:
         append_record("packets", "packets", record)
-        return record
+        stored = record
+    return sync_packet_file(stored)
 
 
 def seed_test_feature(

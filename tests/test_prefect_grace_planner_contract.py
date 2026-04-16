@@ -84,6 +84,8 @@ def test_materialize_planner_contract_creates_packets(tmp_path: Path) -> None:
     coder = next(packet for packet in generated if packet['role'] == 'coder')
     verifier = next(packet for packet in generated if packet['role'] == 'verifier')
     assert verifier['dependencies'] == [coder['packet_id']]
+    assert coder["packet_type"] == "execution"
+    assert verifier["packet_type"] == "execution"
     assert coder['grace_feature_ref'] == 'feature:FEAT-PLAN-CONTRACT'
     assert coder['grace_wave_ref'] == 'feature:FEAT-PLAN-CONTRACT:wave:W01'
     assert coder['grace_packet_ref'].endswith(f":packet:{coder['packet_id']}")
@@ -206,6 +208,7 @@ def test_materialize_planner_contract_sets_explicit_review_target(tmp_path: Path
     coder = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'coder')
     stored = find_record('packets', 'packets', 'packet_id', reviewer['packet_id'])
     assert stored['review_target_packet_id'] == coder['packet_id']
+    assert stored["packet_type"] == "gate_decision"
 
 
 def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: Path) -> None:
@@ -267,6 +270,7 @@ def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: P
     assert light_rework['execution_hints']['resume_parent_packet_id'] == coder['packet_id']
     assert light_rework['packet_id'] == coder['packet_id']
     assert light_rework['execution_hints']['light_resume_stage'] is True
+    assert light_rework["packet_type"] == "execution"
 
     downgraded_rework = create_direct_rework_from_architect(
         coder['packet_id'],
@@ -278,6 +282,7 @@ def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: P
     assert downgraded_rework['requested_rework_mode'] == 'light_resume'
     assert downgraded_rework['rework_mode'] == 'bounded_fresh'
     assert downgraded_rework['light_resume_downgrade_reason']
+    assert downgraded_rework["packet_type"] == "rework"
 
     seeded_alias = seed_test_feature(
         feature_id='FEAT-REWORK-HINTS-ALIAS',
@@ -298,6 +303,7 @@ def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: P
     assert small_fix_rework['packet_id'] == alias_coder['packet_id']
     assert small_fix_rework['requested_rework_mode'] == 'light_resume'
     assert small_fix_rework['rework_mode'] == 'light_resume'
+    assert small_fix_rework["packet_type"] == "execution"
 
 
 def test_normalize_planner_contract_rejects_unknown_dependency() -> None:

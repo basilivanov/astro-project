@@ -110,8 +110,15 @@ class PacketRecord:
     role: str
     reasoning: ReasoningProfile
     status: PacketStatus = PacketStatus.DRAFT
+    packet_type: str = "execution"
+    write_scope: list[str] = field(default_factory=list)
+    inputs: list[str] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    reviewer_gate: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
     parent_packet_id: str | None = None
+    review_target_packet_id: str | None = None
     verification_profile: dict[str, Any] = field(default_factory=dict)
     execution_hints: dict[str, Any] = field(default_factory=dict)
     packet_path: str = ""
@@ -130,8 +137,15 @@ class PacketRecord:
             "role": self.role,
             "reasoning": self.reasoning.value,
             "status": self.status.value,
+            "packet_type": self.packet_type,
+            "write_scope": self.write_scope,
+            "inputs": self.inputs,
+            "acceptance_criteria": self.acceptance_criteria,
+            "reviewer_gate": self.reviewer_gate,
+            "notes": self.notes,
             "dependencies": self.dependencies,
             "parent_packet_id": self.parent_packet_id,
+            "review_target_packet_id": self.review_target_packet_id,
             "verification_profile": self.verification_profile,
             "execution_hints": self.execution_hints,
             "packet_path": self.packet_path,

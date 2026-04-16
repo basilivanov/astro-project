@@ -15,7 +15,7 @@ Verdict
 accepted
 
 FINAL_PACKET_DECISION_JSON
-{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"light_resume","reasons":["Missing logs","No trace id"]}
+{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"light_resume","packet_type":"gate_decision","reasons":["Missing logs","No trace id"]}
 END_FINAL_PACKET_DECISION_JSON
 """
     parsed = parse_reviewer_message(text)
@@ -23,6 +23,7 @@ END_FINAL_PACKET_DECISION_JSON
     assert parsed["follow_up_action"] == "localized_rework"
     assert parsed["route_classification"] == "self_resolvable_rework"
     assert parsed["rework_mode"] == "light_resume"
+    assert parsed["packet_type"] == "gate_decision"
     assert parsed["reasons"] == ["Missing logs", "No trace id"]
 
 
@@ -49,11 +50,12 @@ none
 def test_parse_wave_gate_message_from_json_markers() -> None:
     text = """
 FINAL_WAVE_DECISION_JSON
-{"wave_verdict":"rework_required","reasons":["Frontend visual proof is insufficient"]}
+{"wave_verdict":"rework_required","packet_type":"gate_decision","reasons":["Frontend visual proof is insufficient"]}
 END_FINAL_WAVE_DECISION_JSON
 """
     parsed = parse_wave_gate_message(text)
     assert parsed["wave_verdict"] == "rework_required"
+    assert parsed["packet_type"] == "gate_decision"
     assert parsed["reasons"] == ["Frontend visual proof is insufficient"]
 
 
@@ -246,12 +248,13 @@ def test_resolve_verifier_result_reads_last_message(tmp_path) -> None:
 def test_parse_direct_rework_packet_message() -> None:
     text = """
 FINAL_DIRECT_REWORK_PACKET_JSON
-{"route_classification":"self_resolvable_rework","rework_mode":"light_resume","title":"Direct Rework Main Slice","summary":"Fix bounded reviewer blockers","write_scope":["Only main slice files"],"inputs":["Parent packet","Reviewer blockers"],"acceptance_criteria":["Blockers resolved"],"verification_profile":{"backend":"backend quick","frontend":"not required","observability":"repeat evidence review"},"reviewer_gate":["No unrelated changes"],"notes":["Architect-bounded direct rework"],"reasons":["Fix edge case"]}
+{"route_classification":"self_resolvable_rework","rework_mode":"light_resume","packet_type":"rework","title":"Direct Rework Main Slice","summary":"Fix bounded reviewer blockers","write_scope":["Only main slice files"],"inputs":["Parent packet","Reviewer blockers"],"acceptance_criteria":["Blockers resolved"],"verification_profile":{"backend":"backend quick","frontend":"not required","observability":"repeat evidence review"},"reviewer_gate":["No unrelated changes"],"notes":["Architect-bounded direct rework"],"reasons":["Fix edge case"]}
 END_FINAL_DIRECT_REWORK_PACKET_JSON
 """
     parsed = parse_direct_rework_packet_message(text)
     assert parsed["route_classification"] == "self_resolvable_rework"
     assert parsed["rework_mode"] == "light_resume"
+    assert parsed["packet_type"] == "rework"
     assert parsed["title"] == "Direct Rework Main Slice"
     assert parsed["summary"] == "Fix bounded reviewer blockers"
     assert parsed["write_scope"] == ["Only main slice files"]
@@ -260,20 +263,22 @@ END_FINAL_DIRECT_REWORK_PACKET_JSON
 def test_parse_reviewer_message_accepts_small_fix_rework_mode_alias() -> None:
     text = """
 FINAL_PACKET_DECISION_JSON
-{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"small_fix","reasons":["Fix copy typo"]}
+{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"small_fix","packet_type":"gate","reasons":["Fix copy typo"]}
 END_FINAL_PACKET_DECISION_JSON
 """
     parsed = parse_reviewer_message(text)
     assert parsed["packet_verdict"] == "rework_required"
     assert parsed["rework_mode"] == "light_resume"
+    assert parsed["packet_type"] == "gate_decision"
 
 
 def test_parse_direct_rework_packet_message_accepts_small_fix_rework_mode_alias() -> None:
     text = """
 FINAL_DIRECT_REWORK_PACKET_JSON
-{"route_classification":"self_resolvable_rework","rework_mode":"small_fix","title":"Small Fix Main Slice","summary":"Fix one small blocker"}
+{"route_classification":"self_resolvable_rework","rework_mode":"small_fix","packet_type":"rework","title":"Small Fix Main Slice","summary":"Fix one small blocker"}
 END_FINAL_DIRECT_REWORK_PACKET_JSON
 """
     parsed = parse_direct_rework_packet_message(text)
     assert parsed["route_classification"] == "self_resolvable_rework"
     assert parsed["rework_mode"] == "light_resume"
+    assert parsed["packet_type"] == "rework"

@@ -26,6 +26,7 @@ Rules:
     - `requires_planner` if the blocker means the packet graph or decomposition must be resliced.
 15. Prefer `self_resolvable_rework` by default. Do not send user-facing escalation unless the blocker truly requires a user/product decision.
 16. Set `rework_mode=light_resume` only when the blocker is a small packet-local fix safe to resume in the existing coder context. Use `bounded_fresh` for broader bounded fixes and `decision_required` for user/planner/business blockers.
+17. Do not use `light/basic` packet-type semantics. The system uses only `execution`, `rework`, and `gate_decision` packet types.
 
 Output sections:
 - Verdict
@@ -40,6 +41,7 @@ FINAL_PACKET_DECISION_JSON
   "follow_up_action": "none | localized_rework | architect_decision",
   "route_classification": "self_resolvable_rework | requires_user_decision | requires_planner",
   "rework_mode": "light_resume | bounded_fresh | decision_required",
+  "packet_type": "gate_decision",
   "reasons": ["short reason 1", "short reason 2"]
 }
 END_FINAL_PACKET_DECISION_JSON

@@ -25,6 +25,7 @@ OBSERVABILITY_VERDICTS = {"clean", "degraded-but-expected", "unexpected-degradat
 FRONTEND_VISUAL_VERDICTS = {"sufficient", "insufficient", "not_applicable"}
 REWORK_ROUTE_CLASSIFICATIONS = {"self_resolvable_rework", "requires_user_decision", "requires_planner"}
 REWORK_MODES = {"light_resume", "bounded_fresh", "decision_required"}
+PACKET_TYPES = {"execution", "rework", "gate_decision"}
 
 
 def read_agent_message(last_message_path: str | None, stdout_path: str | None = None) -> str:
@@ -225,6 +226,7 @@ def parse_direct_rework_packet_message(text: str) -> dict[str, Any]:
     return {
         "route_classification": route_classification,
         "rework_mode": _normalize_rework_mode(payload.get("rework_mode") or "bounded_fresh"),
+        "packet_type": _normalize_packet_type(payload.get("packet_type") or "rework"),
         "title": str(payload.get("title") or "").strip(),
         "summary": str(payload.get("summary") or "").strip(),
         "write_scope": _normalize_list(payload.get("write_scope")),
@@ -249,6 +251,7 @@ def parse_reviewer_message(text: str) -> dict[str, Any]:
             "packet_verdict": verdict,
             "follow_up_action": follow_up_action,
             "reasons": reasons,
+            "packet_type": _normalize_packet_type(payload.get("packet_type") or "gate_decision"),
         }
         route_classification = payload.get("route_classification") or payload.get("rework_classification")
         if route_classification:
@@ -263,6 +266,7 @@ def parse_reviewer_message(text: str) -> dict[str, Any]:
     return {
         "packet_verdict": verdict,
         "follow_up_action": str(sections.get("Follow-up Action") or _default_follow_up_action(verdict)).strip(),
+        "packet_type": "gate_decision",
         "reasons": _normalize_reason_list(sections.get("Blockers")),
     }
 
@@ -274,6 +278,7 @@ def parse_wave_gate_message(text: str) -> dict[str, Any]:
     if payload is not None:
         return {
             "wave_verdict": _normalize_wave_verdict(payload.get("wave_verdict") or payload.get("verdict")),
+            "packet_type": _normalize_packet_type(payload.get("packet_type") or "gate_decision"),
             "reasons": _normalize_reason_list(payload.get("reasons") or payload.get("required_rework")),
         }
 
@@ -281,6 +286,7 @@ def parse_wave_gate_message(text: str) -> dict[str, Any]:
     reasons = _normalize_reason_list(sections.get("Required Rework")) or _normalize_reason_list(sections.get("Reasons"))
     return {
         "wave_verdict": _normalize_wave_verdict(sections.get("Wave Verdict")),
+        "packet_type": "gate_decision",
         "reasons": reasons,
     }
 
@@ -452,6 +458,28 @@ def _normalize_rework_mode(value: Any) -> str:
     if mode not in REWORK_MODES:
         raise ValueError(f"Unsupported rework mode: {value!r}")
     return mode
+
+
+def _normalize_packet_type(value: Any) -> str:
+    packet_type = str(value or "").strip().casefold().replace("-", "_")
+    aliases = {
+        "gate": "gate_decision",
+        "decision": "gate_decision",
+        "gate-decision": "gate_decision",
+        "review": "gate_decision",
+        "verdict": "gate_decision",
+        "direct_rework": "rework",
+        "bounded_fresh": "rework",
+        "light_resume": "rework",
+        "small_fix": "rework",
+        "smallfix": "rework",
+        "basic": "execution",
+        "light": "execution",
+    }
+    packet_type = aliases.get(packet_type, packet_type)
+    if packet_type not in PACKET_TYPES:
+        raise ValueError(f"Unsupported packet type: {value!r}")
+    return packet_type
 
 
 def _default_follow_up_action(verdict: str) -> str:

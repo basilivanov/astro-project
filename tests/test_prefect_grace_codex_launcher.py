@@ -288,6 +288,80 @@ def test_build_packet_prompt_uses_light_resume_overlay(monkeypatch, tmp_path: Pa
     assert "Original broad packet body" not in prompt
 
 
+def test_build_packet_prompt_compacts_dependency_packets_to_embedded_contract_for_architect(monkeypatch, tmp_path: Path) -> None:
+    feature_dir = tmp_path / "packets" / "FEAT-ARCH"
+    packet_dir = feature_dir / "packets"
+    packet_dir.mkdir(parents=True)
+    (feature_dir / "feature-brief.md").write_text("# Brief\n- line\n", encoding="utf-8")
+    architect_packet_path = packet_dir / "ARCH.md"
+    dependency_packet_path = packet_dir / "CODER.md"
+    architect_packet_path.write_text("# Packet\nArchitect rework packet", encoding="utf-8")
+    dependency_packet_path.write_text(
+        "\n".join(
+            [
+                "# Packet: PKT-CODER",
+                "",
+                "## Summary",
+                "Very long packet body that should not be injected whole.",
+                "",
+                "## Contract JSON",
+                "FINAL_PACKET_CONTRACT_JSON",
+                '{"packet_id":"PKT-CODER","packet_type":"execution","summary":"Bounded coder packet"}',
+                "END_FINAL_PACKET_CONTRACT_JSON",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    feature_record = {
+        "feature_id": "FEAT-ARCH",
+        "architect_manifest_path": "",
+        "architect_handoff_path": "",
+        "execution_packet_path": "",
+        "requirements_slice_path": "",
+        "development_plan_slice_path": "",
+        "verification_matrix_slice_path": "",
+        "knowledge_graph_slice_path": "",
+    }
+    packets = {
+        "PKT-ARCH": {
+            "packet_id": "PKT-ARCH",
+            "feature_id": "FEAT-ARCH",
+            "wave_id": "W01",
+            "role": "architect",
+            "packet_type": "rework",
+            "parent_packet_id": "PKT-CODER",
+            "review_target_packet_id": "PKT-CODER",
+            "packet_path": str(architect_packet_path),
+            "dependencies": ["PKT-CODER"],
+        },
+        "PKT-CODER": {
+            "packet_id": "PKT-CODER",
+            "feature_id": "FEAT-ARCH",
+            "wave_id": "W01",
+            "role": "coder",
+            "packet_type": "execution",
+            "packet_path": str(dependency_packet_path),
+            "dependencies": [],
+        },
+    }
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+
+    def _fake_find_record(name, key, id_field, id_value):
+        if name == "features":
+            return feature_record
+        return packets[str(id_value)]
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.find_record", _fake_find_record)
+
+    prompt = build_packet_prompt(packets["PKT-ARCH"], "Architect role prompt")
+
+    assert "ARCHITECT MODE: rework" in prompt
+    assert 'FINAL_PACKET_CONTRACT_JSON\n{"packet_id":"PKT-CODER","packet_type":"execution","summary":"Bounded coder packet"}\nEND_FINAL_PACKET_CONTRACT_JSON' in prompt
+    assert "Very long packet body that should not be injected whole." not in prompt
+
+
 def test_heartbeat_loop_kills_when_only_stdout_noise_grows(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()

@@ -25,7 +25,7 @@ from prefect_grace.tasks.agent_output_parser import (
 )
 from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan, write_architect_artifacts
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
-from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_packet, mark_feature_status, seed_test_feature
+from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_packet, mark_feature_status, seed_test_feature, sync_packet_file
 from prefect_grace.tasks.planner_contract import (
     default_wave_plan_contract,
     find_architect_wave_gate_packet_id,
@@ -369,7 +369,11 @@ def _normalize_rework_mode(value: object) -> str:
         "fresh": REWORK_MODE_BOUNDED_FRESH,
         "bounded": REWORK_MODE_BOUNDED_FRESH,
         "fresh_packet": REWORK_MODE_BOUNDED_FRESH,
+        "execution": REWORK_MODE_BOUNDED_FRESH,
+        "rework": REWORK_MODE_BOUNDED_FRESH,
+        "gate": REWORK_MODE_DECISION_REQUIRED,
         "decision": REWORK_MODE_DECISION_REQUIRED,
+        "gate_decision": REWORK_MODE_DECISION_REQUIRED,
         "architect_decision": REWORK_MODE_DECISION_REQUIRED,
     }
     mode = aliases.get(mode, mode)
@@ -469,6 +473,7 @@ def _build_direct_rework_followup_packets(
             "Missing visual proof remains a blocker for UI work.",
         ],
         dependencies=[direct_rework_packet["packet_id"]],
+        packet_type="rework",
         notes=["This verifier packet was created for architect-bounded direct rework."],
         parent_packet_id=target_packet_id,
         execution_hints=verifier_hints,
@@ -498,6 +503,7 @@ def _build_direct_rework_followup_packets(
             "Escalate only if blockers imply decomposition or business changes.",
         ],
         dependencies=[direct_rework_packet["packet_id"], direct_verifier_packet["packet_id"]],
+        packet_type="gate_decision",
         notes=["This reviewer packet was created for architect-bounded direct rework."],
         parent_packet_id=target_packet_id,
         status=PacketStatus.READY,
@@ -512,6 +518,7 @@ def _build_direct_rework_followup_packets(
             "execution_hints": dict(direct_rework_packet.get("execution_hints") or {}),
         },
     )
+    direct_reviewer_packet = sync_packet_file(direct_reviewer_packet)
     rework_packets.extend([direct_verifier_packet, direct_reviewer_packet])
     rework_reviewer_packet_id = str(direct_reviewer_packet.get("packet_id") or "")
     return rework_packets, rework_reviewer_packet_id

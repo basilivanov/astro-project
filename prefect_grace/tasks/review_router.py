@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from prefect_grace.models import DecisionRecord, PacketStatus, ReasoningProfile, ReviewRecord, ReviewVerdict, WaveReviewRecord, WaveVerdict
-from prefect_grace.tasks.feature_bootstrap import create_packet
+from prefect_grace.tasks.feature_bootstrap import create_packet, sync_packet_file
 from prefect_grace.tasks.grace_ids import grace_refs_for_packet
 from prefect_grace.tasks.state_store import find_record, load_state, update_record, upsert_record
 
@@ -34,8 +34,24 @@ _LIGHT_RESUME_BLOCKER_MARKERS = (
 
 def _normalize_rework_mode(value: Any) -> str:
     resolved = str(value or "bounded_fresh").strip().lower().replace("-", "_")
-    if resolved in {"small_fix", "smallfix"}:
-        return "light_resume"
+    aliases = {
+        "light": "light_resume",
+        "resume": "light_resume",
+        "packet_local_resume": "light_resume",
+        "small_fix": "light_resume",
+        "smallfix": "light_resume",
+        "fresh": "bounded_fresh",
+        "bounded": "bounded_fresh",
+        "fresh_packet": "bounded_fresh",
+        "execution": "bounded_fresh",
+        "rework": "bounded_fresh",
+        "gate": "decision_required",
+        "decision": "decision_required",
+        "gate_decision": "decision_required",
+        "gate-decision": "decision_required",
+        "architect_decision": "decision_required",
+    }
+    resolved = aliases.get(resolved, resolved)
     return resolved if resolved in {"light_resume", "bounded_fresh", "decision_required"} else "bounded_fresh"
 
 
@@ -172,6 +188,7 @@ def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, A
             "No new regressions are introduced in the scoped flow.",
         ],
         dependencies=[packet_id],
+        packet_type="rework",
         notes=[
             "This is a localized rework packet created from reviewer blockers.",
         ],
@@ -269,7 +286,7 @@ def create_direct_rework_from_architect(
                 }
             ),
         }
-        return update_record(
+        updated_packet = update_record(
             "packets",
             "packets",
             "packet_id",
@@ -287,6 +304,7 @@ def create_direct_rework_from_architect(
                 "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS,
             },
         )
+        return sync_packet_file(updated_packet)
     if resolved_rework_mode != "light_resume":
         inherited_execution_hints = {
             **inherited_execution_hints,
@@ -333,6 +351,7 @@ def create_direct_rework_from_architect(
             "No new regressions are introduced in the scoped flow.",
         ],
         dependencies=[packet_id],
+        packet_type="rework",
         notes=notes
         or [
             "This is an architect-bounded direct rework packet created after reviewer blockers.",
@@ -341,7 +360,7 @@ def create_direct_rework_from_architect(
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
     )
-    return update_record(
+    updated_packet = update_record(
         "packets",
         "packets",
         "packet_id",
@@ -362,6 +381,7 @@ def create_direct_rework_from_architect(
             "light_resume_downgrade_reason": light_resume_downgrade_reason,
         },
     )
+    return sync_packet_file(updated_packet)
 
 
 def create_architect_rework_packet_from_review(
@@ -409,6 +429,7 @@ def create_architect_rework_packet_from_review(
             "Prefer bounded coder rework over user escalation when the blocker is self-resolvable.",
         ],
         dependencies=[packet_id, reviewer_packet_id],
+        packet_type="rework",
         notes=[
             "Return FINAL_DIRECT_REWORK_PACKET_JSON.",
             "Use route_classification=self_resolvable_rework when the next step is a bounded coder packet.",
@@ -422,7 +443,7 @@ def create_architect_rework_packet_from_review(
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
     )
-    return update_record(
+    updated_packet = update_record(
         "packets",
         "packets",
         "packet_id",
@@ -433,6 +454,7 @@ def create_architect_rework_packet_from_review(
             "route_classification_hint": str(route_classification or "").strip() or None,
         },
     )
+    return sync_packet_file(updated_packet)
 
 
 def create_rework_bundle_from_review(
@@ -483,6 +505,7 @@ def create_rework_bundle_from_review(
             "Missing visual proof remains a blocker for UI work.",
         ],
         dependencies=[rework_packet["packet_id"]],
+        packet_type="rework",
         notes=["This verifier packet was auto-created from reviewer blockers."],
         parent_packet_id=packet_id,
         execution_hints=verifier_hints,
@@ -513,6 +536,7 @@ def create_rework_bundle_from_review(
             "Escalate only if blockers imply decomposition or business changes.",
         ],
         dependencies=[rework_packet["packet_id"], verifier_packet["packet_id"]],
+        packet_type="gate_decision",
         notes=["This reviewer packet was auto-created from reviewer blockers."],
         parent_packet_id=packet_id,
         status=PacketStatus.READY,
@@ -527,6 +551,7 @@ def create_rework_bundle_from_review(
             "execution_hints": dict(rework_packet.get("execution_hints") or {}),
         },
     )
+    rework_reviewer_packet = sync_packet_file(rework_reviewer_packet)
     return {
         "rework": rework_packet,
         "verifier": verifier_packet,

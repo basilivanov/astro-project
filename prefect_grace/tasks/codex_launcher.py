@@ -18,6 +18,7 @@ from prefect_grace.models import ReasoningProfile
 from prefect_grace.tasks.agent_output_parser import (
     ARCHITECT_ARTIFACT_PLAN_END,
     PACKET_DECISION_END,
+    PACKET_DECISION_START,
     PLANNER_WAVE_PLAN_END,
     VERIFIER_EVIDENCE_END,
     WAVE_DECISION_END,
@@ -36,6 +37,11 @@ DEFAULT_FINAL_OUTPUT_GRACE_SECONDS = 60.0
 DEFAULT_POST_TURN_COMPLETION_GRACE_SECONDS = 30.0
 DEFAULT_PROMPT_DIGEST_MAX_CHARS = 4000
 AUTO_RESUME_TERMINATION_REASONS = {"stall_killed", "timeout"}
+PACKET_CONTRACT_START = "FINAL_PACKET_CONTRACT_JSON"
+PACKET_CONTRACT_END = "END_FINAL_PACKET_CONTRACT_JSON"
+ARCHITECT_CONTEXT_FULL = "full"
+ARCHITECT_CONTEXT_REWORK = "rework"
+ARCHITECT_CONTEXT_GATE_DECISION = "gate_decision"
 FINAL_OUTPUT_MARKERS = (
     ARCHITECT_ARTIFACT_PLAN_END,
     PLANNER_WAVE_PLAN_END,
@@ -157,6 +163,39 @@ def _bullet_digest(text: str, *, max_lines: int = 24, max_chars: int = DEFAULT_P
     return _compact_text("\n".join(selected), limit=max_chars)
 
 
+def _extract_packet_contract_block(text: str) -> str:
+    if not text:
+        return ""
+    pattern = re.compile(
+        rf"{re.escape(PACKET_CONTRACT_START)}\s*(\{{.*?\}})\s*{re.escape(PACKET_CONTRACT_END)}",
+        re.DOTALL,
+    )
+    match = pattern.search(text)
+    if not match:
+        return ""
+    return match.group(0).strip()
+
+
+def _architect_context_mode(packet: dict[str, Any], *, role: str | None = None) -> str:
+    normalized_role = str(role or packet.get("role") or "").strip().lower()
+    if normalized_role != "architect":
+        return ARCHITECT_CONTEXT_FULL
+    packet_type = str(packet.get("packet_type") or "").strip().lower().replace("-", "_")
+    if packet_type == "rework" or str(packet.get("parent_packet_id") or "").strip():
+        return ARCHITECT_CONTEXT_REWORK
+    if packet_type == "gate_decision" or str(packet.get("wave_id") or "").strip().upper() != "W00":
+        return ARCHITECT_CONTEXT_GATE_DECISION
+    return ARCHITECT_CONTEXT_FULL
+
+
+def _architect_packet_tags(packet: dict[str, Any], *, role: str) -> set[str]:
+    if str(role or "").strip().lower() != "architect":
+        return set()
+    tags = {_architect_context_mode(packet, role=role)}
+    tags.add("architect")
+    return tags
+
+
 def _context_text_for_role(*, role: str, tag: str, text: str) -> str:
     strict_digest_roles = {"architect", "planner"}
     if role not in strict_digest_roles:
@@ -176,6 +215,10 @@ def _context_text_for_role(*, role: str, tag: str, text: str) -> str:
         "dependency_review",
         "dependency_wave_review",
     }
+    if tag == "dependency_packet":
+        contract_only = _extract_packet_contract_block(text)
+        if contract_only:
+            return contract_only
     if tag == "architect_manifest":
         return _compact_text(text, limit=2500)
     if tag in digest_tags:
@@ -183,13 +226,16 @@ def _context_text_for_role(*, role: str, tag: str, text: str) -> str:
     return _compact_text(text)
 
 
-def _feature_context_blocks(packet: dict[str, Any], *, role: str) -> list[str]:
+def _feature_context_blocks(packet: dict[str, Any], *, role: str, context_mode: str = ARCHITECT_CONTEXT_FULL) -> list[str]:
     feature_dir = FEATURES_DIR / str(packet.get("feature_id"))
     blocks: list[str] = []
-    for tag, path in (
+    feature_files = [
         ("feature_brief", feature_dir / "feature-brief.md"),
         ("wave_plan", feature_dir / "wave-plan.md"),
-    ):
+    ]
+    if role == "architect" and context_mode in {ARCHITECT_CONTEXT_REWORK, ARCHITECT_CONTEXT_GATE_DECISION}:
+        feature_files = feature_files[:1]
+    for tag, path in feature_files:
         text = _read_text(path)
         if text:
             blocks.append(f"<{tag} path=\"{path}\">\n{_context_text_for_role(role=role, tag=tag, text=text)}\n</{tag}>")
@@ -197,7 +243,7 @@ def _feature_context_blocks(packet: dict[str, Any], *, role: str) -> list[str]:
         feature = find_record("features", "features", "feature_id", str(packet.get("feature_id")))
     except KeyError:
         feature = {}
-    for tag, key in (
+    artifact_specs = [
         ("architect_manifest", "architect_manifest_path"),
         ("architect_handoff", "architect_handoff_path"),
         ("execution_packet", "execution_packet_path"),
@@ -205,7 +251,19 @@ def _feature_context_blocks(packet: dict[str, Any], *, role: str) -> list[str]:
         ("development_plan_slice", "development_plan_slice_path"),
         ("verification_matrix_slice", "verification_matrix_slice_path"),
         ("knowledge_graph_slice", "knowledge_graph_slice_path"),
-    ):
+    ]
+    if role == "architect" and context_mode == ARCHITECT_CONTEXT_REWORK:
+        artifact_specs = [
+            ("architect_manifest", "architect_manifest_path"),
+            ("execution_packet", "execution_packet_path"),
+            ("verification_matrix_slice", "verification_matrix_slice_path"),
+        ]
+    elif role == "architect" and context_mode == ARCHITECT_CONTEXT_GATE_DECISION:
+        artifact_specs = [
+            ("architect_manifest", "architect_manifest_path"),
+            ("execution_packet", "execution_packet_path"),
+        ]
+    for tag, key in artifact_specs:
         path = feature.get(key)
         text = _read_text(path)
         if text:
@@ -219,6 +277,17 @@ def _dependency_context_blocks(packet: dict[str, Any], *, role: str) -> list[str
     parent_packet_id = packet.get("parent_packet_id")
     if parent_packet_id:
         related_packet_ids.append(parent_packet_id)
+    architect_context_mode = _architect_context_mode(packet, role=role)
+    if role == "architect" and architect_context_mode == ARCHITECT_CONTEXT_GATE_DECISION:
+        related_packet_ids = [
+            packet_id
+            for packet_id in related_packet_ids
+            if _related_packet_role(packet_id) in {"reviewer", "verifier", "coder"}
+        ][-3:]
+    elif role == "architect" and architect_context_mode == ARCHITECT_CONTEXT_REWORK:
+        target_packet_id = str(packet.get("review_target_packet_id") or parent_packet_id or "").strip()
+        preferred_ids = [target_packet_id, *list(packet.get("dependencies") or []), parent_packet_id]
+        related_packet_ids = [packet_id for packet_id in preferred_ids if str(packet_id or "").strip()]
     seen: set[str] = set()
     for related_packet_id in related_packet_ids:
         if related_packet_id in seen:
@@ -237,7 +306,12 @@ def _dependency_context_blocks(packet: dict[str, Any], *, role: str) -> list[str
             )
         related_run = related_packet.get("last_execution_run") or related_packet.get("last_verifier_run") or related_packet.get("last_codex_run") or {}
         related_message = read_agent_message(related_run.get("last_message_path"), related_run.get("stdout_path"))
-        if related_message:
+        include_dependency_output = not (
+            role == "architect"
+            and architect_context_mode in {ARCHITECT_CONTEXT_REWORK, ARCHITECT_CONTEXT_GATE_DECISION}
+            and str(related_packet.get("role") or "").strip().lower() not in {"reviewer", "verifier"}
+        )
+        if related_message and include_dependency_output:
             blocks.append(
                 f"<dependency_output packet_id=\"{related_packet_id}\" role=\"{related_packet.get('role', '')}\">\n"
                 f"{_context_text_for_role(role=role, tag='dependency_output', text=related_message)}\n"
@@ -245,42 +319,144 @@ def _dependency_context_blocks(packet: dict[str, Any], *, role: str) -> list[str
             )
         last_verification = related_packet.get("last_verification") or {}
         verification_path = last_verification.get("verification_path")
-        verification_block = _artifact_block(
-            "dependency_verification",
-            verification_path,
-            packet_id=related_packet_id,
-            role=str(related_packet.get("role", "")),
-        )
+        verification_block = ""
+        if not (role == "architect" and architect_context_mode == ARCHITECT_CONTEXT_REWORK and str(related_packet.get("role") or "") not in {"verifier"}):
+            verification_block = _artifact_block(
+                "dependency_verification",
+                verification_path,
+                packet_id=related_packet_id,
+                role=str(related_packet.get("role", "")),
+            )
         if verification_block:
             blocks.append(verification_block)
         last_review = related_packet.get("last_review") or {}
         review_path = last_review.get("review_path")
-        review_block = _artifact_block(
-            "dependency_review",
-            review_path,
-            packet_id=related_packet_id,
-            role=str(related_packet.get("role", "")),
-        )
+        review_block = ""
+        if not (role == "architect" and architect_context_mode == ARCHITECT_CONTEXT_REWORK and str(related_packet.get("role") or "") not in {"reviewer", "coder"}):
+            review_block = _artifact_block(
+                "dependency_review",
+                review_path,
+                packet_id=related_packet_id,
+                role=str(related_packet.get("role", "")),
+            )
         if review_block:
             blocks.append(review_block)
         last_wave_review = related_packet.get("last_wave_review") or {}
         wave_review_path = last_wave_review.get("review_path")
-        wave_review_block = _artifact_block(
-            "dependency_wave_review",
-            wave_review_path,
-            packet_id=related_packet_id,
-            role=str(related_packet.get("role", "")),
-        )
+        wave_review_block = ""
+        if not (role == "architect" and architect_context_mode in {ARCHITECT_CONTEXT_REWORK, ARCHITECT_CONTEXT_GATE_DECISION}):
+            wave_review_block = _artifact_block(
+                "dependency_wave_review",
+                wave_review_path,
+                packet_id=related_packet_id,
+                role=str(related_packet.get("role", "")),
+            )
         if wave_review_block:
             blocks.append(wave_review_block)
     return blocks
+
+
+def _related_packet_role(packet_id: str) -> str:
+    try:
+        return str(find_record("packets", "packets", "packet_id", str(packet_id)).get("role") or "").strip().lower()
+    except KeyError:
+        return ""
+
+
+def _architect_mode_preamble(context_mode: str) -> str:
+    if context_mode == ARCHITECT_CONTEXT_REWORK:
+        return "\n".join(
+            [
+                "ARCHITECT MODE: rework",
+                "Resume the existing architectural context. Do not repeat feature formalization or reslice unless the blocker explicitly requires it.",
+                "Use only the local blocker, target packet contract, reviewer blockers, and latest relevant verifier evidence.",
+                "Return FINAL_DIRECT_REWORK_PACKET_JSON with packet_type semantics: execution, rework, or gate_decision. Do not introduce light/basic packet semantics.",
+            ]
+        )
+    if context_mode == ARCHITECT_CONTEXT_GATE_DECISION:
+        return "\n".join(
+            [
+                "ARCHITECT MODE: gate-decision",
+                "Issue a lightweight wave verdict only: accepted, rework_required, blocked, or next-step reasons.",
+                "Do not perform start/formalize work and do not pull unrelated feature history into the verdict.",
+                "Return FINAL_WAVE_DECISION_JSON.",
+            ]
+        )
+    return "\n".join(
+        [
+            "ARCHITECT MODE: start/formalize",
+            "Formalize the business feature, update only impacted GRACE canon, define waves, and produce small execution packets.",
+            "Keep packet.md as the primary execution contract. Machine JSON must stay as a compact embedded final block.",
+        ]
+    )
 
 
 def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
     role = str(packet.get("role") or "")
     packet_path = packet.get("packet_path") or ""
     packet_text = _read_text(packet_path)
-    context_blocks = _feature_context_blocks(packet, role=role) + _dependency_context_blocks(packet, role=role)
+    execution_hints = dict(packet.get("execution_hints") or {})
+    packet_type = str(packet.get("packet_type") or "").strip().lower().replace("-", "_")
+    parent_packet_id = str(packet.get("parent_packet_id") or "").strip()
+    architect_context_mode = _architect_context_mode(packet, role=role)
+    if role == "coder" and execution_hints.get("light_resume_stage"):
+        original_title = str(packet.get("title") or "").strip() or str(packet.get("packet_id") or "").strip()
+        summary = str(execution_hints.get("light_resume_summary") or packet.get("summary") or "").strip()
+        write_scope = [str(item).strip() for item in list(execution_hints.get("light_resume_write_scope") or []) if str(item).strip()]
+        inputs = [str(item).strip() for item in list(execution_hints.get("light_resume_inputs") or []) if str(item).strip()]
+        acceptance = [
+            str(item).strip()
+            for item in list(execution_hints.get("light_resume_acceptance_criteria") or [])
+            if str(item).strip()
+        ]
+        reviewer_gate = [
+            str(item).strip()
+            for item in list(execution_hints.get("light_resume_reviewer_gate") or [])
+            if str(item).strip()
+        ]
+        notes = [str(item).strip() for item in list(execution_hints.get("light_resume_notes") or []) if str(item).strip()]
+        reasons = [str(item).strip() for item in list(execution_hints.get("light_resume_reasons") or []) if str(item).strip()]
+        light_resume_lines = [
+            f"# Packet\n{original_title} (light resume stage)",
+            "",
+            f"## Summary\n{summary or f'Resume the existing coder context for `{original_title}`.'}",
+            "",
+            "## Light Resume Routing",
+            f"- source_packet_id: {execution_hints.get('light_resume_source_packet_id') or packet.get('packet_id')}",
+            f"- attempt: {execution_hints.get('light_resume_attempt') or 1}",
+            f"- max_attempts: {execution_hints.get('light_resume_max_attempts') or 1}",
+            "- scope: packet_local small fix only",
+            "- resume_strategy: packet_parent",
+        ]
+        if reasons:
+            light_resume_lines.extend(["", "## Reviewer Blockers", *[f"- {reason}" for reason in reasons]])
+        if write_scope:
+            light_resume_lines.extend(["", "## Write Scope", *[f"- {item}" for item in write_scope]])
+        if inputs:
+            light_resume_lines.extend(["", "## Inputs", *[f"- {item}" for item in inputs]])
+        if acceptance:
+            light_resume_lines.extend(["", "## Acceptance Criteria", *[f"- {item}" for item in acceptance]])
+        if reviewer_gate:
+            light_resume_lines.extend(["", "## Reviewer Gate", *[f"- {item}" for item in reviewer_gate]])
+        if notes:
+            light_resume_lines.extend(["", "## Notes", *[f"- {item}" for item in notes]])
+        packet_text = "\n".join(light_resume_lines).strip() + "\n"
+    if role == "architect":
+        if packet_type == "rework" or parent_packet_id:
+            role_prompt = role_prompt.replace(
+                "Your job is to either:\n- transform a business feature request into incremental GRACE canon updates, explicit slice boundaries, and an execution-ready wave / packet graph; or\n- accept or reject a completed wave as the architect gate.",
+                "Your job is to issue a bounded architect rework packet or escalation decision for the current blocker.",
+            )
+        elif packet_type == "gate_decision":
+            role_prompt = role_prompt.replace(
+                "Your job is to either:\n- transform a business feature request into incremental GRACE canon updates, explicit slice boundaries, and an execution-ready wave / packet graph; or\n- accept or reject a completed wave as the architect gate.",
+                "Your job is to accept or reject the completed wave as a lightweight architect gate.",
+            )
+    context_blocks = _feature_context_blocks(
+        packet,
+        role=role,
+        context_mode=architect_context_mode,
+    ) + _dependency_context_blocks(packet, role=role)
     context_text = "\n\n".join(context_blocks)
     prompt_parts = [
         role_prompt.strip(),
@@ -290,10 +466,13 @@ def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
                 f"Packet ID: {packet.get('packet_id')}",
                 f"Feature ID: {packet.get('feature_id')}",
                 f"Wave ID: {packet.get('wave_id')}",
+                f"Packet type: {packet.get('packet_type') or 'execution'}",
                 f"Packet file: {packet_path}",
             ]
         ),
     ]
+    if role == "architect":
+        prompt_parts.append(_architect_mode_preamble(architect_context_mode))
     if context_text:
         prompt_parts.append(context_text)
     prompt_parts.append(f"<packet>\n{packet_text}\n</packet>")
@@ -309,7 +488,7 @@ def role_prompt_for(role: str) -> str:
 
 def _normalize_resume_strategy(value: Any) -> str:
     strategy = str(value or "none").strip().lower().replace("-", "_")
-    if strategy not in {"none", "feature_role"}:
+    if strategy not in {"none", "feature_role", "packet_parent"}:
         return "none"
     return strategy
 
@@ -373,6 +552,33 @@ def _feature_role_session(feature_id: str, role: str) -> dict[str, Any] | None:
     if isinstance(session, dict):
         return dict(session)
     return None
+
+
+def _packet_parent_session(packet: dict[str, Any]) -> dict[str, Any] | None:
+    execution_hints = dict(packet.get("execution_hints") or {})
+    parent_packet_id = str(
+        execution_hints.get("resume_parent_packet_id") or packet.get("parent_packet_id") or ""
+    ).strip()
+    if not parent_packet_id:
+        return None
+    try:
+        parent_packet = find_record("packets", "packets", "packet_id", parent_packet_id)
+    except KeyError:
+        return None
+    thread_id = str(parent_packet.get("last_thread_id") or "").strip()
+    if not thread_id:
+        last_run = (
+            parent_packet.get("last_execution_run")
+            or parent_packet.get("last_codex_run")
+            or {}
+        )
+        thread_id = str(last_run.get("thread_id") or "").strip()
+    if not thread_id:
+        return None
+    return {
+        "thread_id": thread_id,
+        "packet_id": parent_packet_id,
+    }
 
 
 def _store_feature_role_session(
@@ -1030,11 +1236,12 @@ def launch_codex_for_packet(
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
 
-    existing_session = (
-        _feature_role_session(str(packet.get("feature_id")), role)
-        if resume_strategy == "feature_role"
-        else None
-    )
+    if resume_strategy == "feature_role":
+        existing_session = _feature_role_session(str(packet.get("feature_id")), role)
+    elif resume_strategy == "packet_parent":
+        existing_session = _packet_parent_session(packet)
+    else:
+        existing_session = None
     env = os.environ.copy()
     env.pop("CODEX_FORCE_PROFILE_MODEL_PREFIX", None)
 
