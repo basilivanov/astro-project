@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from prefect_grace.tasks import prefect_artifacts
 
 
@@ -16,6 +18,10 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
         "status": "planned",
         "feature_dir": "/tmp/feature-x",
     }
+    packet_path = Path("/tmp/docs/feature-x/EXECUTION_PACKET.md")
+    packet_path.parent.mkdir(parents=True, exist_ok=True)
+    packet_path.write_text("# Execution Packet\n\n## Objective\nShip feature.\n", encoding="utf-8")
+
     packet_results = {
         "architect_artifact_plan": {
             "source": "agent_output",
@@ -152,19 +158,23 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
         },
     )
 
-    assert len(artifact_ids) == 5
+    assert len(artifact_ids) == 6
     keys = {item["key"] for item in created}
     assert "grace-feature-feat-x" in keys
+    assert "grace-execution-packet-feat-x" in keys
     assert "grace-architect-feat-x" in keys
     assert "grace-planner-feat-x" in keys
     assert "grace-agent-outputs-feat-x" in keys
     assert "grace-review-feat-x-w01-reviewer-verdict" in keys
 
     architect_markdown = next(item["markdown"] for item in created if item["key"] == "grace-architect-feat-x")
+    execution_packet_markdown = next(item["markdown"] for item in created if item["key"] == "grace-execution-packet-feat-x")
     planner_markdown = next(item["markdown"] for item in created if item["key"] == "grace-planner-feat-x")
     agent_markdown = next(item["markdown"] for item in created if item["key"] == "grace-agent-outputs-feat-x")
     feature_markdown = next(item["markdown"] for item in created if item["key"] == "grace-feature-feat-x")
     assert "SLICE-FEAT-X" in architect_markdown
+    assert "# Execution Packet" in execution_packet_markdown
+    assert "Ship feature." in execution_packet_markdown
     assert "frontend/app/page.tsx" in architect_markdown
     assert "coder_main" in planner_markdown
     assert "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts" in planner_markdown

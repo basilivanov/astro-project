@@ -64,21 +64,50 @@ def test_write_architect_artifacts_materializes_slice_pack(tmp_path: Path) -> No
     )
     written = write_architect_artifacts(feature_id="FEAT-ARCH-SLICE", architect_payload=payload)
 
+    assert Path(written["execution_packet_path"]).exists()
+    assert Path(written["architect_manifest_path"]).exists()
+    assert written["materialization_mode"] == "packet_first"
+    assert written["requirements_slice_path"] == ""
+    assert written["development_plan_slice_path"] == ""
+    assert written["verification_matrix_slice_path"] == ""
+    assert written["knowledge_graph_slice_path"] == ""
+    assert written["architect_handoff_path"] == ""
+
+    manifest_text = Path(written["architect_manifest_path"]).read_text(encoding="utf-8")
+    execution_packet_text = Path(written["execution_packet_path"]).read_text(encoding="utf-8")
+
+    assert '"slice_id":' in manifest_text
+    assert '"materialization_mode": "packet_first"' in manifest_text
+    assert "Source of truth" in execution_packet_text
+    assert "requirements.slice" not in execution_packet_text
+
+
+def test_write_architect_artifacts_can_materialize_legacy_grace_docs(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    architect_artifacts.DOCS_DIR = tmp_path / "docs"
+
+    bootstrap_feature(
+        feature_id="FEAT-ARCH-LEGACY-SLICE",
+        title="Legacy slice",
+        summary="Materialize legacy slice docs on explicit request.",
+        business_context={"scope": ["Legacy docs only."]},
+    )
+    payload = default_architect_artifact_plan(
+        feature_id="FEAT-ARCH-LEGACY-SLICE",
+        title="Legacy slice",
+        summary="Materialize legacy slice docs on explicit request.",
+        business_context={"scope": ["Legacy docs only."]},
+    )
+    payload["materialize_legacy_grace_docs"] = True
+
+    written = write_architect_artifacts(feature_id="FEAT-ARCH-LEGACY-SLICE", architect_payload=payload)
+
+    assert written["materialization_mode"] == "legacy_grace_docs"
     assert Path(written["requirements_slice_path"]).exists()
     assert Path(written["development_plan_slice_path"]).exists()
     assert Path(written["verification_matrix_slice_path"]).exists()
     assert Path(written["knowledge_graph_slice_path"]).exists()
     assert Path(written["architect_handoff_path"]).exists()
-    assert Path(written["execution_packet_path"]).exists()
-    assert Path(written["architect_manifest_path"]).exists()
-
-    requirements_text = Path(written["requirements_slice_path"]).read_text(encoding="utf-8")
-    manifest_text = Path(written["architect_manifest_path"]).read_text(encoding="utf-8")
-    execution_packet_text = Path(written["execution_packet_path"]).read_text(encoding="utf-8")
-
-    assert "Dev-only day screen diagnostics toggle." in requirements_text
-    assert '"slice_id":' in manifest_text
-    assert "Source of truth" in execution_packet_text
 
 
 def test_create_packet_renders_embedded_contract_json(tmp_path: Path) -> None:

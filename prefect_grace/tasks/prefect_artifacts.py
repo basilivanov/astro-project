@@ -251,10 +251,8 @@ def _feature_summary_markdown(
         f"- brief_path: {(final_feature.get('business_context') or {}).get('brief_path', '-')}",
         f"- architect_slice_dir: {final_feature.get('architect_slice_dir', '-')}",
         f"- architect_manifest_path: {final_feature.get('architect_manifest_path', '-')}",
-        f"- requirements_slice_path: {final_feature.get('requirements_slice_path', '-')}",
-        f"- development_plan_slice_path: {final_feature.get('development_plan_slice_path', '-')}",
-        f"- verification_matrix_slice_path: {final_feature.get('verification_matrix_slice_path', '-')}",
-        f"- knowledge_graph_slice_path: {final_feature.get('knowledge_graph_slice_path', '-')}",
+        f"- execution_packet_path: {final_feature.get('execution_packet_path', '-')}",
+        f"- architect_materialization_mode: {final_feature.get('architect_materialization_mode', '-')}",
         "",
         "## User Facing Outcome",
         _bullet([user_summary]),
@@ -510,13 +508,9 @@ def _architect_markdown(*, feature: dict[str, Any], packet_results: dict[str, An
             f"- slice_id: {architect_written.get('slice_id', manifest.get('slice_id', '-'))}",
             f"- slice_slug: {architect_written.get('slice_slug', manifest.get('slice_slug', '-'))}",
             f"- slice_dir: {architect_written.get('slice_dir', manifest.get('slice_dir', '-'))}",
+            f"- materialization_mode: {architect_written.get('materialization_mode', manifest.get('materialization_mode', '-'))}",
             f"- architect_manifest_path: {architect_written.get('architect_manifest_path', '-')}",
-            f"- architect_handoff_path: {architect_written.get('architect_handoff_path', '-')}",
             f"- execution_packet_path: {architect_written.get('execution_packet_path', '-')}",
-            f"- requirements_slice_path: {architect_written.get('requirements_slice_path', '-')}",
-            f"- development_plan_slice_path: {architect_written.get('development_plan_slice_path', '-')}",
-            f"- verification_matrix_slice_path: {architect_written.get('verification_matrix_slice_path', '-')}",
-            f"- knowledge_graph_slice_path: {architect_written.get('knowledge_graph_slice_path', '-')}",
             "",
             "## Impacted Modules",
             _bullet(list(manifest.get("impacted_modules") or [])),
@@ -540,6 +534,29 @@ def _architect_markdown(*, feature: dict[str, Any], packet_results: dict[str, An
             "## Root Deltas",
             _bullet([f"{name}: {value}" for name, value in root_deltas.items()] or ["none"]),
             "",
+        ]
+    )
+
+
+def _execution_packet_artifact_markdown(packet_path: str) -> str:
+    path = Path(str(packet_path or "").strip())
+    if not path.is_file():
+        return "\n".join(
+            [
+                "# Execution Packet",
+                "",
+                f"- path: {packet_path or '-'}",
+                "- status: missing",
+                "",
+            ]
+        )
+    return "\n".join(
+        [
+            f"# Execution Packet: {path.name}",
+            "",
+            f"- path: {path}",
+            "",
+            path.read_text(encoding="utf-8"),
         ]
     )
 
@@ -690,6 +707,22 @@ def publish_feature_artifacts(
         )
     ]
     if packet_results.get("architect_artifact_plan") or packet_results.get("architect_artifacts"):
+        architect_written = dict(packet_results.get("architect_artifacts") or {})
+        execution_packet_path = str(architect_written.get("execution_packet_path") or feature.get("execution_packet_path") or "").strip()
+        if execution_packet_path:
+            artifact_ids.append(
+                str(
+                    create_markdown_artifact(
+                        key=_artifact_key("grace-execution-packet", feature_id),
+                        description=_artifact_description(
+                            "Execution packet markdown",
+                            feature_id=feature_id,
+                            path=execution_packet_path,
+                        ),
+                        markdown=_execution_packet_artifact_markdown(execution_packet_path),
+                    )
+                )
+            )
         artifact_ids.append(
             str(
                 create_markdown_artifact(

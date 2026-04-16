@@ -336,21 +336,20 @@ def _execution_packet_md(
     *,
     slice_id: str,
     slice_dir: Path,
-    requirements_path: Path,
-    development_plan_path: Path,
-    verification_matrix_path: Path,
-    knowledge_graph_path: Path,
+    requirements_path: Path | None = None,
+    development_plan_path: Path | None = None,
+    verification_matrix_path: Path | None = None,
+    knowledge_graph_path: Path | None = None,
 ) -> str:
     source_of_truth = [
         str(ROOT_DIR / "GRACE.md"),
         str(ROOT_DIR / "requirements.xml"),
         str(ROOT_DIR / "development-plan.xml"),
         str(ROOT_DIR / "verification-matrix.md"),
-        str(requirements_path),
-        str(development_plan_path),
-        str(verification_matrix_path),
-        str(knowledge_graph_path),
     ]
+    for optional_path in (requirements_path, development_plan_path, verification_matrix_path, knowledge_graph_path):
+        if optional_path:
+            source_of_truth.append(str(optional_path))
     lines = [
         f"# Execution Packet: {feature.get('title') or feature.get('feature_id')}",
         "",
@@ -368,7 +367,7 @@ def _execution_packet_md(
         *([f"- `{item}`" for item in _string_list(payload.get("impacted_modules"))] or ["- `-`"]),
         "",
         "## Allowed write scope",
-        *([f"- `{item}`" for item in _string_list(payload.get("allowed_write_scope"))] or ["- `See development plan slice.`"]),
+        *([f"- `{item}`" for item in _string_list(payload.get("allowed_write_scope"))] or ["- `See packet contract and architect scope.`"]),
         "",
         "## Frozen scope",
         *([f"- `{item}`" for item in _string_list(payload.get("frozen_scope"))] or ["- `-`"]),
@@ -409,20 +408,28 @@ def _architect_manifest(
         "slice_id": slice_id,
         "slice_slug": slice_slug,
         "slice_dir": str(slice_dir),
-        "requirements_slice_path": str(requirements_path),
-        "development_plan_slice_path": str(development_plan_path),
-        "verification_matrix_slice_path": str(verification_matrix_path),
-        "knowledge_graph_slice_path": str(knowledge_graph_path),
-        "architect_handoff_path": str(handoff_path),
+        "materialization_mode": "legacy_grace_docs" if requirements_path else "packet_first",
+        "requirements_slice_path": str(requirements_path) if requirements_path else "",
+        "development_plan_slice_path": str(development_plan_path) if development_plan_path else "",
+        "verification_matrix_slice_path": str(verification_matrix_path) if verification_matrix_path else "",
+        "knowledge_graph_slice_path": str(knowledge_graph_path) if knowledge_graph_path else "",
+        "architect_handoff_path": str(handoff_path) if handoff_path else "",
         "execution_packet_path": str(execution_packet_path),
         "impacted_modules": _string_list(payload.get("impacted_modules")),
         "waves": _normalize_wave_specs(payload),
         "planner_inputs": [
-            str(requirements_path),
-            str(development_plan_path),
-            str(verification_matrix_path),
-            str(knowledge_graph_path),
-            str(handoff_path),
+            str(execution_packet_path),
+            *(
+                [
+                    str(requirements_path),
+                    str(development_plan_path),
+                    str(verification_matrix_path),
+                    str(knowledge_graph_path),
+                    str(handoff_path),
+                ]
+                if requirements_path and development_plan_path and verification_matrix_path and knowledge_graph_path and handoff_path
+                else []
+            ),
         ],
         "root_deltas": payload.get("root_deltas") or {},
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -474,22 +481,25 @@ def write_architect_artifacts(
     slice_dir = DOCS_DIR / slice_slug
     slice_dir.mkdir(parents=True, exist_ok=True)
 
-    requirements_path = slice_dir / f"requirements.slice.{slice_slug}.xml"
-    development_plan_path = slice_dir / f"development-plan.slice.{slice_slug}.xml"
-    verification_matrix_path = slice_dir / f"verification-matrix.slice.{slice_slug}.md"
-    knowledge_graph_path = slice_dir / f"knowledge-graph.slice.{slice_slug}.xml"
-    handoff_path = slice_dir / "ARCHITECT_HANDOFF.md"
+    materialize_legacy_grace_docs = bool(architect_payload.get("materialize_legacy_grace_docs"))
+    requirements_path = slice_dir / f"requirements.slice.{slice_slug}.xml" if materialize_legacy_grace_docs else None
+    development_plan_path = slice_dir / f"development-plan.slice.{slice_slug}.xml" if materialize_legacy_grace_docs else None
+    verification_matrix_path = slice_dir / f"verification-matrix.slice.{slice_slug}.md" if materialize_legacy_grace_docs else None
+    knowledge_graph_path = slice_dir / f"knowledge-graph.slice.{slice_slug}.xml" if materialize_legacy_grace_docs else None
+    handoff_path = slice_dir / "ARCHITECT_HANDOFF.md" if materialize_legacy_grace_docs else None
     execution_packet_path = slice_dir / "EXECUTION_PACKET.md"
     manifest_path = slice_dir / "architect_manifest.json"
 
-    requirements_path.write_text(_requirements_xml(feature, architect_payload, slice_id=slice_id), encoding="utf-8")
-    development_plan_path.write_text(_development_plan_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
-    verification_matrix_path.write_text(
-        _verification_matrix_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir),
-        encoding="utf-8",
-    )
-    knowledge_graph_path.write_text(_knowledge_graph_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
-    handoff_path.write_text(_architect_handoff_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir), encoding="utf-8")
+    if materialize_legacy_grace_docs:
+        assert requirements_path and development_plan_path and verification_matrix_path and knowledge_graph_path and handoff_path
+        requirements_path.write_text(_requirements_xml(feature, architect_payload, slice_id=slice_id), encoding="utf-8")
+        development_plan_path.write_text(_development_plan_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
+        verification_matrix_path.write_text(
+            _verification_matrix_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir),
+            encoding="utf-8",
+        )
+        knowledge_graph_path.write_text(_knowledge_graph_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
+        handoff_path.write_text(_architect_handoff_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir), encoding="utf-8")
     execution_packet_path.write_text(
         _execution_packet_md(
             feature,
@@ -525,12 +535,13 @@ def write_architect_artifacts(
         "architect_slice_id": slice_id,
         "architect_slice_dir": str(slice_dir),
         "architect_manifest_path": str(manifest_path),
-        "architect_handoff_path": str(handoff_path),
         "execution_packet_path": str(execution_packet_path),
-        "requirements_slice_path": str(requirements_path),
-        "development_plan_slice_path": str(development_plan_path),
-        "verification_matrix_slice_path": str(verification_matrix_path),
-        "knowledge_graph_slice_path": str(knowledge_graph_path),
+        "architect_materialization_mode": "legacy_grace_docs" if materialize_legacy_grace_docs else "packet_first",
+        "architect_handoff_path": str(handoff_path) if handoff_path else "",
+        "requirements_slice_path": str(requirements_path) if requirements_path else "",
+        "development_plan_slice_path": str(development_plan_path) if development_plan_path else "",
+        "verification_matrix_slice_path": str(verification_matrix_path) if verification_matrix_path else "",
+        "knowledge_graph_slice_path": str(knowledge_graph_path) if knowledge_graph_path else "",
         "feature_brief_path": str(feature_brief_path),
         "wave_plan_path": str(wave_plan_path),
     }
@@ -541,11 +552,12 @@ def write_architect_artifacts(
         "slice_slug": slice_slug,
         "slice_dir": str(slice_dir),
         "architect_manifest_path": str(manifest_path),
-        "architect_handoff_path": str(handoff_path),
         "execution_packet_path": str(execution_packet_path),
-        "requirements_slice_path": str(requirements_path),
-        "development_plan_slice_path": str(development_plan_path),
-        "verification_matrix_slice_path": str(verification_matrix_path),
-        "knowledge_graph_slice_path": str(knowledge_graph_path),
+        "materialization_mode": "legacy_grace_docs" if materialize_legacy_grace_docs else "packet_first",
+        "architect_handoff_path": str(handoff_path) if handoff_path else "",
+        "requirements_slice_path": str(requirements_path) if requirements_path else "",
+        "development_plan_slice_path": str(development_plan_path) if development_plan_path else "",
+        "verification_matrix_slice_path": str(verification_matrix_path) if verification_matrix_path else "",
+        "knowledge_graph_slice_path": str(knowledge_graph_path) if knowledge_graph_path else "",
         "manifest": manifest,
     }
