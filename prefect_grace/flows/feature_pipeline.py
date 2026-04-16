@@ -1006,6 +1006,14 @@ def route_reviewer_verdict_task(
     verdict = ReviewVerdict(reviewer_decision["packet_verdict"])
     review_reasons = list(reviewer_decision.get("reasons") or [])
     follow_up_action = str(reviewer_decision.get("follow_up_action") or "none")
+    try:
+        packet_record = find_record("packets", "packets", "packet_id", coder_packet_id)
+    except KeyError:
+        packet_record = {}
+        logger.warning(
+            "Reviewer route could not find packet record for %s during notify payload build",
+            coder_packet_id,
+        )
     rework = None
     decision = None
     route_classification = _classify_rework_route(reviewer_decision)
@@ -1060,12 +1068,12 @@ def route_reviewer_verdict_task(
         mark_packet_status_task(coder_packet_id, PacketStatus.BLOCKED.value)
     logger.info("Reviewer routed verdict=%s for packet %s", verdict.value, coder_packet_id)
     notify_packet_event(
-        feature_id=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("feature_id") or ""),
+        feature_id=str(packet_record.get("feature_id") or ""),
         packet_id=coder_packet_id,
-        role=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("role") or ""),
+        role=str(packet_record.get("role") or ""),
         status=verdict.value,
-        wave_id=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("wave_id") or ""),
-        title=str(find_record("packets", "packets", "packet_id", coder_packet_id).get("title") or ""),
+        wave_id=str(packet_record.get("wave_id") or ""),
+        title=str(packet_record.get("title") or ""),
         reasons=review_reasons,
     )
     return {

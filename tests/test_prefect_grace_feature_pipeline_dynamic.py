@@ -1,7 +1,9 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from prefect_grace.tasks import state_store
-from prefect_grace.flows.feature_pipeline import feature_pipeline, _normalize_reviewer_decision_for_pipeline
+from prefect_grace.flows.feature_pipeline import feature_pipeline, _normalize_reviewer_decision_for_pipeline, route_reviewer_verdict_task
+from prefect_grace.models import ReviewVerdict
 from prefect_grace.tasks import prefect_artifacts
 from prefect_grace.tasks.state_store import find_record
 
@@ -932,3 +934,32 @@ def test_feature_pipeline_defaults_planner_to_skipped(tmp_path: Path) -> None:
 
     assert result["final_status"]["feature"]["status"] == "accepted"
     assert result["runs"]["planner"]["launcher"] == "skipped"
+
+
+def test_route_reviewer_verdict_task_tolerates_missing_packet_record_for_notify(monkeypatch) -> None:
+    notifications: list[dict] = []
+
+    monkeypatch.setattr(
+        "prefect_grace.flows.feature_pipeline.get_run_logger",
+        lambda: SimpleNamespace(info=lambda *a, **k: None, warning=lambda *a, **k: None),
+    )
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.record_review", lambda **kwargs: {"ok": True, **kwargs})
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.mark_packet_status_task", lambda *args, **kwargs: None)
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.notify_packet_event", lambda **kwargs: notifications.append(kwargs))
+
+    def _missing(*args, **kwargs):
+        raise KeyError("missing packet")
+
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.find_record", _missing)
+
+    result = route_reviewer_verdict_task(
+        coder_packet_id="PKT-MISSING",
+        reviewer_packet_id="PKT-REVIEW",
+        reviewer_decision={"packet_verdict": ReviewVerdict.BLOCKED.value, "reasons": ["x"]},
+        create_rework=True,
+    )
+
+    assert result["reviewer_verdict"] == ReviewVerdict.BLOCKED.value
+    assert notifications
+    assert notifications[0]["packet_id"] == "PKT-MISSING"
+    assert notifications[0]["feature_id"] == ""
