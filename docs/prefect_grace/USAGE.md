@@ -142,13 +142,11 @@ Effective subprocess shape:
 codex1 exec -C /opt/astro-project -m gpt-5.4 ...
 ```
 
-Prefect dry-run:
+There is no separate live Prefect deployment for a single codex packet anymore.
+Packet execution stays inside the canonical `prefect-grace-feature-pipeline` flow, while ad-hoc packet runs still use the CLI:
 
 ```bash
-python3 - <<'PY'
-from prefect_grace.flows.codex_packet import codex_packet_flow
-codex_packet_flow("FEAT-EXAMPLE-W01-BACKEND-LOGGING-PACKET", dry_run=True)
-PY
+python3 -m prefect_grace.cli run-codex FEAT-EXAMPLE-W01-BACKEND-LOGGING-PACKET --dry-run
 ```
 
 ## Deploy live Prefect runs
@@ -164,10 +162,11 @@ PREFECT_API_URL=http://127.0.0.1:4200/api /opt/prefect/venv/bin/python -m prefec
 
 This creates or updates:
 - `prefect-grace-feature-pipeline/live-feature-pipeline`
-- `prefect-grace-codex-packet/live-codex-packet`
 - `prefect-grace-packet-transition/live-packet-transition`
 - `prefect-grace-review-router/live-review-router`
 - `prefect-grace-live-dashboard/live-state-dashboard`
+
+Rerunning deploy bootstrap only manages the canonical feature pipeline, packet transition, review router, and dashboard deployments.
 
 The dashboard deployment is scheduled every 5 minutes and publishes a `grace-live-dashboard` artifact in the Prefect UI.
 

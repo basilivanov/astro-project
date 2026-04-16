@@ -96,16 +96,6 @@ def deploy_flows() -> dict[str, str]:
             tags=["grace", "live"],
             description="Strict GRACE feature pipeline backed by Codex packets and an LLM verifier.",
         ),
-        "codex_packet": _apply_deployment(
-            entrypoint="prefect_grace/flows/codex_packet.py:codex_packet_flow",
-            deployment_name="live-codex-packet",
-            api_url=runtime.api_url,
-            work_pool_name=runtime.work_pool_name,
-            working_directory=runtime.working_directory,
-            work_queue_name=runtime.live_queue_name,
-            tags=["grace", "ops"],
-            description="Launch a single Codex packet through cliproxy.",
-        ),
         "packet_transition": _apply_deployment(
             entrypoint="prefect_grace/flows/packet_lifecycle.py:packet_transition_flow",
             deployment_name="live-packet-transition",
