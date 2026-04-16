@@ -103,7 +103,6 @@ def test_dispatch_next_job_sets_prefect_api_from_runtime(monkeypatch):
         "summary": "Summary",
         "implementation_title": "Impl",
         "implementation_summary": "Impl summary",
-        "business_context": {},
     }
     monkeypatch.setattr(dispatcher, "list_jobs", lambda: [])
     monkeypatch.setattr(dispatcher, "claim_next_job", lambda: job)
@@ -151,7 +150,6 @@ def test_dispatch_next_job_forwards_optional_planner_flag(monkeypatch):
         "implementation_title": "Impl",
         "implementation_summary": "Impl summary",
         "run_planner": True,
-        "business_context": {},
     }
     monkeypatch.setattr(dispatcher, "list_jobs", lambda: [])
     monkeypatch.setattr(dispatcher, "claim_next_job", lambda: job)
@@ -183,37 +181,3 @@ def test_dispatch_next_job_forwards_optional_planner_flag(monkeypatch):
     dispatcher.dispatch_next_job()
 
     assert created["kwargs"]["parameters"]["run_planner"] is True
-
-
-def test_job_parameters_include_sequence_context(monkeypatch):
-    job = {
-        "job_id": "job-seq",
-        "feature_id": "FEAT-SEQ",
-        "title": "Feature sequence",
-        "summary": "Summary",
-        "implementation_title": "Impl",
-        "implementation_summary": "Impl summary",
-        "business_context": {"brief_path": "/tmp/brief.yaml"},
-        "sequence_id": "sequence-1",
-        "sequence_feature_ids": ["FEAT-SEQ", "FEAT-NEXT"],
-        "sequence_position": 1,
-        "sequence_total": 2,
-        "status_summary_ru": "Фича 1/2: в работе.",
-    }
-
-    params = dispatcher._job_parameters(job)
-
-    assert params["business_context"]["sequence_id"] == "sequence-1"
-    assert params["business_context"]["sequence_feature_ids"] == ["FEAT-SEQ", "FEAT-NEXT"]
-    assert params["business_context"]["sequence_position"] == 1
-    assert params["business_context"]["sequence_total"] == 2
-    assert params["business_context"]["sequence_status_summary_ru"] == "Фича 1/2: в работе."
-
-
-def test_feature_domain_outcome_maps_environment_blocked(monkeypatch):
-    monkeypatch.setattr(
-        dispatcher,
-        "find_record",
-        lambda *args, **kwargs: {"status": FeatureStatus.ENVIRONMENT_BLOCKED.value},
-    )
-    assert dispatcher._feature_domain_outcome("F1") == ("environment_blocked", FeatureStatus.ENVIRONMENT_BLOCKED.value)

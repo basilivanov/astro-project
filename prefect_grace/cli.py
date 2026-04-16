@@ -16,7 +16,7 @@ from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_pack
 from prefect_grace.tasks.review_router import create_rework_from_review, record_review
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 from prefect_grace.tasks.grace_dashboard import build_grace_dashboard_snapshot, render_grace_dashboard
-from prefect_grace.tasks.job_queue import enqueue_canonical_feature_sequence, enqueue_feature_job, list_jobs, list_sequences
+from prefect_grace.tasks.job_queue import enqueue_feature_job, list_jobs
 from prefect_grace.tasks.business_intake import TEMPLATE_PATH as BUSINESS_BRIEF_TEMPLATE_PATH, enqueue_feature_job_from_brief
 
 
@@ -180,37 +180,12 @@ def _cmd_submit_brief(args: argparse.Namespace) -> None:
     print(json.dumps(record, ensure_ascii=False, indent=2))
 
 
-def _cmd_submit_sequence(args: argparse.Namespace) -> None:
-    record = enqueue_canonical_feature_sequence(
-        feature_ids=args.feature_id,
-        implementation_title=args.implementation_title,
-        implementation_summary=args.implementation_summary,
-        execute=args.execute,
-        timeout_seconds=args.timeout_seconds,
-        verifier_backend_profile=args.backend_profile if args.backend_profile is not None else (None if args.skip_backend_quick else "backend_quick"),
-        verifier_frontend_profile=args.frontend_profile if args.frontend_profile is not None else ("frontend_quick" if args.touches_frontend and not args.frontend_command else None),
-        verifier_frontend_commands=args.frontend_command,
-        verifier_observability_profile=args.observability_profile,
-        verifier_observability_commands=args.observability_command,
-        verifier_artifact_globs=args.artifact_glob,
-        verifier_touches_frontend=args.touches_frontend or bool(args.frontend_command),
-        verifier_requires_frontend_visual=args.touches_frontend or bool(args.frontend_command),
-        verifier_include_day_live_canary=args.include_day_live_canary,
-        prefer_agent_output=True,
-        run_planner=args.run_planner,
-        agent_workdir=args.agent_workdir,
-        agent_sandbox=args.agent_sandbox,
-        commit_hash=args.commit_hash,
-    )
-    print(json.dumps(record, ensure_ascii=False, indent=2))
-
-
 def _cmd_print_brief_template(args: argparse.Namespace) -> None:
     print(BUSINESS_BRIEF_TEMPLATE_PATH.read_text(encoding="utf-8"))
 
 
 def _cmd_queue(args: argparse.Namespace) -> None:
-    print(json.dumps({"jobs": list_jobs(), "sequences": list_sequences()}, ensure_ascii=False, indent=2))
+    print(json.dumps({"jobs": list_jobs()}, ensure_ascii=False, indent=2))
 
 
 def _cmd_dashboard(args: argparse.Namespace) -> None:
@@ -358,33 +333,6 @@ def build_parser() -> argparse.ArgumentParser:
     submit_brief = subparsers.add_parser("submit-brief")
     submit_brief.add_argument("path")
     submit_brief.set_defaults(func=_cmd_submit_brief)
-
-    submit_sequence = subparsers.add_parser("submit-sequence")
-    submit_sequence.add_argument("feature_id", nargs="+")
-    submit_sequence.add_argument(
-        "--implementation-title",
-        default="Live Implementation Packet",
-    )
-    submit_sequence.add_argument(
-        "--implementation-summary",
-        default="Execute the feature through architect, planner, coder, verifier, reviewer, and architect wave gate.",
-    )
-    submit_sequence.add_argument("--skip-backend-quick", action="store_true")
-    submit_sequence.add_argument("--backend-profile")
-    submit_sequence.add_argument("--touches-frontend", action="store_true")
-    submit_sequence.add_argument("--frontend-profile")
-    submit_sequence.add_argument("--frontend-command", action="append")
-    submit_sequence.add_argument("--observability-profile")
-    submit_sequence.add_argument("--observability-command", action="append")
-    submit_sequence.add_argument("--artifact-glob", action="append")
-    submit_sequence.add_argument("--include-day-live-canary", action="store_true")
-    submit_sequence.add_argument("--agent-workdir")
-    submit_sequence.add_argument("--agent-sandbox")
-    submit_sequence.add_argument("--commit-hash")
-    submit_sequence.add_argument("--run-planner", action="store_true")
-    submit_sequence.add_argument("--timeout-seconds", type=int, default=7200)
-    submit_sequence.add_argument("--execute", action="store_true")
-    submit_sequence.set_defaults(func=_cmd_submit_sequence)
 
     print_brief_template = subparsers.add_parser("print-brief-template")
     print_brief_template.set_defaults(func=_cmd_print_brief_template)

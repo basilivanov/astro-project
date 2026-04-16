@@ -67,12 +67,7 @@ def build_grace_dashboard_snapshot() -> dict[str, Any]:
         "feature_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in features)),
         "packet_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in packets)),
         "job_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in jobs)),
-        "queued_jobs": [
-            item
-            for item in jobs
-            if str(item.get("status"))
-            in {"queued", "pending", "scheduled", "dispatching", "submitted", "running"}
-        ],
+        "queued_jobs": [item for item in jobs if str(item.get("status")) in {"queued", "dispatching", "submitted", "running"}],
         "blocked_features": [item for item in features if str(item.get("status")) == "blocked"],
         "run_mappings": run_mappings[-50:],
         "features": features[-20:],
@@ -104,7 +99,7 @@ def render_grace_dashboard(snapshot: dict[str, Any]) -> str:
     if queued_jobs:
         for job in queued_jobs:
             lines.append(
-                f"- {job.get('job_id')} feature={job.get('feature_id')} status={job.get('status')} sequence={job.get('sequence_id') or '-'} summary={job.get('status_summary_ru') or '-'} flow_run_id={job.get('flow_run_id') or '-'}"
+                f"- {job.get('job_id')} feature={job.get('feature_id')} status={job.get('status')} flow_run_id={job.get('flow_run_id') or '-'}"
             )
     else:
         lines.append("- none")

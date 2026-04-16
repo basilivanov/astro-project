@@ -14,12 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_FEATURE_NOTIFY_STATUSES = {
     "in_progress",
-    "scheduled",
-    "pending",
     "accepted",
     "awaiting_commit",
     "blocked",
-    "rework_required",
     "pipeline_invalid",
     "verification_blocked",
     "environment_blocked",
@@ -363,13 +360,10 @@ def _reason_summaries_ru(reasons: list[str] | None, *, limit: int = 3) -> list[s
 def _feature_status_label(status: str) -> str:
     return {
         "in_progress": "в работе",
-        "scheduled": "запланирована",
-        "pending": "запланирована",
         "awaiting_commit": "принято, ждёт коммита",
         "accepted": "принято",
         "completed": "принято",
         "blocked": "заблокировано",
-        "rework_required": "требует доработки",
         "pipeline_invalid": "пайплайн некорректен",
         "verification_blocked": "проверка заблокировала выпуск",
         "environment_blocked": "среда заблокировала выпуск",
@@ -403,18 +397,10 @@ def _feature_summary_text(status: str, summary: str | None, blockers: list[str] 
     if _looks_like_service_english(cleaned_summary):
         cleaned_summary = ""
     reason = _short_reason((blockers or [""])[0]) if blockers else ""
-    if normalized in {"scheduled", "pending"}:
-        return cleaned_summary or "Итог: запланирована."
     if normalized == "awaiting_commit":
         return "Итог: принято, ждёт коммита."
     if normalized == "accepted":
         return cleaned_summary or "Итог: принято и закоммичено."
-    if normalized == "rework_required":
-        if cleaned_summary:
-            return cleaned_summary
-        if reason:
-            return f"Итог: требуется доработка. {reason}"
-        return "Итог: требуется доработка."
     if normalized in {"blocked", "pipeline_invalid", "verification_blocked", "environment_blocked", "product_blocked"}:
         if reason:
             return f"Итог: { _feature_status_label(normalized) }. {reason}"
@@ -456,13 +442,10 @@ def notify_feature_event(
         return False
     icon = {
         "in_progress": "🚀",
-        "scheduled": "🗓",
-        "pending": "🗓",
         "awaiting_commit": "📝",
         "accepted": "🏁",
         "completed": "🏁",
         "blocked": "⛔",
-        "rework_required": "🔁",
         "pipeline_invalid": "🧯",
         "verification_blocked": "🔬",
         "environment_blocked": "🛠",
