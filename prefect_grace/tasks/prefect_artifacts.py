@@ -369,6 +369,35 @@ def _review_markdown(review_route: dict[str, Any]) -> str:
     ) + "\n"
 
 
+def _packet_review_markdown(review_route: dict[str, Any]) -> str:
+    review = dict(review_route.get("review") or {})
+    rework = dict(review_route.get("rework") or {})
+    decision = dict(review_route.get("decision") or {})
+    packet_id = str(review.get("packet_id") or "-")
+    return "\n".join(
+        [
+            f"# Артефакты ревью пакета: {packet_id}",
+            "",
+            f"- Фича: {review.get('feature_id', '-')}",
+            f"- Волна: {review.get('wave_id', '-')}",
+            f"- Вердикт: {review.get('verdict', '-')}",
+            f"- Следующее действие: {_action_hint_ru(review.get('follow_up_action'))}",
+            f"- Review file: {review.get('review_path', '-')}",
+            "",
+            "## Причины",
+            _bullet(list(review.get("reasons") or [])),
+            "",
+            "## Следующие объекты",
+            _bullet(
+                [
+                    f"rework_packet: {rework.get('packet_id', '-')}" if rework else "",
+                    f"architect_decision: {decision.get('decision_id', '-')}" if decision else "",
+                ]
+            ),
+        ]
+    ) + "\n"
+
+
 def _wave_markdown(wave_route: dict[str, Any]) -> str:
     review = dict(wave_route.get("wave_review") or {})
     return "\n".join(
@@ -384,6 +413,72 @@ def _wave_markdown(wave_route: dict[str, Any]) -> str:
             _bullet(list(review.get("reasons") or [])),
         ]
     ) + "\n"
+
+
+def _packet_verification_markdown(verification: dict[str, Any]) -> str:
+    packet_id = str(verification.get("packet_id") or "-")
+    return "\n".join(
+        [
+            f"# Артефакты проверки пакета: {packet_id}",
+            "",
+            f"- test_verdict: {verification.get('test_verdict', '-')}",
+            f"- observability_verdict: {verification.get('observability_verdict', '-')}",
+            f"- frontend_visual_verdict: {verification.get('frontend_visual_verdict', '-')}",
+            f"- verification_path: {verification.get('verification_path', '-')}",
+            "",
+            "## Команды",
+            _bullet(list(verification.get("commands_run") or [])),
+            "",
+            "## Артефакты / evidence paths",
+            _bullet(list(verification.get("evidence_paths") or [])),
+            "",
+            "## Блокеры",
+            _bullet(list(verification.get("blocking_issues") or [])),
+        ]
+    ) + "\n"
+
+
+def publish_packet_task_artifacts(
+    *,
+    verification: dict[str, Any] | None = None,
+    review_route: dict[str, Any] | None = None,
+) -> list[str]:
+    if create_markdown_artifact is None:
+        return []
+    artifact_ids: list[str] = []
+    if verification:
+        packet_id = str(verification.get("packet_id") or "unknown-packet")
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-task-verification", packet_id),
+                    description=_artifact_description(
+                        "Packet task verification artifact",
+                        packet_id=packet_id,
+                        test=verification.get("test_verdict"),
+                        obs=verification.get("observability_verdict"),
+                    ),
+                    markdown=_packet_verification_markdown(verification),
+                )
+            )
+        )
+    if review_route and review_route.get("review"):
+        review = dict(review_route.get("review") or {})
+        packet_id = str(review.get("packet_id") or "unknown-packet")
+        artifact_ids.append(
+            str(
+                create_markdown_artifact(
+                    key=_artifact_key("grace-task-review", packet_id),
+                    description=_artifact_description(
+                        "Packet task review artifact",
+                        packet_id=packet_id,
+                        verdict=review.get("verdict"),
+                    ),
+                    markdown=_packet_review_markdown(review_route),
+                )
+            )
+        )
+    return artifact_ids
 
 
 def _architect_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:

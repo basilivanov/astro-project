@@ -129,3 +129,26 @@ def test_send_html_message_falls_back_to_telegram_api(monkeypatch) -> None:
     assert len(calls) >= 2
     assert calls[0][0] == "http://127.0.0.1:8001/notify"
     assert "api.telegram.org" in calls[-1][0]
+
+
+
+def test_notify_wave_event_localizes_english_reasons(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    ok = telegram_notify.notify_wave_event(
+        feature_id="FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR",
+        wave_id="W01",
+        verdict="accepted",
+        reasons=[
+            "Latest reviewer/verifier evidence resolves the earlier frontend visual blocker and marks the bounded rework accepted.",
+            "Canonical Week continuity, fail-closed empty-state behavior, and packet-local observability now satisfy the architect gate.",
+        ],
+    )
+
+    assert ok is True
+    assert sent
+    assert "Свежие ревью и проверка закрыли предыдущий блокер" in sent[0]
+    assert "Поведение Week, fail-closed состояние и локальная observability подтверждены" in sent[0]
+    assert "Latest reviewer/verifier" not in sent[0]
+    assert "Canonical Week continuity" not in sent[0]

@@ -33,7 +33,7 @@ from prefect_grace.tasks.planner_contract import (
     materialize_planner_contract,
     normalize_wave_plan_contract,
 )
-from prefect_grace.tasks.prefect_artifacts import publish_feature_artifacts
+from prefect_grace.tasks.prefect_artifacts import publish_feature_artifacts, publish_packet_task_artifacts
 from prefect_grace.tasks.review_router import (
     create_architect_decision_from_review,
     create_architect_rework_packet_from_review,
@@ -1193,7 +1193,18 @@ def record_verifier_result_task(
         blocking_issues=list(verifier_result.get("blocking_issues") or []),
     )
     logger.info("Recorded verifier evidence for %s", verifier_packet_id)
+    artifact_ids = publish_packet_task_artifacts(verification=record)
+    if artifact_ids:
+        logger.info("Published %s verifier task artifacts for %s", len(artifact_ids), verifier_packet_id)
     return record
+
+
+@task(task_run_name="packet-review-artifacts:{review_route[review][packet_id]}")
+def publish_packet_review_artifacts_task(review_route: dict):
+    logger = get_run_logger()
+    artifact_ids = publish_packet_task_artifacts(review_route=review_route)
+    logger.info("Published %s packet review artifacts", len(artifact_ids))
+    return artifact_ids
 
 
 @task(task_run_name="feature-artifacts:{feature[feature_id]}")
@@ -1764,6 +1775,8 @@ def feature_pipeline(
                         )
                     review_routes.append(review_route)
                     packet_results[packet_result_key("review", packet_id)] = review_route
+                    with tags(f"wave:{wave_id}", "role:reviewer", "artifact:packet"):
+                        publish_packet_review_artifacts_task(review_route)
                     publish_feature_artifacts_task(
                         seeded["feature"],
                         packet_results,

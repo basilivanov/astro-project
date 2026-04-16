@@ -318,6 +318,39 @@ def _action_hint_label(next_action: str | None) -> str | None:
     return "Следующий шаг зафиксирован в пайплайне."
 
 
+
+def _reason_summary_ru(reason: str) -> str:
+    text = " ".join(str(reason or "").strip().split())
+    lowered = text.lower()
+    if not text:
+        return "Причина зафиксирована в артефактах."
+    if "latest reviewer/verifier evidence" in lowered or "resolves the earlier frontend visual blocker" in lowered:
+        return "Свежие ревью и проверка закрыли предыдущий блокер по визуальному подтверждению."
+    if "canonical week continuity" in lowered or "fail-closed" in lowered or "packet-local observability" in lowered:
+        return "Поведение Week, fail-closed состояние и локальная observability подтверждены."
+    if "fresh visual artifacts" in lowered and "show" in lowered:
+        return "Свежие визуальные артефакты собраны и указывают на оставшийся блокер."
+    if "frontend visual" in lowered or "visual proof" in lowered:
+        return "Нужно визуальное подтверждение фронтенда."
+    if "observability" in lowered and "no-evidence" in lowered:
+        return "Не хватает свежих observability evidence."
+    if "rework" in lowered and "accepted" in lowered:
+        return "Доработка принята."
+    if _looks_like_service_english(text):
+        return "Подробная причина сохранена в артефактах."
+    return _short_reason(text)
+
+
+def _reason_summaries_ru(reasons: list[str] | None, *, limit: int = 3) -> list[str]:
+    summaries: list[str] = []
+    for reason in reasons or []:
+        summary = _reason_summary_ru(reason)
+        if summary and summary not in summaries:
+            summaries.append(summary)
+        if len(summaries) >= limit:
+            break
+    return summaries
+
 def _feature_status_label(status: str) -> str:
     return {
         "in_progress": "в работе",
@@ -426,7 +459,7 @@ def notify_feature_event(
         if action_hint:
             lines.append(escape(action_hint))
     if blockers:
-        for blocker in blockers[:5]:
+        for blocker in _reason_summaries_ru(blockers, limit=3):
             lines.append(f"• {escape(blocker)}")
     url = _flow_run_url(flow_run_id)
     if url:
@@ -467,8 +500,8 @@ def notify_packet_event(
     if title:
         lines.append(f"Задача: {escape(title)}")
     if reasons:
-        for reason in reasons[:5]:
-            lines.append(f"• {escape(_short_reason(reason))}")
+        for reason in _reason_summaries_ru(reasons, limit=3):
+            lines.append(f"• {escape(reason)}")
     task_url = _packet_run_url(task_run_id)
     if task_url:
         lines.append(f"<a href=\"{escape(task_url)}\">Открыть запуск задачи</a>")
@@ -500,8 +533,8 @@ def notify_wave_event(
         f"Волна: <b>{escape(wave_id)}</b>",
     ]
     if reasons:
-        for reason in reasons[:5]:
-            lines.append(f"• {escape(_short_reason(reason))}")
+        for reason in _reason_summaries_ru(reasons, limit=3):
+            lines.append(f"• {escape(reason)}")
     url = _flow_run_url(flow_run_id)
     if url:
         lines.append(f"<a href=\"{escape(url)}\">Открыть запуск в Prefect</a>")

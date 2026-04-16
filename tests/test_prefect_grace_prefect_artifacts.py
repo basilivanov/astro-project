@@ -175,3 +175,48 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     assert "Итог: пайплайн некорректен. Планировщик не собрал контракт." in feature_markdown
     review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-review-feat-x-w01-reviewer-verdict")
     assert "feature:FEAT-X:wave:W01:packet:FEAT-X-W01-REVIEWER-VERDICT" in review_markdown
+
+
+
+def test_publish_packet_task_artifacts_creates_task_scoped_snapshots(monkeypatch) -> None:
+    created: list[dict] = []
+
+    def _fake_create_markdown_artifact(**kwargs):
+        created.append(kwargs)
+        return f"artifact-{len(created)}"
+
+    monkeypatch.setattr(prefect_artifacts, "create_markdown_artifact", _fake_create_markdown_artifact)
+
+    artifact_ids = prefect_artifacts.publish_packet_task_artifacts(
+        verification={
+            "packet_id": "FEAT-X-W01-VERIFY",
+            "test_verdict": "failed",
+            "observability_verdict": "clean",
+            "frontend_visual_verdict": "insufficient",
+            "commands_run": ["pytest tests/test_x.py"],
+            "evidence_paths": ["frontend/test-results/x/trace.zip"],
+            "blocking_issues": ["visual proof missing"],
+            "verification_path": "/tmp/verification.md",
+        },
+        review_route={
+            "review": {
+                "packet_id": "FEAT-X-W01-REVIEW",
+                "feature_id": "FEAT-X",
+                "wave_id": "W01",
+                "verdict": "rework_required",
+                "follow_up_action": "localized_rework",
+                "review_path": "/tmp/review.md",
+                "reasons": ["needs visual proof"],
+            },
+            "rework": {"packet_id": "FEAT-X-W01-REWORK"},
+        },
+    )
+
+    assert artifact_ids == ["artifact-1", "artifact-2"]
+    keys = {item["key"] for item in created}
+    assert "grace-task-verification-feat-x-w01-verify" in keys
+    assert "grace-task-review-feat-x-w01-review" in keys
+    verification_markdown = next(item["markdown"] for item in created if item["key"] == "grace-task-verification-feat-x-w01-verify")
+    review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-task-review-feat-x-w01-review")
+    assert "frontend/test-results/x/trace.zip" in verification_markdown
+    assert "needs visual proof" in review_markdown
