@@ -220,3 +220,47 @@ def test_publish_packet_task_artifacts_creates_task_scoped_snapshots(monkeypatch
     review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-task-review-feat-x-w01-review")
     assert "frontend/test-results/x/trace.zip" in verification_markdown
     assert "needs visual proof" in review_markdown
+
+
+def test_feature_artifact_renders_awaiting_commit_and_candidate_files(monkeypatch) -> None:
+    created: list[dict] = []
+
+    def _fake_create_markdown_artifact(**kwargs):
+        created.append(kwargs)
+        return f"artifact-{len(created)}"
+
+    monkeypatch.setattr(prefect_artifacts, "create_markdown_artifact", _fake_create_markdown_artifact)
+
+    artifact_ids = prefect_artifacts.publish_feature_artifacts(
+        feature={
+            "feature_id": "FEAT-COMMIT",
+            "title": "Feature Commit",
+            "status": "awaiting_commit",
+            "feature_dir": "/tmp/feature-commit",
+        },
+        packet_results={},
+        verification=None,
+        review_route=None,
+        wave_route=None,
+        final_status={
+            "feature": {
+                "feature_id": "FEAT-COMMIT",
+                "status": "awaiting_commit",
+                "summary": "Итог: принято, ждёт коммита. Дальше: закоммитить изменения.",
+            },
+            "final_outcome": "awaiting_commit",
+            "user_facing_status": "awaiting_commit",
+            "user_summary": "Итог: принято, ждёт коммита. Дальше: закоммитить изменения.",
+            "next_action": "commit-feature-changes",
+            "commit_status": "awaiting_commit",
+            "candidate_commit_files": ["prefect_grace/flows/feature_pipeline.py", "tests/test_prefect_grace_prefect_artifacts.py"],
+        },
+    )
+
+    assert artifact_ids == ["artifact-1"]
+    markdown = created[0]["markdown"]
+    assert "final_outcome: awaiting_commit" in markdown
+    assert "user_facing_status: awaiting_commit" in markdown
+    assert "Дальше: закоммитить изменения." in markdown
+    assert "## Candidate Commit Files" in markdown
+    assert "prefect_grace/flows/feature_pipeline.py" in markdown

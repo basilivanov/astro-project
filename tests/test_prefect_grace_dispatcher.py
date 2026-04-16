@@ -51,6 +51,15 @@ def test_feature_domain_outcome_maps_pipeline_invalid(monkeypatch):
     assert dispatcher._feature_domain_outcome("F1") == ("blocked", FeatureStatus.PIPELINE_INVALID.value)
 
 
+def test_feature_domain_outcome_maps_awaiting_commit(monkeypatch):
+    monkeypatch.setattr(
+        dispatcher,
+        "find_record",
+        lambda *args, **kwargs: {"status": FeatureStatus.AWAITING_COMMIT.value},
+    )
+    assert dispatcher._feature_domain_outcome("F1") == ("awaiting_commit", FeatureStatus.AWAITING_COMMIT.value)
+
+
 def test_sync_running_jobs_maps_completed_to_domain(monkeypatch):
     job = {"job_id": "job-1", "status": "submitted", "flow_run_id": "fr-1", "feature_id": "FEAT-1"}
     monkeypatch.setattr(dispatcher, "list_jobs", lambda: [job])
@@ -61,6 +70,18 @@ def test_sync_running_jobs_maps_completed_to_domain(monkeypatch):
     result = dispatcher.sync_running_jobs()
     assert result[0]["status"] == "accepted"
     assert updated[0][1]["feature_status"] == FeatureStatus.ACCEPTED.value
+
+
+def test_sync_running_jobs_maps_completed_to_awaiting_commit(monkeypatch):
+    job = {"job_id": "job-awaiting", "status": "submitted", "flow_run_id": "fr-awaiting", "feature_id": "FEAT-C"}
+    monkeypatch.setattr(dispatcher, "list_jobs", lambda: [job])
+    monkeypatch.setattr(dispatcher, "get_client", lambda sync_client=True: DummyClient())
+    monkeypatch.setattr(dispatcher, "find_record", lambda *args, **kwargs: {"status": FeatureStatus.AWAITING_COMMIT.value})
+    updated = []
+    monkeypatch.setattr(dispatcher, "update_job", lambda job_id, **updates: updated.append((job_id, updates)) or {"job_id": job_id, **updates})
+    result = dispatcher.sync_running_jobs()
+    assert result[0]["status"] == "awaiting_commit"
+    assert updated[0][1]["feature_status"] == FeatureStatus.AWAITING_COMMIT.value
 
 
 def test_sync_running_jobs_maps_completed_in_progress_to_rework(monkeypatch):

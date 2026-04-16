@@ -1,16 +1,36 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from prefect_grace.tasks import state_store
-from prefect_grace.flows.feature_pipeline import feature_pipeline, _normalize_reviewer_decision_for_pipeline, route_reviewer_verdict_task
+from prefect_grace.flows.feature_pipeline import (
+    _collect_candidate_commit_files,
+    _normalize_reviewer_decision_for_pipeline,
+    feature_pipeline,
+    route_reviewer_verdict_task,
+)
 from prefect_grace.models import ReviewVerdict
-from prefect_grace.tasks import prefect_artifacts
+from prefect_grace.tasks import architect_artifacts, codex_launcher, feature_bootstrap, prefect_artifacts, review_router, verification_router
 from prefect_grace.tasks.state_store import find_record
+
+
+@pytest.fixture(autouse=True)
+def _isolate_grace_paths(tmp_path: Path, monkeypatch):
+    packets_dir = tmp_path / "packets"
+    docs_dir = tmp_path / "docs"
+    monkeypatch.setattr(feature_bootstrap, "FEATURES_DIR", packets_dir)
+    monkeypatch.setattr(review_router, "FEATURES_DIR", packets_dir)
+    monkeypatch.setattr(verification_router, "FEATURES_DIR", packets_dir)
+    monkeypatch.setattr(codex_launcher, "FEATURES_DIR", packets_dir)
+    monkeypatch.setattr(architect_artifacts, "FEATURES_DIR", packets_dir)
+    monkeypatch.setattr(architect_artifacts, "DOCS_DIR", docs_dir)
+    return packets_dir
 
 
 def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-MULTI-WAVE"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-MULTI-WAVE"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -109,10 +129,12 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
-    assert result["final_status"]["final_outcome"] == "accepted"
-    assert result["final_status"]["user_facing_status"] == "accepted"
-    assert result["final_status"]["user_summary"] == "Exercise planner-driven multi-wave execution and reviewer rework"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
+    assert result["final_status"]["final_outcome"] == "awaiting_commit"
+    assert result["final_status"]["user_facing_status"] == "awaiting_commit"
+    assert result["final_status"]["user_summary"] == "Итог: принято, ждёт коммита. Дальше: закоммитить изменения."
+    assert result["final_status"]["next_action"] == "commit-feature-changes"
+    assert any(str(item).endswith("/FEAT-MULTI-WAVE/wave-plan.md") for item in result["final_status"]["candidate_commit_files"])
     assert len(result["wave_routes"]) == 2
     assert len(result["review_routes"]) == 2
     assert len(result["verification_records"]) == 2
@@ -121,7 +143,7 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
 
 def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-REWORK-LOOP"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-REWORK-LOOP"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -183,7 +205,7 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert len(result["review_routes"]) == 2
     assert any("REWORK" in key for key in result["runs"])
     rework_reviewer = next(
@@ -197,9 +219,138 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
     assert rework_reviewer["review_target_packet_id"].endswith("REWORK-MAIN-SLICE")
 
 
+def test_feature_pipeline_acceptance_with_commit_hash_remains_final(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-COMMITTED"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-COMMITTED",
+        title="Committed feature",
+        summary="Accepted feature with an existing commit marker",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        commit_hash="abcdef1234567890",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "high",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["final_outcome"] == "accepted"
+    assert result["final_status"]["user_facing_status"] == "accepted"
+    assert result["final_status"]["commit_status"] == "committed"
+    assert result["final_status"]["commit_hash"] == "abcdef1234567890"
+
+
+def test_collect_candidate_commit_files_merges_scope_changed_files_and_evidence() -> None:
+    files = _collect_candidate_commit_files(
+        feature_id="FEAT-CANDIDATES",
+        feature={
+            "feature_id": "FEAT-CANDIDATES",
+            "business_context": {"brief_path": "/opt/astro-project/docs/feature/brief.md"},
+        },
+        packet_results={
+            "planner_materialized": {
+                "wave_plan_path": "/opt/astro-project/prefect_grace/packets/FEAT-CANDIDATES/wave-plan.md",
+                "packets": [
+                    {
+                        "packet_id": "FEAT-CANDIDATES-W01-CODER",
+                        "write_scope": [
+                            "frontend/app/page.tsx",
+                            "backend/app/main.py",
+                        ],
+                        "changed_files": [
+                            "frontend/components/today/card.tsx",
+                            "backend/app/main.py",
+                        ],
+                        "packet_path": "/opt/astro-project/prefect_grace/packets/FEAT-CANDIDATES/packets/FEAT-CANDIDATES-W01-CODER.md",
+                    }
+                ],
+            }
+        },
+        verification_records=[
+            {
+                "packet_id": "FEAT-CANDIDATES-W01-VERIFY",
+                "evidence_paths": [
+                    "artifacts/feature-proof.png",
+                    "trace_id: abc123",
+                    "/opt/astro-project/frontend/test/app/home-page.test.tsx",
+                ],
+            }
+        ],
+        review_routes=[
+            {
+                "review": {
+                    "packet_id": "FEAT-CANDIDATES-W01-REVIEW",
+                    "review_path": "/opt/astro-project/prefect_grace/packets/FEAT-CANDIDATES/reviews/FEAT-CANDIDATES-W01-REVIEW.md",
+                }
+            }
+        ],
+        wave_routes=[],
+    )
+
+    assert files == [
+        "docs/feature/brief.md",
+        "prefect_grace/packets/FEAT-CANDIDATES/wave-plan.md",
+        "frontend/app/page.tsx",
+        "backend/app/main.py",
+        "frontend/components/today/card.tsx",
+        "prefect_grace/packets/FEAT-CANDIDATES/packets/FEAT-CANDIDATES-W01-CODER.md",
+        "artifacts/feature-proof.png",
+        "frontend/test/app/home-page.test.tsx",
+        "prefect_grace/packets/FEAT-CANDIDATES/reviews/FEAT-CANDIDATES-W01-REVIEW.md",
+    ]
+
+
 def test_feature_pipeline_architect_first_rework_default(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-ARCH-FIRST-REWORK"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-ARCH-FIRST-REWORK"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -260,7 +411,7 @@ def test_feature_pipeline_architect_first_rework_default(tmp_path: Path) -> None
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert len(result["review_routes"]) == 2
     first_review = result["review_routes"][0]
     assert first_review["route_classification"] == "self_resolvable_rework"
@@ -297,7 +448,7 @@ def test_feature_pipeline_architect_first_rework_default(tmp_path: Path) -> None
 
 def test_feature_pipeline_downgrades_broad_light_resume_to_bounded_fresh(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-LIGHT-RESUME-DOWNGRADE"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-LIGHT-RESUME-DOWNGRADE"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -328,7 +479,7 @@ def test_feature_pipeline_downgrades_broad_light_resume_to_bounded_fresh(tmp_pat
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     first_review = result["review_routes"][0]
     assert first_review["route_classification"] == "self_resolvable_rework"
     assert first_review["rework"]["packet_id"] != "FEAT-LIGHT-RESUME-DOWNGRADE-W01-MAIN-SLICE"
@@ -338,7 +489,7 @@ def test_feature_pipeline_downgrades_broad_light_resume_to_bounded_fresh(tmp_pat
 
 def test_feature_pipeline_blocks_second_light_resume_cycle(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-LIGHT-RESUME-LOOP-STOP"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-LIGHT-RESUME-LOOP-STOP"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -366,7 +517,7 @@ def test_feature_pipeline_blocks_second_light_resume_cycle(tmp_path: Path) -> No
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert len(result["review_routes"]) == 3
     assert result["review_routes"][0]["light_resume_stage"] is True
     second_rework = result["review_routes"][1]["rework"]
@@ -376,7 +527,7 @@ def test_feature_pipeline_blocks_second_light_resume_cycle(tmp_path: Path) -> No
 
 def test_feature_pipeline_accepts_small_fix_alias_for_packet_level_light_resume(tmp_path: Path, monkeypatch) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-SMALL-FIX-ALIAS"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-SMALL-FIX-ALIAS"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -434,7 +585,7 @@ def test_feature_pipeline_accepts_small_fix_alias_for_packet_level_light_resume(
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     first_review = result["review_routes"][0]
     assert first_review["light_resume_stage"] is True
     assert first_review["rework"]["packet_id"] == "FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE"
@@ -444,7 +595,7 @@ def test_feature_pipeline_accepts_small_fix_alias_for_packet_level_light_resume(
 
 def test_feature_pipeline_rework_requires_planner_escalation(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-PLANNER-REWORK"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-PLANNER-REWORK"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -505,7 +656,7 @@ def test_feature_pipeline_rework_requires_planner_escalation(tmp_path: Path) -> 
 
 def test_feature_pipeline_rework_requires_architect_user_decision(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-USER-DECISION-REWORK"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-USER-DECISION-REWORK"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -566,7 +717,7 @@ def test_feature_pipeline_rework_requires_architect_user_decision(tmp_path: Path
 
 def test_validate_planner_contract_rejects_today_week_without_wave_final_probe(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-BAD-OBS-CONTRACT"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-BAD-OBS-CONTRACT"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -619,7 +770,7 @@ def test_validate_planner_contract_rejects_today_week_without_wave_final_probe(t
 
 def test_validate_planner_contract_rejects_today_week_without_architect_authorization(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-ARCH-MISMATCH-OBS"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-ARCH-MISMATCH-OBS"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -711,7 +862,7 @@ def test_pipeline_normalizes_evidence_only_blocked_review_to_rework() -> None:
 
 def test_feature_pipeline_stops_repeated_observability_rework_loop(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-OBS-REWORK-STOP"
+    feature_packets_dir = feature_bootstrap.FEATURES_DIR / "FEAT-OBS-REWORK-STOP"
     if feature_packets_dir.exists():
         import shutil
         shutil.rmtree(feature_packets_dir)
@@ -851,7 +1002,7 @@ def test_feature_pipeline_publishes_intermediate_architect_and_planner_artifacts
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert len(created) >= 4
 
 
@@ -914,7 +1065,7 @@ def test_feature_pipeline_can_skip_live_w00_agents_for_fast_iteration(tmp_path: 
         },
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert result["runs"]["architect"]["launcher"] == "skipped"
     assert result["runs"]["planner"]["launcher"] == "skipped"
 
@@ -932,7 +1083,7 @@ def test_feature_pipeline_defaults_planner_to_skipped(tmp_path: Path) -> None:
         wave_verdict="accepted",
     )
 
-    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert result["runs"]["planner"]["launcher"] == "skipped"
 
 

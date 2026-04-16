@@ -125,6 +125,7 @@ def _cmd_test_feature(args: argparse.Namespace) -> None:
         verifier_include_day_live_canary=args.include_day_live_canary,
         agent_workdir=args.agent_workdir,
         agent_sandbox=args.agent_sandbox,
+        commit_hash=args.commit_hash,
         planner_contract=planner_contract,
         run_planner=args.run_planner,
         reviewer_verdict=reviewer_verdict,
@@ -169,6 +170,7 @@ def _cmd_submit_feature(args: argparse.Namespace) -> None:
         run_planner=args.run_planner,
         agent_workdir=args.agent_workdir,
         agent_sandbox=args.agent_sandbox,
+        commit_hash=args.commit_hash,
     )
     print(json.dumps(record, ensure_ascii=False, indent=2))
 
@@ -266,6 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
     test_feature.add_argument("--include-day-live-canary", action="store_true")
     test_feature.add_argument("--agent-workdir")
     test_feature.add_argument("--agent-sandbox")
+    test_feature.add_argument("--commit-hash")
     test_feature.add_argument("--planner-contract")
     test_feature.add_argument("--run-planner", action="store_true")
     test_feature.add_argument("--reviewer-verdict-script", action="append")
@@ -321,6 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
     submit_feature.add_argument("--include-day-live-canary", action="store_true")
     submit_feature.add_argument("--agent-workdir")
     submit_feature.add_argument("--agent-sandbox")
+    submit_feature.add_argument("--commit-hash")
     submit_feature.add_argument("--run-planner", action="store_true")
     submit_feature.add_argument("--timeout-seconds", type=int, default=7200)
     submit_feature.add_argument("--execute", action="store_true")

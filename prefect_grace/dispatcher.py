@@ -21,6 +21,7 @@ from prefect_grace.tasks.telegram_notify import notify_feature_event
 FEATURE_DEPLOYMENT_NAME = "prefect-grace-feature-pipeline/live-feature-pipeline"
 ACTIVE_JOB_STATUSES = {"dispatching", "submitted", "running"}
 JOB_STATUS_ACCEPTED = "accepted"
+JOB_STATUS_AWAITING_COMMIT = "awaiting_commit"
 JOB_STATUS_BLOCKED = "blocked"
 JOB_STATUS_REWORK_REQUIRED = "rework_required"
 JOB_STATUS_AWAITING_ARCHITECT = "awaiting_architect"
@@ -60,6 +61,7 @@ def _job_parameters(job: dict[str, Any]) -> dict[str, Any]:
         "agent_sandbox": job.get("agent_sandbox"),
         "business_context": dict(job.get("business_context") or {}),
         "planner_contract": job.get("planner_contract"),
+        "commit_hash": job.get("commit_hash"),
     }
 
 
@@ -84,6 +86,8 @@ def _feature_domain_outcome(feature_id: str) -> tuple[str, str | None]:
     feature_status = str(feature.get("status") or "")
     if feature_status == FeatureStatus.ACCEPTED.value:
         return JOB_STATUS_ACCEPTED, feature_status
+    if feature_status == FeatureStatus.AWAITING_COMMIT.value:
+        return JOB_STATUS_AWAITING_COMMIT, feature_status
     if feature_status in {
         FeatureStatus.BLOCKED.value,
         FeatureStatus.PRODUCT_BLOCKED.value,
@@ -196,7 +200,13 @@ def sync_running_jobs() -> list[dict[str, Any]]:
                     summary=str(job.get("summary") or ""),
                     flow_run_id=str(job.get("flow_run_id") or ""),
                     blockers=blockers,
-                    next_action="feature-complete" if updates.get("status") == JOB_STATUS_ACCEPTED else "inspect-domain-blocker",
+                    next_action=(
+                        "commit-feature-changes"
+                        if updates.get("status") == JOB_STATUS_AWAITING_COMMIT
+                        else "feature-complete"
+                        if updates.get("status") == JOB_STATUS_ACCEPTED
+                        else "inspect-domain-blocker"
+                    ),
                 )
             results.append(updated)
     return results

@@ -13,6 +13,7 @@ class FeatureStatus(str, Enum):
     PLANNED = "planned"
     IN_PROGRESS = "in_progress"
     ACCEPTED = "accepted"
+    AWAITING_COMMIT = "awaiting_commit"
     BLOCKED = "blocked"
     PRODUCT_BLOCKED = "product_blocked"
     VERIFICATION_BLOCKED = "verification_blocked"

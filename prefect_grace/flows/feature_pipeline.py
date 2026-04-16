@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 
 from prefect_grace.models import (
     FeatureStatus,
@@ -43,7 +44,7 @@ from prefect_grace.tasks.review_router import (
     record_review,
     record_wave_review,
 )
-from prefect_grace.tasks.state_store import find_record, update_record
+from prefect_grace.tasks.state_store import find_record, load_state, update_record
 from prefect_grace.tasks.telegram_notify import notify_feature_event, notify_packet_event, notify_wave_event
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
@@ -206,6 +207,7 @@ def _short_reason(reason: str) -> str:
 def _status_label_ru(status: str) -> str:
     return {
         FeatureStatus.ACCEPTED.value: "принято",
+        FeatureStatus.AWAITING_COMMIT.value: "принято, ждёт коммита",
         FeatureStatus.IN_PROGRESS.value: "нужна доработка",
         FeatureStatus.ARCHITECT_READY.value: "нужно решение архитектора",
         FeatureStatus.BLOCKED.value: "заблокировано",
@@ -228,8 +230,10 @@ def _final_user_summary(
     primary_reason = _short_reason((reasons or [""])[0]) if reasons else ""
     normalized_outcome = str(outcome or "").strip().lower()
     normalized_status = str(status or "").strip().lower()
+    if normalized_outcome == "awaiting_commit" or normalized_status == FeatureStatus.AWAITING_COMMIT.value:
+        return "Итог: принято, ждёт коммита. Дальше: закоммитить изменения."
     if normalized_outcome == "accepted":
-        return cleaned_summary or "Фича завершена и принята."
+        return cleaned_summary or "Итог: принято и закоммичено."
     if normalized_outcome == "rework_required":
         if primary_reason:
             return f"Итог: нужна доработка. {primary_reason}"
@@ -247,6 +251,287 @@ def _final_user_summary(
     if cleaned_summary:
         return cleaned_summary
     return f"Итог: {_status_label_ru(normalized_status)}."
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+POST_ACCEPTANCE_NEXT_ACTION = "commit-feature-changes"
+_COMMIT_HASH_RE = re.compile(r"\b[0-9a-f]{7,40}\b", re.IGNORECASE)
+_PATH_TOKEN_RE = re.compile(
+    r"(?P<path>(?:\.{1,2}/|/)?[A-Za-z0-9_.@+~=-]+(?:/[A-Za-z0-9_.@+~=\-*\[\]{}]+)+"
+    r"|[A-Za-z0-9_.@+~=-]+\.(?:py|tsx|ts|js|jsx|md|xml|yaml|yml|json|toml|css|scss|html|png|jpg|jpeg|webp|zip|log|txt|svg|lock))"
+)
+_COMMIT_MARKER_KEYS = {
+    "commit_hash",
+    "commit_sha",
+    "git_commit",
+    "git_commit_hash",
+    "git_sha",
+    "commit_marker",
+    "committed_hash",
+}
+_CANDIDATE_LIST_KEYS = {
+    "allowed_write_scope",
+    "artifact_files",
+    "artifact_paths",
+    "artifacts",
+    "candidate_commit_files",
+    "changed_files",
+    "created_files",
+    "deleted_files",
+    "evidence_paths",
+    "file_paths",
+    "files_changed",
+    "modified_files",
+    "output_files",
+    "touched_files",
+    "write_scope",
+}
+_CANDIDATE_PATH_KEYS = {
+    "architect_handoff_path",
+    "architect_manifest_path",
+    "brief_path",
+    "development_plan_slice_path",
+    "execution_packet_path",
+    "knowledge_graph_slice_path",
+    "packet_path",
+    "requirements_slice_path",
+    "review_path",
+    "verification_matrix_slice_path",
+    "verification_path",
+    "wave_plan_path",
+}
+
+
+def _normalize_commit_marker(value: object) -> str:
+    if isinstance(value, bool):
+        return "commit_marker" if value else ""
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            marker = _normalize_commit_marker(item)
+            if marker:
+                return marker
+        return ""
+    if isinstance(value, dict):
+        marker = _find_commit_marker(value)
+        return marker
+    text = " ".join(str(value or "").strip().split())
+    if not text or text.lower() in {"false", "none", "null", "n/a", "no"}:
+        return ""
+    match = _COMMIT_HASH_RE.search(text)
+    return match.group(0) if match else text
+
+
+def _find_commit_marker(value: object) -> str:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized_key = str(key or "").strip().lower()
+            is_commit_key = normalized_key in _COMMIT_MARKER_KEYS or (
+                "commit" in normalized_key
+                and any(marker in normalized_key for marker in ("hash", "sha", "marker"))
+            )
+            if is_commit_key:
+                marker = _normalize_commit_marker(item)
+                if marker:
+                    return marker
+            if isinstance(item, (dict, list, tuple)):
+                marker = _find_commit_marker(item)
+                if marker:
+                    return marker
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            marker = _find_commit_marker(item)
+            if marker:
+                return marker
+    return ""
+
+
+def _candidate_file_path(value: object) -> str | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    text = raw.strip("`'\" \t\r\n")
+    text = re.sub(r"^\s*[-*]\s+", "", text).strip()
+    text = text.rstrip(".,;)")
+    if not text or text.lower() in {"-", "none", "n/a", "null"}:
+        return None
+    lowered = text.lower()
+    if lowered.startswith(("http://", "https://", "trace_id:", "request_id:", "report_id:", "correlation_id:")):
+        return None
+    if any(ch.isspace() for ch in text):
+        return None
+    if "/" not in text and "\\" not in text and not Path(text).suffix:
+        return None
+    if ":" in text:
+        text = re.sub(r"(:\d+)(?::\d+)?$", "", text)
+    path = Path(text)
+    if path.is_absolute():
+        try:
+            text = str(path.resolve().relative_to(PROJECT_ROOT))
+        except (OSError, ValueError):
+            text = str(path)
+    elif text.startswith("./"):
+        text = text[2:]
+    return text
+
+
+def _path_candidates_from_text(value: object) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    candidates: list[str] = []
+    exact = _candidate_file_path(text)
+    if exact:
+        candidates.append(exact)
+    for match in _PATH_TOKEN_RE.finditer(text):
+        candidate = _candidate_file_path(match.group("path"))
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def _add_candidate_file(files: list[str], value: object) -> None:
+    if value in (None, "", [], {}):
+        return
+    if isinstance(value, dict):
+        _collect_candidate_commit_files_from_payload(value, files)
+        return
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            _add_candidate_file(files, item)
+        return
+    for candidate in _path_candidates_from_text(value):
+        if candidate not in files:
+            files.append(candidate)
+
+
+def _collect_candidate_commit_files_from_payload(payload: object, files: list[str]) -> None:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            normalized_key = str(key or "").strip().lower()
+            if normalized_key in _CANDIDATE_LIST_KEYS or normalized_key in _CANDIDATE_PATH_KEYS:
+                _add_candidate_file(files, value)
+            elif isinstance(value, dict):
+                _collect_candidate_commit_files_from_payload(value, files)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        _collect_candidate_commit_files_from_payload(item, files)
+    elif isinstance(payload, list):
+        for item in payload:
+            if isinstance(item, dict):
+                _collect_candidate_commit_files_from_payload(item, files)
+
+
+def _feature_line_records(feature_id: str) -> list[dict]:
+    records: list[dict] = []
+    for state_name, key in (
+        ("features", "features"),
+        ("packets", "packets"),
+        ("verifications", "verifications"),
+        ("reviews", "reviews"),
+        ("wave_reviews", "wave_reviews"),
+    ):
+        for item in list(load_state(state_name).get(key) or []):
+            if str(item.get("feature_id") or "") == feature_id:
+                records.append(dict(item))
+    return records
+
+
+def _collect_candidate_commit_files(
+    *,
+    feature_id: str,
+    feature: dict,
+    packet_results: dict,
+    verification_records: list[dict],
+    review_routes: list[dict],
+    wave_routes: list[dict],
+) -> list[str]:
+    files: list[str] = []
+    _collect_candidate_commit_files_from_payload(feature, files)
+    _collect_candidate_commit_files_from_payload(packet_results, files)
+    _collect_candidate_commit_files_from_payload(verification_records, files)
+    _collect_candidate_commit_files_from_payload(review_routes, files)
+    _collect_candidate_commit_files_from_payload(wave_routes, files)
+    for record in _feature_line_records(feature_id):
+        _collect_candidate_commit_files_from_payload(record, files)
+    return files
+
+
+def _post_acceptance_final_status(
+    *,
+    feature_id: str,
+    accepted_feature: dict,
+    summary: str,
+    packet_results: dict,
+    verification_records: list[dict],
+    review_routes: list[dict],
+    wave_routes: list[dict],
+    commit_hash: str | None,
+) -> dict:
+    detected_commit = _normalize_commit_marker(commit_hash) or _find_commit_marker(accepted_feature) or _find_commit_marker(packet_results)
+    candidate_commit_files = _collect_candidate_commit_files(
+        feature_id=feature_id,
+        feature=accepted_feature,
+        packet_results=packet_results,
+        verification_records=verification_records,
+        review_routes=review_routes,
+        wave_routes=wave_routes,
+    )
+    if detected_commit:
+        feature_updates = {
+            "commit_status": "committed",
+            "commit_hash": detected_commit,
+            "candidate_commit_files": candidate_commit_files,
+        }
+        committed_feature = update_record("features", "features", "feature_id", feature_id, feature_updates)
+        return {
+            "feature": committed_feature,
+            "has_failures": False,
+            "final_outcome": "accepted",
+            "user_facing_status": FeatureStatus.ACCEPTED.value,
+            "user_summary": _final_user_summary(
+                outcome="accepted",
+                status=FeatureStatus.ACCEPTED.value,
+                summary=str(committed_feature.get("summary") or summary),
+                next_action="feature-complete",
+                reasons=[],
+            ),
+            "next_action": "feature-complete",
+            "commit_status": "committed",
+            "commit_hash": detected_commit,
+            "candidate_commit_files": candidate_commit_files,
+            "reasons": [],
+        }
+
+    awaiting_feature = mark_feature_status(feature_id, FeatureStatus.AWAITING_COMMIT)
+    awaiting_feature = update_record(
+        "features",
+        "features",
+        "feature_id",
+        feature_id,
+        {
+            "commit_status": "awaiting_commit",
+            "candidate_commit_files": candidate_commit_files,
+        },
+    )
+    return {
+        "feature": awaiting_feature,
+        "has_failures": False,
+        "final_outcome": "awaiting_commit",
+        "user_facing_status": FeatureStatus.AWAITING_COMMIT.value,
+        "user_summary": _final_user_summary(
+            outcome="awaiting_commit",
+            status=FeatureStatus.AWAITING_COMMIT.value,
+            summary=str(awaiting_feature.get("summary") or summary),
+            next_action=POST_ACCEPTANCE_NEXT_ACTION,
+            reasons=[],
+        ),
+        "next_action": POST_ACCEPTANCE_NEXT_ACTION,
+        "commit_status": "awaiting_commit",
+        "commit_hash": "",
+        "candidate_commit_files": candidate_commit_files,
+        "reasons": [],
+    }
 
 
 def _load_architect_manifest(feature_id: str) -> dict:
@@ -1327,6 +1612,7 @@ def feature_pipeline(
     prefer_agent_output: bool = False,
     run_architect: bool = True,
     run_planner: bool | None = None,
+    commit_hash: str | None = None,
     rework_routing_policy: str = REWORK_ROUTING_ARCHITECT_FIRST,
     reviewer_verdict_script: list[str] | None = None,
     review_reasons_script: list[list[str]] | None = None,
@@ -2152,27 +2438,22 @@ def feature_pipeline(
                 }
 
         accepted_feature = mark_feature_status(feature_id, FeatureStatus.ACCEPTED)
-        final_status = {
-            "feature": accepted_feature,
-            "has_failures": False,
-            "final_outcome": "accepted",
-            "user_facing_status": FeatureStatus.ACCEPTED.value,
-            "user_summary": _final_user_summary(
-                outcome="accepted",
-                status=FeatureStatus.ACCEPTED.value,
-                summary=str(accepted_feature.get("summary") or summary),
-                next_action="feature-complete",
-                reasons=[],
-            ),
-            "next_action": "feature-complete",
-            "reasons": [],
-        }
+        final_status = _post_acceptance_final_status(
+            feature_id=feature_id,
+            accepted_feature=accepted_feature,
+            summary=summary,
+            packet_results=packet_results,
+            verification_records=verification_records,
+            review_routes=review_routes,
+            wave_routes=wave_routes,
+            commit_hash=commit_hash,
+        )
         notify_feature_event(
             feature_id=feature_id,
             title=str(seeded["feature"].get("title") or title),
-            status=FeatureStatus.ACCEPTED.value,
+            status=str(final_status["user_facing_status"]),
             summary=final_status["user_summary"],
-            next_action="feature-complete",
+            next_action=str(final_status["next_action"]),
         )
         publish_feature_artifacts_task(
             seeded["feature"],

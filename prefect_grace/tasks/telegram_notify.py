@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FEATURE_NOTIFY_STATUSES = {
     "in_progress",
     "accepted",
+    "awaiting_commit",
     "blocked",
     "pipeline_invalid",
     "verification_blocked",
@@ -259,6 +260,8 @@ def _looks_like_service_english(text: str | None) -> bool:
         "blocked",
         "rework",
     )
+    if "awaiting_commit" in lowered:
+        return False
     ascii_letters = sum(1 for ch in value if "a" <= ch.lower() <= "z")
     cyrillic_letters = sum(1 for ch in value if "а" <= ch.lower() <= "я" or ch.lower() == "ё")
     return ascii_letters > cyrillic_letters and any(marker in lowered for marker in service_markers)
@@ -271,6 +274,7 @@ def _user_title_line(title: str | None, status: str) -> str | None:
     return {
         "accepted": "Короткий итог по фиче готов.",
         "completed": "Короткий итог по фиче готов.",
+        "awaiting_commit": "Фича принята, но ещё ждёт коммита.",
         "in_progress": "Фича остаётся в работе.",
         "architect_ready": "Нужно решение архитектора по фиче.",
         "blocked": "Фича не может быть завершена без разбора блокера.",
@@ -286,6 +290,8 @@ def _action_hint_label(next_action: str | None) -> str | None:
     if not value:
         return None
     normalized = value.lower()
+    if normalized == "commit-feature-changes":
+        return "Дальше: закоммитить изменения."
     if normalized == "feature-complete":
         return "Фича завершена."
     if normalized == "inspect-domain-blocker":
@@ -354,6 +360,7 @@ def _reason_summaries_ru(reasons: list[str] | None, *, limit: int = 3) -> list[s
 def _feature_status_label(status: str) -> str:
     return {
         "in_progress": "в работе",
+        "awaiting_commit": "принято, ждёт коммита",
         "accepted": "принято",
         "completed": "принято",
         "blocked": "заблокировано",
@@ -390,8 +397,10 @@ def _feature_summary_text(status: str, summary: str | None, blockers: list[str] 
     if _looks_like_service_english(cleaned_summary):
         cleaned_summary = ""
     reason = _short_reason((blockers or [""])[0]) if blockers else ""
+    if normalized == "awaiting_commit":
+        return "Итог: принято, ждёт коммита."
     if normalized == "accepted":
-        return cleaned_summary or "Фича завершена и принята."
+        return cleaned_summary or "Итог: принято и закоммичено."
     if normalized in {"blocked", "pipeline_invalid", "verification_blocked", "environment_blocked", "product_blocked"}:
         if reason:
             return f"Итог: { _feature_status_label(normalized) }. {reason}"
@@ -433,6 +442,7 @@ def notify_feature_event(
         return False
     icon = {
         "in_progress": "🚀",
+        "awaiting_commit": "📝",
         "accepted": "🏁",
         "completed": "🏁",
         "blocked": "⛔",

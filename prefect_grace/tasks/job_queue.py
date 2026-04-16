@@ -40,6 +40,7 @@ def enqueue_feature_job(
     business_context: dict[str, Any] | None = None,
     planner_contract: dict[str, Any] | None = None,
     brief_path: str | None = None,
+    commit_hash: str | None = None,
 ) -> dict[str, Any]:
     record = {
         "job_id": f"job-{uuid.uuid4()}",
@@ -68,6 +69,7 @@ def enqueue_feature_job(
         "business_context": dict(business_context or {}),
         "planner_contract": dict(planner_contract or {}) if planner_contract else None,
         "brief_path": brief_path,
+        "commit_hash": str(commit_hash or "").strip() or None,
         "status": "queued",
         "flow_run_id": None,
         "deployment_id": None,

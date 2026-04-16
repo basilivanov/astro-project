@@ -69,6 +69,9 @@ def _normalize_wave_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "module_refs": _string_list(raw.get("module_refs") or raw.get("modules")),
                 "allowed_write_scope": _string_list(raw.get("allowed_write_scope") or raw.get("write_scope")),
                 "frozen_scope": _string_list(raw.get("frozen_scope")),
+                "observability_scope": str(raw.get("observability_scope") or "none").strip().lower().replace("-", "_"),
+                "canonical_flow_commands": _string_list(raw.get("canonical_flow_commands")),
+                "allow_degraded_but_expected": bool(raw.get("allow_degraded_but_expected")),
                 "verification_commands": _string_list(raw.get("verification_commands") or raw.get("verification")),
                 "acceptance_criteria": _string_list(raw.get("acceptance_criteria")),
                 "deferred_work": _string_list(raw.get("deferred_work")),
@@ -95,6 +98,9 @@ def _default_wave_specs(feature: dict[str, Any], payload: dict[str, Any]) -> lis
             "module_refs": _string_list(payload.get("impacted_modules")),
             "allowed_write_scope": _string_list(payload.get("allowed_write_scope")),
             "frozen_scope": _string_list(payload.get("frozen_scope")),
+            "observability_scope": "none",
+            "canonical_flow_commands": [],
+            "allow_degraded_but_expected": False,
             "verification_commands": verification_commands,
             "acceptance_criteria": _string_list(payload.get("acceptance_criteria")),
             "deferred_work": _string_list(payload.get("deferred_work")),
@@ -198,6 +204,16 @@ def _development_plan_xml(payload: dict[str, Any], *, slice_id: str) -> str:
         else:
             lines.append("        <file>-</file>")
         lines.append("      </frozen_scope>")
+        lines.append(f"      <observability_scope>{_xml_escape(wave['observability_scope'])}</observability_scope>")
+        lines.append(
+            f"      <allow_degraded_but_expected>{str(bool(wave['allow_degraded_but_expected'])).lower()}</allow_degraded_but_expected>"
+        )
+        lines.append("      <canonical_flow_commands>")
+        if wave["canonical_flow_commands"]:
+            lines.extend(f"        <command>{_xml_escape(item)}</command>" for item in wave["canonical_flow_commands"])
+        else:
+            lines.append("        <command>-</command>")
+        lines.append("      </canonical_flow_commands>")
         lines.append("      <verification>")
         if wave["verification_commands"]:
             lines.extend(f"        <command>{_xml_escape(item)}</command>" for item in wave["verification_commands"])

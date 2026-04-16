@@ -95,6 +95,8 @@ def _looks_like_service_english(text: str | None) -> bool:
         "blocked",
         "rework",
     )
+    if "awaiting_commit" in lowered:
+        return False
     ascii_letters = sum(1 for ch in value if "a" <= ch.lower() <= "z")
     cyrillic_letters = sum(1 for ch in value if "а" <= ch.lower() <= "я" or ch.lower() == "ё")
     return ascii_letters > cyrillic_letters and any(marker in lowered for marker in service_markers)
@@ -104,6 +106,8 @@ def _action_hint_ru(next_action: str | None) -> str:
     value = str(next_action or "").strip()
     if not value:
         return "-"
+    if value.lower() == "commit-feature-changes":
+        return "Дальше: закоммитить изменения."
     normalized = value.lower()
     if normalized == "feature-complete":
         return "Фича завершена."
@@ -137,6 +141,7 @@ def _user_facing_title(title: str | None, status: str | None) -> str:
     status_value = str(status or "").strip().lower()
     return {
         "accepted": "Пользовательский итог по фиче",
+        "awaiting_commit": "Принято, ждёт коммита",
         "in_progress": "Пользовательский статус фичи",
         "architect_ready": "Требуется решение архитектора",
         "blocked": "Фича заблокирована",
@@ -223,6 +228,9 @@ def _feature_summary_markdown(
     if _looks_like_service_english(user_summary):
         user_summary = "Итог по фиче зафиксирован в русской пользовательской формулировке."
     title_line = _user_facing_title(final_feature.get('title') or feature.get('title'), user_facing_status)
+    candidate_commit_files = list((final_status or {}).get("candidate_commit_files") or final_feature.get("candidate_commit_files") or [])
+    commit_status = str((final_status or {}).get("commit_status") or final_feature.get("commit_status") or "-")
+    commit_hash = str((final_status or {}).get("commit_hash") or final_feature.get("commit_hash") or "-")
     lines = [
         f"# GRACE Feature Snapshot: {feature_id}",
         "",
@@ -235,6 +243,8 @@ def _feature_summary_markdown(
         f"- user_facing_status: {user_facing_status}",
         f"- next_action: {(final_status or {}).get('next_action', 'n/a')}",
         f"- next_action_label_ru: {_action_hint_ru((final_status or {}).get('next_action'))}",
+        f"- commit_status: {commit_status}",
+        f"- commit_hash: {commit_hash}",
         f"- failure_category: {(final_status or {}).get('failure_category', 'n/a')}",
         f"- feature_dir: {final_feature.get('feature_dir', '-')}",
         f"- wave_plan_path: {final_feature.get('wave_plan_path', '-')}",
@@ -257,6 +267,9 @@ def _feature_summary_markdown(
         "",
         "## Packet Runs",
         _bullet(_packet_run_lines(packet_results)),
+        "",
+        "## Candidate Commit Files",
+        _bullet(candidate_commit_files or ["none"]),
     ]
     if verification:
         lines.extend(
