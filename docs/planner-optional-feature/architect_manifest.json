@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-DEFAULT-PLANNER-OFF",
+  "title": "Planner optional feature",
+  "slice_id": "SLICE-FEAT-DEFAULT-PLANNER-OFF",
+  "slice_slug": "planner-optional-feature",
+  "slice_dir": "/opt/astro-project/docs/planner-optional-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/planner-optional-feature/requirements.slice.planner-optional-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/planner-optional-feature/development-plan.slice.planner-optional-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/planner-optional-feature/verification-matrix.slice.planner-optional-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/planner-optional-feature/knowledge-graph.slice.planner-optional-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/planner-optional-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/planner-optional-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/planner-optional-feature/requirements.slice.planner-optional-feature.xml",
+    "/opt/astro-project/docs/planner-optional-feature/development-plan.slice.planner-optional-feature.xml",
+    "/opt/astro-project/docs/planner-optional-feature/verification-matrix.slice.planner-optional-feature.md",
+    "/opt/astro-project/docs/planner-optional-feature/knowledge-graph.slice.planner-optional-feature.xml",
+    "/opt/astro-project/docs/planner-optional-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:05:03.865228+00:00"
+}
