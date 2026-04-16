@@ -98,7 +98,7 @@ def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: li
                 "objective": title,
                 "waves": _numbered_lines(
                     [
-                        "W00 — architect formalization and planner slicing.",
+                        "W00 — architect formalization; planner slicing is optional for complex decomposition.",
                         "W01 — implementation, verifier evidence, reviewer technical gate, architect wave gate.",
                     ]
                 ),
@@ -171,7 +171,7 @@ def bootstrap_feature(
             "wave_proposal": _numbered_lines(
                 list((business_context or {}).get("wave_proposal") or [
                     "Architect formalizes the feature and impacted GRACE deltas.",
-                    "Planner slices execution into waves and packets.",
+                    "Planner runs only when decomposition is complex or explicitly requested.",
                     "Coder, verifier, reviewer, and architect execute W01.",
                 ])
             ),
@@ -392,7 +392,7 @@ def seed_test_feature(
             "Impacted artifacts are explicitly identified.",
             "Architect produces slice-local GRACE docs before planning.",
             "Open decisions are separated from execution-ready facts.",
-            "Wave boundaries are concrete enough for planner handoff.",
+            "Wave boundaries are concrete enough for direct execution or optional planner handoff.",
         ],
         verification_profile={
             "backend": "not required",
@@ -405,7 +405,7 @@ def seed_test_feature(
         ],
         notes=[
             "Patch existing GRACE files incrementally.",
-            "Write slice-local GRACE docs and architect manifest before planner handoff.",
+            "Write slice-local GRACE docs and architect manifest before direct execution or optional planner handoff.",
             "Keep frontend verification explicit if UI is touched.",
             "Return FINAL_ARCHITECT_ARTIFACT_PLAN_JSON markers.",
         ],

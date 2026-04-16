@@ -117,3 +117,46 @@ def test_dispatch_next_job_sets_prefect_api_from_runtime(monkeypatch):
     assert os.environ["PREFECT_API_URL"] == "http://127.0.0.1:4200/api"
     assert created["deployment_name"] == dispatcher.FEATURE_DEPLOYMENT_NAME
     assert result["status"] == "submitted"
+    assert created["kwargs"]["parameters"]["run_planner"] is None
+
+
+def test_dispatch_next_job_forwards_optional_planner_flag(monkeypatch):
+    job = {
+        "job_id": "job-4",
+        "feature_id": "FEAT-4",
+        "title": "Feature 4",
+        "summary": "Summary",
+        "implementation_title": "Impl",
+        "implementation_summary": "Impl summary",
+        "run_planner": True,
+    }
+    monkeypatch.setattr(dispatcher, "list_jobs", lambda: [])
+    monkeypatch.setattr(dispatcher, "claim_next_job", lambda: job)
+    monkeypatch.setattr(
+        dispatcher,
+        "load_runtime_config",
+        lambda: SimpleNamespace(api_url="http://127.0.0.1:4200/api", live_queue_name="grace-live"),
+    )
+
+    created: dict[str, object] = {}
+
+    class _Client:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read_deployment_by_name(self, name):
+            return SimpleNamespace(id="dep-1")
+
+        def create_flow_run_from_deployment(self, **kwargs):
+            created["kwargs"] = kwargs
+            return SimpleNamespace(id="flow-4")
+
+    monkeypatch.setattr(dispatcher, "get_client", lambda sync_client=True: _Client())
+    monkeypatch.setattr(dispatcher, "update_job", lambda job_id, **updates: {"job_id": job_id, **updates})
+
+    dispatcher.dispatch_next_job()
+
+    assert created["kwargs"]["parameters"]["run_planner"] is True

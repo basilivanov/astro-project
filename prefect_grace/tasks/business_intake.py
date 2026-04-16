@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 import yaml
 
+from prefect_grace.models import FeatureStatus
+from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, mark_feature_status
 from prefect_grace.tasks.job_queue import enqueue_feature_job
 from prefect_grace.tasks.telegram_notify import notify_submission_event
 from prefect_grace.tasks.workdir import resolve_execution_workdir
@@ -55,6 +57,7 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
     observability_commands = _as_list(payload.get("verifier", {}).get("observability_commands"))
     artifact_globs = _as_list(payload.get("verifier", {}).get("artifact_globs"))
     planner_contract = payload.get("planner_contract")
+    run_planner = payload.get("run_planner")
 
     touches_frontend = _normalize_bool(payload.get("touches_frontend"), default=bool(visual_expectations or frontend_commands))
     requires_frontend_visual = _normalize_bool(
@@ -113,6 +116,7 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
         "verifier_observability_commands": observability_commands,
         "verifier_artifact_globs": artifact_globs,
         "verifier_include_day_live_canary": include_day_live_canary,
+        "run_planner": _normalize_bool(run_planner) if run_planner is not None else None,
         "planner_contract": planner_contract if isinstance(planner_contract, dict) else None,
         "raw_brief": payload,
     }
@@ -120,6 +124,27 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
 
 def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
     brief = load_business_feature_brief(path)
+    bootstrap_feature(
+        feature_id=brief["feature_id"],
+        title=brief["title"],
+        summary=brief["summary"],
+        business_context={
+            "brief_path": str(Path(path)),
+            "scope": brief["scope"],
+            "acceptance_criteria": brief["acceptance_criteria"],
+            "non_goals": brief["non_goals"],
+            "visual_expectations": brief["visual_expectations"],
+            "impacted_surfaces": brief["impacted_surfaces"],
+            "impacted_grace_artifacts": brief["impacted_grace_artifacts"],
+            "wave_proposal": brief["wave_proposal"],
+            "open_decisions": brief["open_decisions"]
+            or [
+                "Confirm GRACE wave slicing against the supplied business brief.",
+                "Escalate if decomposition requires more than one W01 implementation packet.",
+            ],
+        },
+    )
+    mark_feature_status(brief["feature_id"], FeatureStatus.PLANNED)
     record = enqueue_feature_job(
         feature_id=brief["feature_id"],
         title=brief["title"],
@@ -138,6 +163,7 @@ def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
         verifier_requires_frontend_visual=brief["requires_frontend_visual"],
         verifier_include_day_live_canary=brief["verifier_include_day_live_canary"],
         prefer_agent_output=True,
+        run_planner=brief.get("run_planner"),
         agent_workdir=brief["agent_workdir"],
         agent_sandbox=brief["agent_sandbox"],
         business_context={

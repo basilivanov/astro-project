@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from prefect_grace.models import (
     FeatureStatus,
     FrontendVisualVerdict,
     ObservabilityVerdict,
     PacketStatus,
+    ReasoningProfile,
     ReviewVerdict,
     TestVerdict,
     WaveVerdict,
@@ -12,6 +16,7 @@ from prefect_grace.models import (
 from prefect_grace.prefect_compat import flow, get_run_logger, tags, task
 from prefect_grace.tasks.agent_output_parser import (
     parse_architect_artifact_plan_message,
+    parse_direct_rework_packet_message,
     parse_planner_wave_plan_message,
     read_agent_message,
     resolve_reviewer_decision,
@@ -20,7 +25,7 @@ from prefect_grace.tasks.agent_output_parser import (
 )
 from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan, write_architect_artifacts
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
-from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, mark_feature_status, seed_test_feature
+from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_packet, mark_feature_status, seed_test_feature
 from prefect_grace.tasks.planner_contract import (
     default_wave_plan_contract,
     find_architect_wave_gate_packet_id,
@@ -31,6 +36,8 @@ from prefect_grace.tasks.planner_contract import (
 from prefect_grace.tasks.prefect_artifacts import publish_feature_artifacts
 from prefect_grace.tasks.review_router import (
     create_architect_decision_from_review,
+    create_architect_rework_packet_from_review,
+    create_direct_rework_from_architect,
     create_rework_bundle_from_review,
     create_rework_from_review,
     record_review,
@@ -113,6 +120,48 @@ _OBSERVABILITY_REVIEW_MARKERS = (
     "report_id",
 )
 
+_TODAY_WEEK_MARKER = "tools/post_test_review.py --profile today-week"
+
+REWORK_ROUTE_SELF_RESOLVABLE = "self_resolvable_rework"
+REWORK_ROUTE_REQUIRES_USER_DECISION = "requires_user_decision"
+REWORK_ROUTE_REQUIRES_PLANNER = "requires_planner"
+REWORK_ROUTING_ARCHITECT_FIRST = "architect_first"
+REWORK_ROUTING_AUTO_BUNDLE = "auto_bundle"
+REWORK_MODE_LIGHT_RESUME = "light_resume"
+REWORK_MODE_BOUNDED_FRESH = "bounded_fresh"
+REWORK_MODE_DECISION_REQUIRED = "decision_required"
+
+_USER_DECISION_REVIEW_MARKERS = (
+    "business decision",
+    "product decision",
+    "user decision",
+    "ask the user",
+    "requires user",
+    "requires architect/business",
+    "business",
+    "product",
+    "pricing",
+    "legal",
+    "compliance",
+    "policy decision",
+    "scope expansion",
+    "change business semantics",
+)
+_PLANNER_REVIEW_MARKERS = (
+    "planner",
+    "decomposition",
+    "reslice",
+    "re-slice",
+    "split packet",
+    "packet graph",
+    "wave graph",
+    "dependency graph",
+    "multi-wave",
+    "multiple waves",
+    "slice boundary",
+    "execution topology",
+)
+
 
 def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
     if str(decision.get("packet_verdict") or "") != ReviewVerdict.BLOCKED.value:
@@ -131,6 +180,61 @@ def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
         "follow_up_action": "localized_rework",
         "source": "pipeline_normalized_rework",
     }
+
+
+def _normalize_observability_scope(value: object) -> str:
+    return str(value or "").strip().lower().replace("-", "_")
+
+
+def _load_architect_manifest(feature_id: str) -> dict:
+    try:
+        feature = find_record("features", "features", "feature_id", feature_id)
+    except KeyError:
+        return {}
+    manifest_path = str(feature.get("architect_manifest_path") or "").strip()
+    if not manifest_path:
+        return {}
+    path = Path(manifest_path)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _architect_wave_contract(architect_manifest: dict, wave_id: str) -> dict:
+    target_wave_id = str(wave_id or "").strip().upper()
+    for wave in architect_manifest.get("waves") or []:
+        if not isinstance(wave, dict):
+            continue
+        if str(wave.get("wave_id") or "").strip().upper() == target_wave_id:
+            return dict(wave)
+    return {}
+
+
+def _packet_execution_contract(packet: dict) -> dict:
+    verification_profile = dict(packet.get("verification_profile") or {})
+    execution = verification_profile.get("execution")
+    if isinstance(execution, dict):
+        return dict(execution)
+    return dict(packet.get("execution_hints") or {})
+
+
+def _string_command_list(value: object) -> list[str]:
+    if value in (None, "", []):
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _uses_today_week_observability(packet: dict) -> bool:
+    execution = _packet_execution_contract(packet)
+    observability_commands = _string_command_list(execution.get("observability_commands"))
+    observability_profile = str(execution.get("observability_profile") or "").strip().lower()
+    return observability_profile == "today-week" or any(_TODAY_WEEK_MARKER in command for command in observability_commands)
 
 
 def _escalate_repeated_observability_rework_for_pipeline(
@@ -165,6 +269,298 @@ def _escalate_repeated_observability_rework_for_pipeline(
         "follow_up_action": "none",
         "reasons": reasons,
         "source": "pipeline_rework_escalation",
+    }
+
+
+def _normalize_rework_route_classification(value: object) -> str:
+    classification = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "self_resolvable": REWORK_ROUTE_SELF_RESOLVABLE,
+        "localized_rework": REWORK_ROUTE_SELF_RESOLVABLE,
+        "direct_rework": REWORK_ROUTE_SELF_RESOLVABLE,
+        "architect_direct_rework": REWORK_ROUTE_SELF_RESOLVABLE,
+        "user_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
+        "architect_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
+        "product_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
+        "planner": REWORK_ROUTE_REQUIRES_PLANNER,
+        "planner_required": REWORK_ROUTE_REQUIRES_PLANNER,
+    }
+    classification = aliases.get(classification, classification)
+    if classification not in {
+        REWORK_ROUTE_SELF_RESOLVABLE,
+        REWORK_ROUTE_REQUIRES_USER_DECISION,
+        REWORK_ROUTE_REQUIRES_PLANNER,
+    }:
+        return REWORK_ROUTE_SELF_RESOLVABLE
+    return classification
+
+
+def _normalize_rework_mode(value: object) -> str:
+    mode = str(value or "").strip().lower().replace("-", "_")
+    aliases = {
+        "light": REWORK_MODE_LIGHT_RESUME,
+        "resume": REWORK_MODE_LIGHT_RESUME,
+        "packet_local_resume": REWORK_MODE_LIGHT_RESUME,
+        "small_fix": REWORK_MODE_LIGHT_RESUME,
+        "smallfix": REWORK_MODE_LIGHT_RESUME,
+        "fresh": REWORK_MODE_BOUNDED_FRESH,
+        "bounded": REWORK_MODE_BOUNDED_FRESH,
+        "fresh_packet": REWORK_MODE_BOUNDED_FRESH,
+        "decision": REWORK_MODE_DECISION_REQUIRED,
+        "architect_decision": REWORK_MODE_DECISION_REQUIRED,
+    }
+    mode = aliases.get(mode, mode)
+    if mode not in {
+        REWORK_MODE_LIGHT_RESUME,
+        REWORK_MODE_BOUNDED_FRESH,
+        REWORK_MODE_DECISION_REQUIRED,
+    }:
+        return REWORK_MODE_BOUNDED_FRESH
+    return mode
+
+
+def _classify_rework_route_from_reasons(reasons: list[str]) -> str:
+    lowered = [str(reason).strip().lower() for reason in reasons if str(reason).strip()]
+    if any(any(marker in reason for marker in _USER_DECISION_REVIEW_MARKERS) for reason in lowered):
+        return REWORK_ROUTE_REQUIRES_USER_DECISION
+    if any(any(marker in reason for marker in _PLANNER_REVIEW_MARKERS) for reason in lowered):
+        return REWORK_ROUTE_REQUIRES_PLANNER
+    return REWORK_ROUTE_SELF_RESOLVABLE
+
+
+def _classify_rework_route(decision: dict) -> str:
+    explicit = decision.get("route_classification")
+    if explicit:
+        return _normalize_rework_route_classification(explicit)
+    follow_up = str(decision.get("follow_up_action") or "").strip().lower().replace("-", "_")
+    if follow_up == "architect_decision":
+        return REWORK_ROUTE_REQUIRES_USER_DECISION
+    return _classify_rework_route_from_reasons(list(decision.get("reasons") or []))
+
+
+def _classify_rework_mode(*, decision: dict, route_classification: str, target_packet: dict | None = None) -> str:
+    explicit = decision.get("rework_mode")
+    if explicit:
+        explicit_mode = _normalize_rework_mode(explicit)
+        if explicit_mode == REWORK_MODE_LIGHT_RESUME and route_classification != REWORK_ROUTE_SELF_RESOLVABLE:
+            return REWORK_MODE_DECISION_REQUIRED
+        return explicit_mode
+    if route_classification != REWORK_ROUTE_SELF_RESOLVABLE:
+        return REWORK_MODE_DECISION_REQUIRED
+    target = dict(target_packet or {})
+    role = str(target.get("role") or "").strip().lower()
+    parent_packet_id = str(target.get("parent_packet_id") or "").strip()
+    reasons = [str(reason).strip() for reason in list(decision.get("reasons") or []) if str(reason).strip()]
+    if role == "coder" and not parent_packet_id and 0 < len(reasons) <= 2:
+        return REWORK_MODE_LIGHT_RESUME
+    return REWORK_MODE_BOUNDED_FRESH
+
+
+def _build_direct_rework_followup_packets(
+    *,
+    source_reviewer_packet: dict,
+    direct_rework_packet: dict,
+    target_packet_id: str,
+    packets_by_id: dict[str, dict],
+) -> tuple[list[dict], str]:
+    rework_packets = [direct_rework_packet]
+    rework_reviewer_packet_id = ""
+    verifier_source_packet_id = next(
+        (
+            dependency
+            for dependency in source_reviewer_packet.get("dependencies") or []
+            if str(packets_by_id.get(str(dependency), {}).get("role") or "") == "verifier"
+        ),
+        "",
+    )
+    origin_reviewer_packet_id = str(direct_rework_packet.get("origin_reviewer_packet_id") or source_reviewer_packet["packet_id"])
+    verifier_source_packet = dict(packets_by_id.get(verifier_source_packet_id) or {})
+    verifier_hints = dict(direct_rework_packet.get("execution_hints") or {})
+    verifier_profile = {}
+    if verifier_source_packet_id:
+        verifier_hints = {**verifier_hints, **dict(verifier_source_packet.get("execution_hints") or {})}
+        verifier_profile = dict(verifier_source_packet.get("verification_profile") or {})
+
+    direct_verifier_packet = create_packet(
+        feature_id=direct_rework_packet["feature_id"],
+        wave_id=direct_rework_packet["wave_id"],
+        title=f"Verifier Rework {direct_rework_packet['title']}",
+        role="verifier",
+        reasoning=ReasoningProfile.MEDIUM,
+        summary=f"Validate the architect-bounded direct rework for `{target_packet_id}` and capture fresh evidence.",
+        write_scope=["Verification notes and evidence references only."],
+        inputs=[direct_rework_packet["packet_id"], origin_reviewer_packet_id],
+        acceptance_criteria=[
+            "Commands run are recorded for the direct rework packet.",
+            "Evidence paths are refreshed for the reworked scope.",
+            "Observability verdict is explicit for the direct rework.",
+        ],
+        verification_profile=verifier_profile
+        or {
+            "backend": "rerun minimally sufficient backend checks for the reworked scope",
+            "frontend": "rerun targeted frontend checks if UI changed",
+            "observability": "repeat post-test digest, trace, and replay review",
+        },
+        reviewer_gate=[
+            "Evidence must correspond to the direct rework packet, not the original attempt.",
+            "Missing visual proof remains a blocker for UI work.",
+        ],
+        dependencies=[direct_rework_packet["packet_id"]],
+        notes=["This verifier packet was created for architect-bounded direct rework."],
+        parent_packet_id=target_packet_id,
+        execution_hints=verifier_hints,
+        status=PacketStatus.READY,
+    )
+    direct_reviewer_packet = create_packet(
+        feature_id=direct_rework_packet["feature_id"],
+        wave_id=direct_rework_packet["wave_id"],
+        title=f"Reviewer Rework {direct_rework_packet['title']}",
+        role="reviewer",
+        reasoning=ReasoningProfile.XHIGH,
+        summary=f"Review whether the architect-bounded direct rework for `{target_packet_id}` addressed the reviewer blockers.",
+        write_scope=["Review verdict and blocker notes only."],
+        inputs=[direct_rework_packet["packet_id"], direct_verifier_packet["packet_id"]],
+        acceptance_criteria=[
+            "Exactly one verdict is returned.",
+            "The original blockers are either resolved or explicitly remain.",
+            "No unrelated scope expansion is accepted.",
+        ],
+        verification_profile={
+            "backend": "consume verifier evidence",
+            "frontend": "consume verifier evidence",
+            "observability": "consume verifier evidence",
+        },
+        reviewer_gate=[
+            "Assess only the original blocker scope.",
+            "Escalate only if blockers imply decomposition or business changes.",
+        ],
+        dependencies=[direct_rework_packet["packet_id"], direct_verifier_packet["packet_id"]],
+        notes=["This reviewer packet was created for architect-bounded direct rework."],
+        parent_packet_id=target_packet_id,
+        status=PacketStatus.READY,
+    )
+    direct_reviewer_packet = update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        direct_reviewer_packet["packet_id"],
+        {
+            "review_target_packet_id": direct_rework_packet["packet_id"],
+            "execution_hints": dict(direct_rework_packet.get("execution_hints") or {}),
+        },
+    )
+    rework_packets.extend([direct_verifier_packet, direct_reviewer_packet])
+    rework_reviewer_packet_id = str(direct_reviewer_packet.get("packet_id") or "")
+    return rework_packets, rework_reviewer_packet_id
+
+
+def _should_run_planner(*, run_planner: bool | None, planner_contract: dict | None) -> bool:
+    if run_planner is not None:
+        return bool(run_planner)
+    return False
+
+
+def _architect_direct_rework_packet_spec_from_run(architect_run: dict) -> dict | None:
+    try:
+        return parse_direct_rework_packet_message(
+            read_agent_message(architect_run.get("last_message_path"), architect_run.get("stdout_path"))
+        )
+    except ValueError:
+        return None
+
+
+def _build_architect_direct_rework(
+    *,
+    coder_packet_id: str,
+    reviewer_packet_id: str,
+    reasons: list[str],
+    architect_run: dict | None,
+    route_classification: str,
+    rework_mode: str,
+) -> dict:
+    packet_spec = _architect_direct_rework_packet_spec_from_run(architect_run or {}) if architect_run else None
+    if packet_spec and packet_spec.get("route_classification") != route_classification:
+        raise ValueError("Architect direct rework packet classification does not match reviewer route")
+    if route_classification != REWORK_ROUTE_SELF_RESOLVABLE:
+        raise ValueError("Architect direct rework builder only supports self-resolvable routing")
+    title = str(packet_spec.get("title") or "").strip() if packet_spec else ""
+    summary = str(packet_spec.get("summary") or "").strip() if packet_spec else ""
+    resolved_rework_mode = _normalize_rework_mode(packet_spec.get("rework_mode") if packet_spec else rework_mode)
+    return create_direct_rework_from_architect(
+        coder_packet_id,
+        reasons,
+        reviewer_packet_id=reviewer_packet_id,
+        rework_mode=resolved_rework_mode,
+        title=title or None,
+        summary=summary or None,
+        write_scope=list(packet_spec.get("write_scope") or []) or None if packet_spec else None,
+        inputs=list(packet_spec.get("inputs") or []) or None if packet_spec else None,
+        acceptance_criteria=list(packet_spec.get("acceptance_criteria") or []) or None if packet_spec else None,
+        verification_profile=dict(packet_spec.get("verification_profile") or {}) or None if packet_spec else None,
+        reviewer_gate=list(packet_spec.get("reviewer_gate") or []) or None if packet_spec else None,
+        notes=list(packet_spec.get("notes") or []) or None if packet_spec else None,
+    )
+
+
+def _build_light_resume_followup(
+    *,
+    source_reviewer_packet: dict,
+    resumed_packet: dict,
+    reasons: list[str],
+    reviewer_packet_id: str,
+    packets_by_id: dict[str, dict],
+) -> dict:
+    rework_packet = update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        str(resumed_packet["packet_id"]),
+        {
+            "review_target_packet_id": str(resumed_packet["packet_id"]),
+            "origin_reviewer_packet_id": str(reviewer_packet_id),
+            "route_classification": REWORK_ROUTE_SELF_RESOLVABLE,
+            "requested_rework_mode": REWORK_MODE_LIGHT_RESUME,
+            "rework_mode": REWORK_MODE_LIGHT_RESUME,
+            "status": PacketStatus.READY.value,
+            "light_resume_stage": True,
+            "light_resume_source_packet_id": str(resumed_packet["packet_id"]),
+            "light_resume_attempt": int(resumed_packet.get("light_resume_attempt") or 0) + 1,
+            "light_resume_max_attempts": 1,
+        },
+    )
+    rework_packet["execution_hints"] = {
+        **dict(rework_packet.get("execution_hints") or {}),
+        "resume_strategy": "packet_parent",
+        "resume_parent_packet_id": str(resumed_packet["packet_id"]),
+        "rework_mode": REWORK_MODE_LIGHT_RESUME,
+        "light_resume_stage": True,
+        "light_resume_scope": "packet_local",
+        "light_resume_source_packet_id": str(resumed_packet["packet_id"]),
+        "light_resume_attempt": rework_packet["light_resume_attempt"],
+        "light_resume_max_attempts": 1,
+        "light_resume_reviewer_packet_id": str(reviewer_packet_id),
+        "light_resume_reasons": [str(reason).strip() for reason in reasons if str(reason).strip()],
+    }
+    rework_packet = update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        str(resumed_packet["packet_id"]),
+        {"execution_hints": rework_packet["execution_hints"]},
+    )
+    rework_packets, rework_reviewer_packet_id = _build_direct_rework_followup_packets(
+        source_reviewer_packet=source_reviewer_packet,
+        direct_rework_packet=rework_packet,
+        target_packet_id=str(resumed_packet["packet_id"]),
+        packets_by_id=packets_by_id,
+    )
+    return {
+        "packet_id": rework_packet["packet_id"],
+        "rework": rework_packet,
+        "packets": rework_packets,
+        "reviewer_packet_id": rework_reviewer_packet_id,
+        "rework_mode": REWORK_MODE_LIGHT_RESUME,
+        "light_resume_stage": True,
     }
 
 
@@ -400,10 +796,12 @@ def validate_planner_contract_task(
     packets = list(materialized_contract.get("packets") or [])
     packets_by_id = packet_map(packets)
     issues: list[str] = []
+    architect_manifest = _load_architect_manifest(feature_id)
 
     for packet in packets:
         packet_id = str(packet.get("packet_id") or "")
         role = str(packet.get("role") or "")
+        execution = _packet_execution_contract(packet)
         if role == "reviewer":
             explicit_target = str(packet.get("review_target_packet_id") or "").strip()
             if not explicit_target:
@@ -424,6 +822,64 @@ def validate_planner_contract_task(
                         issues.append(f"{packet_id}: {key} contains empty/non-string command")
                     elif item.strip().startswith("{") or item.strip().startswith("["):
                         issues.append(f"{packet_id}: {key} contains structured text instead of shell command")
+        if _uses_today_week_observability(packet):
+            if role != "verifier":
+                issues.append(
+                    f"{packet_id}: today-week canonical observability gate is allowed only on verifier packets"
+                )
+            observability_scope = _normalize_observability_scope(execution.get("observability_scope"))
+            if observability_scope != "wave_final":
+                issues.append(
+                    f"{packet_id}: today-week canonical observability gate must declare execution.observability_scope=wave_final"
+                )
+            canonical_flow_commands = _string_command_list(execution.get("canonical_flow_commands"))
+            include_day_live_canary = bool(execution.get("include_day_live_canary"))
+            if not canonical_flow_commands and not include_day_live_canary:
+                issues.append(
+                    f"{packet_id}: today-week canonical observability gate must provide execution.canonical_flow_commands or include_day_live_canary"
+                )
+            architect_wave = _architect_wave_contract(architect_manifest, str(packet.get("wave_id") or ""))
+            if not architect_wave:
+                issues.append(
+                    f"{packet_id}: architect manifest does not define wave {packet.get('wave_id')} required to authorize today-week evidence ownership"
+                )
+            else:
+                architect_scope = _normalize_observability_scope(architect_wave.get("observability_scope"))
+                architect_canonical = _string_command_list(architect_wave.get("canonical_flow_commands"))
+                architect_live_canary = bool(architect_wave.get("include_day_live_canary"))
+                if architect_scope != "wave_final":
+                    issues.append(
+                        f"{packet_id}: architect manifest wave {packet.get('wave_id')} does not authorize today-week wave_final ownership"
+                    )
+                if not architect_canonical and not architect_live_canary:
+                    issues.append(
+                        f"{packet_id}: architect manifest wave {packet.get('wave_id')} lacks canonical_flow_commands/include_day_live_canary for today-week gate"
+                    )
+                missing_architect_commands = [
+                    command for command in architect_canonical if command not in canonical_flow_commands
+                ]
+                unexpected_planner_commands = [
+                    command for command in canonical_flow_commands if command not in architect_canonical
+                ]
+                if missing_architect_commands:
+                    issues.append(
+                        f"{packet_id}: planner canonical_flow_commands are missing architect-authorized commands {missing_architect_commands}"
+                    )
+                if architect_canonical and unexpected_planner_commands:
+                    issues.append(
+                        f"{packet_id}: planner canonical_flow_commands widen architect scope with unexpected commands {unexpected_planner_commands}"
+                    )
+        if execution:
+            observability_scope = _normalize_observability_scope(execution.get("observability_scope"))
+            if observability_scope and observability_scope not in {"none", "packet_local", "wave_final"}:
+                issues.append(f"{packet_id}: unsupported execution.observability_scope={execution.get('observability_scope')}")
+            canonical_flow_commands = execution.get("canonical_flow_commands")
+            if canonical_flow_commands is not None and not isinstance(canonical_flow_commands, list):
+                issues.append(f"{packet_id}: execution.canonical_flow_commands must be a list")
+            elif isinstance(canonical_flow_commands, list):
+                for item in canonical_flow_commands:
+                    if not isinstance(item, str) or not item.strip():
+                        issues.append(f"{packet_id}: execution.canonical_flow_commands contains empty/non-string command")
 
     logger.info("Planner contract validation for %s issues=%s", feature_id, len(issues))
     return {"valid": not issues, "issues": issues}
@@ -480,6 +936,8 @@ def route_reviewer_verdict_task(
     reviewer_packet_id: str,
     reviewer_decision: dict,
     create_rework: bool,
+    rework_routing_policy: str = REWORK_ROUTING_ARCHITECT_FIRST,
+    architect_rework_packet: dict | None = None,
 ):
     logger = get_run_logger()
     verdict = ReviewVerdict(reviewer_decision["packet_verdict"])
@@ -487,6 +945,7 @@ def route_reviewer_verdict_task(
     follow_up_action = str(reviewer_decision.get("follow_up_action") or "none")
     rework = None
     decision = None
+    route_classification = _classify_rework_route(reviewer_decision)
     review = record_review(
         packet_id=coder_packet_id,
         verdict=verdict,
@@ -499,15 +958,39 @@ def route_reviewer_verdict_task(
     elif verdict == ReviewVerdict.REWORK_REQUIRED:
         mark_packet_status_task(reviewer_packet_id, PacketStatus.ACCEPTED.value)
         if create_rework:
-            rework = create_rework_bundle_from_review(
-                packet_id=coder_packet_id,
-                reviewer_packet_id=reviewer_packet_id,
-                reasons=review_reasons,
-            )
+            if route_classification == REWORK_ROUTE_SELF_RESOLVABLE:
+                if rework_routing_policy == REWORK_ROUTING_AUTO_BUNDLE:
+                    rework = create_rework_bundle_from_review(
+                        packet_id=coder_packet_id,
+                        reviewer_packet_id=reviewer_packet_id,
+                        reasons=review_reasons,
+                    )
+                else:
+                    rework = architect_rework_packet
+                    if rework is None:
+                        decision = create_architect_decision_from_review(
+                            coder_packet_id,
+                            review_reasons,
+                            route_classification=route_classification,
+                            requested_action=(
+                                "Architect rework packet did not produce a bounded direct coder packet; "
+                                "inspect architect routing output before continuing."
+                            ),
+                        )
+            elif route_classification in {REWORK_ROUTE_REQUIRES_USER_DECISION, REWORK_ROUTE_REQUIRES_PLANNER}:
+                decision = create_architect_decision_from_review(
+                    coder_packet_id,
+                    review_reasons,
+                    route_classification=route_classification,
+                )
         mark_packet_status_task(coder_packet_id, PacketStatus.REWORK_REQUIRED.value)
     elif verdict == ReviewVerdict.ESCALATE_TO_ARCHITECT:
         mark_packet_status_task(reviewer_packet_id, PacketStatus.ACCEPTED.value)
-        decision = create_architect_decision_from_review(coder_packet_id, review_reasons)
+        decision = create_architect_decision_from_review(
+            coder_packet_id,
+            review_reasons,
+            route_classification=REWORK_ROUTE_REQUIRES_USER_DECISION,
+        )
         mark_packet_status_task(coder_packet_id, PacketStatus.ESCALATE_TO_ARCHITECT.value)
     else:
         mark_packet_status_task(reviewer_packet_id, PacketStatus.BLOCKED.value)
@@ -527,6 +1010,8 @@ def route_reviewer_verdict_task(
         "rework": rework,
         "decision": decision,
         "reviewer_verdict": verdict.value,
+        "route_classification": route_classification,
+        "rework_routing_policy": rework_routing_policy,
         "decision_source": reviewer_decision.get("source"),
         "parser_error": reviewer_decision.get("parser_error"),
     }
@@ -752,7 +1237,8 @@ def feature_pipeline(
     create_rework: bool = True,
     prefer_agent_output: bool = False,
     run_architect: bool = True,
-    run_planner: bool = True,
+    run_planner: bool | None = None,
+    rework_routing_policy: str = REWORK_ROUTING_ARCHITECT_FIRST,
     reviewer_verdict_script: list[str] | None = None,
     review_reasons_script: list[list[str]] | None = None,
     wave_verdict_script: list[str] | None = None,
@@ -786,6 +1272,7 @@ def feature_pipeline(
 
         architect_packet_id = seeded["packets"]["architect"]["packet_id"]
         planner_packet_id = seeded["packets"]["planner"]["packet_id"]
+        should_run_planner = _should_run_planner(run_planner=run_planner, planner_contract=planner_contract)
 
         if run_architect:
             with tags("wave:W00", "role:architect"):
@@ -824,7 +1311,7 @@ def feature_pipeline(
         packet_results["architect_artifacts"] = architect_artifacts
         publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
 
-        if run_planner:
+        if should_run_planner:
             with tags("wave:W00", "role:planner"):
                 planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
         else:
@@ -865,7 +1352,7 @@ def feature_pipeline(
             verifier_requires_frontend_visual=verifier_requires_frontend_visual,
             verifier_include_day_live_canary=verifier_include_day_live_canary,
             planner_contract_override=planner_contract,
-            prefer_agent_output=prefer_agent_output,
+            prefer_agent_output=prefer_agent_output and should_run_planner,
         )
         packet_results["planner_contract"] = planner_contract_result
         if prefer_agent_output and planner_contract_result.get("parser_error") and planner_contract_result.get("source") != "agent_output":
@@ -1118,6 +1605,75 @@ def feature_pipeline(
                         target_packet_id=target_packet_id,
                         packets_by_id=packets_by_id,
                     )
+                    route_classification = _classify_rework_route(reviewer_decision)
+                    rework_mode = _classify_rework_mode(
+                        decision=reviewer_decision,
+                        route_classification=route_classification,
+                        target_packet=packets_by_id.get(target_packet_id),
+                    )
+                    architect_rework_packet = None
+                    architect_rework_router_packet = None
+                    if (
+                        reviewer_decision.get("packet_verdict") == ReviewVerdict.REWORK_REQUIRED.value
+                        and create_rework
+                        and rework_routing_policy == REWORK_ROUTING_ARCHITECT_FIRST
+                        and route_classification == REWORK_ROUTE_SELF_RESOLVABLE
+                    ):
+                        architect_rework_router_packet = create_architect_rework_packet_from_review(
+                            target_packet_id,
+                            packet_id,
+                            list(reviewer_decision.get("reasons") or []),
+                            route_classification=route_classification,
+                        )
+                        packets_by_id[str(architect_rework_router_packet["packet_id"])] = architect_rework_router_packet
+                        packet_results[packet_result_key("architect_rework_packet", packet_id)] = architect_rework_router_packet
+                        with tags(f"wave:{wave_id}", "role:architect"):
+                            mark_packet_status_task(
+                                str(architect_rework_router_packet["packet_id"]),
+                                PacketStatus.CODING.value,
+                            )
+                            architect_rework_run = run_packet_task(
+                                str(architect_rework_router_packet["packet_id"]),
+                                dry_run,
+                                timeout_seconds,
+                            )
+                        packet_results[packet_result_key("architect_rework_run", packet_id)] = architect_rework_run
+                        if architect_rework_run.get("returncode") != 0:
+                            final_status = _final_failure(
+                                feature_id=feature_id,
+                                category="environment_blocked",
+                                next_action=f"inspect-failed-architect-rework:{architect_rework_router_packet['packet_id']}",
+                            )
+                            publish_feature_artifacts_task(
+                                seeded["feature"],
+                                packet_results,
+                                verification_records[-1] if verification_records else None,
+                                review_route,
+                                wave_routes[-1] if wave_routes else None,
+                                final_status,
+                            )
+                            return {
+                                "feature": seeded["feature"],
+                                "seeded": seeded,
+                                "runs": packet_results,
+                                "verification_records": verification_records,
+                                "review_routes": review_routes,
+                                "wave_routes": wave_routes,
+                                "final_status": final_status,
+                            }
+                        with tags(f"wave:{wave_id}", "role:architect"):
+                            mark_packet_status_task(
+                                str(architect_rework_router_packet["packet_id"]),
+                                PacketStatus.ACCEPTED.value,
+                            )
+                        architect_rework_packet = _build_architect_direct_rework(
+                            coder_packet_id=target_packet_id,
+                            reviewer_packet_id=packet_id,
+                            reasons=list(reviewer_decision.get("reasons") or []),
+                            architect_run=architect_rework_run,
+                            route_classification=route_classification,
+                            rework_mode=rework_mode,
+                        )
                     reviewer_decision_index += 1
                     with tags(f"wave:{wave_id}", "role:reviewer"):
                         review_route = route_reviewer_verdict_task(
@@ -1125,6 +1681,8 @@ def feature_pipeline(
                             packet_id,
                             reviewer_decision,
                             create_rework,
+                            rework_routing_policy=rework_routing_policy,
+                            architect_rework_packet=architect_rework_packet,
                         )
                     review_routes.append(review_route)
                     packet_results[packet_result_key("review", packet_id)] = review_route
@@ -1139,43 +1697,133 @@ def feature_pipeline(
                     completed_packet_ids.add(packet_id)
 
                     if review_route["reviewer_verdict"] == ReviewVerdict.REWORK_REQUIRED.value:
-                        rework_bundle = review_route.get("rework") or {}
-                        rework_packets = [
-                            packet_obj
-                            for packet_obj in [
-                                rework_bundle.get("rework"),
-                                rework_bundle.get("verifier"),
-                                rework_bundle.get("reviewer"),
+                        rework_object = review_route.get("rework")
+                        if (
+                            review_route.get("route_classification") == REWORK_ROUTE_SELF_RESOLVABLE
+                            and rework_routing_policy == REWORK_ROUTING_ARCHITECT_FIRST
+                            and not (isinstance(rework_object, dict) and rework_object.get("packet_id"))
+                        ):
+                            final_status = _final_failure(
+                                feature_id=feature_id,
+                                category="pipeline_invalid",
+                                next_action=f"missing-architect-direct-rework:{packet_id}",
+                                reasons=[
+                                    f"Architect-first rework for {packet_id} did not yield a bounded direct coder packet."
+                                ],
+                            )
+                            publish_feature_artifacts_task(
+                                seeded["feature"],
+                                packet_results,
+                                verification_records[-1] if verification_records else None,
+                                review_route,
+                                wave_routes[-1] if wave_routes else None,
+                                final_status,
+                            )
+                            return {
+                                "feature": seeded["feature"],
+                                "seeded": seeded,
+                                "runs": packet_results,
+                                "verification_records": verification_records,
+                                "review_routes": review_routes,
+                                "wave_routes": wave_routes,
+                                "final_status": final_status,
+                            }
+                        if isinstance(rework_object, dict) and rework_object.get("packet_id"):
+                            direct_rework_packet = dict(rework_object)
+                            if (
+                                str(direct_rework_packet.get("rework_mode") or "") == REWORK_MODE_LIGHT_RESUME
+                                and str(direct_rework_packet.get("review_target_packet_id") or "") == str(target_packet_id)
+                            ):
+                                light_resume_followup = _build_light_resume_followup(
+                                    source_reviewer_packet=packet,
+                                    resumed_packet=dict(packets_by_id.get(target_packet_id) or {}),
+                                    reasons=list((review_route.get("review") or {}).get("reasons") or reviewer_decision.get("reasons") or []),
+                                    reviewer_packet_id=packet_id,
+                                    packets_by_id=packets_by_id,
+                                )
+                                review_route["rework"] = light_resume_followup["rework"]
+                                review_route["light_resume_stage"] = True
+                                rework_packets = list(light_resume_followup["packets"])
+                                rework_reviewer_packet_id = str(light_resume_followup["reviewer_packet_id"] or "")
+                            else:
+                                rework_packets, rework_reviewer_packet_id = _build_direct_rework_followup_packets(
+                                    source_reviewer_packet=packet,
+                                    direct_rework_packet=direct_rework_packet,
+                                    target_packet_id=target_packet_id,
+                                    packets_by_id=packets_by_id,
+                                )
+                        else:
+                            rework_bundle = rework_object or {}
+                            rework_packets = [
+                                packet_obj
+                                for packet_obj in [
+                                    rework_bundle.get("rework"),
+                                    rework_bundle.get("verifier"),
+                                    rework_bundle.get("reviewer"),
+                                ]
+                                if isinstance(packet_obj, dict) and packet_obj.get("packet_id")
                             ]
-                            if isinstance(packet_obj, dict) and packet_obj.get("packet_id")
-                        ]
+                            rework_reviewer_packet_id = str(rework_bundle.get("reviewer", {}).get("packet_id") or "")
                         if rework_packets:
                             for rework_packet in rework_packets:
                                 rework_packet_id = str(rework_packet["packet_id"])
                                 packets_by_id[rework_packet_id] = rework_packet
                                 wave_packet_sets.setdefault(wave_id, set()).add(rework_packet_id)
+                                if (
+                                    review_route.get("light_resume_stage") is True
+                                    and rework_packet_id == str(target_packet_id)
+                                ):
+                                    completed_packet_ids.discard(rework_packet_id)
                                 if rework_packet_id not in queue_ids and rework_packet_id not in completed_packet_ids:
                                     append_unique_packet(queue_packets, rework_packet)
                                     queue_ids.add(rework_packet_id)
-                            rework_reviewer_packet_id = str(rework_bundle.get("reviewer", {}).get("packet_id") or "")
-                            for queued_packet in queue_packets:
-                                if str(queued_packet.get("role") or "") != "architect":
-                                    continue
-                                if str(queued_packet.get("wave_id") or "") != wave_id:
-                                    continue
-                                dependencies = list(queued_packet.get("dependencies") or [])
-                                if packet_id in dependencies and rework_reviewer_packet_id and rework_reviewer_packet_id not in dependencies:
-                                    queued_packet["dependencies"] = [*dependencies, rework_reviewer_packet_id]
-                                    update_record(
-                                        "packets",
-                                        "packets",
-                                        "packet_id",
-                                        str(queued_packet["packet_id"]),
-                                        {"dependencies": queued_packet["dependencies"]},
-                                    )
+                            if rework_reviewer_packet_id:
+                                for queued_packet in queue_packets:
+                                    if str(queued_packet.get("role") or "") != "architect":
+                                        continue
+                                    if str(queued_packet.get("wave_id") or "") != wave_id:
+                                        continue
+                                    dependencies = list(queued_packet.get("dependencies") or [])
+                                    if packet_id in dependencies and rework_reviewer_packet_id and rework_reviewer_packet_id not in dependencies:
+                                        queued_packet["dependencies"] = [*dependencies, rework_reviewer_packet_id]
+                                        update_record(
+                                            "packets",
+                                            "packets",
+                                            "packet_id",
+                                            str(queued_packet["packet_id"]),
+                                            {"dependencies": queued_packet["dependencies"]},
+                                        )
                             feature_status = FeatureStatus.IN_PROGRESS
                             next_action = "run-rework-packet"
                             continue
+                        if review_route.get("decision"):
+                            next_action = (
+                                "architect-user-decision-required"
+                                if review_route.get("route_classification") == REWORK_ROUTE_REQUIRES_USER_DECISION
+                                else "architect-planner-decomposition-required"
+                            )
+                            final_status = {
+                                "feature": mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY),
+                                "has_failures": False,
+                                "next_action": next_action,
+                            }
+                            publish_feature_artifacts_task(
+                                seeded["feature"],
+                                packet_results,
+                                verification_records[-1] if verification_records else None,
+                                review_route,
+                                wave_routes[-1] if wave_routes else None,
+                                final_status,
+                            )
+                            return {
+                                "feature": seeded["feature"],
+                                "seeded": seeded,
+                                "runs": packet_results,
+                                "verification_records": verification_records,
+                                "review_routes": review_routes,
+                                "wave_routes": wave_routes,
+                                "final_status": final_status,
+                            }
                         final_status = _final_failure(
                             feature_id=feature_id,
                             category="pipeline_invalid",

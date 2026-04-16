@@ -1,4 +1,5 @@
 from prefect_grace.tasks.agent_output_parser import (
+    parse_direct_rework_packet_message,
     parse_reviewer_message,
     parse_verifier_message,
     parse_wave_gate_message,
@@ -14,12 +15,14 @@ Verdict
 accepted
 
 FINAL_PACKET_DECISION_JSON
-{"packet_verdict":"rework_required","follow_up_action":"localized_rework","reasons":["Missing logs","No trace id"]}
+{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"light_resume","reasons":["Missing logs","No trace id"]}
 END_FINAL_PACKET_DECISION_JSON
 """
     parsed = parse_reviewer_message(text)
     assert parsed["packet_verdict"] == "rework_required"
     assert parsed["follow_up_action"] == "localized_rework"
+    assert parsed["route_classification"] == "self_resolvable_rework"
+    assert parsed["rework_mode"] == "light_resume"
     assert parsed["reasons"] == ["Missing logs", "No trace id"]
 
 
@@ -238,3 +241,39 @@ def test_resolve_verifier_result_reads_last_message(tmp_path) -> None:
     assert decision["frontend_visual_verdict"] == "sufficient"
     assert decision["evidence_paths"] == ["frontend/artifacts/visual-proof.png"]
     assert decision["source"] == "agent_output"
+
+
+def test_parse_direct_rework_packet_message() -> None:
+    text = """
+FINAL_DIRECT_REWORK_PACKET_JSON
+{"route_classification":"self_resolvable_rework","rework_mode":"light_resume","title":"Direct Rework Main Slice","summary":"Fix bounded reviewer blockers","write_scope":["Only main slice files"],"inputs":["Parent packet","Reviewer blockers"],"acceptance_criteria":["Blockers resolved"],"verification_profile":{"backend":"backend quick","frontend":"not required","observability":"repeat evidence review"},"reviewer_gate":["No unrelated changes"],"notes":["Architect-bounded direct rework"],"reasons":["Fix edge case"]}
+END_FINAL_DIRECT_REWORK_PACKET_JSON
+"""
+    parsed = parse_direct_rework_packet_message(text)
+    assert parsed["route_classification"] == "self_resolvable_rework"
+    assert parsed["rework_mode"] == "light_resume"
+    assert parsed["title"] == "Direct Rework Main Slice"
+    assert parsed["summary"] == "Fix bounded reviewer blockers"
+    assert parsed["write_scope"] == ["Only main slice files"]
+
+
+def test_parse_reviewer_message_accepts_small_fix_rework_mode_alias() -> None:
+    text = """
+FINAL_PACKET_DECISION_JSON
+{"packet_verdict":"rework_required","follow_up_action":"localized_rework","route_classification":"self_resolvable_rework","rework_mode":"small_fix","reasons":["Fix copy typo"]}
+END_FINAL_PACKET_DECISION_JSON
+"""
+    parsed = parse_reviewer_message(text)
+    assert parsed["packet_verdict"] == "rework_required"
+    assert parsed["rework_mode"] == "light_resume"
+
+
+def test_parse_direct_rework_packet_message_accepts_small_fix_rework_mode_alias() -> None:
+    text = """
+FINAL_DIRECT_REWORK_PACKET_JSON
+{"route_classification":"self_resolvable_rework","rework_mode":"small_fix","title":"Small Fix Main Slice","summary":"Fix one small blocker"}
+END_FINAL_DIRECT_REWORK_PACKET_JSON
+"""
+    parsed = parse_direct_rework_packet_message(text)
+    assert parsed["route_classification"] == "self_resolvable_rework"
+    assert parsed["rework_mode"] == "light_resume"

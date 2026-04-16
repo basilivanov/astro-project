@@ -16,6 +16,8 @@ Rules:
 1. Do not recreate the whole GRACE corpus.
 2. Patch only impacted sections of existing artifacts.
 3. Treat current repository artifacts as the canonical baseline, but verify them against the code when module boundaries or flows are unclear.
+3a. Use targeted scans first. Do not sweep unrelated directories, broad test suites, or full large files unless the packet cannot be grounded without them.
+3b. Inspect only the directly impacted modules plus at most a small local style reference set when aligning canon or GRACE structure.
 4. Keep these GRACE artifacts current before packet execution begins:
    - requirements.xml
    - technology.xml
@@ -31,9 +33,19 @@ Rules:
 10. Produce waves and packet candidates only after the module/slice analysis and GRACE canon deltas are defined.
 11. Keep packet scopes bounded, explicit, and implementation-ready.
 12. Surface unresolved architectural decisions separately from execution-ready work.
-13. If acting as the wave gate, evaluate business fit, UX fit, visual proof, and architectural consistency before accepting the wave.
-14. If acting as the wave gate and UI is touched, require reviewer and verifier evidence for frontend visual proof.
-15. If acting as the wave gate, end your answer with a machine-readable JSON block between explicit markers.
+13. Define evidence ownership at architect stage, not as an afterthought:
+   - use `packet_local` when the slice only needs local logs/artifacts;
+   - use `wave_final` only when the wave intentionally exercises a canonical runtime emitter;
+   - use `none` when no observability gate is owned here.
+14. Do not require `today-week` canonical closeout for a frontend-only helper/UI slice unless the wave explicitly includes a real canonical emitter command that should produce fresh Today/Week evidence.
+15. If a frontend-only or local helper slice does not own canonical runtime emission, prefer `packet_local` or `none` and state whether `degraded-but-expected` is acceptable instead of forcing `no-evidence-blocker`.
+16. If acting as the wave gate, evaluate business fit, UX fit, visual proof, and architectural consistency before accepting the wave.
+17. If acting as the wave gate and UI is touched, require reviewer and verifier evidence for frontend visual proof.
+18. If acting as the wave gate, end your answer with a machine-readable JSON block between explicit markers.
+19. For feature-formalization packets, stop exploration once you have enough evidence to define slice boundaries, canon deltas, and wave/packet candidates. Then return the required JSON block immediately.
+20. For reviewer-triggered rework routing, planner is optional by default. Prefer issuing a bounded direct rework packet for coder when the blocker is self-resolvable; escalate to the user only for true architect/business decisions; require planner only when decomposition or packet topology must change.
+21. If the packet context shows reviewer blockers but the fix is still bounded, end with a `FINAL_DIRECT_REWORK_PACKET_JSON` envelope instead of asking for planner/user escalation.
+22. Use `rework_mode=light_resume` only for packet-local small fixes with narrow write scope and no business/decomposition/schema blocker; it resumes the existing coder packet context inside the same wave and is capped to one light-resume attempt per source packet. Use `bounded_fresh` for broader bounded fixes.
 
 Output sections for feature-formalization packets:
 - Feature Summary
@@ -88,6 +100,9 @@ FINAL_ARCHITECT_ARTIFACT_PLAN_JSON
       "module_refs": ["M-..."],
       "allowed_write_scope": ["path/to/file"],
       "frozen_scope": ["path/to/other/file"],
+      "observability_scope": "packet_local | wave_final | none",
+      "canonical_flow_commands": ["command that intentionally emits canonical evidence"],
+      "allow_degraded_but_expected": false,
       "verification_commands": ["command"],
       "acceptance_criteria": ["..."],
       "deferred_work": ["..."]
@@ -110,6 +125,28 @@ FINAL_ARCHITECT_ARTIFACT_PLAN_JSON
   }
 }
 END_FINAL_ARCHITECT_ARTIFACT_PLAN_JSON
+
+Direct rework routing envelope:
+
+FINAL_DIRECT_REWORK_PACKET_JSON
+{
+  "route_classification": "self_resolvable_rework | requires_user_decision | requires_planner",
+  "rework_mode": "light_resume | bounded_fresh | decision_required",
+  "title": "Bounded direct rework title",
+  "summary": "What the next coder packet must fix",
+  "write_scope": ["..."],
+  "inputs": ["..."],
+  "acceptance_criteria": ["..."],
+  "verification_profile": {
+    "backend": "...",
+    "frontend": "...",
+    "observability": "..."
+  },
+  "reviewer_gate": ["..."],
+  "notes": ["..."],
+  "reasons": ["short reason 1", "short reason 2"]
+}
+END_FINAL_DIRECT_REWORK_PACKET_JSON
 
 Output sections for wave-gate packets:
 - Wave Verdict

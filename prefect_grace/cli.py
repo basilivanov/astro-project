@@ -126,6 +126,7 @@ def _cmd_test_feature(args: argparse.Namespace) -> None:
         agent_workdir=args.agent_workdir,
         agent_sandbox=args.agent_sandbox,
         planner_contract=planner_contract,
+        run_planner=args.run_planner,
         reviewer_verdict=reviewer_verdict,
         review_reasons=args.review_reason,
         reviewer_verdict_script=args.reviewer_verdict_script,
@@ -165,6 +166,7 @@ def _cmd_submit_feature(args: argparse.Namespace) -> None:
         verifier_requires_frontend_visual=args.touches_frontend or bool(args.frontend_command),
         verifier_include_day_live_canary=args.include_day_live_canary,
         prefer_agent_output=True,
+        run_planner=args.run_planner,
         agent_workdir=args.agent_workdir,
         agent_sandbox=args.agent_sandbox,
     )
@@ -265,6 +267,7 @@ def build_parser() -> argparse.ArgumentParser:
     test_feature.add_argument("--agent-workdir")
     test_feature.add_argument("--agent-sandbox")
     test_feature.add_argument("--planner-contract")
+    test_feature.add_argument("--run-planner", action="store_true")
     test_feature.add_argument("--reviewer-verdict-script", action="append")
     test_feature.add_argument("--review-reasons-script", action="append")
     test_feature.add_argument("--wave-verdict-script", action="append")
@@ -318,6 +321,7 @@ def build_parser() -> argparse.ArgumentParser:
     submit_feature.add_argument("--include-day-live-canary", action="store_true")
     submit_feature.add_argument("--agent-workdir")
     submit_feature.add_argument("--agent-sandbox")
+    submit_feature.add_argument("--run-planner", action="store_true")
     submit_feature.add_argument("--timeout-seconds", type=int, default=7200)
     submit_feature.add_argument("--execute", action="store_true")
     submit_feature.set_defaults(func=_cmd_submit_feature)

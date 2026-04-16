@@ -3,6 +3,7 @@ from pathlib import Path
 from prefect_grace.tasks import state_store
 from prefect_grace.flows.feature_pipeline import feature_pipeline, _normalize_reviewer_decision_for_pipeline
 from prefect_grace.tasks import prefect_artifacts
+from prefect_grace.tasks.state_store import find_record
 
 
 def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> None:
@@ -20,7 +21,8 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
         prefer_agent_output=False,
         reviewer_verdict="accepted",
         wave_verdict="accepted",
-        verifier_observability_profile="today-week",
+        verifier_observability_profile="read-only",
+        rework_routing_policy="auto_bundle",
         planner_contract={
             "waves": [
                 {"wave_id": "W01", "title": "Wave 1", "objective": "Backend slice", "exit_conditions": ["accepted"]},
@@ -128,7 +130,8 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
         reviewer_verdict_script=["rework_required", "accepted"],
         review_reasons_script=[["Fix boundary condition"], []],
         wave_verdict_script=["accepted"],
-        verifier_observability_profile="today-week",
+        verifier_observability_profile="read-only",
+        rework_routing_policy="auto_bundle",
         planner_contract={
             "waves": [
                 {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
@@ -178,6 +181,503 @@ def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:
     assert result["final_status"]["feature"]["status"] == "accepted"
     assert len(result["review_routes"]) == 2
     assert any("REWORK" in key for key in result["runs"])
+    rework_reviewer = next(
+        packet
+        for packet in state_store.load_state("packets").get("packets", [])
+        if packet.get("feature_id") == "FEAT-REWORK-LOOP"
+        and packet.get("role") == "reviewer"
+        and packet.get("parent_packet_id")
+        and "REVIEWER-REWORK" in packet.get("packet_id", "")
+    )
+    assert rework_reviewer["review_target_packet_id"].endswith("REWORK-MAIN-SLICE")
+
+
+def test_feature_pipeline_architect_first_rework_default(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-ARCH-FIRST-REWORK"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-ARCH-FIRST-REWORK",
+        title="Architect-first rework feature",
+        summary="Reviewer rework should default to a single architect-bounded direct coder packet",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict_script=["rework_required", "accepted"],
+        review_reasons_script=[["Fix boundary condition"], []],
+        wave_verdict_script=["accepted"],
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "high",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert len(result["review_routes"]) == 2
+    first_review = result["review_routes"][0]
+    assert first_review["route_classification"] == "self_resolvable_rework"
+    assert isinstance(first_review["rework"], dict)
+    assert first_review["rework"]["role"] == "coder"
+    assert first_review["rework"]["title"] == "Main Slice"
+    assert first_review["rework_routing_policy"] == "architect_first"
+    assert first_review["rework"]["rework_mode"] == "light_resume"
+    assert first_review["rework"]["execution_hints"]["resume_strategy"] == "packet_parent"
+    assert first_review["rework"]["packet_id"].endswith("MAIN-SLICE")
+    assert first_review["light_resume_stage"] is True
+    architect_rework_packets = [
+        packet
+        for packet in state_store.load_state("packets").get("packets", [])
+        if packet.get("feature_id") == "FEAT-ARCH-FIRST-REWORK"
+        and packet.get("role") == "architect"
+        and str(packet.get("parent_packet_id") or "").endswith("MAIN-SLICE")
+        and "ARCHITECT-REWORK" in str(packet.get("packet_id") or "")
+    ]
+    assert len(architect_rework_packets) == 1
+    resumed_packet = find_record("packets", "packets", "packet_id", "FEAT-ARCH-FIRST-REWORK-W01-MAIN-SLICE")
+    assert resumed_packet["execution_hints"]["light_resume_stage"] is True
+    assert resumed_packet["light_resume_attempt"] == 1
+    rework_reviewers = [
+        packet
+        for packet in state_store.load_state("packets").get("packets", [])
+        if packet.get("feature_id") == "FEAT-ARCH-FIRST-REWORK"
+        and packet.get("role") == "reviewer"
+        and packet.get("parent_packet_id") == "FEAT-ARCH-FIRST-REWORK-W01-MAIN-SLICE"
+        and "REVIEWER-REWORK" in str(packet.get("packet_id") or "")
+    ]
+    assert len(rework_reviewers) == 1
+
+
+def test_feature_pipeline_downgrades_broad_light_resume_to_bounded_fresh(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-LIGHT-RESUME-DOWNGRADE"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-LIGHT-RESUME-DOWNGRADE",
+        title="Light resume downgrade feature",
+        summary="Broad blockers should not resume the existing packet in place",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict_script=["rework_required", "accepted"],
+        review_reasons_script=[
+            ["Fix boundary condition", "Update targeted unit expectation", "Refresh evidence note"],
+            ["Fresh packet accepted"],
+        ],
+        wave_verdict_script=["accepted"],
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {"key": "verifier_main", "wave_id": "W01", "title": "Verify Slice", "role": "verifier", "summary": "Verify slice", "dependencies": ["coder_main"]},
+                {"key": "reviewer_main", "wave_id": "W01", "title": "Review Slice", "role": "reviewer", "summary": "Review slice", "dependencies": ["coder_main", "verifier_main"], "review_target_key": "coder_main"},
+                {"key": "architect_main", "wave_id": "W01", "title": "Architect Gate", "role": "architect", "summary": "Accept wave", "dependencies": ["reviewer_main"]},
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    first_review = result["review_routes"][0]
+    assert first_review["route_classification"] == "self_resolvable_rework"
+    assert first_review["rework"]["packet_id"] != "FEAT-LIGHT-RESUME-DOWNGRADE-W01-MAIN-SLICE"
+    assert first_review["rework"]["rework_mode"] == "bounded_fresh"
+    assert first_review["rework"]["requested_rework_mode"] == "bounded_fresh"
+
+
+def test_feature_pipeline_blocks_second_light_resume_cycle(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-LIGHT-RESUME-LOOP-STOP"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-LIGHT-RESUME-LOOP-STOP",
+        title="Light resume loop stop",
+        summary="Do not allow repeated in-place light resume on the same packet",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict_script=["rework_required", "rework_required", "accepted"],
+        review_reasons_script=[["Fix one small typo"], ["Fix another small typo"], ["Fresh packet accepted"]],
+        wave_verdict_script=["accepted"],
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {"key": "verifier_main", "wave_id": "W01", "title": "Verify Slice", "role": "verifier", "summary": "Verify slice", "dependencies": ["coder_main"]},
+                {"key": "reviewer_main", "wave_id": "W01", "title": "Review Slice", "role": "reviewer", "summary": "Review slice", "dependencies": ["coder_main", "verifier_main"], "review_target_key": "coder_main"},
+                {"key": "architect_main", "wave_id": "W01", "title": "Architect Gate", "role": "architect", "summary": "Accept wave", "dependencies": ["reviewer_main"]},
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    assert len(result["review_routes"]) == 3
+    assert result["review_routes"][0]["light_resume_stage"] is True
+    second_rework = result["review_routes"][1]["rework"]
+    assert second_rework["rework_mode"] == "bounded_fresh"
+    assert second_rework["requested_rework_mode"] == "light_resume"
+
+
+def test_feature_pipeline_accepts_small_fix_alias_for_packet_level_light_resume(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-SMALL-FIX-ALIAS"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    def _fake_launch(packet_id: str, dry_run: bool, timeout_seconds: int, logger):
+        packet = find_record("packets", "packets", "packet_id", packet_id)
+        run_dir = tmp_path / "runs" / packet_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        stdout_path = run_dir / "stdout.jsonl"
+        last_message_path = run_dir / "last-message.md"
+        stdout_path.write_text("", encoding="utf-8")
+        if str(packet.get("role") or "") == "architect" and "ARCHITECT-REWORK" in packet_id:
+            last_message_path.write_text(
+                "\n".join(
+                    [
+                        "FINAL_DIRECT_REWORK_PACKET_JSON",
+                        '{"route_classification":"self_resolvable_rework","rework_mode":"small_fix","title":"Small Fix Main Slice","summary":"Fix one narrow typo"}',
+                        "END_FINAL_DIRECT_REWORK_PACKET_JSON",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+        else:
+            last_message_path.write_text("DRY RUN\n", encoding="utf-8")
+        return {
+            "packet_id": packet_id,
+            "returncode": 0,
+            "launcher": "fake",
+            "stdout_path": str(stdout_path),
+            "last_message_path": str(last_message_path),
+        }
+
+    monkeypatch.setattr("prefect_grace.flows.feature_pipeline.launch_codex_for_packet", _fake_launch)
+
+    result = feature_pipeline(
+        feature_id="FEAT-SMALL-FIX-ALIAS",
+        title="Small fix alias feature",
+        summary="Architect direct rework small_fix should safely map to packet-level light resume",
+        dry_run=True,
+        prefer_agent_output=True,
+        reviewer_verdict_script=["rework_required", "accepted"],
+        review_reasons_script=[["Fix one narrow typo"], []],
+        wave_verdict_script=["accepted"],
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {"key": "verifier_main", "wave_id": "W01", "title": "Verify Slice", "role": "verifier", "summary": "Verify slice", "dependencies": ["coder_main"]},
+                {"key": "reviewer_main", "wave_id": "W01", "title": "Review Slice", "role": "reviewer", "summary": "Review slice", "dependencies": ["coder_main", "verifier_main"], "review_target_key": "coder_main"},
+                {"key": "architect_main", "wave_id": "W01", "title": "Architect Gate", "role": "architect", "summary": "Accept wave", "dependencies": ["reviewer_main"]},
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
+    first_review = result["review_routes"][0]
+    assert first_review["light_resume_stage"] is True
+    assert first_review["rework"]["packet_id"] == "FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE"
+    assert first_review["rework"]["requested_rework_mode"] == "light_resume"
+    assert first_review["rework"]["rework_mode"] == "light_resume"
+
+
+def test_feature_pipeline_rework_requires_planner_escalation(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-PLANNER-REWORK"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-PLANNER-REWORK",
+        title="Planner rework feature",
+        summary="Reviewer rework should escalate to architect/planner only when decomposition must change",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="rework_required",
+        review_reasons=["Packet graph must be resliced because the blocker spans multiple waves"],
+        wave_verdict="accepted",
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "architect_ready"
+    assert result["final_status"]["next_action"] == "architect-planner-decomposition-required"
+    assert result["review_routes"][0]["route_classification"] == "requires_planner"
+    assert result["review_routes"][0]["decision"]["route_classification"] == "requires_planner"
+
+
+def test_feature_pipeline_rework_requires_architect_user_decision(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-USER-DECISION-REWORK"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-USER-DECISION-REWORK",
+        title="User decision rework feature",
+        summary="Reviewer rework should escalate only when blocker needs user/product decision",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="rework_required",
+        review_reasons=["Business decision required before changing product behavior"],
+        wave_verdict="accepted",
+        verifier_observability_profile="read-only",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "architect_ready"
+    assert result["final_status"]["next_action"] == "architect-user-decision-required"
+    assert result["review_routes"][0]["route_classification"] == "requires_user_decision"
+    assert result["review_routes"][0]["decision"]["route_classification"] == "requires_user_decision"
+
+
+def test_validate_planner_contract_rejects_today_week_without_wave_final_probe(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-BAD-OBS-CONTRACT"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-BAD-OBS-CONTRACT",
+        title="Bad observability contract",
+        summary="Reject today-week on packet-local verifier without canonical probe",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        planner_contract={
+            "waves": [{"wave_id": "W01", "title": "Wave 1", "objective": "Single slice"}],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main", "role": "coder", "summary": "Do work"},
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify",
+                    "role": "verifier",
+                    "summary": "Verify",
+                    "dependencies": ["coder_main"],
+                    "verification_profile": {
+                        "execution": {
+                            "observability_commands": [
+                                "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+                            ],
+                        }
+                    },
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review",
+                    "role": "reviewer",
+                    "summary": "Review",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "pipeline_invalid"
+    reasons = result["final_status"]["reasons"]
+    assert any("observability_scope=wave_final" in reason for reason in reasons)
+    assert any("canonical_flow_commands" in reason for reason in reasons)
+
+
+def test_validate_planner_contract_rejects_today_week_without_architect_authorization(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-ARCH-MISMATCH-OBS"
+    if feature_packets_dir.exists():
+        import shutil
+        shutil.rmtree(feature_packets_dir)
+
+    result = feature_pipeline(
+        feature_id="FEAT-ARCH-MISMATCH-OBS",
+        title="Architect mismatch observability",
+        summary="Reject planner today-week gate when architect did not authorize canonical evidence ownership",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        business_context={
+            "impacted_modules": ["M-FRONTEND-WEEK"],
+            "allowed_write_scope": ["/opt/astro-project/frontend/app/week/page.tsx"],
+            "architect_waves": [
+                {
+                    "wave_id": "W01",
+                    "title": "Frontend helper wave",
+                    "goal": "Frontend-only helper change",
+                    "allowed_write_scope": ["/opt/astro-project/frontend/app/week/page.tsx"],
+                    "observability_scope": "packet_local",
+                    "canonical_flow_commands": [],
+                    "verification_commands": [
+                        "corepack pnpm --dir frontend exec jest --runInBand test/app/week-page.test.tsx",
+                    ],
+                }
+            ],
+        },
+        planner_contract={
+            "waves": [{"wave_id": "W01", "title": "Wave 1", "objective": "Single slice"}],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main", "role": "coder", "summary": "Do work"},
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify",
+                    "role": "verifier",
+                    "summary": "Verify",
+                    "dependencies": ["coder_main"],
+                    "verification_profile": {
+                        "execution": {
+                            "observability_scope": "wave_final",
+                            "canonical_flow_commands": [
+                                "./scripts/run_e2e.sh e2e/week-runtime-indicator.spec.ts",
+                            ],
+                            "observability_commands": [
+                                "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+                            ],
+                        }
+                    },
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review",
+                    "role": "reviewer",
+                    "summary": "Review",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "pipeline_invalid"
+    reasons = result["final_status"]["reasons"]
+    assert any("does not authorize today-week wave_final ownership" in reason for reason in reasons)
+    assert any("lacks canonical_flow_commands/include_day_live_canary" in reason for reason in reasons)
 
 
 def test_pipeline_normalizes_evidence_only_blocked_review_to_rework() -> None:
@@ -217,7 +717,8 @@ def test_feature_pipeline_stops_repeated_observability_rework_loop(tmp_path: Pat
             ["Today post-test observability verdict is no-evidence-blocker due to missing canonical logs"],
         ],
         wave_verdict_script=["accepted"],
-        verifier_observability_profile="today-week",
+        verifier_observability_profile="read-only",
+        rework_routing_policy="auto_bundle",
         planner_contract={
             "waves": [
                 {"wave_id": "W01", "title": "Wave 1", "objective": "Single slice", "exit_conditions": ["accepted"]},
@@ -401,4 +902,21 @@ def test_feature_pipeline_can_skip_live_w00_agents_for_fast_iteration(tmp_path: 
 
     assert result["final_status"]["feature"]["status"] == "accepted"
     assert result["runs"]["architect"]["launcher"] == "skipped"
+    assert result["runs"]["planner"]["launcher"] == "skipped"
+
+
+def test_feature_pipeline_defaults_planner_to_skipped(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-DEFAULT-PLANNER-OFF",
+        title="Planner optional feature",
+        summary="Planner should be skipped by default on new launches",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+    )
+
+    assert result["final_status"]["feature"]["status"] == "accepted"
     assert result["runs"]["planner"]["launcher"] == "skipped"

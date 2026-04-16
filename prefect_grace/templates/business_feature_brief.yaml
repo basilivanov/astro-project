@@ -12,7 +12,8 @@ impacted_grace_artifacts:
   - knowledge-graph.xml
 
 wave_proposal:
-  - W00 architect + planner formalization
+  - W00 architect formalization
+  - Optional planner decomposition only if the architect cannot keep execution bounded without reslicing
   - W01 implementation + verification + review
 
 open_decisions:
@@ -38,6 +39,7 @@ implementation:
   summary: Optional packet summary override.
 
 execute: true
+run_planner:
 timeout_seconds: 7200
 agent_workdir: /tmp/prefect_grace_feature_workdir
 agent_sandbox: danger-full-access

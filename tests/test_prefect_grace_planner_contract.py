@@ -225,7 +225,7 @@ def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: P
         verifier_observability_profile='read-only',
     )
 
-    from prefect_grace.tasks.review_router import create_rework_bundle_from_review
+    from prefect_grace.tasks.review_router import create_rework_bundle_from_review, create_direct_rework_from_architect
 
     coder = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'coder')
     verifier = next(packet for packet in seeded['packets']['generated'] if packet['role'] == 'verifier')
@@ -248,6 +248,56 @@ def test_rework_bundle_preserves_execution_hints_and_explicit_target(tmp_path: P
     assert rework_reviewer['review_target_packet_id'] == rework['packet_id']
     assert rework['grace_feature_ref'] == 'feature:FEAT-REWORK-HINTS'
     assert rework['grace_wave_ref'] == 'feature:FEAT-REWORK-HINTS:wave:W01'
+
+    direct_rework = create_direct_rework_from_architect(
+        coder['packet_id'],
+        ['Need bounded architect-first rework'],
+    )
+    assert direct_rework['execution_hints']['sandbox'] == 'danger-full-access'
+    assert direct_rework['review_target_packet_id'] == coder['packet_id']
+
+    light_rework = create_direct_rework_from_architect(
+        coder['packet_id'],
+        ['Small packet-local fix'],
+        rework_mode='light_resume',
+        title='Light Rework Main Slice',
+    )
+    assert light_rework['rework_mode'] == 'light_resume'
+    assert light_rework['execution_hints']['resume_strategy'] == 'packet_parent'
+    assert light_rework['execution_hints']['resume_parent_packet_id'] == coder['packet_id']
+    assert light_rework['packet_id'] == coder['packet_id']
+    assert light_rework['execution_hints']['light_resume_stage'] is True
+
+    downgraded_rework = create_direct_rework_from_architect(
+        coder['packet_id'],
+        ['Needs planner because packet graph changes', 'Also requires business decision'],
+        rework_mode='light_resume',
+        title='Too Broad For Light Resume',
+    )
+    assert downgraded_rework['packet_id'] != coder['packet_id']
+    assert downgraded_rework['requested_rework_mode'] == 'light_resume'
+    assert downgraded_rework['rework_mode'] == 'bounded_fresh'
+    assert downgraded_rework['light_resume_downgrade_reason']
+
+    seeded_alias = seed_test_feature(
+        feature_id='FEAT-REWORK-HINTS-ALIAS',
+        title='Rework hints alias feature',
+        summary='Verify small_fix alias maps to packet-level light resume',
+        implementation_title='Implementation',
+        implementation_summary='Implementation summary',
+        agent_sandbox='danger-full-access',
+        verifier_observability_profile='read-only',
+    )
+    alias_coder = next(packet for packet in seeded_alias['packets']['generated'] if packet['role'] == 'coder')
+    small_fix_rework = create_direct_rework_from_architect(
+        alias_coder['packet_id'],
+        ['Fix one narrow typo'],
+        rework_mode='small_fix',
+        title='Small Fix Main Slice',
+    )
+    assert small_fix_rework['packet_id'] == alias_coder['packet_id']
+    assert small_fix_rework['requested_rework_mode'] == 'light_resume'
+    assert small_fix_rework['rework_mode'] == 'light_resume'
 
 
 def test_normalize_planner_contract_rejects_unknown_dependency() -> None:

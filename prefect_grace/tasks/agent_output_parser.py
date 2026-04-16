@@ -15,12 +15,16 @@ PLANNER_WAVE_PLAN_START = "FINAL_GRACE_WAVE_PLAN_JSON"
 PLANNER_WAVE_PLAN_END = "END_FINAL_GRACE_WAVE_PLAN_JSON"
 ARCHITECT_ARTIFACT_PLAN_START = "FINAL_ARCHITECT_ARTIFACT_PLAN_JSON"
 ARCHITECT_ARTIFACT_PLAN_END = "END_FINAL_ARCHITECT_ARTIFACT_PLAN_JSON"
+DIRECT_REWORK_PACKET_START = "FINAL_DIRECT_REWORK_PACKET_JSON"
+DIRECT_REWORK_PACKET_END = "END_FINAL_DIRECT_REWORK_PACKET_JSON"
 
 REVIEWER_VERDICTS = {"accepted", "rework_required", "blocked", "escalate_to_architect"}
 WAVE_VERDICTS = {"accepted", "rework_required", "blocked"}
 TEST_VERDICTS = {"passed", "failed", "not_run"}
 OBSERVABILITY_VERDICTS = {"clean", "degraded-but-expected", "unexpected-degradation", "no-evidence-blocker"}
 FRONTEND_VISUAL_VERDICTS = {"sufficient", "insufficient", "not_applicable"}
+REWORK_ROUTE_CLASSIFICATIONS = {"self_resolvable_rework", "requires_user_decision", "requires_planner"}
+REWORK_MODES = {"light_resume", "bounded_fresh", "decision_required"}
 
 
 def read_agent_message(last_message_path: str | None, stdout_path: str | None = None) -> str:
@@ -207,6 +211,32 @@ def parse_architect_artifact_plan_message(text: str) -> dict[str, Any]:
     return payload
 
 
+def parse_direct_rework_packet_message(text: str) -> dict[str, Any]:
+    payload = _extract_json_payload(text, DIRECT_REWORK_PACKET_START, DIRECT_REWORK_PACKET_END)
+    if payload is None:
+        payload = _extract_json_from_fences(text, {"route_classification", "summary"})
+    if payload is None:
+        raise ValueError("Direct rework packet JSON markers were not found")
+    if not isinstance(payload, dict):
+        raise ValueError("Direct rework packet payload must be a JSON object")
+    route_classification = _normalize_rework_route_classification(
+        payload.get("route_classification") or payload.get("classification") or "self_resolvable_rework"
+    )
+    return {
+        "route_classification": route_classification,
+        "rework_mode": _normalize_rework_mode(payload.get("rework_mode") or "bounded_fresh"),
+        "title": str(payload.get("title") or "").strip(),
+        "summary": str(payload.get("summary") or "").strip(),
+        "write_scope": _normalize_list(payload.get("write_scope")),
+        "inputs": _normalize_list(payload.get("inputs")),
+        "acceptance_criteria": _normalize_list(payload.get("acceptance_criteria")),
+        "verification_profile": payload.get("verification_profile") if isinstance(payload.get("verification_profile"), dict) else {},
+        "reviewer_gate": _normalize_list(payload.get("reviewer_gate")),
+        "notes": _normalize_list(payload.get("notes")),
+        "reasons": _normalize_reason_list(payload.get("reasons")),
+    }
+
+
 def parse_reviewer_message(text: str) -> dict[str, Any]:
     payload = _extract_json_payload(text, PACKET_DECISION_START, PACKET_DECISION_END)
     if payload is None:
@@ -215,11 +245,18 @@ def parse_reviewer_message(text: str) -> dict[str, Any]:
         verdict = _normalize_packet_verdict(payload.get("packet_verdict") or payload.get("verdict"))
         follow_up_action = str(payload.get("follow_up_action") or _default_follow_up_action(verdict)).strip()
         reasons = _normalize_reason_list(payload.get("reasons") or payload.get("blockers"))
-        return {
+        result = {
             "packet_verdict": verdict,
             "follow_up_action": follow_up_action,
             "reasons": reasons,
         }
+        route_classification = payload.get("route_classification") or payload.get("rework_classification")
+        if route_classification:
+            result["route_classification"] = _normalize_rework_route_classification(route_classification)
+        rework_mode = payload.get("rework_mode")
+        if rework_mode:
+            result["rework_mode"] = _normalize_rework_mode(rework_mode)
+        return result
 
     sections = _parse_sections(text, ["Verdict", "Acceptance Check", "Blockers", "Follow-up Action"])
     verdict = _normalize_packet_verdict(sections.get("Verdict"))
@@ -376,6 +413,45 @@ def _normalize_frontend_visual_verdict(value: Any) -> str:
     if verdict not in FRONTEND_VISUAL_VERDICTS:
         raise ValueError(f"Unsupported frontend visual verdict: {value!r}")
     return verdict
+
+
+def _normalize_rework_route_classification(value: Any) -> str:
+    classification = str(value or "").strip().casefold().replace("-", "_")
+    aliases = {
+        "self_resolvable": "self_resolvable_rework",
+        "localized_rework": "self_resolvable_rework",
+        "direct_rework": "self_resolvable_rework",
+        "architect_direct_rework": "self_resolvable_rework",
+        "user_decision": "requires_user_decision",
+        "product_decision": "requires_user_decision",
+        "architect_decision": "requires_user_decision",
+        "planner": "requires_planner",
+        "planner_required": "requires_planner",
+    }
+    classification = aliases.get(classification, classification)
+    if classification not in REWORK_ROUTE_CLASSIFICATIONS:
+        raise ValueError(f"Unsupported rework route classification: {value!r}")
+    return classification
+
+
+def _normalize_rework_mode(value: Any) -> str:
+    mode = str(value or "").strip().casefold().replace("-", "_")
+    aliases = {
+        "light": "light_resume",
+        "resume": "light_resume",
+        "packet_local_resume": "light_resume",
+        "small_fix": "light_resume",
+        "smallfix": "light_resume",
+        "fresh": "bounded_fresh",
+        "bounded": "bounded_fresh",
+        "fresh_packet": "bounded_fresh",
+        "decision": "decision_required",
+        "architect_decision": "decision_required",
+    }
+    mode = aliases.get(mode, mode)
+    if mode not in REWORK_MODES:
+        raise ValueError(f"Unsupported rework mode: {value!r}")
+    return mode
 
 
 def _default_follow_up_action(verdict: str) -> str:

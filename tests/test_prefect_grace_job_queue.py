@@ -14,6 +14,7 @@ def test_enqueue_and_claim_job(tmp_path: Path) -> None:
         execute=False,
     )
     assert job["feature_id"] == feature_id
+    assert job["run_planner"] is None
 
     claimed = claim_next_job()
     assert claimed is not None
@@ -23,3 +24,15 @@ def test_enqueue_and_claim_job(tmp_path: Path) -> None:
     updated = update_job(job["job_id"], status="completed")
     assert updated["status"] == "completed"
     assert any(item["job_id"] == job["job_id"] for item in list_jobs())
+
+
+def test_enqueue_job_can_request_optional_planner(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path
+    job = enqueue_feature_job(
+        feature_id="FEAT-QUEUE-PLANNER",
+        title="Queue planner test",
+        summary="Ensure optional planner flag is persisted",
+        run_planner=True,
+    )
+
+    assert job["run_planner"] is True

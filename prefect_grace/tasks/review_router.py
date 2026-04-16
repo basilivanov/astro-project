@@ -6,10 +6,83 @@ from typing import Any
 from prefect_grace.models import DecisionRecord, PacketStatus, ReasoningProfile, ReviewRecord, ReviewVerdict, WaveReviewRecord, WaveVerdict
 from prefect_grace.tasks.feature_bootstrap import create_packet
 from prefect_grace.tasks.grace_ids import grace_refs_for_packet
-from prefect_grace.tasks.state_store import find_record, update_record, upsert_record
+from prefect_grace.tasks.state_store import find_record, load_state, update_record, upsert_record
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
+LIGHT_RESUME_MAX_ATTEMPTS = 1
+_LIGHT_RESUME_BLOCKER_MARKERS = (
+    "architect decision",
+    "business",
+    "compliance",
+    "decomposition",
+    "dependency graph",
+    "legal",
+    "multi-wave",
+    "multiple waves",
+    "planner",
+    "pricing",
+    "product decision",
+    "schema migration",
+    "scope expansion",
+    "slice boundary",
+    "split packet",
+    "user decision",
+    "wave graph",
+)
+
+
+def _normalize_rework_mode(value: Any) -> str:
+    resolved = str(value or "bounded_fresh").strip().lower().replace("-", "_")
+    if resolved in {"small_fix", "smallfix"}:
+        return "light_resume"
+    return resolved if resolved in {"light_resume", "bounded_fresh", "decision_required"} else "bounded_fresh"
+
+
+def _light_resume_attempt_count(source_packet_id: str) -> int:
+    packets = list(load_state("packets").get("packets") or [])
+    persisted_attempt = 0
+    try:
+        source_packet = find_record("packets", "packets", "packet_id", source_packet_id)
+        persisted_attempt = int(
+            source_packet.get("light_resume_attempt")
+            or dict(source_packet.get("execution_hints") or {}).get("light_resume_attempt")
+            or 0
+        )
+    except (KeyError, TypeError, ValueError):
+        persisted_attempt = 0
+    derived_attempts = sum(
+        1
+        for packet in packets
+        if str(packet.get("light_resume_source_packet_id") or "") == source_packet_id
+        and str(packet.get("rework_mode") or "") == "light_resume"
+    )
+    return max(persisted_attempt, derived_attempts)
+
+
+def _light_resume_downgrade_reason(
+    packet: dict[str, Any],
+    reasons: list[str],
+    *,
+    write_scope: list[str] | None = None,
+) -> str | None:
+    packet_id = str(packet.get("packet_id") or "").strip()
+    if str(packet.get("role") or "").strip().lower() != "coder":
+        return "light_resume is only allowed for coder packets"
+    if str(packet.get("parent_packet_id") or "").strip():
+        return "light_resume cannot target an existing rework packet"
+    cleaned_reasons = [str(reason).strip() for reason in reasons if str(reason).strip()]
+    if len(cleaned_reasons) > 2:
+        return "light_resume is limited to at most two small blocker reasons"
+    lowered = " ".join(cleaned_reasons).lower()
+    if any(marker in lowered for marker in _LIGHT_RESUME_BLOCKER_MARKERS):
+        return "light_resume is not allowed for decomposition, business, or broad-scope blockers"
+    cleaned_write_scope = [str(item).strip() for item in write_scope or [] if str(item).strip()]
+    if len(cleaned_write_scope) > 3:
+        return "light_resume is limited to narrow packet-local write scope"
+    if packet_id and _light_resume_attempt_count(packet_id) >= LIGHT_RESUME_MAX_ATTEMPTS:
+        return "light_resume attempt limit reached for the source packet"
+    return None
 
 
 def record_review(
@@ -105,6 +178,260 @@ def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, A
         parent_packet_id=packet_id,
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
+    )
+
+
+def create_direct_rework_from_architect(
+    packet_id: str,
+    reasons: list[str],
+    *,
+    reviewer_packet_id: str | None = None,
+    rework_mode: str | None = None,
+    title: str | None = None,
+    summary: str | None = None,
+    write_scope: list[str] | None = None,
+    inputs: list[str] | None = None,
+    acceptance_criteria: list[str] | None = None,
+    verification_profile: dict[str, Any] | None = None,
+    reviewer_gate: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> dict[str, Any]:
+    packet = find_record("packets", "packets", "packet_id", packet_id)
+    inherited_execution_hints = dict(packet.get("execution_hints") or {})
+    requested_rework_mode = _normalize_rework_mode(rework_mode)
+    resolved_rework_mode = requested_rework_mode
+    light_resume_downgrade_reason = None
+    if requested_rework_mode == "light_resume":
+        light_resume_downgrade_reason = _light_resume_downgrade_reason(
+            packet,
+            reasons,
+            write_scope=write_scope,
+        )
+        if light_resume_downgrade_reason:
+            resolved_rework_mode = "bounded_fresh"
+    if requested_rework_mode == "light_resume" and resolved_rework_mode == "light_resume":
+        blocker_summary = "; ".join(reasons) if reasons else "Architect requested bounded light resume."
+        rework_title = str(title or f"Light Resume {packet['title']}").strip()
+        rework_summary = str(summary or f"Resume the existing coder packet for {packet_id}: {blocker_summary}").strip()
+        attempt = _light_resume_attempt_count(packet_id) + 1
+        updated_execution_hints = {
+            **inherited_execution_hints,
+            "resume_strategy": "packet_parent",
+            "resume_parent_packet_id": packet_id,
+            "rework_mode": resolved_rework_mode,
+            "light_resume_stage": True,
+            "light_resume_scope": "packet_local",
+            "light_resume_source_packet_id": packet_id,
+            "light_resume_attempt": attempt,
+            "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS,
+            "light_resume_title": rework_title,
+            "light_resume_summary": rework_summary,
+            "light_resume_write_scope": list(
+                write_scope
+                or [f"Only the files required to address architect-bounded blockers from `{packet_id}`."]
+            ),
+            "light_resume_inputs": list(
+                inputs
+                or [
+                    f"Parent packet `{packet_id}`.",
+                    "Reviewer blocker notes.",
+                    "Architect direct rework packet.",
+                ]
+            ),
+            "light_resume_acceptance_criteria": list(
+                acceptance_criteria
+                or [
+                    "Architect-bounded blockers are addressed directly.",
+                    "No unrelated scope expansion.",
+                    "Updated verification evidence is ready for re-review.",
+                ]
+            ),
+            "light_resume_reviewer_gate": list(
+                reviewer_gate
+                or [
+                    "All architect-bounded blocker reasons are addressed.",
+                    "No new regressions are introduced in the scoped flow.",
+                ]
+            ),
+            "light_resume_notes": list(
+                notes
+                or [
+                    "This packet was resumed in-place as an architect-bounded light rework stage.",
+                ]
+            ),
+            "light_resume_reasons": [str(reason).strip() for reason in reasons if str(reason).strip()],
+            "light_resume_verification_profile": dict(
+                verification_profile
+                or {
+                    "backend": "rerun the minimally sufficient backend profile if backend code changed",
+                    "frontend": "rerun targeted Playwright if UI changed",
+                    "observability": "repeat post-test evidence review for the affected flow",
+                }
+            ),
+        }
+        return update_record(
+            "packets",
+            "packets",
+            "packet_id",
+            packet_id,
+            {
+                "execution_hints": updated_execution_hints,
+                "review_target_packet_id": packet_id,
+                "origin_reviewer_packet_id": str(reviewer_packet_id or "").strip() or None,
+                "route_classification": "self_resolvable_rework",
+                "requested_rework_mode": requested_rework_mode,
+                "rework_mode": resolved_rework_mode,
+                "light_resume_stage": True,
+                "light_resume_source_packet_id": packet_id,
+                "light_resume_attempt": attempt,
+                "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS,
+            },
+        )
+    if resolved_rework_mode != "light_resume":
+        inherited_execution_hints = {
+            **inherited_execution_hints,
+            "rework_mode": resolved_rework_mode,
+        }
+        if requested_rework_mode != resolved_rework_mode:
+            inherited_execution_hints["requested_rework_mode"] = requested_rework_mode
+            inherited_execution_hints["light_resume_downgrade_reason"] = light_resume_downgrade_reason
+    blocker_summary = "; ".join(reasons) if reasons else "Architect requested bounded direct rework."
+    rework_title = str(title or f"Direct Rework {packet['title']}").strip()
+    rework_summary = str(summary or f"Address architect-bounded rework for {packet_id}: {blocker_summary}").strip()
+    rework_packet = create_packet(
+        feature_id=packet["feature_id"],
+        wave_id=packet["wave_id"],
+        title=rework_title,
+        role=packet.get("role") or "coder",
+        reasoning=ReasoningProfile(packet.get("reasoning") or ReasoningProfile.HIGH.value),
+        summary=rework_summary,
+        write_scope=write_scope
+        or [
+            f"Only the files required to address architect-bounded blockers from `{packet_id}`.",
+        ],
+        inputs=inputs
+        or [
+            f"Parent packet `{packet_id}`.",
+            "Reviewer blocker notes.",
+            "Architect direct rework packet.",
+        ],
+        acceptance_criteria=acceptance_criteria
+        or [
+            "Architect-bounded blockers are addressed directly.",
+            "No unrelated scope expansion.",
+            "Updated verification evidence is ready for re-review.",
+        ],
+        verification_profile=verification_profile
+        or {
+            "backend": "rerun the minimally sufficient backend profile if backend code changed",
+            "frontend": "rerun targeted Playwright if UI changed",
+            "observability": "repeat post-test evidence review for the affected flow",
+        },
+        reviewer_gate=reviewer_gate
+        or [
+            "All architect-bounded blocker reasons are addressed.",
+            "No new regressions are introduced in the scoped flow.",
+        ],
+        dependencies=[packet_id],
+        notes=notes
+        or [
+            "This is an architect-bounded direct rework packet created after reviewer blockers.",
+        ],
+        parent_packet_id=packet_id,
+        execution_hints=inherited_execution_hints,
+        status=PacketStatus.READY,
+    )
+    return update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        rework_packet["packet_id"],
+        {
+            "review_target_packet_id": packet_id,
+            "origin_reviewer_packet_id": str(reviewer_packet_id or "").strip() or None,
+            "route_classification": "self_resolvable_rework",
+            "requested_rework_mode": requested_rework_mode,
+            "rework_mode": resolved_rework_mode,
+            "light_resume_source_packet_id": packet_id if resolved_rework_mode == "light_resume" else None,
+            "light_resume_attempt": (
+                inherited_execution_hints.get("light_resume_attempt")
+                if resolved_rework_mode == "light_resume"
+                else None
+            ),
+            "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS if resolved_rework_mode == "light_resume" else None,
+            "light_resume_downgrade_reason": light_resume_downgrade_reason,
+        },
+    )
+
+
+def create_architect_rework_packet_from_review(
+    packet_id: str,
+    reviewer_packet_id: str,
+    reasons: list[str],
+    *,
+    route_classification: str | None = None,
+) -> dict[str, Any]:
+    packet = find_record("packets", "packets", "packet_id", packet_id)
+    inherited_execution_hints = dict(packet.get("execution_hints") or {})
+    blocker_summary = "; ".join(reasons) if reasons else "Reviewer requested architect routing."
+    title = f"Architect Rework {packet['title']}"
+    summary = (
+        f"Review reviewer blockers for {packet_id} and decide whether to issue a bounded direct coder rework, "
+        f"escalate to the user, or request planner decomposition: {blocker_summary}"
+    )
+    architect_packet = create_packet(
+        feature_id=packet["feature_id"],
+        wave_id=packet["wave_id"],
+        title=title,
+        role="architect",
+        reasoning=ReasoningProfile.XHIGH,
+        summary=summary,
+        write_scope=[
+            "Architect routing decision and direct rework specification only.",
+        ],
+        inputs=[
+            f"Target coder packet `{packet_id}`.",
+            f"Reviewer packet `{reviewer_packet_id}`.",
+            "Reviewer blocker notes and latest verifier evidence.",
+        ],
+        acceptance_criteria=[
+            "Architect classifies the blocker as self-resolvable, requires_user_decision, or requires_planner.",
+            "If self-resolvable, architect returns a bounded direct rework packet for coder.",
+            "If escalation is required, architect states the narrowest blocking reason.",
+        ],
+        verification_profile={
+            "backend": "not required",
+            "frontend": "not required",
+            "observability": "artifact review only",
+        },
+        reviewer_gate=[
+            "Do not widen scope beyond the reviewer blockers.",
+            "Prefer bounded coder rework over user escalation when the blocker is self-resolvable.",
+        ],
+        dependencies=[packet_id, reviewer_packet_id],
+        notes=[
+            "Return FINAL_DIRECT_REWORK_PACKET_JSON.",
+            "Use route_classification=self_resolvable_rework when the next step is a bounded coder packet.",
+            "Use rework_mode=light_resume only for small packet-local fixes that can safely reuse coder context.",
+            "Use rework_mode=bounded_fresh for bounded fixes that still need a fresh coder packet.",
+            "Use rework_mode=decision_required when the blocker should not resume coder work directly.",
+            "Use requires_user_decision only for true business/product/user decisions.",
+            "Use requires_planner only when packet graph or decomposition must change.",
+        ],
+        parent_packet_id=packet_id,
+        execution_hints=inherited_execution_hints,
+        status=PacketStatus.READY,
+    )
+    return update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        architect_packet["packet_id"],
+        {
+            "review_target_packet_id": packet_id,
+            "origin_reviewer_packet_id": reviewer_packet_id,
+            "route_classification_hint": str(route_classification or "").strip() or None,
+        },
     )
 
 
@@ -207,21 +534,42 @@ def create_rework_bundle_from_review(
     }
 
 
-def create_architect_decision_from_review(packet_id: str, reasons: list[str]) -> dict[str, Any]:
+def create_architect_decision_from_review(
+    packet_id: str,
+    reasons: list[str],
+    *,
+    requested_action: str | None = None,
+    route_classification: str | None = None,
+) -> dict[str, Any]:
     packet = find_record("packets", "packets", "packet_id", packet_id)
     feature_id = packet["feature_id"]
     decision_id = f"{packet_id}-ARCH-DECISION"
     decision_dir = FEATURES_DIR / feature_id / "decisions"
     decision_dir.mkdir(parents=True, exist_ok=True)
     decision_path = decision_dir / f"{decision_id}.md"
-    summary = f"Architect decision required for {packet_id}"
+    classification = str(route_classification or "").strip() or None
+    action = (
+        str(requested_action).strip()
+        if requested_action
+        else (
+            "Prepare a new bounded direct rework packet for coder if the blocker is self-resolvable without user/product input."
+            if classification == "self_resolvable_rework"
+            else (
+                "Escalate to the user because the blocker requires architect/business decision."
+                if classification == "requires_user_decision"
+                else "Update GRACE artifacts and reslice packets if planner decomposition is required."
+            )
+        )
+    )
+    summary = f"Architect routing decision required for {packet_id}"
     reason_text = "\n".join(f"- {reason}" for reason in reasons) or "- reviewer did not provide explicit reasons"
     decision_path.write_text(
         f"# Architect Decision: {decision_id}\n\n"
         f"## Source Packet\n{packet_id}\n\n"
         f"## Summary\n{summary}\n\n"
+        f"## Route Classification\n{classification or '-'}\n\n"
         f"## Reasons\n{reason_text}\n\n"
-        f"## Requested Action\n- Update GRACE artifacts and reslice packets if needed.\n",
+        f"## Requested Action\n- {action}\n",
         encoding="utf-8",
     )
     record = DecisionRecord(
@@ -232,6 +580,8 @@ def create_architect_decision_from_review(packet_id: str, reasons: list[str]) ->
         reasons=reasons,
         decision_path=str(decision_path),
     ).to_dict()
+    record["route_classification"] = classification
+    record["requested_action"] = action
     return upsert_record("decisions", "decisions", "decision_id", record)
 
 

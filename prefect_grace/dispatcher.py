@@ -51,6 +51,7 @@ def _job_parameters(job: dict[str, Any]) -> dict[str, Any]:
         "verifier_requires_frontend_visual": bool(job.get("verifier_requires_frontend_visual")),
         "verifier_include_day_live_canary": bool(job.get("verifier_include_day_live_canary")),
         "prefer_agent_output": bool(job.get("prefer_agent_output", True)),
+        "run_planner": job.get("run_planner"),
         "agent_workdir": job.get("agent_workdir"),
         "agent_sandbox": job.get("agent_sandbox"),
         "business_context": dict(job.get("business_context") or {}),

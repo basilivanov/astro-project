@@ -27,6 +27,7 @@ def test_load_business_feature_brief_defaults(tmp_path: Path) -> None:
     assert loaded['feature_id'] == 'FEAT-BRIEF-1'
     assert loaded['verifier_backend_profile'] == 'backend_quick'
     assert loaded['touches_frontend'] is False
+    assert loaded['run_planner'] is None
     assert loaded['impacted_surfaces'] == []
     assert 'Scope: Add strict logs.' in loaded['implementation_summary']
     assert 'Acceptance: Logs are structured.' in loaded['implementation_summary']
@@ -64,6 +65,22 @@ def test_enqueue_feature_job_from_brief_persists_business_context(tmp_path: Path
     assert jobs[0]['brief_path'] == str(brief_path)
     assert jobs[0]['business_context']['brief_path'] == str(brief_path)
     assert jobs[0]['business_context']['visual_expectations'] == ['Button state must be visible']
+
+
+def test_load_business_feature_brief_accepts_optional_run_planner(tmp_path: Path) -> None:
+    brief_path = tmp_path / 'brief-run-planner.yaml'
+    brief_path.write_text(
+        '\n'.join([
+            'feature_id: FEAT-BRIEF-PLANNER',
+            'title: Planner brief',
+            'summary: Opt into planner when decomposition is complex',
+            'run_planner: true',
+        ]),
+        encoding='utf-8',
+    )
+
+    loaded = load_business_feature_brief(brief_path)
+    assert loaded['run_planner'] is True
 
 
 def test_bootstrap_feature_rewrites_feature_brief_when_business_context_arrives(tmp_path: Path) -> None:
