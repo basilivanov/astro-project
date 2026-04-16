@@ -1,0 +1,109 @@
+{
+  "feature_id": "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR",
+  "title": "Week Legacy Boundary Refactor and Slice Decomposition",
+  "slice_id": "SLICE-FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR",
+  "slice_slug": "week-legacy-boundary-refactor",
+  "slice_dir": "/opt/astro-project/docs/week-legacy-boundary-refactor",
+  "requirements_slice_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/requirements.slice.week-legacy-boundary-refactor.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/development-plan.slice.week-legacy-boundary-refactor.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/verification-matrix.slice.week-legacy-boundary-refactor.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/knowledge-graph.slice.week-legacy-boundary-refactor.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/week-legacy-boundary-refactor/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-REPORT-WORKFLOW",
+    "M-WEEK-BRIEF-SEED",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-FRONTEND-WEEK",
+    "M-WEEK-BRIEF-COMPATIBILITY"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Implement Week ownership boundary and compatibility split",
+      "goal": "Land the Week-owned backend seed boundary, split frontend compatibility reconstruction, add Week E2E guardrails, and close the slice with targeted packet-local evidence.",
+      "module_refs": [
+        "M-REPORT-WORKFLOW",
+        "M-WEEK-BRIEF-SEED",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-FRONTEND-WEEK",
+        "M-WEEK-BRIEF-COMPATIBILITY"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/services/week_brief_seed.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/frontend/lib/week-brief.ts",
+        "/opt/astro-project/frontend/lib/week-brief-compat.ts",
+        "/opt/astro-project/tests/test_week_brief_service.py",
+        "/opt/astro-project/tests/test_week_brief_api.py",
+        "/opt/astro-project/tests/test_week_brief_frontend_mapping.py",
+        "/opt/astro-project/frontend/test/lib/week-brief.test.ts",
+        "/opt/astro-project/frontend/e2e/week-page-fallback.spec.ts",
+        "/opt/astro-project/frontend/e2e/canonical-week-continuity.spec.ts"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/services/week_map.py",
+        "/opt/astro-project/backend/app/services/day_brief*",
+        "/opt/astro-project/frontend/app/week/page.tsx",
+        "/opt/astro-project/frontend/components/week/**",
+        "/opt/astro-project/frontend/app/read/**"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_week_brief_service.py tests/test_week_brief_api.py",
+        "python3 -m pytest -q tests/test_week_brief_frontend_mapping.py",
+        "corepack pnpm --dir frontend exec jest --runInBand test/lib/week-brief.test.ts",
+        "./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts e2e/canonical-week-continuity.spec.ts",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Week seed ownership is moved into a Week-owned helper module and the direct private-helper import from report_workflow.py is removed from week_brief_service.py.",
+        "Week prompt-context wiring still works after the seed-boundary extraction.",
+        "Canonical Week mapping stays in frontend/lib/week-brief.ts, while compatibility reconstruction is isolated in frontend/lib/week-brief-compat.ts.",
+        "The visible /week product path stays canonical-only and unchanged.",
+        "Verifier records an explicit packet-local WeekBrief observability verdict of clean or degraded-but-expected."
+      ],
+      "deferred_work": [
+        "Further decomposition of backend/app/services/report_workflow.py beyond the Week seed boundary.",
+        "Any extraction from backend/app/main.py beyond documenting the next boundary.",
+        "Unifying backend/app/services/week_map.py with the new Week-owned seed helper in a later slice."
+      ]
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/week-legacy-boundary-refactor/requirements.slice.week-legacy-boundary-refactor.xml",
+    "/opt/astro-project/docs/week-legacy-boundary-refactor/development-plan.slice.week-legacy-boundary-refactor.xml",
+    "/opt/astro-project/docs/week-legacy-boundary-refactor/verification-matrix.slice.week-legacy-boundary-refactor.md",
+    "/opt/astro-project/docs/week-legacy-boundary-refactor/knowledge-graph.slice.week-legacy-boundary-refactor.xml",
+    "/opt/astro-project/docs/week-legacy-boundary-refactor/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [
+      "Strengthen the Week brief scenario to define Week-owned seed normalization and explicit compatibility isolation.",
+      "Add a Week boundary invariant, a fail-closed /week policy, and a success criterion for stable behavior after the ownership split."
+    ],
+    "technology.xml": [
+      "Add an operational constraint limiting the feature to Week-owned seed extraction and compatibility isolation.",
+      "Add targeted verification commands and the packet-local evidence ownership note."
+    ],
+    "development-plan.xml": [
+      "Add M-WEEK-BRIEF-SEED and M-WEEK-BRIEF-COMPATIBILITY.",
+      "Update M-REPORT-WORKFLOW, M-WEEK-BRIEF-SERVICE, M-FRONTEND-WEEK, and FLOW-WEEK-BRIEF.",
+      "Replace the broad implementation topology with small bounded packets."
+    ],
+    "knowledge-graph.xml": [
+      "Register M-WEEK-BRIEF-SEED, M-WEEK-BRIEF-COMPATIBILITY, the Week legacy boundary slice artifacts, and verification links.",
+      "Add upstream/downstream edges for the Week seed boundary and compatibility isolation."
+    ],
+    "verification-matrix.md": [
+      "Add a Week legacy boundary lane covering backend seam, frontend helper isolation, E2E continuity, and packet-local observability.",
+      "State that separate frontend visual proof is only required if visible Week UI files are touched."
+    ]
+  },
+  "updated_at": "2026-04-16T15:17:03.881385+00:00"
+}

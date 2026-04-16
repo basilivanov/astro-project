@@ -3,52 +3,23 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_FILE = REPO_ROOT / "frontend/lib/week-brief.ts"
+COMPAT_FILE = REPO_ROOT / "frontend/lib/week-brief-compat.ts"
 
 
 def _run_node_mapping(case: dict) -> dict:
     script = r'''
-const fs = require('fs');
-const path = require('path');
-const Module = require('module');
-const ts = require('./frontend/node_modules/typescript');
-
-const filePath = path.join(process.cwd(), 'frontend/lib/week-brief.ts');
-const original = fs.readFileSync(filePath, 'utf8');
-const source = original.replace(
-  'import { extractReportFallbackText } from "../components/blocks/report-renderer";',
-  `const extractReportFallbackText = (content) => {
-    if (typeof content === "string") {
-      try {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed)) {
-          const texts = parsed.flatMap((block) => {
-            if (!block || typeof block !== "object") return [];
-            if (typeof block.text === "string") return [block.text];
-            if (Array.isArray(block.items)) return block.items.filter((item) => typeof item === "string");
-            return [];
-          }).filter(Boolean);
-          return texts.join(" ").trim() || null;
-        }
-      } catch (error) {}
-      return content;
-    }
-    return content == null ? null : JSON.stringify(content);
-  };`
-);
-const transpiled = ts.transpileModule(source, {
+require('./frontend/node_modules/ts-node').register({
+  transpileOnly: true,
   compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    target: ts.ScriptTarget.ES2020,
-    esModuleInterop: true,
+    module: 'CommonJS',
+    moduleResolution: 'Node',
   },
-  fileName: filePath,
 });
-const mod = new Module(filePath, module);
-mod.filename = filePath;
-mod.paths = Module._nodeModulePaths(path.dirname(filePath));
-mod._compile(transpiled.outputText, filePath);
+const path = require('path');
+const mod = require(path.join(process.cwd(), 'frontend/lib/week-brief.ts'));
 const input = JSON.parse(process.argv[1]);
-const result = mod.exports.mapWeekReportToWeekBrief(input);
+const result = mod.mapWeekReportToWeekBrief(input);
 process.stdout.write(JSON.stringify(result));
 '''
     completed = subprocess.run(
@@ -87,7 +58,7 @@ def test_frontend_mapping_prefers_week_brief_deep_sections_over_legacy_chunks():
         }
     )
 
-    assert result["headline"] == "Week headline"
+    assert result["headline"] == "Неделя держится на спокойном темпе и точных решениях"
     assert len(result["deepSections"]) == 1
     assert result["deepSections"][0]["slug"] == "focus"
     assert result["deepSections"][0]["title"] == "Focus"
@@ -95,7 +66,7 @@ def test_frontend_mapping_prefers_week_brief_deep_sections_over_legacy_chunks():
 
 
 
-def test_frontend_mapping_falls_back_to_legacy_report_chunks_when_week_brief_has_no_deep_sections():
+def test_frontend_mapping_keeps_canonical_surface_empty_when_week_brief_has_no_deep_sections_even_if_legacy_payload_exists():
     result = _run_node_mapping(
         {
             "weekBrief": {
@@ -131,15 +102,12 @@ def test_frontend_mapping_falls_back_to_legacy_report_chunks_when_week_brief_has
         }
     )
 
-    assert len(result["deepSections"]) == 2
-    assert [section["slug"] for section in result["deepSections"]] == ["week_strategy", "money"]
-    assert result["deepSections"][0]["summary"] == "Legacy chunk summary"
-    assert result["deepSections"][1]["body_markdown"] == "legacy body"
+    assert result["deepSections"] == []
     assert result["reportId"] == "report-42"
-    assert result["sectionsCount"] == 2
+    assert result["sectionsCount"] == 0
 
 
-def test_frontend_mapping_ignores_legacy_deep_sections_strings_for_read_surface_when_chunks_exist():
+def test_frontend_mapping_ignores_legacy_deep_sections_strings_and_chunks_for_canonical_surface():
     result = _run_node_mapping(
         {
             "weekBrief": {
@@ -171,13 +139,11 @@ def test_frontend_mapping_ignores_legacy_deep_sections_strings_for_read_surface_
         }
     )
 
-    assert result["sectionsCount"] == 1
-    assert result["deepSections"][0]["slug"] == "focus"
-    assert result["deepSections"][0]["summary"] == "Readable chunk body"
-    assert "compatibility-only" not in (result["deepSections"][0]["body_markdown"] or "")
+    assert result["sectionsCount"] == 0
+    assert result["deepSections"] == []
 
 
-def test_frontend_mapping_reconstructs_missing_degraded_sections_from_live_chunks_without_overriding_valid_brief_sections():
+def test_frontend_mapping_keeps_only_brief_sections_without_reconstructing_missing_sections_from_chunks():
     result = _run_node_mapping(
         {
             "weekBrief": {
@@ -233,13 +199,11 @@ def test_frontend_mapping_reconstructs_missing_degraded_sections_from_live_chunk
         }
     )
 
-    assert [section["slug"] for section in result["deepSections"]] == ["focus", "money", "relationships"]
+    assert [section["slug"] for section in result["deepSections"]] == ["focus", "money"]
     assert result["deepSections"][0]["body_markdown"] == "# Focus\nBody"
-    assert result["deepSections"][1]["summary"] == "Recovered money chunk"
-    assert result["deepSections"][1]["body_markdown"] == '[{"type":"paragraph","text":"Recovered money chunk"}]'
-    assert result["deepSections"][2]["summary"] == "Recovered relationship chunk"
-    assert result["deepSections"][2]["is_primary"] is False
-    assert result["sectionsCount"] == 3
+    assert result["deepSections"][1]["summary"] is None
+    assert result["deepSections"][1]["body_markdown"] == ""
+    assert result["sectionsCount"] == 2
 
 
 def test_frontend_mapping_humanizes_explainability_context_without_losing_telemetry_fields():
@@ -273,3 +237,19 @@ def test_frontend_mapping_humanizes_explainability_context_without_losing_teleme
     assert result["confidenceShortLabel"] == "высокая"
     assert result["birthTimeLabel"] == "учтено точное время рождения"
     assert result["topSignalLabel"] == "личная натальная опора и текущие транзиты"
+
+
+def test_frontend_mapping_keeps_legacy_reconstruction_out_of_canonical_file():
+    canonical_source = CANONICAL_FILE.read_text(encoding="utf-8")
+
+    assert "extractReportFallbackText" not in canonical_source
+    assert "export function mapLegacyWeekMigrationToSurface" not in canonical_source
+    assert "export function hasExplicitWeekMigrationPayload" not in canonical_source
+
+
+def test_frontend_mapping_moves_legacy_reconstruction_into_compatibility_module():
+    compat_source = COMPAT_FILE.read_text(encoding="utf-8")
+
+    assert 'import { extractReportFallbackText } from "../components/blocks/report-renderer";' in compat_source
+    assert "export function mapLegacyWeekMigrationToSurface" in compat_source
+    assert "export function hasExplicitWeekMigrationPayload" in compat_source

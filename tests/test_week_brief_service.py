@@ -1,12 +1,24 @@
+import json
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
+
+from backend.app import logging_utils
+
+# test_day_brief installs a lightweight week_brief_service stub for isolated
+# day tests. Drop that stub when this module is collected in the same process.
+_week_brief_module = sys.modules.get("backend.app.services.week_brief_service")
+if _week_brief_module is not None and not getattr(_week_brief_module, "__file__", None):
+    sys.modules.pop("backend.app.services.week_brief_service", None)
 
 from backend.app.services.week_brief_service import (
     build_week_brief_envelope,
     build_week_brief_payload,
 )
+from backend.app.services.week_brief_seed import build_week_brief_seed_bundle
 from backend.app.services.week_brief_validators import (
     validate_week_brief_envelope_payload,
     validate_week_brief_payload,
@@ -119,6 +131,14 @@ def _sample_payload():
     return SimpleNamespace(llm_mode="cheap", birth_time_known=True)
 
 
+def _read_jsonl_rows_from_offset(path: Path, offset: int) -> list[dict]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as handle:
+        handle.seek(offset)
+        return [json.loads(line) for line in handle if line.strip()]
+
+
 def test_build_week_brief_payload_validates_schema_and_logs_telemetry():
     report = _sample_report()
     chunks = _sample_chunks()
@@ -145,6 +165,10 @@ def test_build_week_brief_payload_validates_schema_and_logs_telemetry():
     assert validated["report_ref"]["report_id"] == str(report.id)
     built_events = [call for call in telemetry if call[0][1] == "week_brief_built"]
     assert built_events
+    assert built_events[-1][1]["module"] == "M-WEEK-BRIEF-SERVICE"
+    assert built_events[-1][1]["fn"] == "build_week_brief_payload"
+    assert built_events[-1][1]["block"] == "WEEK_BRIEF_PAYLOAD_ASSEMBLY"
+    assert built_events[-1][1]["week_brief_evidence_lane"] == "packet_local"
     assert built_events[-1][1]["week_brief_fallback_mode"] is False
     assert built_events[-1][1]["week_brief_confidence_bucket"] in {"medium", "high"}
 
@@ -192,7 +216,12 @@ def test_build_week_brief_payload_falls_back_but_stays_schema_valid():
     assert len(validated["major_factors"]) == 1
     assert [section["slug"] for section in validated["deep_sections"]] == ["overview"]
     assert "# Каркас недели" in validated["deep_sections"][0]["body_markdown"]
-    assert any(call[0][1] == "week_brief_fallback_triggered" for call in telemetry)
+    fallback_events = [call for call in telemetry if call[0][1] == "week_brief_fallback_triggered"]
+    assert fallback_events
+    assert fallback_events[-1][1]["module"] == "M-WEEK-BRIEF-SERVICE"
+    assert fallback_events[-1][1]["fn"] == "build_week_brief_payload"
+    assert fallback_events[-1][1]["block"] == "WEEK_BRIEF_FALLBACK_RECOVERY"
+    assert fallback_events[-1][1]["week_brief_evidence_lane"] == "packet_local"
     assert any(call[0][1] == "week_brief_built" and call[1]["week_brief_fallback_mode"] is True for call in telemetry)
 
 
@@ -417,3 +446,146 @@ def test_week_brief_suppresses_raw_astro_phrases_in_user_facing_day_and_risk_cop
     assert all("Нептун Квадрат" not in item for item in first_day["best_for"])
     assert payload["risks"][0]["text"]
     assert "Нептун Квадрат" not in payload["risks"][0]["text"]
+
+
+def test_week_brief_service_imports_week_owned_seed_boundary():
+    source = Path("backend/app/services/week_brief_service.py").read_text(encoding="utf-8")
+
+    assert "from .week_brief_seed import (" in source
+    assert "from .report_workflow import (" not in source
+
+
+def test_week_brief_service_exposes_packet_local_grace_contract_markers():
+    source = Path("backend/app/services/week_brief_service.py").read_text(encoding="utf-8")
+
+    assert "# START_MODULE_CONTRACT: M-WEEK-BRIEF-SERVICE" in source
+    assert "# START_MODULE_MAP: M-WEEK-BRIEF-SERVICE" in source
+    assert 'MODULE_ID = "M-WEEK-BRIEF-SERVICE"' in source
+    assert 'WEEK_BRIEF_EVIDENCE_LANE = "packet_local"' in source
+    assert 'WEEK_BRIEF_PACKET_SCOPE = "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"' in source
+    assert 'WEEK_BRIEF_PAYLOAD_BLOCK = "WEEK_BRIEF_PAYLOAD_ASSEMBLY"' in source
+
+
+def test_week_brief_service_declares_grace_module_contract_map_blocks_and_entrypoints():
+    source = Path("backend/app/services/week_brief_service.py").read_text(encoding="utf-8")
+
+    assert "START_MODULE_CONTRACT: M-WEEK-BRIEF" in source
+    assert "END_MODULE_CONTRACT: M-WEEK-BRIEF" in source
+    assert "START_MODULE_MAP: M-WEEK-BRIEF" in source
+    assert "END_MODULE_MAP: M-WEEK-BRIEF" in source
+    assert "# GRACE_ANCHORS: [WEEK_BRIEF_CONSTANTS, WEEK_BRIEF_TYPES, WEEK_BRIEF_TELEMETRY, WEEK_BRIEF_NORMALIZATION, WEEK_BRIEF_FACTORS, WEEK_BRIEF_ENTRYPOINTS]" in source
+
+    for block in [
+        "WEEK_BRIEF_CONSTANTS",
+        "WEEK_BRIEF_TYPES",
+        "WEEK_BRIEF_TELEMETRY",
+        "WEEK_BRIEF_NORMALIZATION",
+        "WEEK_BRIEF_FACTORS",
+        "WEEK_BRIEF_ENTRYPOINTS",
+    ]:
+        assert f"START_BLOCK: {block}" in source
+        assert f"END_BLOCK: {block}" in source
+
+    for contract in [
+        "FN-LOG-WEEK-BRIEF",
+        "FN-BUILD-WEEK-BRIEF-SEED",
+        "FN-BUILD-WEEK-BRIEF-FALLBACK",
+        "FN-BUILD-WEEK-BRIEF-PAYLOAD",
+        "FN-BUILD-WEEK-BRIEF-ENVELOPE",
+    ]:
+        assert f"START_CONTRACT: {contract}" in source
+        assert f"END_CONTRACT: {contract}" in source
+
+
+def test_build_week_brief_payload_keeps_stable_behavior_with_partial_seed_context():
+    partial_context = {
+        "forecast_window": {"start": "2026-03-30T05:00:00+03:00", "days": 7},
+        "week_forecast_data": {
+            "days": [
+                {
+                    "date": "2026-03-30",
+                    "weekday": "Monday",
+                    "moon": {"sign": "Aries", "phase": "Растущая", "void_of_course": False},
+                    "aspects": [{"transit": "Mars", "natal": "Sun", "aspect": "square"}],
+                    "traffic_light": "YELLOW",
+                    "tension_score": 0.7,
+                }
+            ],
+        },
+    }
+
+    payload = build_week_brief_payload(
+        report=_sample_report(),
+        payload=_sample_payload(),
+        context=partial_context,
+        chunks=_sample_chunks(),
+        user=None,
+        llm_model="deterministic",
+    )
+
+    validated = validate_week_brief_payload(payload)
+    assert validated["fallback_mode"] is False
+    assert validated["summary"]["headline"]
+    assert validated["day_cards"][0]["weekday"] == "mon"
+    assert validated["day_cards"][0]["details"]["why_text"]
+    assert validated["major_factors"]
+    assert validated["report_ref"]["report_type"] == "week_forecast"
+
+    seed = build_week_brief_seed_bundle(partial_context)
+    assert seed["summary"]["traffic_light"] == "YELLOW"
+    assert seed["days"][0]["events"] == ["Марс square Солнце"]
+    assert seed["days"][0]["moon"]["sign"] == "Овен"
+
+
+def test_build_week_brief_payload_appends_current_run_packet_local_report_log():
+    report_log = logging_utils.LOG_DIR / "report.jsonl"
+    start_offset = report_log.stat().st_size if report_log.exists() else 0
+    report = _sample_report()
+    run_marker = uuid.uuid4().hex
+    correlation_id = f"corr-week-packet-{run_marker}"
+    trace_id = f"trace-week-packet-{run_marker}"
+    request_id = f"req-week-packet-{run_marker}"
+
+    previous = logging_utils.set_correlation_ids(
+        correlation_id=None,
+        trace_id=None,
+        correlation_source=None,
+        request_id=None,
+    )
+    try:
+        with logging_utils.correlation_scope(
+            "week-brief-test",
+            correlation_id=correlation_id,
+            trace_id=trace_id,
+            request_id=request_id,
+        ):
+            payload = build_week_brief_payload(
+                report=report,
+                payload=_sample_payload(),
+                context=_sample_context(),
+                chunks=_sample_chunks(),
+                user=None,
+                llm_model="deterministic",
+            )
+    finally:
+        logging_utils.set_correlation_ids(**previous)
+
+    validated = validate_week_brief_payload(payload)
+    assert validated["fallback_mode"] is False
+
+    rows = _read_jsonl_rows_from_offset(report_log, start_offset)
+    built_row = next(
+        row
+        for row in rows
+        if row["event"] == "week_brief_built" and row.get("trace_id") == trace_id
+    )
+
+    assert built_row["module"] == "M-WEEK-BRIEF-SERVICE"
+    assert built_row["fn"] == "build_week_brief_payload"
+    assert built_row["block"] == "WEEK_BRIEF_PAYLOAD_ASSEMBLY"
+    assert built_row["week_brief_evidence_lane"] == "packet_local"
+    assert built_row["week_brief_packet_scope"] == "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"
+    assert built_row["trace_id"] == trace_id
+    assert built_row["correlation_id"] == correlation_id
+    assert built_row["request_id"] == request_id
+    assert built_row["report_id"] == str(report.id)

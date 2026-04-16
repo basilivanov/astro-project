@@ -10,7 +10,7 @@
 //   - local date and text normalization helpers
 // invariants:
 //   - primary exports accept canonical `week_brief` only
-//   - legacy week_map/chunks remain migration helpers and are not part of the /week product path
+//   - legacy week_map/chunks reconstruction lives in frontend/lib/week-brief-compat.ts and is not part of the /week product path
 // failure_policy:
 //   - malformed or missing canonical payloads return null at the route boundary
 // non_goals:
@@ -24,16 +24,16 @@
 //   - formatWeekDateRange
 //   - confidenceBucket
 // helpers:
-//   - normalizeStatus
+//   - normalizeComparableText
 // owned_tests:
 //   - frontend/test/lib/week-brief.test.ts
 // adjacent_modules:
 //   - frontend/app/week/page.tsx
 //   - frontend/components/week/week-hero-map.tsx
 //   - frontend/lib/detail-layer.ts
+//   - frontend/lib/week-brief-compat.ts
 // END_MODULE_MAP: M-WEEK-BRIEF-ADAPTER
 
-import { extractReportFallbackText } from "../components/blocks/report-renderer";
 import { dedupeSemanticTexts, normalizeWeekDetailItems, type DetailLayer } from "./detail-layer";
 
 export type WeekBriefStatus = "ready" | "in_progress" | "pending" | "error";
@@ -166,48 +166,6 @@ export type WeekBrief = {
   } | null;
 };
 
-export type LegacyWeekMapPayload = {
-  thesis?: string | null;
-  theme?: string | null;
-  day_cards?: {
-    date?: string | null;
-    weekday?: string | null;
-    headline?: string | null;
-    mode?: string | null;
-    score?: number | null;
-    best_for?: string[] | null;
-    avoid?: string[] | null;
-  }[] | null;
-  domains?: Record<string, number> | null;
-  major_factors?: {
-    label?: string | null;
-    category?: string | null;
-    impact_pct?: number | null;
-    impact?: number | null;
-    explanation?: string | null;
-    confidence?: number | null;
-  }[] | null;
-  actions?: string[] | null;
-  risks?: string[] | null;
-  deep_sections?: string[] | null;
-  explainability?: {
-    total_score?: number | null;
-    confidence?: number | null;
-    used_exact_birth_time?: boolean;
-    pipeline?: { category?: string | null; weight_share?: number | null; impact?: number | null }[] | null;
-  } | null;
-  timezone?: string | null;
-  location?: string | null;
-  week_start?: string | null;
-};
-
-export function hasExplicitWeekMigrationPayload(input: {
-  legacyWeekMap?: LegacyWeekMapPayload | null;
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
-}): boolean {
-  return Boolean(input.legacyWeekMap) || Boolean(input.chunks?.length);
-}
-
 export type WeekSurfaceModel = {
   surfaceMode: "canonical" | "compatibility";
   headline: string;
@@ -263,20 +221,6 @@ const WEEKDAY_INDEX = WEEKDAY_ORDER.reduce<Record<string, number>>((acc, day, in
   acc[day] = index;
   return acc;
 }, {});
-
-const LEGACY_DOMAIN_TITLES: Record<string, string> = {
-  work: "Работа и деньги",
-  work_money: "Работа и деньги",
-  relationships: "Отношения",
-  energy: "Энергия",
-  focus: "Фокус",
-};
-
-const LEGACY_STATUS_BY_SCORE = (value: number): LightStatus => {
-  if (value >= 70) return "green";
-  if (value >= 45) return "yellow";
-  return "red";
-};
 
 const normalizeList = (value: string[] | null | undefined): string[] =>
   Array.isArray(value) ? dedupeSemanticTexts(value) : [];
@@ -467,98 +411,7 @@ const normalizeActionItems = (items: ActionRiskItem[] | null | undefined, fallba
     .map((text, index) => ({ id: `${prefix}-${index + 1}`, text }));
 };
 
-function normalizeChunkSections(
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null,
-): NonNullable<WeekBrief["deep_sections"]> {
-  return (Array.isArray(chunks) ? chunks : [])
-    .filter((chunk) => typeof chunk?.content !== "undefined")
-    .map((chunk, index) => ({
-      id: chunk.id ?? `chunk-${index + 1}`,
-      slug: chunk.section ?? chunk.id ?? `section-${index + 1}`,
-      title: sanitizeVisibleWeekText(chunk.title ?? chunk.section ?? null, `Раздел ${index + 1}`),
-      summary: sanitizeVisibleWeekMetaValue(extractReportFallbackText(chunk.content)) ?? null,
-      body_markdown: typeof chunk.content === "string" ? chunk.content : JSON.stringify(chunk.content),
-      is_primary: index === 0,
-      order: index,
-    }));
-}
-
-function legacyWeekMapToCompatibilityBrief(
-  legacyWeekMap?: LegacyWeekMapPayload | null,
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null,
-): WeekBrief {
-  const legacy = legacyWeekMap ?? null;
-  const chunkSections = normalizeChunkSections(chunks);
-
-  return {
-    version: "week_brief_v1",
-    fallback_mode: true,
-    week_start: legacy?.week_start ?? null,
-    summary: {
-      headline: sanitizeVisibleWeekText(legacy?.thesis, "Неделя в коротком обзоре"),
-      subhead: sanitizeVisibleWeekText(legacy?.theme, "Сейчас доступна спокойная короткая карта по дням и главным акцентам."),
-      week_type: "balance",
-      theme: sanitizeVisibleWeekText(legacy?.theme, "Короткий ориентир"),
-    },
-    day_cards: (legacy?.day_cards ?? []).map((item, index) => ({
-      id: item.date ? `week-day-${item.date}` : `week-day-${index + 1}`,
-      date: item.date ?? null,
-      weekday: normalizeLegacyWeekday(item.weekday),
-      mode: normalizeStatus(item.mode),
-      score: normalizeLegacyScore(item.score),
-      headline: sanitizeVisibleWeekMetaValue(item.headline) ?? null,
-      lead: null,
-      practical: [],
-      supporting_factors: [],
-      details: {
-        why_text: null,
-        why_title: null,
-        supporting_factors: [],
-      },
-      factor_ids: [],
-      best_for: normalizeList(item.best_for),
-      avoid: normalizeList(item.avoid),
-      peak_window_label: null,
-    })),
-    domains: Object.entries(legacy?.domains ?? {}).map(([key, value]) => ({
-      key,
-      title: LEGACY_DOMAIN_TITLES[key] ?? "Общий фокус",
-      status: LEGACY_STATUS_BY_SCORE(Number(value ?? 0)),
-      value: Number(value ?? 0),
-      headline: `${LEGACY_DOMAIN_TITLES[key] ?? "Общий фокус"}: ${Number(value ?? 0)}/100`,
-      advice: null,
-      why_text: null,
-      supporting_factors: [],
-    })),
-    best_uses: normalizeActionItems(null, legacy?.actions, "action"),
-    risks: normalizeActionItems(null, legacy?.risks, "risk"),
-    major_factors: (legacy?.major_factors ?? []).map((item, index) => ({
-      id: `factor-${index + 1}`,
-      label: item.label ?? `Фактор ${index + 1}`,
-      impact: item.impact_pct && item.impact_pct >= 35 ? "high" : item.impact_pct && item.impact_pct >= 18 ? "medium" : "low",
-      category: item.category ?? null,
-      explanation_human: item.explanation ?? null,
-      explanation_astro: null,
-      source_models: null,
-      weight: typeof item.impact_pct === "number" ? Math.max(0, Math.min(1, item.impact_pct / 100)) : null,
-    })),
-    deep_sections: chunkSections,
-    explainability: {
-      confidence: legacy?.explainability?.confidence ?? null,
-      birth_time_used: legacy?.explainability?.used_exact_birth_time ?? false,
-      factor_count: null,
-      timing_precision: null,
-      top_signal_source: null,
-      explanation_depth: null,
-    },
-    cta: {
-      primary: null,
-      secondary: null,
-    },
-  };
-}
-
-function buildWeekSurfaceModel(input: {
+export function buildWeekSurfaceModel(input: {
   brief: WeekBrief;
   latestReportId?: string | null;
   sourceStatus?: string | null;
@@ -732,30 +585,11 @@ export function mapCanonicalWeekBriefToSurface(input: {
   });
 }
 
-export function mapLegacyWeekMigrationToSurface(input: {
-  legacyWeekMap?: LegacyWeekMapPayload | null;
-  chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
-  latestReportId?: string | null;
-  sourceStatus?: string | null;
-}): WeekSurfaceModel {
-  const compatibilityBrief = legacyWeekMapToCompatibilityBrief(input.legacyWeekMap, input.chunks);
-  return buildWeekSurfaceModel({
-    brief: compatibilityBrief,
-    latestReportId: input.latestReportId,
-    sourceStatus: input.sourceStatus,
-    surfaceMode: "compatibility",
-    usesCanonicalWeekBrief: false,
-    timezone: input.legacyWeekMap?.timezone ?? null,
-    location: input.legacyWeekMap?.location ?? null,
-    waitMessageFallback: sanitizeVisibleWeekText(input.legacyWeekMap?.thesis, "Персональная неделя собирается и скоро станет доступна целиком."),
-  });
-}
-
 // FN-CONTRACT: FN-WEEK-MAP-REPORT-TO-BRIEF
 // purpose: Map only canonical WeekBrief for the /week product path; non-canonical inputs fail closed at the route boundary.
 export function mapWeekReportToWeekBrief(input: {
   weekBrief?: WeekBrief | null;
-  legacyWeekMap?: LegacyWeekMapPayload | null;
+  legacyWeekMap?: Record<string, unknown> | null;
   chunks?: { id?: string; section?: string; title?: string; content?: unknown }[] | null;
   latestReportId?: string | null;
   sourceStatus?: string | null;
@@ -770,21 +604,6 @@ export function mapWeekReportToWeekBrief(input: {
 
   return null;
 }
-
-function normalizeStatus(value: string | null | undefined): LightStatus {
-  const normalized = value?.toLowerCase();
-  if (normalized === "green") return "green";
-  if (normalized === "yellow") return "yellow";
-  return "red";
-}
-
-function normalizeLegacyScore(value: number | null | undefined): number {
-  if (typeof value !== "number" || Number.isNaN(value)) return 50;
-  if (value <= 1) return Math.round(value * 100);
-  if (value <= 3) return Math.max(0, Math.min(100, Math.round(100 - value * 25)));
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
 function normalizeLegacyWeekday(value: string | null | undefined): string | null {
   if (!value) return null;
   const normalized = value.trim().toLowerCase();

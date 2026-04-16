@@ -1,0 +1,55 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR">
+  <system_goal>Detach WeekBrief assembly from report_workflow private helpers and isolate frontend compatibility reconstruction without changing Week product semantics.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Extract a Week-owned backend helper module for Week seed bundle assembly, Week day normalization, Week summary normalization, and any Week-owned chunk/block parsing needed by WeekBrief assembly.</item>
+      <item>Rewire WeekBrief assembly and Week prompt-context preparation to consume the Week-owned helper boundary instead of report_workflow.py private helpers.</item>
+      <item>Split canonical Week mapping from legacy compatibility reconstruction on the frontend so /week stays canonical-only.</item>
+      <item>Document the next bounded decomposition seam for report_workflow.py and main.py without performing the full decomposition in this feature.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Deleting backend/app/services/report_workflow.py.</item>
+      <item>Fully decomposing backend/app/main.py.</item>
+      <item>Changing Week scoring, day semantics, explainability semantics, or payload contracts.</item>
+      <item>Rewriting backend/app/services/week_map.py in this wave.</item>
+      <item>Changing visible Week layouts or adding new Week UI states.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-WEEK-SEED-BOUNDARY" actor="backend_maintainer">
+      <summary>Maintain Week seed ownership independently from report orchestration internals.</summary>
+      <scenario id="SCN-SLICE-WEEK-SEED-OWNED">week_brief_service.py imports Week-owned seed helpers instead of report_workflow.py private helpers.</scenario>
+      <scenario id="SCN-SLICE-WEEK-PROMPT-CONTEXT-SHARED">Week prompt-context preparation reuses the same Week-owned seed helper module without leaving WeekBrief seed normalization owned by report_workflow.py.</scenario>
+      <scenario id="SCN-SLICE-WEEK-FALLBACK-STABLE">If Week seed data is partial or chunk parsing degrades, existing WeekBrief fallback and telemetry semantics remain stable.</scenario>
+    </use_case>
+    <use_case id="UC-SLICE-WEEK-FRONTEND-BOUNDARY" actor="reviewer_or_user">
+      <summary>Keep canonical /week mapping separate from legacy compatibility reconstruction.</summary>
+      <scenario id="SCN-SLICE-WEEK-CANONICAL-ONLY">Canonical /week mapping continues to accept week_brief only and remains fail-closed for non-canonical inputs.</scenario>
+      <scenario id="SCN-SLICE-WEEK-COMPATIBILITY-ISOLATED">Legacy week_map plus chunk reconstruction lives in an explicit compatibility helper and does not re-enter the canonical product path.</scenario>
+      <scenario id="SCN-SLICE-WEEK-NO-UI-DRIFT">Visible Week states, CTA behavior, and secondary deep-read behavior remain unchanged.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>WeekBrief payload, envelope, status mapping, fallback semantics, and week_brief_* structured events remain unchanged.</invariant>
+    <invariant>report_workflow.py remains a workflow orchestrator and prompt-context owner, not the long-term ownership boundary for WeekBrief seed normalization.</invariant>
+    <invariant>The canonical /week product path maps only week_brief and remains fail-closed for non-canonical inputs.</invariant>
+    <invariant>Legacy week_map or chunk reconstruction remains explicit compatibility behavior and must not become the /week product path.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If Week-owned seed data is missing or incomplete, the backend preserves existing WeekBrief fallback and envelope behavior instead of reintroducing direct report_workflow helper imports.</item>
+    <item>If canonical week_brief is absent on the frontend, /week stays honest and fail-closed rather than reconstructing a substitute product surface from legacy inputs.</item>
+    <item>If packet-local observability reflects only test-emitted WeekBrief evidence, degraded-but-expected is acceptable only when the verifier states that no dedicated canonical emitter command was intentionally owned by the wave.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">week_brief_service.py directly depends on Week helper ownership that historically lived in report_workflow.py, which blurs WeekBrief boundaries.</defect>
+    <defect id="DEFECT-SLICE-2">frontend/lib/week-brief.ts historically mixed canonical mapping and compatibility reconstruction, obscuring the canonical /week boundary.</defect>
+    <defect id="DEFECT-SLICE-3">report_workflow.py and main.py remain oversized after this slice; only the next extraction seam is prepared here.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">A Week-owned backend helper module becomes the source of truth for Week seed bundle assembly and Week normalization helpers.</criterion>
+    <criterion id="SC-SLICE-2">week_brief_service.py no longer imports Week seed helpers directly from report_workflow.py private functions.</criterion>
+    <criterion id="SC-SLICE-3">Week prompt-context wiring still works after the backend seed-boundary extraction.</criterion>
+    <criterion id="SC-SLICE-4">Frontend canonical Week mapping and compatibility reconstruction are split into separate helper modules with stable behavior.</criterion>
+    <criterion id="SC-SLICE-5">Targeted backend, frontend helper, and Week E2E verification passes with an explicit non-blocking packet-local WeekBrief observability verdict.</criterion>
+  </success_criteria>
+</requirements_slice>

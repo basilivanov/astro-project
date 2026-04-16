@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { ConsumerHero, ConsumerMetaPill, ConsumerStatusBadge } from "../consumer-page-shell";
@@ -68,7 +67,7 @@ export function WeekHeroMap({
       }
       actions={
         <div className="flex flex-col gap-3" data-testid="week-hero-actions">
-          <Link
+          <a
             href={primaryHref}
             onClick={onPrimaryClick}
             className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-slate-200"
@@ -76,7 +75,7 @@ export function WeekHeroMap({
           >
             {primaryLabel}
             <ArrowRight size={16} />
-          </Link>
+          </a>
           {week.status === "in_progress" || week.status === "pending" ? (
             <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-xs font-semibold text-amber-900" data-testid="week-generation-status">
               <ReportStatusPoller reportId={week.reportId ?? ""} status={week.status} />

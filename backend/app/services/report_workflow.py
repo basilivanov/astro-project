@@ -131,6 +131,12 @@ from .forecast_semantics import (
     build_month_forecast_semantic_layer,
     build_week_forecast_semantic_layer,
 )
+from .week_brief_seed import (
+    build_week_brief_seed_bundle as build_week_brief_seed_bundle_owned,
+    normalize_week_day_payload as normalize_week_day_payload_owned,
+    normalize_week_summary as normalize_week_summary_owned,
+    parse_json_block_list as parse_json_block_list_owned,
+)
 
 logger = structlog.get_logger()
 MODULE_ID = "M-REPORT-WORKFLOW"
@@ -863,55 +869,11 @@ def _default_week_traffic_desc(status: Any) -> str:
 
 
 def _normalize_week_day_payload(day: dict[str, Any]) -> dict[str, Any]:
-    source = copy.deepcopy(day or {})
-    moon = source.get("moon", {}) or {}
-    moon_sign = _normalize_moon_sign_label(moon.get("sign"))
-    moon_phase = str(moon.get("phase") or "").strip()
-    events = [
-        str(item).strip()
-        for item in (source.get("events") or _summarize_week_events(source))
-        if str(item).strip()
-    ]
-    traffic_light = str(source.get("traffic_light") or "").strip().upper() or "YELLOW"
-    return {
-        "date": source.get("date"),
-        "date_label": str(source.get("date_label") or "").strip() or _format_short_date_label(source.get("date")),
-        "weekday_ru": str(source.get("weekday_ru") or "").strip() or _translate_weekday_to_ru(source.get("weekday")),
-        "traffic_light": traffic_light,
-        "traffic_desc": str(source.get("traffic_desc") or "").strip() or _default_week_traffic_desc(traffic_light),
-        "tension_score": _coerce_float(source.get("tension_score")),
-        "moon": {
-            "sign": moon_sign,
-            "phase": moon_phase,
-            "void_of_course": bool(moon.get("void_of_course")),
-        },
-        "moon_label": str(source.get("moon_label") or "").strip()
-        or ", ".join(part for part in [moon_sign, moon_phase] if part),
-        "events": events,
-    }
+    return normalize_week_day_payload_owned(day)
 
 
 def _normalize_week_summary(week_data: dict[str, Any], days: list[dict[str, Any]]) -> dict[str, Any]:
-    source = copy.deepcopy((week_data or {}).get("summary") or {})
-    avg_tension = _coerce_float(source.get("avg_tension"))
-    if avg_tension is None and days:
-        scores = [item.get("tension_score") for item in days if item.get("tension_score") is not None]
-        if scores:
-            avg_tension = sum(scores) / len(scores)
-    traffic_light = str(source.get("traffic_light") or source.get("status_label") or "").strip().upper()
-    if traffic_light not in {"RED", "YELLOW", "GREEN"}:
-        tension = avg_tension if avg_tension is not None else 0.0
-        if tension >= 1.5:
-            traffic_light = "RED"
-        elif tension >= 0.3:
-            traffic_light = "YELLOW"
-        else:
-            traffic_light = "GREEN"
-    return {
-        "traffic_light": traffic_light,
-        "avg_tension": round(avg_tension, 1) if avg_tension is not None else None,
-        "status_label": str(source.get("status_label") or traffic_light).strip() or traffic_light,
-    }
+    return normalize_week_summary_owned(week_data, days)
 
 
 def _summarize_week_events(day: dict[str, Any]) -> list[str]:
@@ -1415,31 +1377,7 @@ def _build_month_campaign_arc(
 
 
 def _build_week_brief_seed_bundle(context: dict[str, Any]) -> dict[str, Any]:
-    week_data = copy.deepcopy(context.get("week_forecast_data") or {})
-    days = [_normalize_week_day_payload(day) for day in week_data.get("days", [])[:7]]
-    summary = _normalize_week_summary(week_data, days)
-    semantic_layer = week_data.get("semantic_layer")
-    if not isinstance(semantic_layer, dict) or not semantic_layer:
-        semantic_layer = build_week_forecast_semantic_layer(summary, days)
-
-    month_data = copy.deepcopy(context.get("month_forecast_data") or {})
-    year_data = copy.deepcopy(context.get("year_forecast_data") or {})
-    return {
-        "forecast_window": copy.deepcopy(context.get("forecast_window") or {}),
-        "summary": summary,
-        "days": days,
-        "semantic_layer": semantic_layer,
-        "month_forecast_data": month_data,
-        "year_forecast_data": year_data,
-        "slow_background": {
-            "profection": copy.deepcopy(year_data.get("profection") or {}),
-            "solar_return": copy.deepcopy(year_data.get("solar_return") or {}),
-            "solar_arcs": copy.deepcopy((year_data.get("solar_arcs") or [])[:6]),
-            "long_transits": copy.deepcopy((month_data.get("major_transits") or [])[:6]),
-            "retrogrades": copy.deepcopy((month_data.get("retrogrades") or [])[:4]),
-            "lunations": copy.deepcopy((month_data.get("lunations") or [])[:3]),
-        },
-    }
+    return build_week_brief_seed_bundle_owned(context)
 
 
 def _build_week_forecast_prompt_context(context: dict[str, Any]) -> dict[str, Any]:
@@ -1565,18 +1503,7 @@ def _build_week_traffic_items(summary: dict[str, Any]) -> dict[str, str]:
 
 
 def _parse_json_block_list(content: Any) -> list[dict[str, Any]]:
-    text = str(content or "").strip()
-    if not text:
-        return []
-    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE).strip()
-    text = re.sub(r"\s*```$", "", text).strip()
-    try:
-        data = json.loads(text)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return []
-    if not isinstance(data, list):
-        return []
-    return [item for item in data if isinstance(item, dict)]
+    return parse_json_block_list_owned(content)
 
 
 def _normalize_week_llm_text(value: Any) -> str:

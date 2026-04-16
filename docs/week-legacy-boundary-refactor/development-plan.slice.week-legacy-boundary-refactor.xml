@@ -1,0 +1,61 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR">
+  <phase id="PHASE-SLICE">
+    <goal>Detach WeekBrief assembly from report_workflow private helpers and isolate frontend compatibility reconstruction without changing Week product semantics.</goal>
+
+    <wave id="W01">
+      <goal>Land the Week-owned backend seed boundary, split frontend compatibility reconstruction, add Week E2E guardrails, and close the slice with targeted packet-local evidence.</goal>
+      <module_ref id="M-REPORT-WORKFLOW" />
+      <module_ref id="M-WEEK-BRIEF-SEED" />
+      <module_ref id="M-WEEK-BRIEF-SERVICE" />
+      <module_ref id="M-FRONTEND-WEEK" />
+      <module_ref id="M-WEEK-BRIEF-COMPATIBILITY" />
+      <allowed_write_scope>
+        <file>/opt/astro-project/backend/app/services/week_brief_seed.py</file>
+        <file>/opt/astro-project/backend/app/services/week_brief_service.py</file>
+        <file>/opt/astro-project/backend/app/services/report_workflow.py</file>
+        <file>/opt/astro-project/frontend/lib/week-brief.ts</file>
+        <file>/opt/astro-project/frontend/lib/week-brief-compat.ts</file>
+        <file>/opt/astro-project/tests/test_week_brief_service.py</file>
+        <file>/opt/astro-project/tests/test_week_brief_api.py</file>
+        <file>/opt/astro-project/tests/test_week_brief_frontend_mapping.py</file>
+        <file>/opt/astro-project/frontend/test/lib/week-brief.test.ts</file>
+        <file>/opt/astro-project/frontend/e2e/week-page-fallback.spec.ts</file>
+        <file>/opt/astro-project/frontend/e2e/canonical-week-continuity.spec.ts</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>/opt/astro-project/backend/app/main.py</file>
+        <file>/opt/astro-project/backend/app/services/week_map.py</file>
+        <file>/opt/astro-project/backend/app/services/day_brief*</file>
+        <file>/opt/astro-project/frontend/app/week/page.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/**</file>
+        <file>/opt/astro-project/frontend/app/read/**</file>
+      </frozen_scope>
+      <observability_scope>packet_local</observability_scope>
+      <allow_degraded_but_expected>true</allow_degraded_but_expected>
+      <canonical_flow_commands>
+        <command>-</command>
+      </canonical_flow_commands>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+        <command>docker exec astro-project-backend-1 python3 -m pytest -q tests/test_week_brief_service.py tests/test_week_brief_api.py</command>
+        <command>python3 -m pytest -q tests/test_week_brief_frontend_mapping.py</command>
+        <command>corepack pnpm --dir frontend exec jest --runInBand test/lib/week-brief.test.ts</command>
+        <command>./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts e2e/canonical-week-continuity.spec.ts</command>
+        <command>python3 tools/post_test_review.py --profile read-only --since 30m --report-format md</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>Week seed ownership is moved into a Week-owned helper module and the direct private-helper import from report_workflow.py is removed from week_brief_service.py.</criterion>
+        <criterion>Week prompt-context wiring still works after the seed-boundary extraction.</criterion>
+        <criterion>Canonical Week mapping stays in frontend/lib/week-brief.ts, while compatibility reconstruction is isolated in frontend/lib/week-brief-compat.ts.</criterion>
+        <criterion>The visible /week product path stays canonical-only and unchanged.</criterion>
+        <criterion>Verifier records an explicit packet-local WeekBrief observability verdict of clean or degraded-but-expected.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Further decomposition of backend/app/services/report_workflow.py beyond the Week seed boundary.</item>
+        <item>Any extraction from backend/app/main.py beyond documenting the next boundary.</item>
+        <item>Unifying backend/app/services/week_map.py with the new Week-owned seed helper in a later slice.</item>
+      </deferred_work>
+    </wave>
+
+  </phase>
+</development_plan_slice>

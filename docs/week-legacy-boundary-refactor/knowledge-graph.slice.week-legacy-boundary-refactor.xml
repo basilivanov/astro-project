@@ -1,0 +1,17 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR">
+  <modules>
+    <module id="M-REPORT-WORKFLOW" />
+    <module id="M-WEEK-BRIEF-SEED" />
+    <module id="M-WEEK-BRIEF-SERVICE" />
+    <module id="M-FRONTEND-WEEK" />
+    <module id="M-WEEK-BRIEF-COMPATIBILITY" />
+  </modules>
+  <flow_links>
+    <edge from="M-REPORT-WORKFLOW" to="M-WEEK-BRIEF-SEED" type="depends_on" />
+    <edge from="M-WEEK-BRIEF-SEED" to="M-WEEK-BRIEF-SERVICE" type="depends_on" />
+    <edge from="M-WEEK-BRIEF-SERVICE" to="M-API-GATEWAY" type="writes" />
+    <edge from="M-API-GATEWAY" to="M-FRONTEND-WEEK" type="renders" />
+    <edge from="legacy week_map and report chunks" to="M-WEEK-BRIEF-COMPATIBILITY" type="reads" />
+    <edge from="M-WEEK-BRIEF-COMPATIBILITY" to="secondary compatibility surfaces" type="renders" />
+  </flow_links>
+</knowledge_graph_slice>

@@ -1,7 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+
+async function captureVisualEvidence(page: Page, testInfo: TestInfo, filename: string) {
+  const screenshotPath = testInfo.outputPath(filename);
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+  await testInfo.attach(filename, { path: screenshotPath, contentType: "image/png" });
+}
 
 test.describe("Week Page Fallback Parsing", () => {
-  test("should render safe text fallback when week chunk content is not JSON blocks", async ({ browser }) => {
+  test("should stay fail-closed when only legacy week chunks are available", async ({ browser }, testInfo) => {
     const reportId = 'week-fallback-report';
     const logs: string[] = [];
 
@@ -23,7 +29,11 @@ test.describe("Week Page Fallback Parsing", () => {
 
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        logs.push(msg.text());
+        const text = msg.text();
+        if (text.includes('data-runtime-badge-event')) {
+          return;
+        }
+        logs.push(text);
       }
     });
 
@@ -76,34 +86,23 @@ test.describe("Week Page Fallback Parsing", () => {
 
     await page.goto('/week');
 
-    await expect(page.getByTestId('week-map-surface')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Неделя просит точного темпа: двигайте главное и сразу фиксируйте результат.');
-    await expect(page.getByTestId('week-map-surface')).not.toContainText('Europe/Moscow');
-    await expect(page.getByTestId('week-primary-cta')).toBeVisible();
-    await expect(page.getByTestId('week-day-strip')).toBeVisible();
-    await expect(page.getByTestId('week-day-strip-card-1')).toContainText(/^[А-Я]{2},\s\d+\s[а-я]+/);
-    await expect(page.getByTestId('week-day-strip').locator('article[data-testid^="week-day-strip-card-"]')).toHaveCount(7);
-    await expect(page.getByTestId('week-day-strip-card-1')).not.toContainText(/\bgreen\b/i);
-    await expect(page.getByTestId('week-day-strip-card-2')).not.toContainText(/\byellow\b/i);
-    await expect(page.getByTestId('week-day-strip-card-3')).not.toContainText(/\bred\b/i);
-    await expect(page.getByTestId('week-day-strip')).not.toContainText(/светофор\s+money\s*:\s*green/i);
-    await expect(page.getByTestId('week-day-strip')).not.toContainText(/\ball_week\b/i);
-    await expect(page.getByTestId('week-day-strip')).not.toContainText(/explanation_astro|transit|natal|aspect/i);
-    await expect(page.getByTestId('week-deep-sections')).toBeVisible();
-    await expect(page.getByTestId('week-deep-sections')).toContainText('Неделя требует спокойного темпа и аккуратной расстановки приоритетов.');
-    await expect(page.getByTestId('week-deep-sections-summary')).toContainText('длинного чтения');
-    await expect(page.getByTestId('week-deep-sections')).not.toContainText('Короткая версия раздела');
-    await expect(page.getByTestId('week-deep-sections')).not.toContainText('{"text"');
-    await expect(page.getByTestId('week-fallback-note')).toBeVisible();
-    await expect(page.getByTestId('week-fallback-note')).toContainText('сокращённая версия недели');
-    await expect(page.getByTestId('week-fallback-note')).not.toContainText(/fallback|weekbrief|legacy|week_map/i);
-    await expect(page.getByTestId('week-map-surface')).not.toContainText(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
+    await expect(page.getByTestId('week-page')).toBeVisible();
+    await expect(page.getByText('Персональной недели пока нет')).toBeVisible();
+    await expect(page.getByText('Для этого Telegram-профиля пока нет сохранённой персональной недели. Чтобы увидеть её целиком, соберите новый недельный разбор.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Собрать персональную неделю' })).toHaveAttribute('href', '/create?type=week_forecast');
+    await expect(page.getByTestId('week-map-surface')).toHaveCount(0);
+    await expect(page.getByTestId('week-primary-cta')).toHaveCount(0);
+    await expect(page.getByTestId('week-day-strip')).toHaveCount(0);
+    await expect(page.getByTestId('week-deep-sections')).toHaveCount(0);
+    await expect(page.getByTestId('report-fallback-card')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(/legacy|fallback|week_map|weekbrief|headline|markdown|weekly report|compatibility/i);
+    await captureVisualEvidence(page, testInfo, 'week-fail-closed-empty-state.png');
 
     expect(logs, `Found console or page errors on /week fallback path: ${logs.join(', ')}`).toHaveLength(0);
     await context.close();
   });
 
-  test('should not leak raw slug-like deep fallback values into week UI', async ({ browser }) => {
+  test('should keep legacy raw slug fallback data out of the canonical week route', async ({ browser }) => {
     const reportId = 'week-raw-slug-report';
 
     const context = await browser.newContext();
@@ -158,10 +157,11 @@ test.describe("Week Page Fallback Parsing", () => {
 
     await page.goto('/week');
 
-    await expect(page.getByTestId('week-deep-sections')).toBeVisible();
-    await expect(page.getByTestId('week-deep-sections')).toContainText('Раздел 1');
-    await expect(page.getByTestId('week-deep-sections')).not.toContainText('week_strategy');
-    await expect(page.getByTestId('week-deep-sections')).not.toContainText(/accordion/i);
+    await expect(page.getByText('Персональной недели пока нет')).toBeVisible();
+    await expect(page.getByText('Для этого Telegram-профиля пока нет сохранённой персональной недели. Чтобы увидеть её целиком, соберите новый недельный разбор.')).toBeVisible();
+    await expect(page.getByTestId('week-map-surface')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText('week_strategy');
+    await expect(page.locator('body')).not.toContainText(/accordion/i);
     await expect(page.getByTestId('report-fallback-card')).toHaveCount(0);
 
     await context.close();

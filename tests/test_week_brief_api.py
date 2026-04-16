@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from backend.app.main import get_report_detail
+from backend.app.services import report_workflow
 
 
 def test_get_report_detail_returns_week_brief_without_changing_chunks():
@@ -112,3 +113,35 @@ def test_get_report_detail_keeps_week_brief_none_for_non_week_reports():
 
     assert response["week_brief"] is None
     assert response["week_brief_envelope"] is None
+
+
+def test_week_prompt_context_delegates_to_week_owned_seed_boundary():
+    week_seed = {
+        "days": [{"date": "2026-03-30", "weekday_ru": "понедельник"}],
+        "summary": {"traffic_light": "GREEN", "avg_tension": -0.1, "status_label": "GREEN"},
+        "semantic_layer": {"headline": "Неделя дает ход."},
+    }
+
+    with patch("backend.app.services.report_workflow.build_week_brief_seed_bundle_owned", return_value=week_seed) as build_week_seed:
+        result = report_workflow._build_week_forecast_prompt_context(
+            {
+                "client": {"gender": "female", "report_type": "week_forecast", "birth_time_known": True},
+                "forecast_window": {"start": "2026-03-30T05:00:00+03:00", "days": 7},
+            }
+        )
+
+    build_week_seed.assert_called_once()
+    assert result["week_forecast_data"]["days"] == week_seed["days"]
+    assert result["week_forecast_data"]["summary"] == week_seed["summary"]
+    assert result["week_forecast_data"]["semantic_layer"] == week_seed["semantic_layer"]
+
+
+def test_week_brief_api_contract_keeps_packet_local_service_entrypoints_stable():
+    import backend.app.services.week_brief_service as week_brief_service
+
+    assert week_brief_service.MODULE_ID == "M-WEEK-BRIEF-SERVICE"
+    assert week_brief_service.WEEK_BRIEF_EVIDENCE_LANE == "packet_local"
+    assert week_brief_service.WEEK_BRIEF_PACKET_SCOPE == "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"
+    assert week_brief_service.WEEK_BRIEF_PAYLOAD_BLOCK == "WEEK_BRIEF_PAYLOAD_ASSEMBLY"
+    assert callable(week_brief_service.build_week_brief_payload)
+    assert callable(week_brief_service.build_week_brief_envelope)

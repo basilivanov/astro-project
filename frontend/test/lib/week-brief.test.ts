@@ -1,11 +1,13 @@
 import {
   confidenceBucket,
   formatWeekDateRange,
-  hasExplicitWeekMigrationPayload,
   mapCanonicalWeekBriefToSurface,
-  mapLegacyWeekMigrationToSurface,
   mapWeekReportToWeekBrief,
 } from '../../lib/week-brief';
+import {
+  hasExplicitWeekMigrationPayload,
+  mapLegacyWeekMigrationToSurface,
+} from '../../lib/week-brief-compat';
 
 describe('week-brief helpers', () => {
   it('maps canonical week_brief payloads without legacy mixing', () => {

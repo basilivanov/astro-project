@@ -1,5 +1,60 @@
 """Deterministic WeekBrief assembly for week forecast report detail."""
 
+# ############################################################################
+# AI_HEADER: MODULE_WEEK_BRIEF_SERVICE
+# ROLE: Assemble canonical WeekBrief payloads and envelopes for report detail responses.
+# DEPENDENCIES: backend.app.logging_utils, week_brief_seed, week_brief_validators.
+# GRACE_ANCHORS: [WEEK_BRIEF_CONSTANTS, WEEK_BRIEF_TYPES, WEEK_BRIEF_TELEMETRY, WEEK_BRIEF_NORMALIZATION, WEEK_BRIEF_FACTORS, WEEK_BRIEF_ENTRYPOINTS]
+# ############################################################################
+
+# START_MODULE_CONTRACT: M-WEEK-BRIEF-SERVICE
+# purpose: Build canonical WeekBrief payloads and response envelopes without changing week-report semantics.
+# owns:
+#   - backend/app/services/week_brief_service.py
+# inputs:
+#   - report workflow context, report chunks, and optional authenticated user context
+#   - week seed data normalized by backend.app.services.week_brief_seed
+# outputs:
+#   - canonical WeekBrief payloads
+#   - canonical WeekBrief envelopes for ready/in-progress/error API responses
+#   - week_brief.* structured log events with stable module/function/block attribution
+# dependencies:
+#   - backend.app.logging_utils for correlation-aware event logging
+#   - backend.app.services.week_brief_seed for week-owned seed normalization
+#   - backend.app.services.week_brief_validators for final payload and envelope validation
+# invariants:
+#   - week_brief_v1 payload semantics and envelope states remain unchanged
+#   - report detail continues to receive deterministic fallback behavior on validation/build failures
+#   - stable module/function/block names remain available for post-test evidence review
+# non_goals:
+#   - changing week brief business logic or response schema
+#   - moving seed ownership back into report_workflow
+# END_MODULE_CONTRACT: M-WEEK-BRIEF-SERVICE
+
+# START_MODULE_MAP: M-WEEK-BRIEF-SERVICE
+# public_entrypoints:
+#   - build_week_brief_payload -> canonical WeekBrief DTO assembly for report detail responses
+#   - build_week_brief_envelope -> API envelope for ready, in_progress, and error states
+# internal_entrypoints:
+#   - _log_week_brief -> structured WeekBrief event emission helper
+#   - _build_seed -> week-owned seed boundary resolution helper
+#   - _build_week_brief_fallback -> deterministic fallback payload builder
+# semantic_blocks:
+#   - WEEK_BRIEF_CONSTANTS: module identifiers, domain maps, and stable display defaults
+#   - WEEK_BRIEF_TYPES: dataclasses used by deterministic factor and section assembly
+#   - WEEK_BRIEF_TELEMETRY: WeekBrief log helper and event attribution markers
+#   - WEEK_BRIEF_NORMALIZATION: date, text, and chunk normalization helpers
+#   - WEEK_BRIEF_FACTORS: seed-to-factor and section weighting helpers
+#   - WEEK_BRIEF_ENTRYPOINTS: seed resolution, fallback, payload build, and envelope build entrypoints
+# owned_tests:
+#   - tests/test_week_brief_service.py
+#   - tests/test_week_brief_api.py
+# adjacent_modules:
+#   - backend/app/services/week_brief_seed.py
+#   - backend/app/services/week_brief_validators.py
+#   - backend/app/main.py
+# END_MODULE_MAP: M-WEEK-BRIEF-SERVICE
+
 from __future__ import annotations
 
 import copy
@@ -14,11 +69,11 @@ from .aggregation_weights import apply_weighted_factors
 from .forecast_factor_pipeline import NormalizedFactor, clamp_signal, make_factor, normalize_domain
 from .personal_susceptibility import attach_susceptibility, build_susceptibility_profile, calibration_entrypoints
 try:
-    from .report_workflow import (
-        _build_week_brief_seed_bundle,
-        _normalize_week_day_payload,
-        _normalize_week_summary,
-        _parse_json_block_list,
+    from .week_brief_seed import (
+        build_week_brief_seed_bundle as _build_week_brief_seed_bundle,
+        normalize_week_day_payload as _normalize_week_day_payload,
+        normalize_week_summary as _normalize_week_summary,
+        parse_json_block_list as _parse_json_block_list,
     )
 except ModuleNotFoundError:  # pragma: no cover - test env without heavy astro deps
     def _build_week_brief_seed_bundle(context: dict[str, Any]) -> dict[str, Any]:
@@ -57,8 +112,13 @@ from .week_brief_validators import (
     validate_week_brief_payload,
 )
 
-
-MODULE_ID = "M-WEEK-BRIEF"
+# START_BLOCK: WEEK_BRIEF_CONSTANTS
+MODULE_ID = "M-WEEK-BRIEF-SERVICE"
+WEEK_BRIEF_PAYLOAD_BLOCK = "WEEK_BRIEF_PAYLOAD_ASSEMBLY"
+WEEK_BRIEF_FALLBACK_BLOCK = "WEEK_BRIEF_FALLBACK_RECOVERY"
+WEEK_BRIEF_VALIDATION_BLOCK = "WEEK_BRIEF_VALIDATION_GUARD"
+WEEK_BRIEF_EVIDENCE_LANE = "packet_local"
+WEEK_BRIEF_PACKET_SCOPE = "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"
 WEEKDAY_CODE_MAP = {
     "monday": "mon",
     "tuesday": "tue",
@@ -131,8 +191,10 @@ GENERIC_RISKS = (
     "Не принимай промежуточную ясность за окончательный результат.",
     "Не трать сильные дни на шум и параллельные срочности.",
 )
+# END_BLOCK: WEEK_BRIEF_CONSTANTS
 
 
+# START_BLOCK: WEEK_BRIEF_TYPES
 @dataclass
 class WeekSectionSeed:
     id: str
@@ -181,11 +243,29 @@ class _FactorSeed:
     @property
     def signal(self) -> float:
         return self.factor.signal
+# END_BLOCK: WEEK_BRIEF_TYPES
 
 
-def _log_week_brief(level: str, event: str, *, report: Any | None = None, **fields: Any) -> None:
+# START_BLOCK: WEEK_BRIEF_TELEMETRY
+# START_CONTRACT: FN-LOG-WEEK-BRIEF
+# purpose: Emit stable week_brief.* logs without changing payload assembly behavior.
+# inputs:
+#   - log level, event name, optional report, and structured WeekBrief fields
+# outputs:
+#   - structured log event with module/function/block attribution
+def _log_week_brief(
+    level: str,
+    event: str,
+    *,
+    report: Any | None = None,
+    fn: str = "build_week_brief_payload",
+    block: str = WEEK_BRIEF_PAYLOAD_BLOCK,
+    **fields: Any,
+) -> None:
     context = get_correlation_ids()
     payload = {key: value for key, value in fields.items() if value is not None}
+    payload.setdefault("week_brief_evidence_lane", WEEK_BRIEF_EVIDENCE_LANE)
+    payload.setdefault("week_brief_packet_scope", WEEK_BRIEF_PACKET_SCOPE)
     if report is not None:
         payload["report_id"] = str(report.id)
         payload["report_type"] = getattr(report, "report_type", None)
@@ -194,15 +274,19 @@ def _log_week_brief(level: str, event: str, *, report: Any | None = None, **fiel
         level,
         event,
         module=MODULE_ID,
-        fn="build_week_brief_payload",
-        block="ASSEMBLY",
+        fn=fn,
+        block=block,
         correlation_id=context.get("correlation_id"),
         trace_id=context.get("trace_id"),
         correlation_source=context.get("correlation_source"),
+        request_id=context.get("request_id"),
         **payload,
     )
+# END_CONTRACT: FN-LOG-WEEK-BRIEF
+# END_BLOCK: WEEK_BRIEF_TELEMETRY
 
 
+# START_BLOCK: WEEK_BRIEF_NORMALIZATION
 def _safe_date(value: Any, *, default: date) -> date:
     if isinstance(value, date) and not isinstance(value, datetime):
         return value
@@ -978,8 +1062,14 @@ def _assemble_week_top_layer(
     return payloads[:limit], weighted
 
 
+# END_BLOCK: WEEK_BRIEF_NORMALIZATION
+
+
+# START_BLOCK: WEEK_BRIEF_FACTORS
 def _weighted_factor_payloads(records: list[_FactorSeed]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return _assemble_week_top_layer(records, limit=5)
+
+
 def _build_domain_scores(
     seed: dict[str, Any],
     factor_records: list[_FactorSeed],
@@ -1429,14 +1519,27 @@ def _report_ref(report: Any) -> dict[str, Any]:
         "source_status": str(getattr(report, "status", "") or "unknown"),
         "generated_at": generated,
     }
+# END_BLOCK: WEEK_BRIEF_FACTORS
 
 
+# START_BLOCK: WEEK_BRIEF_ENTRYPOINTS
+# START_CONTRACT: FN-BUILD-WEEK-BRIEF-SEED
+# purpose: Resolve the week-owned seed boundary for WeekBrief assembly.
+# inputs:
+#   - context: report workflow context or prebuilt week_brief_seed
+# returns: copied seed payload for deterministic assembly
 def _build_seed(context: dict[str, Any]) -> dict[str, Any]:
     if context.get("week_brief_seed"):
         return copy.deepcopy(context["week_brief_seed"])
     return _build_week_brief_seed_bundle(context)
+# END_CONTRACT: FN-BUILD-WEEK-BRIEF-SEED
 
 
+# START_CONTRACT: FN-BUILD-WEEK-BRIEF-FALLBACK
+# purpose: Build deterministic fallback WeekBrief payload when normal validation or assembly fails.
+# inputs:
+#   - report, payload, context, chunks, and optional user
+# returns: fallback WeekBrief dict preserving week_brief_v1 schema semantics
 def _build_week_brief_fallback(
     *,
     report: Any,
@@ -1517,8 +1620,16 @@ def _build_week_brief_fallback(
         "cta": _build_cta(report),
         "report_ref": _report_ref(report),
     }
+# END_CONTRACT: FN-BUILD-WEEK-BRIEF-FALLBACK
 
 
+# START_CONTRACT: FN-BUILD-WEEK-BRIEF-PAYLOAD
+# purpose: Build and validate the canonical WeekBrief payload for report detail responses.
+# inputs:
+#   - report, payload, context, report chunks, optional user, and optional llm_model label
+# returns: validated week_brief_v1 dict, or validated deterministic fallback on failure
+# side_effects:
+#   - emits week_brief.* structured events with stable module/function/block attribution
 def build_week_brief_payload(
     *,
     report: Any,
@@ -1583,6 +1694,7 @@ def build_week_brief_payload(
                 "info",
                 "week_brief_fallback_triggered",
                 report=report,
+                block=WEEK_BRIEF_FALLBACK_BLOCK,
                 factor_count=validated["explainability"]["factor_count"],
                 week_brief_llm_model=llm_model or "deterministic",
                 week_brief_fallback_mode=True,
@@ -1593,6 +1705,7 @@ def build_week_brief_payload(
             "info",
             "week_brief_built",
             report=report,
+            block=WEEK_BRIEF_PAYLOAD_BLOCK,
             factor_count=validated["explainability"]["factor_count"],
             week_brief_llm_model=llm_model or "deterministic",
             week_brief_fallback_mode=validated["fallback_mode"],
@@ -1605,6 +1718,7 @@ def build_week_brief_payload(
             "warning",
             "week_brief_validation_failed",
             report=report,
+            block=WEEK_BRIEF_VALIDATION_BLOCK,
             error=str(exc),
             week_brief_llm_model=llm_model or "deterministic",
         )
@@ -1621,6 +1735,7 @@ def build_week_brief_payload(
             "info",
             "week_brief_fallback_triggered",
             report=report,
+            block=WEEK_BRIEF_FALLBACK_BLOCK,
             factor_count=fallback["explainability"]["factor_count"],
             week_brief_llm_model=llm_model or "deterministic",
             week_brief_fallback_mode=True,
@@ -1631,6 +1746,7 @@ def build_week_brief_payload(
             "info",
             "week_brief_built",
             report=report,
+            block=WEEK_BRIEF_PAYLOAD_BLOCK,
             factor_count=fallback["explainability"]["factor_count"],
             week_brief_llm_model=llm_model or "deterministic",
             week_brief_fallback_mode=True,
@@ -1638,8 +1754,14 @@ def build_week_brief_payload(
             week_brief_confidence_bucket=_confidence_bucket(fallback["explainability"]["confidence"]),
         )
         return fallback
+# END_CONTRACT: FN-BUILD-WEEK-BRIEF-PAYLOAD
 
 
+# START_CONTRACT: FN-BUILD-WEEK-BRIEF-ENVELOPE
+# purpose: Wrap WeekBrief data into the stable API envelope for ready, in-progress, and error reports.
+# inputs:
+#   - report status, optional WeekBrief payload, retry-after value
+# returns: validated WeekBrief envelope dict
 def build_week_brief_envelope(
     *,
     report: Any,
@@ -1658,6 +1780,8 @@ def build_week_brief_envelope(
     if status == "error":
         payload["message"] = str(getattr(report, "error_message", "") or "Week brief could not be fully assembled.")
     return validate_week_brief_envelope_payload(payload)
+# END_CONTRACT: FN-BUILD-WEEK-BRIEF-ENVELOPE
+# END_BLOCK: WEEK_BRIEF_ENTRYPOINTS
 
 
 __all__ = [
