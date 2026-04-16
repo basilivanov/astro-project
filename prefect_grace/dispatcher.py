@@ -14,16 +14,25 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from prefect_grace.models import FeatureStatus
 from prefect_grace.runtime_config import load_runtime_config
-from prefect_grace.tasks.job_queue import claim_next_job, list_jobs, update_job
+from prefect_grace.tasks.job_queue import (
+    JOB_ACTIVE_STATUSES,
+    JOB_STATUS_ACCEPTED,
+    JOB_STATUS_AWAITING_COMMIT,
+    JOB_STATUS_BLOCKED,
+    JOB_STATUS_DISPATCHING,
+    JOB_STATUS_ENVIRONMENT_BLOCKED,
+    JOB_STATUS_REWORK_REQUIRED,
+    JOB_STATUS_RUNNING,
+    JOB_STATUS_SUBMITTED,
+    claim_next_job,
+    list_jobs,
+    update_job,
+)
 from prefect_grace.tasks.state_store import find_record
 from prefect_grace.tasks.telegram_notify import notify_feature_event
 
 FEATURE_DEPLOYMENT_NAME = "prefect-grace-feature-pipeline/live-feature-pipeline"
-ACTIVE_JOB_STATUSES = {"dispatching", "submitted", "running"}
-JOB_STATUS_ACCEPTED = "accepted"
-JOB_STATUS_AWAITING_COMMIT = "awaiting_commit"
-JOB_STATUS_BLOCKED = "blocked"
-JOB_STATUS_REWORK_REQUIRED = "rework_required"
+ACTIVE_JOB_STATUSES = JOB_ACTIVE_STATUSES
 JOB_STATUS_AWAITING_ARCHITECT = "awaiting_architect"
 
 
@@ -38,6 +47,14 @@ def _configure_prefect_api() -> None:
 
 
 def _job_parameters(job: dict[str, Any]) -> dict[str, Any]:
+    business_context = dict(job.get("business_context") or {})
+    sequence_id = str(job.get("sequence_id") or "").strip()
+    if sequence_id:
+        business_context["sequence_id"] = sequence_id
+        business_context["sequence_feature_ids"] = list(job.get("sequence_feature_ids") or [])
+        business_context["sequence_position"] = job.get("sequence_position")
+        business_context["sequence_total"] = job.get("sequence_total")
+        business_context["sequence_status_summary_ru"] = job.get("status_summary_ru")
     return {
         "feature_id": job["feature_id"],
         "title": job["title"],
@@ -59,7 +76,7 @@ def _job_parameters(job: dict[str, Any]) -> dict[str, Any]:
         "run_planner": job.get("run_planner"),
         "agent_workdir": job.get("agent_workdir"),
         "agent_sandbox": job.get("agent_sandbox"),
-        "business_context": dict(job.get("business_context") or {}),
+        "business_context": business_context,
         "planner_contract": job.get("planner_contract"),
         "commit_hash": job.get("commit_hash"),
     }
@@ -93,9 +110,10 @@ def _feature_domain_outcome(feature_id: str) -> tuple[str, str | None]:
         FeatureStatus.PRODUCT_BLOCKED.value,
         FeatureStatus.VERIFICATION_BLOCKED.value,
         FeatureStatus.PIPELINE_INVALID.value,
-        FeatureStatus.ENVIRONMENT_BLOCKED.value,
     }:
         return JOB_STATUS_BLOCKED, feature_status
+    if feature_status == FeatureStatus.ENVIRONMENT_BLOCKED.value:
+        return JOB_STATUS_ENVIRONMENT_BLOCKED, feature_status
     if feature_status == FeatureStatus.ARCHITECT_READY.value:
         return JOB_STATUS_AWAITING_ARCHITECT, feature_status
     if feature_status in {
@@ -126,7 +144,11 @@ def dispatch_next_job() -> dict[str, Any] | None:
                 parameters=_job_parameters(job),
                 name=_flow_run_name(job),
                 work_queue_name=runtime.live_queue_name,
-                labels={"grace.job_id": str(job["job_id"]), "grace.feature_id": str(job["feature_id"])},
+                labels={
+                    "grace.job_id": str(job["job_id"]),
+                    "grace.feature_id": str(job["feature_id"]),
+                    "grace.sequence_id": str(job.get("sequence_id") or ""),
+                },
                 tags=["grace", "live", "queued"],
             )
     except Exception as exc:
@@ -139,7 +161,7 @@ def dispatch_next_job() -> dict[str, Any] | None:
 
     return update_job(
         str(job["job_id"]),
-        status="submitted",
+        status=JOB_STATUS_SUBMITTED,
         deployment_id=str(deployment.id),
         flow_run_id=str(flow_run.id),
         error=None,
@@ -170,7 +192,7 @@ def sync_running_jobs() -> list[dict[str, Any]]:
             }
             should_notify_completed = False
             if state_type in {"pending", "scheduled", "running"}:
-                updates["status"] = "running"
+                updates["status"] = JOB_STATUS_RUNNING
             elif state_type == "completed":
                 domain_status, feature_status = _feature_domain_outcome(str(job.get("feature_id") or ""))
                 updates["status"] = domain_status
@@ -183,7 +205,7 @@ def sync_running_jobs() -> list[dict[str, Any]]:
                 updates["finished_at"] = end_time.isoformat() if end_time else None
                 updates["error"] = f"Prefect flow run ended as {state_name}"
             else:
-                updates["status"] = "running"
+                updates["status"] = JOB_STATUS_RUNNING
             updated = update_job(str(job["job_id"]), **updates)
             if should_notify_completed:
                 feature_id = str(job.get("feature_id") or "")
@@ -197,7 +219,7 @@ def sync_running_jobs() -> list[dict[str, Any]]:
                     feature_id=feature_id,
                     title=str(job.get("title") or ""),
                     status=str(updates.get("feature_status") or updates.get("status") or ""),
-                    summary=str(job.get("summary") or ""),
+                    summary=str(updated.get("status_summary_ru") or job.get("summary") or ""),
                     flow_run_id=str(job.get("flow_run_id") or ""),
                     blockers=blockers,
                     next_action=(
@@ -216,7 +238,17 @@ def run_loop(*, interval_seconds: int, once: bool = False) -> int:
     while True:
         synced = sync_running_jobs()
         dispatched = dispatch_next_job()
-        print(json.dumps({"synced_jobs": len(synced), "dispatched_job": dispatched["job_id"] if dispatched else None}, ensure_ascii=False), flush=True)
+        print(
+            json.dumps(
+                {
+                    "synced_jobs": len(synced),
+                    "dispatched_job": dispatched["job_id"] if dispatched else None,
+                    "summary_ru": dispatched.get("status_summary_ru") if dispatched else None,
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
         if once:
             return 0
         time.sleep(interval_seconds)

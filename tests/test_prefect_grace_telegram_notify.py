@@ -109,6 +109,23 @@ def test_notify_feature_event_renders_awaiting_commit_summary(monkeypatch) -> No
     assert "Дальше: закоммитить изменения." in sent[0]
 
 
+def test_notify_feature_event_renders_scheduled_sequence_summary(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    ok = telegram_notify.notify_feature_event(
+        feature_id="FEAT-2",
+        title="Feature 2",
+        status="scheduled",
+        summary="Фича 2/3: запланирована.",
+    )
+
+    assert ok is True
+    assert sent
+    assert "Фича: запланирована" in sent[0]
+    assert "Фича 2/3: запланирована." in sent[0]
+
+
 def test_notify_chat_id_falls_back_to_last_bot_admin_id_from_env(monkeypatch) -> None:
     monkeypatch.delenv("GRACE_NOTIFY_CHAT_ID", raising=False)
     monkeypatch.delenv("SUPERVISOR_NOTIFY_CHAT_ID", raising=False)

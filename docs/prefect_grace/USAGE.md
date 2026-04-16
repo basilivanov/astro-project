@@ -212,6 +212,21 @@ python3 -m prefect_grace.cli submit-feature FEAT-LIVE-DEMO "Live Demo" "Run a li
   --execute
 ```
 
+Submit a canonical sequence of existing business features into the same live queue:
+
+```bash
+python3 -m prefect_grace.cli submit-sequence FEAT-ONE FEAT-TWO FEAT-THREE \
+  --observability-profile read-only \
+  --execute
+```
+
+Sequence behavior:
+- reuses the same `prefect-grace-feature-pipeline/live-feature-pipeline` deployment;
+- stores `sequence_id`, ordered `feature_ids`, and current index in `prefect_grace/state/job_queue.yaml`;
+- only one feature from the sequence is dispatched at a time;
+- later sequence items stay `pending` or `scheduled` until the previous feature reaches a terminal queue state;
+- user-facing queue summaries stay in Russian: `Фича N/M`, `запланирована`, `в работе`, `ждёт коммита`, `заблокирована`, `Перехожу к следующей`.
+
 Production-safe orchestration smoke in an isolated worktree:
 
 ```bash
@@ -229,6 +244,8 @@ Inspect the queue:
 python3 -m prefect_grace.cli queue
 ```
 
+The queue output now includes both `jobs` and `sequences`, with Russian summaries for operator-facing sequence progress.
+
 Render the operator dashboard:
 
 ```bash
@@ -243,6 +260,8 @@ Dispatcher loop:
 
 Behavior:
 - serial dispatch only: a new queued feature is not submitted while another job is `dispatching`, `submitted`, or `running`;
+- sequence dispatch is also serial within a batch: only the current `scheduled` item in a `sequence_id` can start;
+- a feature line lock prevents the same `feature_id` from being dispatched in parallel by multiple queued entries;
 - terminal job status is mapped from feature domain state, not only from Prefect run state;
 - active live Codex packet writes logs into `prefect_grace/state/runs/<RUN_ID>/stdout.jsonl` and `stderr.log` during execution.
 - Prefect run names are semantic: `feature:<FEATURE_ID>`, `packet:<PACKET_ID>`, `dashboard:grace-live`, instead of random animal names where our code controls naming.
