@@ -35,6 +35,17 @@ class _ListHandler(logging.Handler):
         self.messages.append(self.format(record))
 
 
+def test_default_agent_profiles_use_danger_full_access() -> None:
+    profiles = yaml.safe_load(Path("/opt/astro-project/prefect_grace/agent_profiles.yaml").read_text(encoding="utf-8"))
+
+    roles = profiles["codex"]["roles"]
+    assert roles["architect"]["sandbox"] == "danger-full-access"
+    assert roles["planner"]["sandbox"] == "danger-full-access"
+    assert roles["coder"]["sandbox"] == "danger-full-access"
+    assert roles["verifier"]["sandbox"] == "danger-full-access"
+    assert roles["reviewer"]["sandbox"] == "danger-full-access"
+
+
 def test_extract_last_stdout_event_reads_latest_jsonl_event(tmp_path: Path) -> None:
     stdout_path = tmp_path / "stdout.jsonl"
     stdout_path.write_text(
@@ -234,6 +245,47 @@ def test_build_packet_prompt_compacts_large_context_for_planner(monkeypatch, tmp
     assert len(prompt) < 30000
     assert prompt.count("- line") < 2000
     assert prompt.count("- wave") < 2000
+
+
+def test_build_packet_prompt_uses_light_resume_overlay(monkeypatch, tmp_path: Path) -> None:
+    feature_dir = tmp_path / "packets" / "FEAT-LIGHT"
+    feature_dir.mkdir(parents=True)
+    (feature_dir / "feature-brief.md").write_text("# Brief\n", encoding="utf-8")
+    packet_path = tmp_path / "packet.md"
+    packet_path.write_text("# Original Packet\nOriginal broad packet body", encoding="utf-8")
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.find_record",
+        lambda *args, **kwargs: {"feature_id": "FEAT-LIGHT"},
+    )
+
+    packet = {
+        "packet_id": "PKT-LIGHT",
+        "feature_id": "FEAT-LIGHT",
+        "wave_id": "W01",
+        "role": "coder",
+        "title": "Main Slice",
+        "packet_path": str(packet_path),
+        "dependencies": [],
+        "execution_hints": {
+            "light_resume_stage": True,
+            "light_resume_source_packet_id": "PKT-LIGHT",
+            "light_resume_attempt": 1,
+            "light_resume_max_attempts": 1,
+            "light_resume_summary": "Fix typo only",
+            "light_resume_reasons": ["Button copy typo"],
+            "light_resume_write_scope": ["frontend/app/page.tsx"],
+            "light_resume_acceptance_criteria": ["Copy is fixed"],
+        },
+    }
+
+    prompt = build_packet_prompt(packet, "Coder role prompt")
+
+    assert "Main Slice (light resume stage)" in prompt
+    assert "Fix typo only" in prompt
+    assert "Button copy typo" in prompt
+    assert "Original broad packet body" not in prompt
 
 
 def test_heartbeat_loop_kills_when_only_stdout_noise_grows(tmp_path: Path) -> None:
@@ -827,6 +879,98 @@ def test_launch_codex_for_packet_keeps_reviewer_session_separate_and_coder_fresh
     assert coder["session_mode"] == "exec"
     assert coder["thread_id"] is None
     assert "resume" not in calls["PKT-CODER"]
+
+
+def test_launch_codex_for_packet_reuses_parent_packet_thread_for_light_rework(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    state_store.STATE_DIR.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(
+        "prefect_grace.tasks.codex_launcher.load_agent_config",
+        lambda: {
+            "codex": {
+                "binary": "codex1",
+                "workdir": str(tmp_path),
+                "shared_model": "gpt-5.4",
+                "roles": {
+                    "coder": {
+                        "reasoning": "high",
+                        "sandbox": "workspace-write",
+                        "approval": "never",
+                    },
+                },
+            }
+        },
+    )
+
+    feature_id = "FEAT-LIGHT-RESUME"
+    packet_dir = tmp_path / "packets" / feature_id
+    packet_dir.mkdir(parents=True, exist_ok=True)
+    (packet_dir / "feature-brief.md").write_text("# Feature brief\n", encoding="utf-8")
+    packet_path = tmp_path / "packet.md"
+    packet_path.write_text("# Packet\n", encoding="utf-8")
+
+    (state_store.STATE_DIR / "features.yaml").write_text(
+        yaml.safe_dump({"features": [{"feature_id": feature_id, "title": "Feature"}]}, sort_keys=False),
+        encoding="utf-8",
+    )
+    (state_store.STATE_DIR / "packets.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "packets": [
+                    {
+                        "packet_id": "PKT-CODER-PARENT",
+                        "feature_id": feature_id,
+                        "wave_id": "W01",
+                        "role": "coder",
+                        "reasoning": "high",
+                        "packet_path": str(packet_path),
+                        "last_thread_id": "thread-parent-coder",
+                    },
+                    {
+                        "packet_id": "PKT-CODER-LIGHT-REWORK",
+                        "feature_id": feature_id,
+                        "wave_id": "W01",
+                        "role": "coder",
+                        "reasoning": "high",
+                        "packet_path": str(packet_path),
+                        "parent_packet_id": "PKT-CODER-PARENT",
+                        "execution_hints": {
+                            "resume_strategy": "packet_parent",
+                            "resume_parent_packet_id": "PKT-CODER-PARENT",
+                            "rework_mode": "light_resume",
+                        },
+                    },
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    calls: dict[str, list[str]] = {}
+
+    def _fake_run(command, **kwargs):
+        packet_id = kwargs["packet_id"]
+        calls[packet_id] = list(command)
+        kwargs["stdout_path"].write_text(
+            json.dumps({"type": "item.completed", "item": {"status": "completed"}}) + "\n",
+            encoding="utf-8",
+        )
+        kwargs["stderr_path"].write_text("", encoding="utf-8")
+        (kwargs["run_dir"] / "last-message.md").write_text("done\n", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher._run_codex_process", _fake_run)
+
+    result = launch_codex_for_packet("PKT-CODER-LIGHT-REWORK")
+
+    assert result["session_mode"] == "resume"
+    assert result["resumed_from_thread_id"] == "thread-parent-coder"
+    assert result["thread_id"] == "thread-parent-coder"
+    assert "resume" in calls["PKT-CODER-LIGHT-REWORK"]
+    assert "thread-parent-coder" in calls["PKT-CODER-LIGHT-REWORK"]
 
 
 def test_launch_codex_for_packet_retries_fresh_after_startup_only_stall(tmp_path: Path, monkeypatch) -> None:

@@ -6,32 +6,32 @@ codex:
   roles:
     architect:
       reasoning: xhigh
-      sandbox: workspace-write
+      sandbox: danger-full-access
       approval: never
       resume_strategy: feature_role
-      stall_timeout_seconds: 600
+      stall_timeout_seconds: 300
       max_auto_resume_attempts: 1
     planner:
       reasoning: xhigh
-      sandbox: workspace-write
+      sandbox: danger-full-access
       approval: never
       resume_strategy: feature_role
-      stall_timeout_seconds: 600
+      stall_timeout_seconds: 300
       max_auto_resume_attempts: 1
     coder:
       reasoning: high
-      sandbox: workspace-write
+      sandbox: danger-full-access
       approval: never
     verifier:
       reasoning: medium
-      sandbox: workspace-write
+      sandbox: danger-full-access
       approval: never
     reviewer:
       reasoning: xhigh
-      sandbox: read-only
+      sandbox: danger-full-access
       approval: never
       resume_strategy: feature_role
-      stall_timeout_seconds: 600
+      stall_timeout_seconds: 300
       max_auto_resume_attempts: 1
 verification:
   backend_profiles:
