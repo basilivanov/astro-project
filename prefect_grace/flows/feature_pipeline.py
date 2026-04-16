@@ -74,13 +74,23 @@ def _final_failure(
     next_action: str,
     reasons: list[str] | None = None,
 ) -> dict:
+    feature = mark_feature_status(
+        feature_id,
+        _failure_status_for_category(category),
+        blocker_reasons=list(reasons or []),
+    )
     return {
-        "feature": mark_feature_status(
-            feature_id,
-            _failure_status_for_category(category),
-            blocker_reasons=list(reasons or []),
-        ),
+        "feature": feature,
         "has_failures": True,
+        "final_outcome": "blocked",
+        "user_facing_status": str(feature.get("status") or _failure_status_for_category(category).value),
+        "user_summary": _final_user_summary(
+            outcome="blocked",
+            status=str(feature.get("status") or _failure_status_for_category(category).value),
+            summary=str(feature.get("summary") or ""),
+            next_action=next_action,
+            reasons=list(reasons or []),
+        ),
         "next_action": next_action,
         "failure_category": category,
         "reasons": list(reasons or []),
@@ -184,6 +194,59 @@ def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
 
 def _normalize_observability_scope(value: object) -> str:
     return str(value or "").strip().lower().replace("-", "_")
+
+
+def _short_reason(reason: str) -> str:
+    text = " ".join(str(reason or "").strip().split())
+    if len(text) <= 140:
+        return text
+    return text[:137].rstrip() + "..."
+
+
+def _status_label_ru(status: str) -> str:
+    return {
+        FeatureStatus.ACCEPTED.value: "принято",
+        FeatureStatus.IN_PROGRESS.value: "нужна доработка",
+        FeatureStatus.ARCHITECT_READY.value: "нужно решение архитектора",
+        FeatureStatus.BLOCKED.value: "заблокировано",
+        FeatureStatus.PRODUCT_BLOCKED.value: "заблокировано продуктовым решением",
+        FeatureStatus.VERIFICATION_BLOCKED.value: "заблокировано проверкой",
+        FeatureStatus.PIPELINE_INVALID.value: "пайплайн некорректен",
+        FeatureStatus.ENVIRONMENT_BLOCKED.value: "среда заблокировала выпуск",
+    }.get(str(status or "").strip().lower(), str(status or "").strip().lower())
+
+
+def _final_user_summary(
+    *,
+    outcome: str,
+    status: str,
+    summary: str,
+    next_action: str,
+    reasons: list[str] | None = None,
+) -> str:
+    cleaned_summary = " ".join(str(summary or "").strip().split())
+    primary_reason = _short_reason((reasons or [""])[0]) if reasons else ""
+    normalized_outcome = str(outcome or "").strip().lower()
+    normalized_status = str(status or "").strip().lower()
+    if normalized_outcome == "accepted":
+        return cleaned_summary or "Фича завершена и принята."
+    if normalized_outcome == "rework_required":
+        if primary_reason:
+            return f"Итог: нужна доработка. {primary_reason}"
+        if cleaned_summary:
+            return f"Итог: нужна доработка. {cleaned_summary}"
+        return "Итог: нужна доработка."
+    if normalized_outcome == "awaiting_architect":
+        if primary_reason:
+            return f"Итог: нужно решение архитектора. {primary_reason}"
+        return "Итог: нужно решение архитектора."
+    if normalized_outcome == "blocked":
+        if primary_reason:
+            return f"Итог: {_status_label_ru(normalized_status)}. {primary_reason}"
+        return f"Итог: {_status_label_ru(normalized_status)}."
+    if cleaned_summary:
+        return cleaned_summary
+    return f"Итог: {_status_label_ru(normalized_status)}."
 
 
 def _load_architect_manifest(feature_id: str) -> dict:
@@ -1802,11 +1865,31 @@ def feature_pipeline(
                                 if review_route.get("route_classification") == REWORK_ROUTE_REQUIRES_USER_DECISION
                                 else "architect-planner-decomposition-required"
                             )
+                            reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                            feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
                             final_status = {
-                                "feature": mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY),
+                                "feature": feature_record,
                                 "has_failures": False,
+                                "final_outcome": "awaiting_architect",
+                                "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
+                                "user_summary": _final_user_summary(
+                                    outcome="awaiting_architect",
+                                    status=FeatureStatus.ARCHITECT_READY.value,
+                                    summary=str(feature_record.get("summary") or summary),
+                                    next_action=next_action,
+                                    reasons=reasons,
+                                ),
                                 "next_action": next_action,
+                                "reasons": reasons,
                             }
+                            notify_feature_event(
+                                feature_id=feature_id,
+                                title=str(seeded["feature"].get("title") or title),
+                                status=FeatureStatus.ARCHITECT_READY.value,
+                                summary=final_status["user_summary"],
+                                blockers=reasons,
+                                next_action=next_action,
+                            )
                             publish_feature_artifacts_task(
                                 seeded["feature"],
                                 packet_results,
@@ -1847,11 +1930,31 @@ def feature_pipeline(
                             "final_status": final_status,
                         }
                     if review_route["reviewer_verdict"] == ReviewVerdict.ESCALATE_TO_ARCHITECT.value:
+                        reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                        feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
                         final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY),
+                            "feature": feature_record,
                             "has_failures": False,
+                            "final_outcome": "awaiting_architect",
+                            "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
+                            "user_summary": _final_user_summary(
+                                outcome="awaiting_architect",
+                                status=FeatureStatus.ARCHITECT_READY.value,
+                                summary=str(feature_record.get("summary") or summary),
+                                next_action="architect-decision-required",
+                                reasons=reasons,
+                            ),
                             "next_action": "architect-decision-required",
+                            "reasons": reasons,
                         }
+                        notify_feature_event(
+                            feature_id=feature_id,
+                            title=str(seeded["feature"].get("title") or title),
+                            status=FeatureStatus.ARCHITECT_READY.value,
+                            summary=final_status["user_summary"],
+                            blockers=reasons,
+                            next_action="architect-decision-required",
+                        )
                         publish_feature_artifacts_task(
                             seeded["feature"],
                             packet_results,
@@ -1941,11 +2044,36 @@ def feature_pipeline(
                     if wave_route["wave_verdict"] == WaveVerdict.ACCEPTED.value:
                         continue
                     if wave_route["wave_verdict"] == WaveVerdict.REWORK_REQUIRED.value:
+                        reasons = list((wave_route.get("wave_review") or {}).get("reasons") or [])
+                        feature_record = mark_feature_status(
+                            feature_id,
+                            FeatureStatus.IN_PROGRESS,
+                            blocker_reasons=reasons,
+                        )
                         final_status = {
-                            "feature": mark_feature_status(feature_id, FeatureStatus.IN_PROGRESS),
+                            "feature": feature_record,
                             "has_failures": False,
+                            "final_outcome": "rework_required",
+                            "user_facing_status": FeatureStatus.IN_PROGRESS.value,
+                            "user_summary": _final_user_summary(
+                                outcome="rework_required",
+                                status=FeatureStatus.IN_PROGRESS.value,
+                                summary=str(feature_record.get("summary") or summary),
+                                next_action=f"architect-wave-rework-required:{wave_id}",
+                                reasons=reasons,
+                            ),
                             "next_action": f"architect-wave-rework-required:{wave_id}",
+                            "reasons": reasons,
                         }
+                        notify_feature_event(
+                            feature_id=feature_id,
+                            title=str(seeded["feature"].get("title") or title),
+                            status=FeatureStatus.IN_PROGRESS.value,
+                            summary=final_status["user_summary"],
+                            wave_id=wave_id,
+                            blockers=reasons,
+                            next_action=final_status["next_action"],
+                        )
                     else:
                         final_status = _final_failure(
                             feature_id=feature_id,
@@ -1995,16 +2123,27 @@ def feature_pipeline(
                     "final_status": final_status,
                 }
 
+        accepted_feature = mark_feature_status(feature_id, FeatureStatus.ACCEPTED)
         final_status = {
-            "feature": mark_feature_status(feature_id, FeatureStatus.ACCEPTED),
+            "feature": accepted_feature,
             "has_failures": False,
+            "final_outcome": "accepted",
+            "user_facing_status": FeatureStatus.ACCEPTED.value,
+            "user_summary": _final_user_summary(
+                outcome="accepted",
+                status=FeatureStatus.ACCEPTED.value,
+                summary=str(accepted_feature.get("summary") or summary),
+                next_action="feature-complete",
+                reasons=[],
+            ),
             "next_action": "feature-complete",
+            "reasons": [],
         }
         notify_feature_event(
             feature_id=feature_id,
             title=str(seeded["feature"].get("title") or title),
             status=FeatureStatus.ACCEPTED.value,
-            summary=str(seeded["feature"].get("summary") or summary),
+            summary=final_status["user_summary"],
             next_action="feature-complete",
         )
         publish_feature_artifacts_task(

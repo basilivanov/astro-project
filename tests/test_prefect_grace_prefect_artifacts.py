@@ -142,7 +142,14 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
         verification=None,
         review_route=review_route,
         wave_route=None,
-        final_status=None,
+        final_status={
+            "feature": {"feature_id": "FEAT-X", "status": "pipeline_invalid", "summary": "Feature X summary"},
+            "final_outcome": "blocked",
+            "user_facing_status": "pipeline_invalid",
+            "user_summary": "Итог: пайплайн некорректен. Планировщик не собрал контракт.",
+            "next_action": "fix-planner-contract",
+            "failure_category": "pipeline_invalid",
+        },
     )
 
     assert len(artifact_ids) == 5
@@ -156,11 +163,15 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     architect_markdown = next(item["markdown"] for item in created if item["key"] == "grace-architect-feat-x")
     planner_markdown = next(item["markdown"] for item in created if item["key"] == "grace-planner-feat-x")
     agent_markdown = next(item["markdown"] for item in created if item["key"] == "grace-agent-outputs-feat-x")
+    feature_markdown = next(item["markdown"] for item in created if item["key"] == "grace-feature-feat-x")
     assert "SLICE-FEAT-X" in architect_markdown
     assert "frontend/app/page.tsx" in architect_markdown
     assert "coder_main" in planner_markdown
     assert "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts" in planner_markdown
     assert "FEAT-X-W01-CODER-MAIN" in agent_markdown
     assert "/tmp/runs/coder/stdout.jsonl" in agent_markdown
+    assert "final_outcome: blocked" in feature_markdown
+    assert "user_facing_status: pipeline_invalid" in feature_markdown
+    assert "Итог: пайплайн некорректен. Планировщик не собрал контракт." in feature_markdown
     review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-review-feat-x-w01-reviewer-verdict")
     assert "feature:FEAT-X:wave:W01:packet:FEAT-X-W01-REVIEWER-VERDICT" in review_markdown

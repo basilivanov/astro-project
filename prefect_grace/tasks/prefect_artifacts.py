@@ -75,6 +75,78 @@ def _path_status(path: str | None) -> str:
     return f"{path} (dir)"
 
 
+def _looks_like_service_english(text: str | None) -> bool:
+    value = " ".join(str(text or "").strip().split())
+    if not value:
+        return False
+    lowered = value.lower()
+    service_markers = (
+        "feature",
+        "wave",
+        "packet",
+        "planner",
+        "architect",
+        "reviewer",
+        "verifier",
+        "skip w00",
+        "optional",
+        "slice",
+        "complete",
+        "blocked",
+        "rework",
+    )
+    ascii_letters = sum(1 for ch in value if "a" <= ch.lower() <= "z")
+    cyrillic_letters = sum(1 for ch in value if "а" <= ch.lower() <= "я" or ch.lower() == "ё")
+    return ascii_letters > cyrillic_letters and any(marker in lowered for marker in service_markers)
+
+
+def _action_hint_ru(next_action: str | None) -> str:
+    value = str(next_action or "").strip()
+    if not value:
+        return "-"
+    normalized = value.lower()
+    if normalized == "feature-complete":
+        return "Фича завершена."
+    if normalized == "inspect-domain-blocker":
+        return "Проверьте доменный блокер."
+    if normalized == "architect-decision-required":
+        return "Нужно решение архитектора."
+    if normalized == "fix-planner-contract":
+        return "Исправьте контракт планировщика."
+    if normalized.startswith("architect-wave-rework-required:"):
+        return f"Нужна доработка {value.split(':', 1)[1]}."
+    if normalized.startswith("architect-wave-blocked:"):
+        return f"Волна {value.split(':', 1)[1]} заблокирована."
+    if normalized.startswith("inspect-review-blockers:"):
+        return f"Проверьте блокеры ревью для {value.split(':', 1)[1]}."
+    if normalized.startswith("inspect-failed-"):
+        return "Проверьте упавший этап пайплайна."
+    if normalized.startswith("missing-"):
+        return "Не хватает обязательного этапа пайплайна."
+    if normalized.startswith("architect-user-decision-required"):
+        return "Нужно решение архитектора или пользователя."
+    if normalized.startswith("architect-planner-decomposition-required"):
+        return "Нужна пересборка плана и декомпозиции."
+    return "Следующий шаг зафиксирован в пайплайне."
+
+
+def _user_facing_title(title: str | None, status: str | None) -> str:
+    cleaned_title = " ".join(str(title or "").strip().split())
+    if cleaned_title and not _looks_like_service_english(cleaned_title):
+        return cleaned_title
+    status_value = str(status or "").strip().lower()
+    return {
+        "accepted": "Пользовательский итог по фиче",
+        "in_progress": "Пользовательский статус фичи",
+        "architect_ready": "Требуется решение архитектора",
+        "blocked": "Фича заблокирована",
+        "pipeline_invalid": "Пайплайн требует исправления",
+        "verification_blocked": "Проверка заблокировала выпуск",
+        "environment_blocked": "Среда заблокировала выпуск",
+        "product_blocked": "Требуется продуктовое решение",
+    }.get(status_value, "Пользовательский статус фичи")
+
+
 def _role_for_agent_run(name: str, payload: dict[str, Any], role_by_packet_id: dict[str, str]) -> str:
     packet_id = str(payload.get("packet_id") or "")
     if packet_id in role_by_packet_id:
@@ -145,14 +217,24 @@ def _feature_summary_markdown(
     review = dict((review_route or {}).get("review") or {})
     wave_review = dict((wave_route or {}).get("wave_review") or {})
     feature_id = final_feature.get("feature_id") or feature.get("feature_id")
+    final_outcome = str((final_status or {}).get("final_outcome") or "n/a")
+    user_facing_status = str((final_status or {}).get("user_facing_status") or final_feature.get("status") or feature.get("status") or "n/a")
+    user_summary = str((final_status or {}).get("user_summary") or final_feature.get("summary") or feature.get("summary") or "n/a")
+    if _looks_like_service_english(user_summary):
+        user_summary = "Итог по фиче зафиксирован в русской пользовательской формулировке."
+    title_line = _user_facing_title(final_feature.get('title') or feature.get('title'), user_facing_status)
     lines = [
         f"# GRACE Feature Snapshot: {feature_id}",
         "",
         f"- updated_at: {datetime.now(timezone.utc).isoformat()}",
         f"- feature_id: {feature_id}",
         f"- title: {final_feature.get('title') or feature.get('title')}",
+        f"- user_facing_title: {title_line}",
         f"- status: {final_feature.get('status') or feature.get('status')}",
+        f"- final_outcome: {final_outcome}",
+        f"- user_facing_status: {user_facing_status}",
         f"- next_action: {(final_status or {}).get('next_action', 'n/a')}",
+        f"- next_action_label_ru: {_action_hint_ru((final_status or {}).get('next_action'))}",
         f"- failure_category: {(final_status or {}).get('failure_category', 'n/a')}",
         f"- feature_dir: {final_feature.get('feature_dir', '-')}",
         f"- wave_plan_path: {final_feature.get('wave_plan_path', '-')}",
@@ -163,6 +245,9 @@ def _feature_summary_markdown(
         f"- development_plan_slice_path: {final_feature.get('development_plan_slice_path', '-')}",
         f"- verification_matrix_slice_path: {final_feature.get('verification_matrix_slice_path', '-')}",
         f"- knowledge_graph_slice_path: {final_feature.get('knowledge_graph_slice_path', '-')}",
+        "",
+        "## User Facing Outcome",
+        _bullet([user_summary]),
         "",
         "## Business Context",
         _bullet(_business_context_lines(final_feature.get('business_context') or {})),

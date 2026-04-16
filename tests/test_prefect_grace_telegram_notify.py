@@ -12,6 +12,7 @@ def test_notify_submission_event_skips_without_chat(monkeypatch) -> None:
 
 def test_notify_packet_event_renders_prefect_links(monkeypatch) -> None:
     sent: list[str] = []
+    monkeypatch.setenv("GRACE_NOTIFY_PACKET_STATUSES", "rework_required")
     monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
     monkeypatch.setattr(
         telegram_notify,
@@ -34,8 +35,8 @@ def test_notify_packet_event_renders_prefect_links(monkeypatch) -> None:
     assert ok is True
     assert sent
     assert "FEAT-1-W01-CODER" in sent[0]
-    assert "Open task run" in sent[0]
-    assert "Open feature run" in sent[0]
+    assert "Открыть запуск задачи" in sent[0]
+    assert "Открыть запуск фичи" in sent[0]
 
 
 def test_notify_packet_event_filters_non_major_statuses_by_default(monkeypatch) -> None:
@@ -65,7 +66,28 @@ def test_notify_packet_event_allows_status_override(monkeypatch) -> None:
         status="accepted",
         wave_id="W01",
     ) is True
-    assert "Packet accepted" in sent[0]
+    assert "Пакет: принят" in sent[0]
+
+
+def test_notify_feature_event_renders_ru_short_blocked_summary(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    ok = telegram_notify.notify_feature_event(
+        feature_id="FEAT-1",
+        title="Feature 1",
+        status="pipeline_invalid",
+        summary="Long English summary that should not be the primary user-facing message.",
+        blockers=["Planner wave plan JSON markers were not found in reviewer output and this text is intentionally long enough to be trimmed by the notifier."],
+        next_action="fix-planner-contract",
+    )
+
+    assert ok is True
+    assert sent
+    assert "Фича: пайплайн некорректен" in sent[0]
+    assert "Итог: пайплайн некорректен." in sent[0]
+    assert "Planner wave plan JSON markers were not found" in sent[0]
+    assert "Исправьте контракт планировщика." in sent[0]
 
 
 def test_notify_chat_id_falls_back_to_last_bot_admin_id_from_env(monkeypatch) -> None:

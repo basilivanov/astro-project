@@ -22,8 +22,6 @@ DEFAULT_FEATURE_NOTIFY_STATUSES = {
     "product_blocked",
 }
 DEFAULT_PACKET_NOTIFY_STATUSES = {
-    "rework_required",
-    "blocked",
     "escalate_to_architect",
 }
 DEFAULT_WAVE_NOTIFY_VERDICTS = {
@@ -234,6 +232,158 @@ def _lines_to_html(lines: list[str]) -> str:
     return "\n".join(lines)
 
 
+def _short_reason(reason: str) -> str:
+    text = " ".join(str(reason or "").strip().split())
+    if len(text) <= 120:
+        return text
+    return text[:117].rstrip() + "..."
+
+
+def _looks_like_service_english(text: str | None) -> bool:
+    value = " ".join(str(text or "").strip().split())
+    if not value:
+        return False
+    lowered = value.lower()
+    service_markers = (
+        "feature",
+        "wave",
+        "packet",
+        "planner",
+        "architect",
+        "reviewer",
+        "verifier",
+        "skip w00",
+        "optional",
+        "slice",
+        "complete",
+        "blocked",
+        "rework",
+    )
+    ascii_letters = sum(1 for ch in value if "a" <= ch.lower() <= "z")
+    cyrillic_letters = sum(1 for ch in value if "а" <= ch.lower() <= "я" or ch.lower() == "ё")
+    return ascii_letters > cyrillic_letters and any(marker in lowered for marker in service_markers)
+
+
+def _user_title_line(title: str | None, status: str) -> str | None:
+    cleaned_title = " ".join(str(title or "").strip().split())
+    if cleaned_title and not _looks_like_service_english(cleaned_title):
+        return cleaned_title
+    return {
+        "accepted": "Короткий итог по фиче готов.",
+        "completed": "Короткий итог по фиче готов.",
+        "in_progress": "Фича остаётся в работе.",
+        "architect_ready": "Нужно решение архитектора по фиче.",
+        "blocked": "Фича не может быть завершена без разбора блокера.",
+        "pipeline_invalid": "Пайплайн требует исправления перед продолжением.",
+        "verification_blocked": "Проверка остановила выпуск фичи.",
+        "environment_blocked": "Среда не позволяет завершить фичу.",
+        "product_blocked": "Нужно продуктовое решение по фиче.",
+    }.get(status, "Обновление по фиче.")
+
+
+def _action_hint_label(next_action: str | None) -> str | None:
+    value = str(next_action or "").strip()
+    if not value:
+        return None
+    normalized = value.lower()
+    if normalized == "feature-complete":
+        return "Фича завершена."
+    if normalized == "inspect-domain-blocker":
+        return "Проверьте доменный блокер."
+    if normalized == "architect-decision-required":
+        return "Нужно решение архитектора."
+    if normalized == "fix-planner-contract":
+        return "Исправьте контракт планировщика."
+    if normalized.startswith("architect-wave-rework-required:"):
+        wave_id = value.split(":", 1)[1]
+        return f"Нужна доработка волны {wave_id}."
+    if normalized.startswith("architect-wave-blocked:"):
+        wave_id = value.split(":", 1)[1]
+        return f"Волна {wave_id} заблокирована."
+    if normalized.startswith("inspect-review-blockers:"):
+        packet_id = value.split(":", 1)[1]
+        return f"Проверьте блокеры ревью для {packet_id}."
+    if normalized.startswith("inspect-failed-"):
+        return "Проверьте упавший этап пайплайна."
+    if normalized.startswith("missing-"):
+        return "Не хватает обязательного этапа пайплайна."
+    if normalized.startswith("dependency-deadlock:"):
+        return "Обнаружена взаимная блокировка зависимостей."
+    if normalized.startswith("run-rework-packet"):
+        return "Запустите пакет доработки."
+    if normalized.startswith("architect-user-decision-required"):
+        return "Нужно решение архитектора или пользователя."
+    if normalized.startswith("architect-planner-decomposition-required"):
+        return "Нужна пересборка плана и декомпозиции."
+    return "Следующий шаг зафиксирован в пайплайне."
+
+
+def _feature_status_label(status: str) -> str:
+    return {
+        "in_progress": "в работе",
+        "accepted": "принято",
+        "completed": "принято",
+        "blocked": "заблокировано",
+        "pipeline_invalid": "пайплайн некорректен",
+        "verification_blocked": "проверка заблокировала выпуск",
+        "environment_blocked": "среда заблокировала выпуск",
+        "product_blocked": "требуется продуктовое решение",
+        "architect_ready": "нужно решение архитектора",
+    }.get(status, status or "обновление")
+
+
+def _packet_status_label(status: str) -> str:
+    return {
+        "accepted": "принят",
+        "review": "на ревью",
+        "rework_required": "нужна доработка",
+        "blocked": "заблокирован",
+        "escalate_to_architect": "эскалация архитектору",
+        "running": "в работе",
+    }.get(status, status or "обновление")
+
+
+def _wave_verdict_label(verdict: str) -> str:
+    return {
+        "accepted": "волна принята",
+        "rework_required": "волна требует доработки",
+        "blocked": "волна заблокирована",
+    }.get(verdict, verdict or "обновление волны")
+
+
+def _feature_summary_text(status: str, summary: str | None, blockers: list[str] | None, next_action: str | None) -> str | None:
+    normalized = str(status).strip().lower()
+    cleaned_summary = " ".join(str(summary or "").strip().split())
+    if _looks_like_service_english(cleaned_summary):
+        cleaned_summary = ""
+    reason = _short_reason((blockers or [""])[0]) if blockers else ""
+    if normalized == "accepted":
+        return cleaned_summary or "Фича завершена и принята."
+    if normalized in {"blocked", "pipeline_invalid", "verification_blocked", "environment_blocked", "product_blocked"}:
+        if reason:
+            return f"Итог: { _feature_status_label(normalized) }. {reason}"
+        if next_action:
+            action_hint = _action_hint_label(next_action)
+            if action_hint:
+                return f"Итог: { _feature_status_label(normalized) }. {action_hint}"
+            return f"Итог: { _feature_status_label(normalized) }."
+        return f"Итог: { _feature_status_label(normalized) }."
+    if normalized == "architect_ready":
+        if reason:
+            return f"Итог: нужно решение архитектора. {reason}"
+        return "Итог: требуется решение архитектора."
+    if normalized == "in_progress":
+        if reason:
+            return f"Итог: нужна доработка. {reason}"
+        if next_action and "rework" in next_action:
+            action_hint = _action_hint_label(next_action)
+            if action_hint:
+                return f"Итог: нужна доработка. {action_hint}"
+            return "Итог: нужна доработка."
+        return cleaned_summary or "Фича в работе."
+    return cleaned_summary or None
+
+
 def notify_feature_event(
     *,
     feature_id: str,
@@ -259,22 +409,28 @@ def notify_feature_event(
         "product_blocked": "📌",
         "architect_ready": "🧠",
     }.get(normalized_status, "📣")
+    short_summary = _feature_summary_text(normalized_status, summary, blockers, next_action)
+    title_line = _user_title_line(title, normalized_status)
     lines = [
-        f"{icon} <b>Feature {escape(normalized_status)}</b>",
-        f"<b>{escape(feature_id)}</b>" + (f" — {escape(title)}" if title else ""),
+        f"{icon} <b>Фича: {escape(_feature_status_label(normalized_status))}</b>",
+        f"<b>{escape(feature_id)}</b>",
     ]
+    if title_line:
+        lines.append(escape(title_line))
     if wave_id:
-        lines.append(f"Wave: <b>{escape(wave_id)}</b>")
-    if summary:
-        lines.append(f"Summary: {escape(summary)}")
+        lines.append(f"Волна: <b>{escape(wave_id)}</b>")
+    if short_summary:
+        lines.append(escape(short_summary))
     if next_action:
-        lines.append(f"Next: <code>{escape(next_action)}</code>")
+        action_hint = _action_hint_label(next_action)
+        if action_hint:
+            lines.append(escape(action_hint))
     if blockers:
         for blocker in blockers[:5]:
             lines.append(f"• {escape(blocker)}")
     url = _flow_run_url(flow_run_id)
     if url:
-        lines.append(f"<a href=\"{escape(url)}\">Open Prefect run</a>")
+        lines.append(f"<a href=\"{escape(url)}\">Открыть запуск в Prefect</a>")
     return _send_html_message(_lines_to_html(lines))
 
 
@@ -302,23 +458,23 @@ def notify_packet_event(
         "running": "🏃",
     }.get(normalized_status, "📦")
     lines = [
-        f"{icon} <b>Packet {escape(normalized_status)}</b>",
-        f"Feature: <b>{escape(feature_id)}</b>",
-        f"Wave: <b>{escape(wave_id or '-')}</b>",
-        f"Role: <b>{escape(role)}</b>",
-        f"Packet: <code>{escape(packet_id)}</code>",
+        f"{icon} <b>Пакет: {escape(_packet_status_label(normalized_status))}</b>",
+        f"Фича: <b>{escape(feature_id)}</b>",
+        f"Волна: <b>{escape(wave_id or '-')}</b>",
+        f"Роль: <b>{escape(role)}</b>",
+        f"Пакет: <code>{escape(packet_id)}</code>",
     ]
     if title:
-        lines.append(f"Title: {escape(title)}")
+        lines.append(f"Задача: {escape(title)}")
     if reasons:
         for reason in reasons[:5]:
-            lines.append(f"• {escape(reason)}")
+            lines.append(f"• {escape(_short_reason(reason))}")
     task_url = _packet_run_url(task_run_id)
     if task_url:
-        lines.append(f"<a href=\"{escape(task_url)}\">Open task run</a>")
+        lines.append(f"<a href=\"{escape(task_url)}\">Открыть запуск задачи</a>")
     flow_url = _flow_run_url(flow_run_id)
     if flow_url:
-        lines.append(f"<a href=\"{escape(flow_url)}\">Open feature run</a>")
+        lines.append(f"<a href=\"{escape(flow_url)}\">Открыть запуск фичи</a>")
     return _send_html_message(_lines_to_html(lines))
 
 
@@ -339,16 +495,16 @@ def notify_wave_event(
         "blocked": "⛔",
     }.get(normalized_verdict, "🌊")
     lines = [
-        f"{icon} <b>Wave {escape(normalized_verdict)}</b>",
-        f"Feature: <b>{escape(feature_id)}</b>",
-        f"Wave: <b>{escape(wave_id)}</b>",
+        f"{icon} <b>{escape(_wave_verdict_label(normalized_verdict))}</b>",
+        f"Фича: <b>{escape(feature_id)}</b>",
+        f"Волна: <b>{escape(wave_id)}</b>",
     ]
     if reasons:
         for reason in reasons[:5]:
-            lines.append(f"• {escape(reason)}")
+            lines.append(f"• {escape(_short_reason(reason))}")
     url = _flow_run_url(flow_run_id)
     if url:
-        lines.append(f"<a href=\"{escape(url)}\">Open Prefect run</a>")
+        lines.append(f"<a href=\"{escape(url)}\">Открыть запуск в Prefect</a>")
     return _send_html_message(_lines_to_html(lines))
 
 
@@ -359,15 +515,15 @@ def notify_submission_event(
     execute: bool,
     brief_path: str | None = None,
 ) -> bool:
-    mode = "live" if execute else "dry-run"
+    mode = "боевой" if execute else "черновой"
     icon = "🧾" if execute else "⚠️"
     lines = [
-        f"{icon} <b>Feature submitted</b>",
+        f"{icon} <b>Фича поставлена в очередь</b>",
         f"<b>{escape(feature_id)}</b> — {escape(title)}",
-        f"Mode: <b>{escape(mode)}</b>",
+        f"Режим: <b>{escape(mode)}</b>",
     ]
     if not execute:
-        lines.append("Codex agents will not run until <code>execute: true</code> is set.")
+        lines.append("Агенты Codex не стартуют, пока не включён <code>execute: true</code>.")
     if brief_path:
-        lines.append(f"Brief: <code>{escape(brief_path)}</code>")
+        lines.append(f"Бриф: <code>{escape(brief_path)}</code>")
     return _send_html_message(_lines_to_html(lines))

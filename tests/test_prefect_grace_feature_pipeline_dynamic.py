@@ -108,6 +108,9 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
     )
 
     assert result["final_status"]["feature"]["status"] == "accepted"
+    assert result["final_status"]["final_outcome"] == "accepted"
+    assert result["final_status"]["user_facing_status"] == "accepted"
+    assert result["final_status"]["user_summary"] == "Exercise planner-driven multi-wave execution and reviewer rework"
     assert len(result["wave_routes"]) == 2
     assert len(result["review_routes"]) == 2
     assert len(result["verification_records"]) == 2
@@ -490,6 +493,9 @@ def test_feature_pipeline_rework_requires_planner_escalation(tmp_path: Path) -> 
     )
 
     assert result["final_status"]["feature"]["status"] == "architect_ready"
+    assert result["final_status"]["final_outcome"] == "awaiting_architect"
+    assert result["final_status"]["user_facing_status"] == "architect_ready"
+    assert "нужно решение архитектора" in result["final_status"]["user_summary"]
     assert result["final_status"]["next_action"] == "architect-planner-decomposition-required"
     assert result["review_routes"][0]["route_classification"] == "requires_planner"
     assert result["review_routes"][0]["decision"]["route_classification"] == "requires_planner"
@@ -548,6 +554,9 @@ def test_feature_pipeline_rework_requires_architect_user_decision(tmp_path: Path
     )
 
     assert result["final_status"]["feature"]["status"] == "architect_ready"
+    assert result["final_status"]["final_outcome"] == "awaiting_architect"
+    assert result["final_status"]["user_facing_status"] == "architect_ready"
+    assert "нужно решение архитектора" in result["final_status"]["user_summary"]
     assert result["final_status"]["next_action"] == "architect-user-decision-required"
     assert result["review_routes"][0]["route_classification"] == "requires_user_decision"
     assert result["review_routes"][0]["decision"]["route_classification"] == "requires_user_decision"
@@ -766,6 +775,9 @@ def test_feature_pipeline_stops_repeated_observability_rework_loop(tmp_path: Pat
     )
 
     assert result["final_status"]["feature"]["status"] == "pipeline_invalid"
+    assert result["final_status"]["final_outcome"] == "blocked"
+    assert result["final_status"]["user_facing_status"] == "pipeline_invalid"
+    assert "пайплайн некорректен" in result["final_status"]["user_summary"]
     assert result["final_status"]["next_action"].startswith("inspect-review-blockers:")
     assert len(result["review_routes"]) == 2
     assert result["review_routes"][-1]["reviewer_verdict"] == "blocked"

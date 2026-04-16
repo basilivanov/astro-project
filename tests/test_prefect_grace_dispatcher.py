@@ -59,7 +59,7 @@ def test_sync_running_jobs_maps_completed_to_domain(monkeypatch):
     updated = []
     monkeypatch.setattr(dispatcher, "update_job", lambda job_id, **updates: updated.append((job_id, updates)) or {"job_id": job_id, **updates})
     result = dispatcher.sync_running_jobs()
-    assert result[0]["status"] == "completed"
+    assert result[0]["status"] == "accepted"
     assert updated[0][1]["feature_status"] == FeatureStatus.ACCEPTED.value
 
 
@@ -70,7 +70,7 @@ def test_sync_running_jobs_maps_completed_in_progress_to_rework(monkeypatch):
     monkeypatch.setattr(dispatcher, "find_record", lambda *args, **kwargs: {"status": FeatureStatus.IN_PROGRESS.value})
     monkeypatch.setattr(dispatcher, "update_job", lambda job_id, **updates: {"job_id": job_id, **updates})
     result = dispatcher.sync_running_jobs()
-    assert result[0]["status"] == "needs_rework"
+    assert result[0]["status"] == "rework_required"
     assert result[0]["feature_status"] == FeatureStatus.IN_PROGRESS.value
 
 
