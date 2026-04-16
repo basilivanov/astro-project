@@ -8,6 +8,7 @@ from prefect_grace.models import FeatureRecord, FeatureStatus, PacketRecord, Pac
 from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan
 from prefect_grace.tasks.grace_ids import grace_refs_for_packet
 from prefect_grace.tasks.planner_contract import default_wave_plan_contract, materialize_planner_contract
+from prefect_grace.tasks import state_store
 from prefect_grace.tasks.state_store import append_record, find_record, update_record
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
@@ -219,6 +220,15 @@ def sync_packet_file(packet: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: list[dict[str, Any]]) -> str:
+    wave_ids = sorted({str(packet.get("wave_id") or "").strip().upper() for packet in packets if str(packet.get("wave_id") or "").strip()})
+    wave_lines = [
+        (
+            f"{wave_id} — architect formalization"
+            if wave_id == "W00"
+            else f"{wave_id} — packet execution and gates"
+        )
+        for wave_id in wave_ids
+    ] or ["W00 — architect formalization"]
     packet_registry = [
         f"`{packet['packet_id']}` — role `{packet['role']}` — {packet['title']}"
         for packet in packets
@@ -234,19 +244,14 @@ def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: li
             {
                 "feature_id": feature_id,
                 "objective": title,
-                "waves": _numbered_lines(
-                    [
-                        "W00 — architect formalization; planner slicing is optional for complex decomposition.",
-                        "W01 — implementation, verifier evidence, reviewer technical gate, architect wave gate.",
-                    ]
-                ),
+                "waves": _numbered_lines(wave_lines),
                 "packet_registry": _bullet_lines(packet_registry),
                 "dependency_rules": _bullet_lines(dependency_rules),
                 "exit_conditions": _bullet_lines(
                     [
-                        "Architect packet produced feature-local artifact deltas.",
-                        "Planner packet defined bounded execution packets.",
-                        "Implementation, verifier, reviewer, and architect wave gate completed in order.",
+                        "Architect packet produced compact packet-first artifacts.",
+                        "Planner is used only when explicitly requested or decomposition must change.",
+                        "Execution packets, verifier evidence, reviewer gate, and architect wave gate complete in order.",
                     ]
                 ),
             },
@@ -254,6 +259,25 @@ def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: li
         encoding="utf-8",
     )
     return str(wave_plan_path)
+
+
+def _delete_packet_if_exists(packet_id: str | None) -> None:
+    resolved_id = str(packet_id or "").strip()
+    if not resolved_id:
+        return
+    state_path = state_store.STATE_DIR / "packets.yaml"
+    if not state_path.exists():
+        return
+
+    def mutator(payload: dict[str, Any]) -> dict[str, Any]:
+        payload["packets"] = [
+            item
+            for item in list(payload.get("packets") or [])
+            if str(item.get("packet_id") or "").strip() != resolved_id
+        ]
+        return payload
+
+    state_store.update_state("packets", mutator)
 
 
 def bootstrap_feature(
@@ -461,6 +485,8 @@ def seed_test_feature(
     agent_sandbox: str | None = None,
     business_context: dict[str, Any] | None = None,
     planner_contract: dict[str, Any] | None = None,
+    include_planner_packet: bool = False,
+    materialize_execution_packets: bool = True,
 ) -> dict[str, Any]:
     business_context = dict(business_context or {})
     impacted_surfaces = list(business_context.get("impacted_surfaces") or [])
@@ -484,6 +510,7 @@ def seed_test_feature(
     business_context["impacted_grace_artifacts"] = impacted_grace_artifacts
 
     feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context)
+    feature_dir = Path(str(feature.get("feature_dir") or (FEATURES_DIR / feature_id)))
     architect_artifact_plan = default_architect_artifact_plan(
         feature_id=feature_id,
         title=title,
@@ -505,20 +532,20 @@ def seed_test_feature(
         title="Architect Formalization",
         role="architect",
         reasoning=ReasoningProfile.XHIGH,
-        summary="Formalize the business feature into incremental GRACE artifact deltas and define execution boundaries.",
+        summary="Formalize the business feature into compact packet-first GRACE artifacts and define execution boundaries.",
         write_scope=[
-            "Feature-local GRACE artifacts for this feature.",
-            "Impacted sections of core GRACE documents if required.",
+            "Feature-local packet-first artifacts for this feature.",
+            "Impacted sections of core GRACE documents only when root_deltas require them.",
         ],
         inputs=[
             f"Feature brief `{feature_id}/feature-brief.md`.",
-            "Current repository GRACE baseline.",
+            "Compact business context and directly relevant repository baseline.",
         ],
         acceptance_criteria=[
-            "Impacted artifacts are explicitly identified.",
-            "Architect produces slice-local GRACE docs before planning.",
+            "Goal, waves, bounded scopes, packet list, and next action are explicit.",
+            "Architect produces packet-first artifacts by default.",
             "Open decisions are separated from execution-ready facts.",
-            "Wave boundaries are concrete enough for direct execution or optional planner handoff.",
+            "Wave plan reflects every wave represented by packet candidates.",
         ],
         verification_profile={
             "backend": "not required",
@@ -530,89 +557,104 @@ def seed_test_feature(
             "No silent scope expansion.",
         ],
         notes=[
-            "Patch existing GRACE files incrementally.",
-            "Write slice-local GRACE docs and architect manifest before direct execution or optional planner handoff.",
+            "Do not materialize local GRACE slice docs unless explicitly requested with real root_deltas.",
+            "Write feature brief, wave plan, execution packet, and architect manifest before direct execution.",
             "Keep frontend verification explicit if UI is touched.",
             "Return FINAL_ARCHITECT_ARTIFACT_PLAN_JSON markers.",
         ],
         execution_hints=base_execution_hints,
     )
 
-    planner_packet = create_packet(
-        feature_id=feature_id,
-        wave_id="W00",
-        title="Planner Slicing",
-        role="planner",
-        reasoning=ReasoningProfile.XHIGH,
-        summary="Slice the feature into waves and execution packets with explicit dependencies and acceptance gates.",
-        write_scope=[
-            "Feature-local wave plan.",
-            "Packet definitions for execution waves.",
-        ],
-        inputs=[
-            architect_packet["packet_id"],
-            "Architect manifest and handoff.",
-            f"Feature brief `{feature_id}/feature-brief.md`.",
-        ],
-        acceptance_criteria=[
-            "Every packet has one primary write scope.",
-            "Verification and reviewer gates are explicit.",
-            "Dependencies allow deterministic execution order.",
-            "Planner returns parseable JSON wave contract.",
-        ],
-        verification_profile={
-            "backend": "not required",
-            "frontend": "not required",
-            "observability": "artifact dependency review",
-        },
-        reviewer_gate=[
-            "No oversized packets.",
-            "No packet without verification expectations.",
-        ],
-        dependencies=[architect_packet["packet_id"]],
-        notes=[
-            "Prefer smaller packets over broad scopes.",
-            "Flag architect escalation when decomposition is ambiguous.",
-            "Return FINAL_GRACE_WAVE_PLAN_JSON markers.",
-        ],
-        execution_hints=base_execution_hints,
-    )
+    planner_packet = None
+    if include_planner_packet:
+        planner_packet = create_packet(
+            feature_id=feature_id,
+            wave_id="W00",
+            title="Planner Slicing",
+            role="planner",
+            reasoning=ReasoningProfile.XHIGH,
+            summary="Slice the feature into waves and execution packets with explicit dependencies and acceptance gates.",
+            write_scope=[
+                "Feature-local wave plan.",
+                "Packet definitions for execution waves.",
+            ],
+            inputs=[
+                architect_packet["packet_id"],
+                "Architect manifest.",
+                f"Feature brief `{feature_id}/feature-brief.md`.",
+            ],
+            acceptance_criteria=[
+                "Every packet has one primary write scope.",
+                "Verification and reviewer gates are explicit.",
+                "Dependencies allow deterministic execution order.",
+                "Planner returns parseable JSON wave contract.",
+            ],
+            verification_profile={
+                "backend": "not required",
+                "frontend": "not required",
+                "observability": "artifact dependency review",
+            },
+            reviewer_gate=[
+                "No oversized packets.",
+                "No packet without verification expectations.",
+            ],
+            dependencies=[architect_packet["packet_id"]],
+            notes=[
+                "Planner runs only when explicitly requested or when decomposition must change.",
+                "Flag architect escalation when decomposition is ambiguous.",
+                "Return FINAL_GRACE_WAVE_PLAN_JSON markers.",
+            ],
+            execution_hints=base_execution_hints,
+        )
 
-    contract = planner_contract or default_wave_plan_contract(
-        feature_id=feature_id,
-        implementation_title=implementation_title,
-        implementation_summary=implementation_summary,
-        verifier_backend_profile=verifier_backend_profile,
-        verifier_frontend_profile=verifier_frontend_profile,
-        verifier_frontend_commands=verifier_frontend_commands,
-        verifier_observability_profile=verifier_observability_profile,
-        verifier_observability_commands=verifier_observability_commands,
-        verifier_artifact_globs=verifier_artifact_globs,
-        verifier_touches_frontend=verifier_touches_frontend,
-        verifier_requires_frontend_visual=verifier_requires_frontend_visual,
-        verifier_include_day_live_canary=verifier_include_day_live_canary,
-    )
-    materialized = materialize_planner_contract(
-        feature_id=feature_id,
-        planner_packet_id=planner_packet["packet_id"],
-        architect_packet_id=architect_packet["packet_id"],
-        contract=contract,
-        base_execution_hints=base_execution_hints,
-        default_verifier_execution_hints={
-            "runner": "codex",
-            "backend_profile": verifier_backend_profile,
-            "frontend_profile": verifier_frontend_profile,
-            "frontend_commands": verifier_frontend_commands or [],
-            "observability_profile": verifier_observability_profile,
-            "observability_commands": verifier_observability_commands or [],
-            "artifact_globs": verifier_artifact_globs or [],
-            "touches_frontend": verifier_touches_frontend,
-            "requires_frontend_visual": verifier_requires_frontend_visual,
-            "include_day_live_canary": verifier_include_day_live_canary,
-        },
-    )
+    materialized: dict[str, Any] = {
+        "waves": [],
+        "packets": [],
+        "packets_by_key": {},
+        "wave_plan_path": _write_wave_plan(
+            feature_dir,
+            feature_id,
+            title,
+            [architect_packet, *([planner_packet] if planner_packet else [])],
+        ),
+    }
+    if materialize_execution_packets:
+        contract = planner_contract or default_wave_plan_contract(
+            feature_id=feature_id,
+            implementation_title=implementation_title,
+            implementation_summary=implementation_summary,
+            verifier_backend_profile=verifier_backend_profile,
+            verifier_frontend_profile=verifier_frontend_profile,
+            verifier_frontend_commands=verifier_frontend_commands,
+            verifier_observability_profile=verifier_observability_profile,
+            verifier_observability_commands=verifier_observability_commands,
+            verifier_artifact_globs=verifier_artifact_globs,
+            verifier_touches_frontend=verifier_touches_frontend,
+            verifier_requires_frontend_visual=verifier_requires_frontend_visual,
+            verifier_include_day_live_canary=verifier_include_day_live_canary,
+        )
+        materialized = materialize_planner_contract(
+            feature_id=feature_id,
+            planner_packet_id=planner_packet["packet_id"] if planner_packet else "",
+            architect_packet_id=architect_packet["packet_id"],
+            contract=contract,
+            base_execution_hints=base_execution_hints,
+            default_verifier_execution_hints={
+                "runner": "codex",
+                "backend_profile": verifier_backend_profile,
+                "frontend_profile": verifier_frontend_profile,
+                "frontend_commands": verifier_frontend_commands or [],
+                "observability_profile": verifier_observability_profile,
+                "observability_commands": verifier_observability_commands or [],
+                "artifact_globs": verifier_artifact_globs or [],
+                "touches_frontend": verifier_touches_frontend,
+                "requires_frontend_visual": verifier_requires_frontend_visual,
+                "include_day_live_canary": verifier_include_day_live_canary,
+            },
+        )
 
-    packets = [architect_packet, planner_packet, *materialized["packets"]]
+    if not include_planner_packet and planner_packet is None:
+        _delete_packet_if_exists(f"{feature_id}-W00-PLANNER-SLICING".upper())
     return {
         "feature": {
             **find_record("features", "features", "feature_id", feature_id),

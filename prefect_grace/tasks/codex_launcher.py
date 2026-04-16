@@ -221,6 +221,12 @@ def _context_text_for_role(*, role: str, tag: str, text: str) -> str:
             return contract_only
     if tag == "architect_manifest":
         return _compact_text(text, limit=2500)
+    if role == "architect" and tag == "feature_brief":
+        return _bullet_digest(text, max_lines=18, max_chars=2200)
+    if role == "architect" and tag == "wave_plan":
+        return _bullet_digest(text, max_lines=20, max_chars=2400)
+    if role == "architect" and tag == "execution_packet":
+        return _bullet_digest(text, max_lines=28, max_chars=2600)
     if tag in digest_tags:
         return _bullet_digest(text)
     return _compact_text(text)
@@ -234,7 +240,7 @@ def _feature_context_blocks(packet: dict[str, Any], *, role: str, context_mode: 
         ("wave_plan", feature_dir / "wave-plan.md"),
     ]
     if role == "architect" and context_mode in {ARCHITECT_CONTEXT_REWORK, ARCHITECT_CONTEXT_GATE_DECISION}:
-        feature_files = feature_files[:1]
+        feature_files = feature_files
     for tag, path in feature_files:
         text = _read_text(path)
         if text:
@@ -256,7 +262,6 @@ def _feature_context_blocks(packet: dict[str, Any], *, role: str, context_mode: 
         artifact_specs = [
             ("architect_manifest", "architect_manifest_path"),
             ("execution_packet", "execution_packet_path"),
-            ("verification_matrix_slice", "verification_matrix_slice_path"),
         ]
     elif role == "architect" and context_mode == ARCHITECT_CONTEXT_GATE_DECISION:
         artifact_specs = [
@@ -286,7 +291,13 @@ def _dependency_context_blocks(packet: dict[str, Any], *, role: str) -> list[str
         ][-3:]
     elif role == "architect" and architect_context_mode == ARCHITECT_CONTEXT_REWORK:
         target_packet_id = str(packet.get("review_target_packet_id") or parent_packet_id or "").strip()
-        preferred_ids = [target_packet_id, *list(packet.get("dependencies") or []), parent_packet_id]
+        preferred_ids = [target_packet_id]
+        for dependency in list(packet.get("dependencies") or []):
+            dependency_role = _related_packet_role(str(dependency))
+            if dependency_role in {"reviewer", "verifier"}:
+                preferred_ids.append(dependency)
+        if parent_packet_id:
+            preferred_ids.append(parent_packet_id)
         related_packet_ids = [packet_id for packet_id in preferred_ids if str(packet_id or "").strip()]
     seen: set[str] = set()
     for related_packet_id in related_packet_ids:
@@ -369,7 +380,7 @@ def _architect_mode_preamble(context_mode: str) -> str:
             [
                 "ARCHITECT MODE: rework",
                 "Resume the existing architectural context. Do not repeat feature formalization or reslice unless the blocker explicitly requires it.",
-                "Use only the local blocker, target packet contract, reviewer blockers, and latest relevant verifier evidence.",
+                "Use only the target packet contract, reviewer blockers, latest relevant verifier evidence, and minimal local wave context.",
                 "Return FINAL_DIRECT_REWORK_PACKET_JSON with packet_type semantics: execution, rework, or gate_decision. Do not introduce light/basic packet semantics.",
             ]
         )
@@ -385,7 +396,8 @@ def _architect_mode_preamble(context_mode: str) -> str:
     return "\n".join(
         [
             "ARCHITECT MODE: start/formalize",
-            "Formalize the business feature, update only impacted GRACE canon, define waves, and produce small execution packets.",
+            "Formalize the business feature as a compact packet-first plan, define waves, and produce small execution packets.",
+            "Keep context bounded: use compact business context, local impacted modules, and only real root deltas.",
             "Keep packet.md as the primary execution contract. Machine JSON must stay as a compact embedded final block.",
         ]
     )

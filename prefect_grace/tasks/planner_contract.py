@@ -292,7 +292,8 @@ def materialize_planner_contract(
             )
         ]
         if packet_spec["role"] == "coder" and not dependencies:
-            dependencies = [planner_packet_id]
+            if str(planner_packet_id or "").strip():
+                dependencies = [str(planner_packet_id).strip()]
         execution_hints = _resolve_execution_hints(
             packet_spec,
             base_execution_hints=base_hints,
@@ -436,9 +437,9 @@ def _resolve_inputs(
     for item in inputs:
         if item in key_to_packet_id:
             resolved.append(key_to_packet_id[item])
-        elif item == "planner output":
+        elif item == "planner output" and str(planner_packet_id).strip():
             resolved.append(planner_packet_id)
-        elif item == "architect formalization":
+        elif item == "architect formalization" and str(architect_packet_id).strip():
             resolved.append(architect_packet_id)
         else:
             resolved.append(item)
@@ -457,9 +458,9 @@ def _resolve_packet_reference(
         return ""
     if value in key_to_packet_id:
         return key_to_packet_id[value]
-    if value == "planner output" or value == str(planner_packet_id).strip():
+    if (value == "planner output" or value == str(planner_packet_id).strip()) and str(planner_packet_id).strip():
         return str(planner_packet_id).strip()
-    if value == "architect formalization" or value == str(architect_packet_id).strip():
+    if (value == "architect formalization" or value == str(architect_packet_id).strip()) and str(architect_packet_id).strip():
         return str(architect_packet_id).strip()
     return value
 

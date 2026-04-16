@@ -96,6 +96,46 @@ def test_materialize_planner_contract_creates_packets(tmp_path: Path) -> None:
     assert find_record('packets', 'packets', 'packet_id', coder['packet_id'])['status'] == PacketStatus.READY.value
 
 
+def test_materialize_planner_contract_without_planner_packet_keeps_w01_independent(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    from prefect_grace.tasks import feature_bootstrap, planner_contract as planner_contract_module
+
+    monkeypatch.setattr(feature_bootstrap, "FEATURES_DIR", tmp_path / "packets")
+    monkeypatch.setattr(planner_contract_module, "FEATURES_DIR", tmp_path / "packets")
+
+    seed_test_feature(
+        feature_id="FEAT-NO-PLANNER-PACKET",
+        title="No planner packet",
+        summary="Planner packet should not be required for default materialization.",
+        implementation_title="Seed implementation",
+        implementation_summary="Seed implementation summary",
+        materialize_execution_packets=False,
+    )
+
+    result = materialize_planner_contract(
+        feature_id="FEAT-NO-PLANNER-PACKET",
+        planner_packet_id="",
+        architect_packet_id="FEAT-NO-PLANNER-PACKET-W00-ARCHITECT-FORMALIZATION",
+        contract={
+            "waves": [{"wave_id": "W01", "title": "Wave", "objective": "Default execution"}],
+            "packets": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Coder",
+                    "role": "coder",
+                    "summary": "Do work",
+                    "dependencies": [],
+                }
+            ],
+        },
+    )
+
+    coder = result["packets"][0]
+    assert coder["dependencies"] == []
+    assert coder["inputs"] == []
+
+
 def test_materialize_planner_contract_infers_verifier_hints_from_profile(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / 'state'
     packets_dir = Path('/opt/astro-project/prefect_grace/packets') / 'FEAT-PLAN-HINTS'

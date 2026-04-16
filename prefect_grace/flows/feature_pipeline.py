@@ -815,6 +815,72 @@ def _should_run_planner(*, run_planner: bool | None, planner_contract: dict | No
     return False
 
 
+def _architect_plan_next_action(payload: dict | None) -> str:
+    action = str((payload or {}).get("next_action") or "materialize_packets").strip().lower().replace("-", "_")
+    if action in {"materialize_packets", "requires_planner", "requires_user_decision"}:
+        return action
+    return "materialize_packets"
+
+
+def _architect_packet_candidates_to_contract(payload: dict | None) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    raw_packets = payload.get("packet_candidates")
+    if not isinstance(raw_packets, list) or not raw_packets:
+        return None
+    packets = [dict(packet) for packet in raw_packets if isinstance(packet, dict)]
+    if not packets:
+        return None
+    raw_waves = payload.get("waves")
+    waves = [dict(wave) for wave in raw_waves if isinstance(wave, dict)] if isinstance(raw_waves, list) else []
+    return {"waves": waves, "packets": packets}
+
+
+def _sync_architect_manifest_packets(
+    *,
+    feature_id: str,
+    generated_packets: list[dict],
+    architect_packet_id: str,
+) -> None:
+    try:
+        feature = find_record("features", "features", "feature_id", feature_id)
+    except KeyError:
+        return
+    manifest_path = Path(str(feature.get("architect_manifest_path") or "").strip())
+    if not manifest_path.is_file():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(manifest, dict):
+        return
+    manifest["packet_candidates"] = [
+        {
+            "key": str(packet.get("packet_id") or ""),
+            "wave_id": str(packet.get("wave_id") or ""),
+            "title": str(packet.get("title") or ""),
+            "role": str(packet.get("role") or ""),
+            "reasoning": str(packet.get("reasoning") or ""),
+            "packet_type": str(packet.get("packet_type") or ""),
+            "summary": str(packet.get("summary") or ""),
+            "write_scope": list(packet.get("write_scope") or []),
+            "inputs": list(packet.get("inputs") or []),
+            "acceptance_criteria": list(packet.get("acceptance_criteria") or []),
+            "verification_profile": dict(packet.get("verification_profile") or {}),
+            "reviewer_gate": list(packet.get("reviewer_gate") or []),
+            "dependencies": [
+                "architect formalization" if str(dependency) == architect_packet_id else str(dependency)
+                for dependency in list(packet.get("dependencies") or [])
+            ],
+            "notes": list(packet.get("notes") or []),
+            "review_target_key": str(packet.get("review_target_packet_id") or ""),
+        }
+        for packet in generated_packets
+    ]
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _architect_direct_rework_packet_spec_from_run(architect_run: dict) -> dict | None:
     try:
         return parse_direct_rework_packet_message(
@@ -947,6 +1013,8 @@ def seed_feature_packets_task(
     agent_sandbox: str | None,
     business_context: dict | None = None,
     planner_contract: dict | None = None,
+    include_planner_packet: bool = False,
+    materialize_execution_packets: bool = True,
 ):
     logger = get_run_logger()
     logger.info("Seeding role packets for %s", feature_id)
@@ -969,6 +1037,8 @@ def seed_feature_packets_task(
         agent_sandbox=agent_sandbox,
         business_context=business_context,
         planner_contract=planner_contract,
+        include_planner_packet=include_planner_packet,
+        materialize_execution_packets=materialize_execution_packets,
     )
 
 
@@ -1639,6 +1709,8 @@ def feature_pipeline(
             agent_sandbox=agent_sandbox,
             business_context=business_context,
             planner_contract=planner_contract,
+            include_planner_packet=bool(run_planner),
+            materialize_execution_packets=False,
         )
         mark_feature_in_progress_task(feature_id)
 
@@ -1646,8 +1718,9 @@ def feature_pipeline(
         review_route = None
 
         architect_packet_id = seeded["packets"]["architect"]["packet_id"]
-        planner_packet_id = seeded["packets"]["planner"]["packet_id"]
         should_run_planner = _should_run_planner(run_planner=run_planner, planner_contract=planner_contract)
+        planner_packet = seeded["packets"].get("planner")
+        planner_packet_id = str((planner_packet or {}).get("packet_id") or "")
 
         if run_architect:
             with tags("wave:W00", "role:architect"):
@@ -1686,7 +1759,33 @@ def feature_pipeline(
         packet_results["architect_artifacts"] = architect_artifacts
         publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
 
-        if should_run_planner:
+        architect_payload = dict(architect_artifact_plan.get("payload") or {})
+        architect_next_action = _architect_plan_next_action(architect_payload)
+        architect_contract = _architect_packet_candidates_to_contract(architect_payload)
+        planner_required = should_run_planner or architect_next_action == "requires_planner"
+
+        if architect_next_action == "requires_user_decision":
+            reasons = list(architect_payload.get("open_decisions") or [])
+            feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
+            final_status = {
+                "feature": feature_record,
+                "has_failures": False,
+                "final_outcome": "awaiting_architect",
+                "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
+                "user_summary": _final_user_summary(
+                    outcome="awaiting_architect",
+                    status=FeatureStatus.ARCHITECT_READY.value,
+                    summary=str(feature_record.get("summary") or summary),
+                    next_action="architect-user-decision-required",
+                    reasons=reasons,
+                ),
+                "next_action": "architect-user-decision-required",
+                "reasons": reasons,
+            }
+            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
+            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
+
+        if planner_required and planner_packet_id:
             with tags("wave:W00", "role:planner"):
                 planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
         else:
@@ -1699,7 +1798,7 @@ def feature_pipeline(
                 "last_message_path": "",
             }
         packet_results["planner"] = planner_run
-        if planner_run.get("returncode") != 0:
+        if planner_required and planner_run.get("returncode") != 0:
             final_status = _final_failure(
                 feature_id=feature_id,
                 category="environment_blocked",
@@ -1707,8 +1806,14 @@ def feature_pipeline(
             )
             publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
             return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-        with tags("wave:W00", "role:planner"):
-            mark_packet_status_task(planner_packet_id, PacketStatus.ACCEPTED.value)
+        if planner_required and planner_packet_id:
+            with tags("wave:W00", "role:planner"):
+                mark_packet_status_task(planner_packet_id, PacketStatus.ACCEPTED.value)
+        elif planner_packet_id:
+            try:
+                update_record("packets", "packets", "packet_id", planner_packet_id, {"status": PacketStatus.DRAFT.value})
+            except KeyError:
+                pass
 
         planner_contract_result = resolve_planner_contract_task(
             planner_run,
@@ -1726,11 +1831,11 @@ def feature_pipeline(
             verifier_touches_frontend=verifier_touches_frontend,
             verifier_requires_frontend_visual=verifier_requires_frontend_visual,
             verifier_include_day_live_canary=verifier_include_day_live_canary,
-            planner_contract_override=planner_contract,
-            prefer_agent_output=prefer_agent_output and should_run_planner,
+            planner_contract_override=planner_contract if planner_required else (architect_contract or planner_contract),
+            prefer_agent_output=prefer_agent_output and planner_required,
         )
         packet_results["planner_contract"] = planner_contract_result
-        if prefer_agent_output and planner_contract_result.get("parser_error") and planner_contract_result.get("source") != "agent_output":
+        if planner_required and prefer_agent_output and planner_contract_result.get("parser_error") and planner_contract_result.get("source") != "agent_output":
             final_status = _final_failure(
                 feature_id=feature_id,
                 category="pipeline_invalid",
@@ -1757,6 +1862,11 @@ def feature_pipeline(
             verifier_include_day_live_canary,
         )
         packet_results["planner_materialized"] = materialized_contract
+        _sync_architect_manifest_packets(
+            feature_id=feature_id,
+            generated_packets=list(materialized_contract.get("packets") or []),
+            architect_packet_id=architect_packet_id,
+        )
         planner_validation = validate_planner_contract_task(feature_id, materialized_contract)
         packet_results["planner_validation"] = planner_validation
         publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
@@ -1781,7 +1891,9 @@ def feature_pipeline(
             wave_id: {str(packet["packet_id"]) for packet in packets}
             for wave_id, packets in wave_groups
         }
-        completed_packet_ids: set[str] = {architect_packet_id, planner_packet_id}
+        completed_packet_ids: set[str] = {architect_packet_id}
+        if planner_required and planner_packet_id:
+            completed_packet_ids.add(planner_packet_id)
         reviewer_decision_index = 0
         wave_decision_index = 0
 

@@ -362,6 +362,102 @@ def test_build_packet_prompt_compacts_dependency_packets_to_embedded_contract_fo
     assert "Very long packet body that should not be injected whole." not in prompt
 
 
+def test_build_packet_prompt_rework_avoids_full_history_tail_for_architect(monkeypatch, tmp_path: Path) -> None:
+    feature_dir = tmp_path / "packets" / "FEAT-LOCAL"
+    packet_dir = feature_dir / "packets"
+    packet_dir.mkdir(parents=True)
+    (feature_dir / "feature-brief.md").write_text("# Brief\n- compact goal\n", encoding="utf-8")
+    (feature_dir / "wave-plan.md").write_text("# Wave\n- W01 local scope\n", encoding="utf-8")
+    execution_packet_path = feature_dir / "EXECUTION_PACKET.md"
+    execution_packet_path.write_text(
+        "# Execution Packet\n\n## Source of truth\n- local packet-first artifacts\n",
+        encoding="utf-8",
+    )
+    manifest_path = feature_dir / "architect_manifest.json"
+    manifest_path.write_text(
+        json.dumps({"waves": [{"wave_id": "W01", "title": "Wave", "goal": "Goal"}]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    architect_packet_path = packet_dir / "ARCH.md"
+    reviewer_packet_path = packet_dir / "REVIEW.md"
+    verifier_packet_path = packet_dir / "VERIFY.md"
+    coder_packet_path = packet_dir / "CODER.md"
+    architect_packet_path.write_text("# Packet\nArchitect rework packet", encoding="utf-8")
+    reviewer_packet_path.write_text("# Packet\nReviewer blocker packet", encoding="utf-8")
+    verifier_packet_path.write_text("# Packet\nVerifier evidence packet", encoding="utf-8")
+    coder_packet_path.write_text("# Packet\nCoder packet body", encoding="utf-8")
+
+    feature_record = {
+        "feature_id": "FEAT-LOCAL",
+        "architect_manifest_path": str(manifest_path),
+        "architect_handoff_path": "",
+        "execution_packet_path": str(execution_packet_path),
+        "requirements_slice_path": "/tmp/should-not-appear.xml",
+        "development_plan_slice_path": "/tmp/should-not-appear.xml",
+        "verification_matrix_slice_path": "/tmp/should-not-appear.md",
+        "knowledge_graph_slice_path": "/tmp/should-not-appear.xml",
+    }
+    packets = {
+        "PKT-ARCH": {
+            "packet_id": "PKT-ARCH",
+            "feature_id": "FEAT-LOCAL",
+            "wave_id": "W01",
+            "role": "architect",
+            "packet_type": "rework",
+            "parent_packet_id": "PKT-CODER",
+            "review_target_packet_id": "PKT-CODER",
+            "packet_path": str(architect_packet_path),
+            "dependencies": ["PKT-CODER", "PKT-REVIEW", "PKT-VERIFY"],
+        },
+        "PKT-CODER": {
+            "packet_id": "PKT-CODER",
+            "feature_id": "FEAT-LOCAL",
+            "wave_id": "W01",
+            "role": "coder",
+            "packet_type": "execution",
+            "packet_path": str(coder_packet_path),
+            "dependencies": [],
+        },
+        "PKT-REVIEW": {
+            "packet_id": "PKT-REVIEW",
+            "feature_id": "FEAT-LOCAL",
+            "wave_id": "W01",
+            "role": "reviewer",
+            "packet_type": "gate_decision",
+            "packet_path": str(reviewer_packet_path),
+            "dependencies": [],
+        },
+        "PKT-VERIFY": {
+            "packet_id": "PKT-VERIFY",
+            "feature_id": "FEAT-LOCAL",
+            "wave_id": "W01",
+            "role": "verifier",
+            "packet_type": "execution",
+            "packet_path": str(verifier_packet_path),
+            "dependencies": [],
+        },
+    }
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.FEATURES_DIR", tmp_path / "packets")
+
+    def _fake_find_record(name, key, id_field, id_value):
+        if name == "features":
+            return feature_record
+        return packets[str(id_value)]
+
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.find_record", _fake_find_record)
+    monkeypatch.setattr("prefect_grace.tasks.codex_launcher.read_agent_message", lambda *args, **kwargs: "")
+
+    prompt = build_packet_prompt(packets["PKT-ARCH"], "Architect role prompt")
+
+    assert "ARCHITECT MODE: rework" in prompt
+    assert "<verification_matrix_slice" not in prompt
+    assert "<knowledge_graph_slice" not in prompt
+    assert "<dependency_packet packet_id=\"PKT-CODER\"" in prompt
+    assert "<dependency_packet packet_id=\"PKT-REVIEW\"" in prompt
+    assert "<dependency_packet packet_id=\"PKT-VERIFY\"" in prompt
+
+
 def test_heartbeat_loop_kills_when_only_stdout_noise_grows(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     run_dir.mkdir()

@@ -26,11 +26,11 @@ END_FINAL_ARCHITECT_ARTIFACT_PLAN_JSON
 
 def test_write_architect_artifacts_materializes_slice_pack(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
+    architect_artifacts.FEATURES_DIR = tmp_path / "packets"
     architect_artifacts.DOCS_DIR = tmp_path / "docs"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-ARCH-SLICE"
-    if feature_packets_dir.exists():
-        import shutil
-        shutil.rmtree(feature_packets_dir)
+    from prefect_grace.tasks import feature_bootstrap
+
+    feature_bootstrap.FEATURES_DIR = tmp_path / "packets"
 
     bootstrap_feature(
         feature_id="FEAT-ARCH-SLICE",
@@ -82,9 +82,59 @@ def test_write_architect_artifacts_materializes_slice_pack(tmp_path: Path) -> No
     assert "requirements.slice" not in execution_packet_text
 
 
+def test_write_architect_artifacts_syncs_wave_plan_to_architect_waves_and_packets(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    architect_artifacts.FEATURES_DIR = tmp_path / "packets"
+    architect_artifacts.DOCS_DIR = tmp_path / "docs"
+    from prefect_grace.tasks import feature_bootstrap
+
+    feature_bootstrap.FEATURES_DIR = tmp_path / "packets"
+
+    bootstrap_feature(
+        feature_id="FEAT-ARCH-WAVES",
+        title="Architect wave sync",
+        summary="Architect output defines all waves and packet candidates.",
+        business_context={"scope": ["Sync wave plan."]},
+    )
+    payload = default_architect_artifact_plan(
+        feature_id="FEAT-ARCH-WAVES",
+        title="Architect wave sync",
+        summary="Architect output defines all waves and packet candidates.",
+        business_context={"scope": ["Sync wave plan."]},
+    )
+    payload["waves"] = [
+        {"wave_id": "W01", "title": "Backend", "goal": "Backend packet scope"},
+        {"wave_id": "W02", "title": "Frontend", "goal": "Frontend packet scope"},
+        {"wave_id": "W03", "title": "Closeout", "goal": "Final gate scope"},
+    ]
+    payload["packet_candidates"] = [
+        {"key": "coder_backend", "wave_id": "W01", "title": "Backend Slice", "role": "coder", "summary": "Do backend"},
+        {"key": "coder_frontend", "wave_id": "W02", "title": "Frontend Slice", "role": "coder", "summary": "Do frontend"},
+        {"key": "architect_closeout", "wave_id": "W03", "title": "Architect Closeout", "role": "architect", "summary": "Accept feature"},
+    ]
+
+    written = write_architect_artifacts(feature_id="FEAT-ARCH-WAVES", architect_payload=payload)
+
+    feature = state_store.find_record("features", "features", "feature_id", "FEAT-ARCH-WAVES")
+    wave_plan_text = Path(feature["wave_plan_path"]).read_text(encoding="utf-8")
+    manifest_text = Path(written["architect_manifest_path"]).read_text(encoding="utf-8")
+
+    assert "W01" in wave_plan_text
+    assert "W02" in wave_plan_text
+    assert "W03" in wave_plan_text
+    assert "Backend Slice" in wave_plan_text
+    assert "Frontend Slice" in wave_plan_text
+    assert "Architect Closeout" in wave_plan_text
+    assert '"packet_candidates"' in manifest_text
+
+
 def test_write_architect_artifacts_can_materialize_legacy_grace_docs(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
+    architect_artifacts.FEATURES_DIR = tmp_path / "packets"
     architect_artifacts.DOCS_DIR = tmp_path / "docs"
+    from prefect_grace.tasks import feature_bootstrap
+
+    feature_bootstrap.FEATURES_DIR = tmp_path / "packets"
 
     bootstrap_feature(
         feature_id="FEAT-ARCH-LEGACY-SLICE",
@@ -99,6 +149,7 @@ def test_write_architect_artifacts_can_materialize_legacy_grace_docs(tmp_path: P
         business_context={"scope": ["Legacy docs only."]},
     )
     payload["materialize_legacy_grace_docs"] = True
+    payload["root_deltas"] = {"requirements": ["Add canonical backend observability wave scope."]}
 
     written = write_architect_artifacts(feature_id="FEAT-ARCH-LEGACY-SLICE", architect_payload=payload)
 
@@ -112,11 +163,11 @@ def test_write_architect_artifacts_can_materialize_legacy_grace_docs(tmp_path: P
 
 def test_create_packet_renders_embedded_contract_json(tmp_path: Path) -> None:
     state_store.STATE_DIR = tmp_path / "state"
+    architect_artifacts.FEATURES_DIR = tmp_path / "packets"
     architect_artifacts.DOCS_DIR = tmp_path / "docs"
-    feature_packets_dir = Path("/opt/astro-project/prefect_grace/packets") / "FEAT-PACKET-CONTRACT"
-    if feature_packets_dir.exists():
-        import shutil
-        shutil.rmtree(feature_packets_dir)
+    from prefect_grace.tasks import feature_bootstrap
+
+    feature_bootstrap.FEATURES_DIR = tmp_path / "packets"
 
     bootstrap_feature(
         feature_id="FEAT-PACKET-CONTRACT",

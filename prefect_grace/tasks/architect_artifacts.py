@@ -80,6 +80,98 @@ def _normalize_wave_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return waves
 
 
+def _normalize_packet_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for raw in payload.get("packet_candidates") or []:
+        if not isinstance(raw, dict):
+            continue
+        role = str(raw.get("role") or "coder").strip().lower()
+        if role not in {"coder", "verifier", "reviewer", "architect", "planner"}:
+            role = "coder"
+        packet_type = str(raw.get("packet_type") or "").strip().lower().replace("-", "_")
+        if packet_type not in {"execution", "rework", "gate_decision"}:
+            if role == "reviewer" or role == "architect":
+                packet_type = "gate_decision"
+            else:
+                packet_type = "execution"
+        candidates.append(
+            {
+                "key": str(raw.get("key") or raw.get("title") or "").strip(),
+                "wave_id": str(raw.get("wave_id") or "W01").strip().upper(),
+                "title": str(raw.get("title") or raw.get("key") or role.title()).strip(),
+                "role": role,
+                "reasoning": str(raw.get("reasoning") or "").strip().lower() or ("xhigh" if role in {"reviewer", "architect", "planner"} else "high"),
+                "packet_type": packet_type,
+                "summary": str(raw.get("summary") or raw.get("title") or "").strip(),
+                "write_scope": _string_list(raw.get("write_scope")),
+                "inputs": _string_list(raw.get("inputs")),
+                "acceptance_criteria": _string_list(raw.get("acceptance_criteria")),
+                "verification_profile": dict(raw.get("verification_profile") or {}),
+                "reviewer_gate": _string_list(raw.get("reviewer_gate")),
+                "dependencies": _string_list(raw.get("dependencies")),
+                "notes": _string_list(raw.get("notes")),
+                "review_target_key": str(raw.get("review_target_key") or "").strip(),
+            }
+        )
+    return candidates
+
+
+def _wave_plan_md(
+    feature: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    feature_dir: Path,
+) -> str:
+    waves = _normalize_wave_specs(payload) or _default_wave_specs(feature, payload)
+    packet_candidates = _normalize_packet_candidates(payload)
+    wave_lines = [
+        f"{wave['wave_id']} — {wave['title']}: {wave['goal']}"
+        for wave in waves
+    ]
+    packet_lines = [
+        f"`{packet['wave_id']}` / `{packet['role']}` / `{packet['packet_type']}` — {packet['title']}"
+        for packet in packet_candidates
+    ]
+    dependency_lines = [
+        (
+            f"`{packet['title']}` depends on {', '.join(packet['dependencies'])}"
+            if packet["dependencies"]
+            else f"`{packet['title']}` depends on nothing"
+        )
+        for packet in packet_candidates
+    ]
+    exit_conditions: list[str] = []
+    for wave in waves:
+        exit_conditions.extend(
+            _string_list(wave.get("acceptance_criteria"))
+            or [f"{wave['wave_id']} is accepted against its bounded scope."]
+        )
+    lines = [
+        f"# Wave Plan: {feature.get('feature_id')}",
+        "",
+        "## Objective",
+        str(payload.get("system_goal") or feature.get("summary") or feature.get("title") or feature.get("feature_id")),
+        "",
+        "## Waves",
+        "\n".join(f"{index}. {line}" for index, line in enumerate(wave_lines, start=1)) if wave_lines else "1. W01 — implementation wave",
+        "",
+        "## Packet Registry",
+        "\n".join(f"- {line}" for line in packet_lines) if packet_lines else "- Packets will be materialized from architect output.",
+        "",
+        "## Dependency Rules",
+        "\n".join(f"- {line}" for line in dependency_lines) if dependency_lines else "- Architect packet dependencies are packet-local only.",
+        "",
+        "## Exit Conditions",
+        "\n".join(f"- {line}" for line in exit_conditions) if exit_conditions else "- Wave gates are accepted.",
+        "",
+        "## Source Of Truth",
+        f"- `{feature_dir / 'feature-brief.md'}`",
+        f"- `{feature_dir / 'wave-plan.md'}`",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def _default_wave_specs(feature: dict[str, Any], payload: dict[str, Any]) -> list[dict[str, Any]]:
     frontend_touched = bool(payload.get("touches_frontend"))
     verification_commands = []
@@ -417,6 +509,8 @@ def _architect_manifest(
         "execution_packet_path": str(execution_packet_path),
         "impacted_modules": _string_list(payload.get("impacted_modules")),
         "waves": _normalize_wave_specs(payload),
+        "packet_candidates": _normalize_packet_candidates(payload),
+        "next_action": str(payload.get("next_action") or "materialize_packets").strip() or "materialize_packets",
         "planner_inputs": [
             str(execution_packet_path),
             *(
@@ -462,8 +556,10 @@ def default_architect_artifact_plan(
         "data_flows": business_context.get("data_flows") or [],
         "waves": business_context.get("architect_waves") or [],
         "verification_lanes": business_context.get("verification_lanes") or [],
+        "packet_candidates": business_context.get("packet_candidates") or [],
         "use_cases": business_context.get("use_cases") or [],
         "open_decisions": _string_list(business_context.get("open_decisions")),
+        "next_action": str(business_context.get("next_action") or "materialize_packets").strip() or "materialize_packets",
         "root_deltas": business_context.get("root_deltas") or {},
         "touches_frontend": bool(business_context.get("touches_frontend")),
     }
@@ -475,13 +571,17 @@ def write_architect_artifacts(
     architect_payload: dict[str, Any],
 ) -> dict[str, Any]:
     feature = find_record("features", "features", "feature_id", feature_id)
-    feature_dir = FEATURES_DIR / feature_id
+    feature_dir = Path(str(feature.get("feature_dir") or (FEATURES_DIR / feature_id)))
+    feature_dir.mkdir(parents=True, exist_ok=True)
     slice_slug = _resolve_slice_slug(feature, architect_payload)
     slice_id = str(architect_payload.get("slice_id") or f"SLICE-{slice_slug.upper()}").strip()
     slice_dir = DOCS_DIR / slice_slug
     slice_dir.mkdir(parents=True, exist_ok=True)
 
-    materialize_legacy_grace_docs = bool(architect_payload.get("materialize_legacy_grace_docs"))
+    root_deltas = architect_payload.get("root_deltas") or {}
+    materialize_legacy_grace_docs = bool(
+        architect_payload.get("materialize_legacy_grace_docs") and root_deltas
+    )
     requirements_path = slice_dir / f"requirements.slice.{slice_slug}.xml" if materialize_legacy_grace_docs else None
     development_plan_path = slice_dir / f"development-plan.slice.{slice_slug}.xml" if materialize_legacy_grace_docs else None
     verification_matrix_path = slice_dir / f"verification-matrix.slice.{slice_slug}.md" if materialize_legacy_grace_docs else None
@@ -489,6 +589,7 @@ def write_architect_artifacts(
     handoff_path = slice_dir / "ARCHITECT_HANDOFF.md" if materialize_legacy_grace_docs else None
     execution_packet_path = slice_dir / "EXECUTION_PACKET.md"
     manifest_path = slice_dir / "architect_manifest.json"
+    wave_plan_path = feature_dir / "wave-plan.md"
 
     if materialize_legacy_grace_docs:
         assert requirements_path and development_plan_path and verification_matrix_path and knowledge_graph_path and handoff_path
@@ -513,6 +614,14 @@ def write_architect_artifacts(
         ),
         encoding="utf-8",
     )
+    wave_plan_path.write_text(
+        _wave_plan_md(
+            feature,
+            architect_payload,
+            feature_dir=feature_dir,
+        ),
+        encoding="utf-8",
+    )
 
     manifest = _architect_manifest(
         feature=feature,
@@ -530,7 +639,6 @@ def write_architect_artifacts(
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     feature_brief_path = feature_dir / "feature-brief.md"
-    wave_plan_path = feature_dir / "wave-plan.md"
     updates = {
         "architect_slice_id": slice_id,
         "architect_slice_dir": str(slice_dir),
@@ -544,6 +652,7 @@ def write_architect_artifacts(
         "knowledge_graph_slice_path": str(knowledge_graph_path) if knowledge_graph_path else "",
         "feature_brief_path": str(feature_brief_path),
         "wave_plan_path": str(wave_plan_path),
+        "planner_contract": {},
     }
     stored_feature = update_record("features", "features", "feature_id", feature_id, updates)
     return {

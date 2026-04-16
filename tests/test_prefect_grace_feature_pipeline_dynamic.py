@@ -1085,6 +1085,125 @@ def test_feature_pipeline_defaults_planner_to_skipped(tmp_path: Path) -> None:
 
     assert result["final_status"]["feature"]["status"] == "awaiting_commit"
     assert result["runs"]["planner"]["launcher"] == "skipped"
+    assert result["runs"]["planner"]["packet_id"] == ""
+    assert not result["seeded"]["packets"]["planner"]
+
+
+def test_feature_pipeline_uses_architect_packet_candidates_when_planner_is_off(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-ARCH-FIRST",
+        title="Architect-first packets",
+        summary="Architect packet candidates should drive default execution path.",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict_script=["accepted", "accepted"],
+        business_context={
+            "architect_waves": [
+                {"wave_id": "W01", "title": "Backend", "goal": "Backend slice"},
+                {"wave_id": "W02", "title": "Frontend", "goal": "Frontend slice"},
+            ],
+            "packet_candidates": [
+                {
+                    "key": "coder_backend",
+                    "wave_id": "W01",
+                    "title": "Backend Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "packet_type": "execution",
+                    "summary": "Implement backend slice",
+                    "dependencies": [],
+                    "write_scope": ["backend/app/services/day_brief.py"],
+                    "acceptance_criteria": ["Backend slice implemented."],
+                },
+                {
+                    "key": "verifier_backend",
+                    "wave_id": "W01",
+                    "title": "Verify Backend",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "packet_type": "execution",
+                    "summary": "Verify backend slice",
+                    "dependencies": ["coder_backend"],
+                },
+                {
+                    "key": "reviewer_backend",
+                    "wave_id": "W01",
+                    "title": "Review Backend",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Review backend slice",
+                    "dependencies": ["coder_backend", "verifier_backend"],
+                    "review_target_key": "coder_backend",
+                },
+                {
+                    "key": "architect_backend",
+                    "wave_id": "W01",
+                    "title": "Architect Gate Backend",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Accept backend wave",
+                    "dependencies": ["reviewer_backend"],
+                },
+                {
+                    "key": "coder_frontend",
+                    "wave_id": "W02",
+                    "title": "Frontend Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "packet_type": "execution",
+                    "summary": "Implement frontend slice",
+                    "dependencies": ["architect_backend"],
+                },
+                {
+                    "key": "verifier_frontend",
+                    "wave_id": "W02",
+                    "title": "Verify Frontend",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "packet_type": "execution",
+                    "summary": "Verify frontend slice",
+                    "dependencies": ["coder_frontend"],
+                },
+                {
+                    "key": "reviewer_frontend",
+                    "wave_id": "W02",
+                    "title": "Review Frontend",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Review frontend slice",
+                    "dependencies": ["coder_frontend", "verifier_frontend"],
+                    "review_target_key": "coder_frontend",
+                },
+                {
+                    "key": "architect_frontend",
+                    "wave_id": "W02",
+                    "title": "Architect Gate Frontend",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Accept frontend wave",
+                    "dependencies": ["reviewer_frontend"],
+                },
+            ],
+        },
+    )
+
+    feature = find_record("features", "features", "feature_id", "FEAT-ARCH-FIRST")
+    wave_plan_text = Path(feature["wave_plan_path"]).read_text(encoding="utf-8")
+
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
+    assert result["runs"]["planner"]["launcher"] == "skipped"
+    assert len(result["wave_routes"]) == 2
+    assert "W01" in wave_plan_text
+    assert "W02" in wave_plan_text
+    assert "Backend Slice" in wave_plan_text
+    assert "Frontend Slice" in wave_plan_text
 
 
 def test_route_reviewer_verdict_task_tolerates_missing_packet_record_for_notify(monkeypatch) -> None:
