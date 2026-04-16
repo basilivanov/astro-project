@@ -6,7 +6,7 @@ import yaml
 
 from prefect_grace.models import FeatureStatus
 from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, mark_feature_status
-from prefect_grace.tasks.job_queue import enqueue_feature_job
+from prefect_grace.tasks.prefect_submitter import feature_flow_parameters, submit_feature_flow_run
 from prefect_grace.tasks.telegram_notify import notify_submission_event
 from prefect_grace.tasks.workdir import resolve_execution_workdir
 
@@ -122,30 +122,31 @@ def load_business_feature_brief(path: str | Path) -> dict[str, Any]:
     }
 
 
-def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
+def submit_feature_run_from_brief(path: str | Path, *, scheduled_for: str | None = None) -> dict[str, Any]:
     brief = load_business_feature_brief(path)
+    business_context = {
+        "brief_path": str(Path(path)),
+        "scope": brief["scope"],
+        "acceptance_criteria": brief["acceptance_criteria"],
+        "non_goals": brief["non_goals"],
+        "visual_expectations": brief["visual_expectations"],
+        "impacted_surfaces": brief["impacted_surfaces"],
+        "impacted_grace_artifacts": brief["impacted_grace_artifacts"],
+        "wave_proposal": brief["wave_proposal"],
+        "open_decisions": brief["open_decisions"]
+        or [
+            "Confirm GRACE wave slicing against the supplied business brief.",
+            "Escalate if decomposition requires more than one W01 implementation packet.",
+        ],
+    }
     bootstrap_feature(
         feature_id=brief["feature_id"],
         title=brief["title"],
         summary=brief["summary"],
-        business_context={
-            "brief_path": str(Path(path)),
-            "scope": brief["scope"],
-            "acceptance_criteria": brief["acceptance_criteria"],
-            "non_goals": brief["non_goals"],
-            "visual_expectations": brief["visual_expectations"],
-            "impacted_surfaces": brief["impacted_surfaces"],
-            "impacted_grace_artifacts": brief["impacted_grace_artifacts"],
-            "wave_proposal": brief["wave_proposal"],
-            "open_decisions": brief["open_decisions"]
-            or [
-                "Confirm GRACE wave slicing against the supplied business brief.",
-                "Escalate if decomposition requires more than one W01 implementation packet.",
-            ],
-        },
+        business_context=business_context,
     )
     mark_feature_status(brief["feature_id"], FeatureStatus.PLANNED)
-    record = enqueue_feature_job(
+    parameters = feature_flow_parameters(
         feature_id=brief["feature_id"],
         title=brief["title"],
         summary=brief["summary"],
@@ -166,24 +167,15 @@ def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
         run_planner=brief.get("run_planner"),
         agent_workdir=brief["agent_workdir"],
         agent_sandbox=brief["agent_sandbox"],
-        business_context={
-            "brief_path": str(Path(path)),
-            "scope": brief["scope"],
-            "acceptance_criteria": brief["acceptance_criteria"],
-            "non_goals": brief["non_goals"],
-            "visual_expectations": brief["visual_expectations"],
-            "impacted_surfaces": brief["impacted_surfaces"],
-            "impacted_grace_artifacts": brief["impacted_grace_artifacts"],
-            "wave_proposal": brief["wave_proposal"],
-            "open_decisions": brief["open_decisions"]
-            or [
-                "Confirm GRACE wave slicing against the supplied business brief.",
-                "Escalate if decomposition requires more than one W01 implementation packet.",
-            ],
-        },
+        business_context=business_context,
         planner_contract=brief.get("planner_contract"),
-        brief_path=str(Path(path)),
     )
+    record = submit_feature_flow_run(
+        parameters=parameters,
+        scheduled_for=scheduled_for,
+        tags=[f"brief:{Path(path).name}"],
+    )
+    record["brief_path"] = str(Path(path))
     record["brief_summary"] = {
         "scope": brief["scope"],
         "acceptance_criteria": brief["acceptance_criteria"],
@@ -193,7 +185,8 @@ def enqueue_feature_job_from_brief(path: str | Path) -> dict[str, Any]:
     notify_submission_event(
         feature_id=record["feature_id"],
         title=record["title"],
-        execute=bool(record.get("execute")),
+        execute=bool(brief.get("execute")),
         brief_path=str(Path(path)),
+        flow_run_id=record["flow_run_id"],
     )
     return record

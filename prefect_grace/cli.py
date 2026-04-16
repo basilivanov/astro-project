@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timedelta, timezone
 
 from prefect_grace.models import (
     FeatureStatus,
@@ -16,8 +17,9 @@ from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_pack
 from prefect_grace.tasks.review_router import create_rework_from_review, record_review
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 from prefect_grace.tasks.grace_dashboard import build_grace_dashboard_snapshot, render_grace_dashboard
-from prefect_grace.tasks.job_queue import enqueue_feature_job, list_jobs
-from prefect_grace.tasks.business_intake import TEMPLATE_PATH as BUSINESS_BRIEF_TEMPLATE_PATH, enqueue_feature_job_from_brief
+from prefect_grace.tasks.business_intake import TEMPLATE_PATH as BUSINESS_BRIEF_TEMPLATE_PATH, submit_feature_run_from_brief
+from prefect_grace.tasks.prefect_runs import list_recent_feature_flow_runs
+from prefect_grace.tasks.prefect_submitter import feature_flow_parameters, submit_feature_flow_run
 
 
 def _cmd_feature(args: argparse.Namespace) -> None:
@@ -148,8 +150,23 @@ def _cmd_test_feature(args: argparse.Namespace) -> None:
     print(result)
 
 
+def _scheduled_for_from_args(args: argparse.Namespace) -> str | None:
+    scheduled_for = getattr(args, "scheduled_for", None)
+    delay_minutes = getattr(args, "delay_minutes", None)
+    if scheduled_for and delay_minutes is not None:
+        raise SystemExit("Use either --scheduled-for or --delay-minutes, not both.")
+    if scheduled_for:
+        parsed = datetime.fromisoformat(str(scheduled_for).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat()
+    if delay_minutes is not None:
+        return (datetime.now(timezone.utc) + timedelta(minutes=int(delay_minutes))).isoformat()
+    return None
+
+
 def _cmd_submit_feature(args: argparse.Namespace) -> None:
-    record = enqueue_feature_job(
+    parameters = feature_flow_parameters(
         feature_id=args.feature_id,
         title=args.title,
         summary=args.summary,
@@ -172,11 +189,15 @@ def _cmd_submit_feature(args: argparse.Namespace) -> None:
         agent_sandbox=args.agent_sandbox,
         commit_hash=args.commit_hash,
     )
+    record = submit_feature_flow_run(
+        parameters=parameters,
+        scheduled_for=_scheduled_for_from_args(args),
+    )
     print(json.dumps(record, ensure_ascii=False, indent=2))
 
 
 def _cmd_submit_brief(args: argparse.Namespace) -> None:
-    record = enqueue_feature_job_from_brief(args.path)
+    record = submit_feature_run_from_brief(args.path, scheduled_for=_scheduled_for_from_args(args))
     print(json.dumps(record, ensure_ascii=False, indent=2))
 
 
@@ -185,7 +206,7 @@ def _cmd_print_brief_template(args: argparse.Namespace) -> None:
 
 
 def _cmd_queue(args: argparse.Namespace) -> None:
-    print(json.dumps({"jobs": list_jobs()}, ensure_ascii=False, indent=2))
+    print(json.dumps({"runs": list_recent_feature_flow_runs(limit=args.limit)}, ensure_ascii=False, indent=2))
 
 
 def _cmd_dashboard(args: argparse.Namespace) -> None:
@@ -327,17 +348,22 @@ def build_parser() -> argparse.ArgumentParser:
     submit_feature.add_argument("--commit-hash")
     submit_feature.add_argument("--run-planner", action="store_true")
     submit_feature.add_argument("--timeout-seconds", type=int, default=7200)
+    submit_feature.add_argument("--scheduled-for")
+    submit_feature.add_argument("--delay-minutes", type=int)
     submit_feature.add_argument("--execute", action="store_true")
     submit_feature.set_defaults(func=_cmd_submit_feature)
 
     submit_brief = subparsers.add_parser("submit-brief")
     submit_brief.add_argument("path")
+    submit_brief.add_argument("--scheduled-for")
+    submit_brief.add_argument("--delay-minutes", type=int)
     submit_brief.set_defaults(func=_cmd_submit_brief)
 
     print_brief_template = subparsers.add_parser("print-brief-template")
     print_brief_template.set_defaults(func=_cmd_print_brief_template)
 
     queue = subparsers.add_parser("queue")
+    queue.add_argument("--limit", type=int, default=50)
     queue.set_defaults(func=_cmd_queue)
 
     dashboard = subparsers.add_parser("dashboard")

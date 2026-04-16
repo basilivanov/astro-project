@@ -557,6 +557,7 @@ def notify_submission_event(
     title: str,
     execute: bool,
     brief_path: str | None = None,
+    flow_run_id: str | None = None,
 ) -> bool:
     mode = "боевой" if execute else "черновой"
     icon = "🧾" if execute else "⚠️"
@@ -569,4 +570,7 @@ def notify_submission_event(
         lines.append("Агенты Codex не стартуют, пока не включён <code>execute: true</code>.")
     if brief_path:
         lines.append(f"Бриф: <code>{escape(brief_path)}</code>")
+    url = _flow_run_url(flow_run_id)
+    if url:
+        lines.append(f"<a href=\"{escape(url)}\">Открыть запуск в Prefect</a>")
     return _send_html_message(_lines_to_html(lines))

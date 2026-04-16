@@ -190,7 +190,7 @@ Print the YAML intake template:
 python3 -m prefect_grace.cli print-brief-template
 ```
 
-Submit a business feature brief into the local GRACE queue:
+Submit a business feature brief directly into Prefect:
 
 ```bash
 python3 -m prefect_grace.cli submit-brief path/to/feature-brief.yaml
@@ -204,7 +204,7 @@ Minimal brief contract:
 - optional `planner_contract` lets the architect pre-seed exact waves and packets instead of relying on the default W01 contract.
 - planner contract may contain multiple `waves` and arbitrary packet dependency chains; the pipeline now executes all packets, not only one static coder/verifier/reviewer chain.
 
-Submit a feature into the local GRACE queue directly:
+Submit a feature directly into Prefect:
 
 ```bash
 python3 -m prefect_grace.cli submit-feature FEAT-LIVE-DEMO "Live Demo" "Run a live Codex-backed feature" \
@@ -223,7 +223,7 @@ python3 -m prefect_grace.cli submit-feature FEAT-PROD-CODEX-SMOKE "Prod Codex Sm
   --execute
 ```
 
-Inspect the queue:
+Inspect recent Prefect feature runs:
 
 ```bash
 python3 -m prefect_grace.cli queue
@@ -235,15 +235,9 @@ Render the operator dashboard:
 python3 -m prefect_grace.cli dashboard
 ```
 
-Dispatcher loop:
-
-```bash
-/opt/prefect/venv/bin/python -m prefect_grace.dispatcher --once
-```
-
 Behavior:
-- serial dispatch only: a new queued feature is not submitted while another job is `dispatching`, `submitted`, or `running`;
-- terminal job status is mapped from feature domain state, not only from Prefect run state;
+- execution is serialized by Prefect concurrency limits on the live queue and deployment;
+- terminal feature state is mapped by the feature pipeline itself, not by a side dispatcher;
 - active live Codex packet writes logs into `prefect_grace/state/runs/<RUN_ID>/stdout.jsonl` and `stderr.log` during execution.
 - Prefect run names are semantic: `feature:<FEATURE_ID>`, `packet:<PACKET_ID>`, `dashboard:grace-live`, instead of random animal names where our code controls naming.
 - Prefect artifacts are visible in the UI `Artifacts` section; the monitoring flow now publishes both `grace-live-dashboard` and `grace-run-mapping`.
@@ -273,4 +267,4 @@ python3 -m prefect_grace.cli test-feature FEAT-REWORK "Rework Feature" "Exercise
   --wave-verdict-script accepted
 ```
 
-Systemd unit template is provided in `systemd/prefect-grace-dispatcher.service`.
+There is no separate local dispatcher anymore; Prefect is the single queue and execution source of truth.

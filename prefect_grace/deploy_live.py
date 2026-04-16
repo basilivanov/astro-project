@@ -39,6 +39,11 @@ def ensure_work_pool_and_queues(*, api_url: str, work_pool_name: str, queues: li
             if limit is not None:
                 args.extend(["--limit", str(limit)])
             _run(*args, api_url=api_url)
+            continue
+        if limit is None:
+            _run("work-queue", "clear-concurrency-limit", queue_name, "--pool", work_pool_name, api_url=api_url)
+        else:
+            _run("work-queue", "set-concurrency-limit", queue_name, str(limit), "--pool", work_pool_name, api_url=api_url)
 
 
 def _apply_deployment(
@@ -93,6 +98,7 @@ def deploy_flows() -> dict[str, str]:
             work_pool_name=runtime.work_pool_name,
             working_directory=runtime.working_directory,
             work_queue_name=runtime.live_queue_name,
+            concurrency_limit=runtime.live_queue_limit,
             tags=["grace", "live"],
             description="Strict GRACE feature pipeline backed by Codex packets and an LLM verifier.",
         ),

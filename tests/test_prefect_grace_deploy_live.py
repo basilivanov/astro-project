@@ -70,6 +70,7 @@ def test_deploy_flows_excludes_extra_packet_deployment(monkeypatch):
             work_pool_name="astro-process",
             working_directory="/opt/astro-project",
             live_queue_name="grace-live",
+            live_queue_limit=1,
             monitoring_queue_name="grace-monitoring",
             monitoring_interval_seconds=300,
         ),
@@ -89,8 +90,31 @@ def test_deploy_flows_excludes_extra_packet_deployment(monkeypatch):
         "live-review-router",
         "live-state-dashboard",
     ]
+    assert created[0]["concurrency_limit"] == 1
     assert all("codex" not in str(item["name"]) for item in created)
     assert len(updated) == 4
+
+
+def test_ensure_work_pool_and_queues_updates_existing_limits(monkeypatch):
+    deploy_live, _, _ = _import_deploy_live_with_prefect_stubs(monkeypatch)
+    calls: list[tuple[str, ...]] = []
+
+    def _fake_run(*args, api_url: str, check: bool = True):
+        calls.append(tuple(args))
+        if args[:2] == ("work-queue", "inspect"):
+            return SimpleNamespace(returncode=0)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(deploy_live, "_run", _fake_run)
+
+    deploy_live.ensure_work_pool_and_queues(
+        api_url="http://127.0.0.1:4200/api",
+        work_pool_name="astro-process",
+        queues=[("grace-live", 1), ("grace-monitoring", None)],
+    )
+
+    assert ("work-queue", "set-concurrency-limit", "grace-live", "1", "--pool", "astro-process") in calls
+    assert ("work-queue", "clear-concurrency-limit", "grace-monitoring", "--pool", "astro-process") in calls
 
 
 def test_main_prints_only_canonical_deployments(monkeypatch, capsys):

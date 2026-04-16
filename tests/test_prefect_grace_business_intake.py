@@ -1,9 +1,8 @@
 from pathlib import Path
 
 from prefect_grace.tasks import state_store
-from prefect_grace.tasks.business_intake import enqueue_feature_job_from_brief, load_business_feature_brief
+from prefect_grace.tasks.business_intake import load_business_feature_brief, submit_feature_run_from_brief
 from prefect_grace.tasks.feature_bootstrap import bootstrap_feature
-from prefect_grace.tasks.job_queue import list_jobs
 
 
 def test_load_business_feature_brief_defaults(tmp_path: Path) -> None:
@@ -32,41 +31,6 @@ def test_load_business_feature_brief_defaults(tmp_path: Path) -> None:
     assert 'Scope: Add strict logs.' in loaded['implementation_summary']
     assert 'Acceptance: Logs are structured.' in loaded['implementation_summary']
 
-
-def test_enqueue_feature_job_from_brief_persists_business_context(tmp_path: Path) -> None:
-    state_store.STATE_DIR = tmp_path / 'state'
-    brief_path = tmp_path / 'brief.yaml'
-    brief_path.write_text(
-        '\n'.join([
-            'feature_id: FEAT-BRIEF-QUEUE',
-            'title: Queue from brief',
-            'summary: Use YAML brief as intake',
-            'touches_frontend: true',
-            'requires_frontend_visual: true',
-            'visual_expectations:',
-            '  - Button state must be visible',
-            'verifier:',
-            '  observability_profile: today-week',
-            '  artifact_globs:',
-            '    - frontend/test-results/**/*',
-        ]),
-        encoding='utf-8',
-    )
-
-    queued = enqueue_feature_job_from_brief(brief_path)
-    assert queued['feature_id'] == 'FEAT-BRIEF-QUEUE'
-    assert queued['brief_path'] == str(brief_path)
-    assert queued['business_context']['visual_expectations'] == ['Button state must be visible']
-    assert queued['verifier_requires_frontend_visual'] is True
-    assert queued['business_context']['brief_path'] == str(brief_path)
-
-    jobs = list_jobs()
-    assert len(jobs) == 1
-    assert jobs[0]['brief_path'] == str(brief_path)
-    assert jobs[0]['business_context']['brief_path'] == str(brief_path)
-    assert jobs[0]['business_context']['visual_expectations'] == ['Button state must be visible']
-
-
 def test_load_business_feature_brief_accepts_optional_run_planner(tmp_path: Path) -> None:
     brief_path = tmp_path / 'brief-run-planner.yaml'
     brief_path.write_text(
@@ -81,6 +45,49 @@ def test_load_business_feature_brief_accepts_optional_run_planner(tmp_path: Path
 
     loaded = load_business_feature_brief(brief_path)
     assert loaded['run_planner'] is True
+
+
+def test_submit_feature_run_from_brief_creates_prefect_submission(monkeypatch, tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / 'state'
+    brief_path = tmp_path / 'brief-submit.yaml'
+    brief_path.write_text(
+        '\n'.join([
+            'feature_id: FEAT-BRIEF-SUBMIT',
+            'title: Submit from brief',
+            'summary: Create scheduled Prefect run from YAML brief',
+        ]),
+        encoding='utf-8',
+    )
+
+    submitted: list[dict] = []
+    notified: list[dict] = []
+    monkeypatch.setattr(
+        'prefect_grace.tasks.business_intake.submit_feature_flow_run',
+        lambda **kwargs: submitted.append(kwargs) or {
+            'flow_run_id': 'flow-1',
+            'deployment_id': 'dep-1',
+            'feature_id': 'FEAT-BRIEF-SUBMIT',
+            'title': 'Submit from brief',
+            'status': 'Scheduled',
+            'scheduled_for': '2026-04-16T18:00:00+00:00',
+            'work_queue_name': 'grace-live',
+            'tags': ['grace'],
+        },
+    )
+    monkeypatch.setattr(
+        'prefect_grace.tasks.business_intake.notify_submission_event',
+        lambda **kwargs: notified.append(kwargs) or True,
+    )
+
+    record = submit_feature_run_from_brief(brief_path)
+
+    assert record['flow_run_id'] == 'flow-1'
+    assert record['brief_path'] == str(brief_path)
+    assert submitted
+    assert submitted[0]['parameters']['feature_id'] == 'FEAT-BRIEF-SUBMIT'
+    assert submitted[0]['scheduled_for'] is None
+    assert notified
+    assert notified[0]['flow_run_id'] == 'flow-1'
 
 
 def test_bootstrap_feature_rewrites_feature_brief_when_business_context_arrives(tmp_path: Path) -> None:

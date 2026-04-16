@@ -10,6 +10,28 @@ def test_notify_submission_event_skips_without_chat(monkeypatch) -> None:
     assert telegram_notify.notify_submission_event(feature_id="FEAT-1", title="Title", execute=False) is False
 
 
+def test_notify_submission_event_renders_prefect_link(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+    monkeypatch.setattr(
+        telegram_notify,
+        "load_runtime_config",
+        lambda: type("Cfg", (), {"public_ui_url": "https://prefect.vasiliy-ivanov.ru"})(),
+    )
+
+    ok = telegram_notify.notify_submission_event(
+        feature_id="FEAT-1",
+        title="Title",
+        execute=True,
+        brief_path="/tmp/brief.yaml",
+        flow_run_id="flow-123",
+    )
+
+    assert ok is True
+    assert sent
+    assert "Открыть запуск в Prefect" in sent[0]
+
+
 def test_notify_packet_event_renders_prefect_links(monkeypatch) -> None:
     sent: list[str] = []
     monkeypatch.setenv("GRACE_NOTIFY_PACKET_STATUSES", "rework_required")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from prefect_grace.tasks.job_queue import list_jobs
+from prefect_grace.tasks.prefect_runs import feature_run_status_counts, latest_feature_run_index, list_recent_feature_flow_runs
 from prefect_grace.tasks.state_store import load_state
 
 
@@ -13,7 +13,8 @@ def build_grace_dashboard_snapshot() -> dict[str, Any]:
     reviews = list((load_state("reviews").get("reviews") or []))
     verifications = list((load_state("verifications").get("verifications") or []))
     wave_reviews = list((load_state("wave_reviews").get("wave_reviews") or []))
-    jobs = list_jobs()
+    flow_runs = list_recent_feature_flow_runs(limit=200)
+    run_index = latest_feature_run_index(flow_runs)
     packet_index = {str(item.get("packet_id")): item for item in packets}
     verification_index = {str(item.get("packet_id")): item for item in verifications}
     review_index = {str(item.get("packet_id")): item for item in reviews}
@@ -27,12 +28,9 @@ def build_grace_dashboard_snapshot() -> dict[str, Any]:
             or {}
         )
         flow_run_id = None
-        matching_job = None
-        for job in reversed(jobs):
-            if str(job.get("feature_id")) == str(packet.get("feature_id")) and job.get("flow_run_id"):
-                flow_run_id = job.get("flow_run_id")
-                matching_job = job
-                break
+        matching_run = run_index.get(str(packet.get("feature_id") or ""))
+        if matching_run:
+            flow_run_id = matching_run.get("flow_run_id")
         artifact_paths: list[str] = []
         packet_path = packet.get("packet_path")
         if packet_path:
@@ -53,7 +51,6 @@ def build_grace_dashboard_snapshot() -> dict[str, Any]:
         run_mappings.append(
             {
                 "flow_run_id": flow_run_id,
-                "job_id": matching_job.get("job_id") if matching_job else None,
                 "feature_id": packet.get("feature_id"),
                 "wave": packet.get("wave_id"),
                 "packet_id": packet.get("packet_id"),
@@ -66,10 +63,15 @@ def build_grace_dashboard_snapshot() -> dict[str, Any]:
     return {
         "feature_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in features)),
         "packet_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in packets)),
-        "job_status_counts": dict(Counter(str(item.get("status") or "unknown") for item in jobs)),
-        "queued_jobs": [item for item in jobs if str(item.get("status")) in {"queued", "dispatching", "submitted", "running"}],
+        "job_status_counts": feature_run_status_counts(flow_runs),
+        "queued_jobs": [
+            item
+            for item in flow_runs
+            if str(item.get("state_type") or "") in {"scheduled", "pending", "running"}
+        ],
         "blocked_features": [item for item in features if str(item.get("status")) == "blocked"],
         "run_mappings": run_mappings[-50:],
+        "flow_runs": flow_runs[-50:],
         "features": features[-20:],
         "packets": packets[-40:],
         "reviews": reviews[-20:],
@@ -99,7 +101,7 @@ def render_grace_dashboard(snapshot: dict[str, Any]) -> str:
     if queued_jobs:
         for job in queued_jobs:
             lines.append(
-                f"- {job.get('job_id')} feature={job.get('feature_id')} status={job.get('status')} flow_run_id={job.get('flow_run_id') or '-'}"
+                f"- {job.get('flow_run_id') or '-'} feature={job.get('feature_id')} status={job.get('status')} name={job.get('name')}"
             )
     else:
         lines.append("- none")
