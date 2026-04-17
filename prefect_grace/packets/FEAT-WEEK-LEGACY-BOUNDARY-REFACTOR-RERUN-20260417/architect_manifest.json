@@ -1,0 +1,123 @@
+{
+  "feature_id": "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417",
+  "title": "Week legacy boundary refactor rerun",
+  "slice_id": "SLICE-WEEK-LEGACY-BOUNDARY-RERUN-20260417",
+  "slice_slug": "week-legacy-boundary-rerun-20260417",
+  "materialization_mode": "packet_first",
+  "system_goal": "Preserve canonical Week continuity, fail-closed empty-state behavior, and explicit frontend Week compatibility isolation without product regression.",
+  "impacted_modules": [
+    "M-FRONTEND-WEEK",
+    "M-WEEK-PAGE",
+    "M-WEEK-BRIEF-ADAPTER",
+    "M-WEEK-BRIEF-COMPATIBILITY",
+    "M-WEEK-UI-STATE"
+  ],
+  "allowed_write_scope": [
+    "/opt/astro-project/frontend/app/week/**",
+    "/opt/astro-project/frontend/components/week/**",
+    "/opt/astro-project/frontend/lib/week-brief.ts",
+    "/opt/astro-project/frontend/lib/week-brief-compat.ts",
+    "/opt/astro-project/frontend/e2e/week-page-fallback.spec.ts",
+    "/opt/astro-project/frontend/e2e/canonical-week-continuity.spec.ts",
+    "/opt/astro-project/frontend/test/app/week-page.test.tsx",
+    "/opt/astro-project/frontend/test/lib/week-brief.test.ts",
+    "/opt/astro-project/tests/test_week_brief_frontend_mapping.py",
+    "/opt/astro-project/prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/**",
+    "/opt/astro-project/frontend/docs/review_evidence/front/week-boundary-rerun-20260417/**"
+  ],
+  "frozen_scope": [
+    "/opt/astro-project/backend/**",
+    "/opt/astro-project/frontend/app/create/**",
+    "/opt/astro-project/frontend/app/page.tsx",
+    "/opt/astro-project/frontend/app/read/**",
+    "/opt/astro-project/frontend/hooks/useTelegram.ts",
+    "/opt/astro-project/billing/**",
+    "/opt/astro-project/requirements.xml",
+    "/opt/astro-project/technology.xml",
+    "/opt/astro-project/development-plan.xml",
+    "/opt/astro-project/knowledge-graph.xml",
+    "/opt/astro-project/verification-matrix.md"
+  ],
+  "business_invariants": [
+    "Canonical /week maps only week_brief or week_brief_envelope.data into the product surface.",
+    "Legacy week_map and chunks remain isolated to explicit compatibility helpers and never synthesize the canonical /week product path.",
+    "Missing canonical Week state renders an honest fail-closed empty/create state.",
+    "In-progress Week state remains top-layer only and does not expose the completed content stack.",
+    "User-visible Week surfaces do not leak raw internal legacy, fallback, week_map, weekbrief, compatibility, headline, markdown, or weekly report tokens."
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Week boundary rerun implementation and acceptance",
+      "goal": "Tighten or confirm the frontend Week canonical route boundary, compatibility helper isolation, targeted tests, visual evidence, and packet-local evidence closeout.",
+      "module_refs": [
+        "M-FRONTEND-WEEK",
+        "M-WEEK-PAGE",
+        "M-WEEK-BRIEF-ADAPTER",
+        "M-WEEK-BRIEF-COMPATIBILITY",
+        "M-WEEK-UI-STATE"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/frontend/app/week/**",
+        "/opt/astro-project/frontend/components/week/**",
+        "/opt/astro-project/frontend/lib/week-brief.ts",
+        "/opt/astro-project/frontend/lib/week-brief-compat.ts",
+        "/opt/astro-project/frontend/e2e/week-page-fallback.spec.ts",
+        "/opt/astro-project/frontend/e2e/canonical-week-continuity.spec.ts",
+        "/opt/astro-project/frontend/test/app/week-page.test.tsx",
+        "/opt/astro-project/frontend/test/lib/week-brief.test.ts",
+        "/opt/astro-project/tests/test_week_brief_frontend_mapping.py",
+        "/opt/astro-project/prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/**",
+        "/opt/astro-project/frontend/docs/review_evidence/front/week-boundary-rerun-20260417/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/app/create/**",
+        "/opt/astro-project/frontend/app/page.tsx",
+        "/opt/astro-project/frontend/app/read/**",
+        "/opt/astro-project/frontend/hooks/useTelegram.ts",
+        "/opt/astro-project/billing/**",
+        "/opt/astro-project/requirements.xml",
+        "/opt/astro-project/technology.xml",
+        "/opt/astro-project/development-plan.xml",
+        "/opt/astro-project/knowledge-graph.xml",
+        "/opt/astro-project/verification-matrix.md"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "python3 -m pytest -q tests/test_week_brief_frontend_mapping.py",
+        "corepack pnpm --dir frontend exec jest --runInBand test/app/week-page.test.tsx test/lib/week-brief.test.ts",
+        "./scripts/run_e2e.sh e2e/week-page-fallback.spec.ts e2e/canonical-week-continuity.spec.ts",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Canonical Week navigation and primary CTA behavior remain coherent for canonical week_brief.",
+        "Legacy-only Week payloads fail closed to empty/create state on /week.",
+        "Compatibility reconstruction remains explicit and isolated from the canonical /week product path.",
+        "Targeted Week tests pass and fresh visual evidence is attached.",
+        "Read-only observability is classified clean or degraded-but-expected, not unexpected-degradation."
+      ],
+      "deferred_work": [
+        "Backend WeekBrief ownership refactors.",
+        "New Week product semantics or copy redesign.",
+        "Global GRACE canon edits unless a concrete implementation blocker proves they are required."
+      ]
+    }
+  ],
+  "packet_ids": [
+    "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-WEEK-BOUNDARY-RERUN",
+    "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-VERIFIER-WEEK-BOUNDARY-EVIDENCE",
+    "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-REVIEWER-WEEK-BOUNDARY-VERDICT",
+    "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-ARCHITECT-WAVE-GATE"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-17T00:00:00+03:00"
+}

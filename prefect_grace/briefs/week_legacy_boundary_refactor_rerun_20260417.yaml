@@ -1,0 +1,51 @@
+feature_id: FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417
+title: Week legacy boundary refactor rerun
+summary: >-
+  Повторно пройти week legacy boundary scope как новую business feature line:
+  сохранить canonical Week continuity, fail-closed empty-state поведение и
+  frontend week compatibility boundary без product regression.
+run_planner: false
+notes: >-
+  Основано на последнем принятом scope FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR,
+  но запускается заново как новая feature line для чистого повторного прохода.
+business_context:
+  scope:
+    - Week canonical navigation must stay coherent after boundary refactor.
+    - Empty and missing canonical Week state must fail closed honestly.
+    - Frontend week compatibility boundary must stay explicit and test-covered.
+    - Fresh frontend visual evidence is required for acceptance.
+  non_goals:
+    - No new product semantics for Week forecast.
+    - No unrelated backend refactor outside week boundary scope.
+    - No planner-driven decomposition by default.
+  acceptance_criteria:
+    - Week page preserves canonical navigation and compatibility behavior.
+    - Missing canonical Week payload renders honest fail-closed state.
+    - Targeted Week tests and visual verification pass with fresh evidence.
+    - Reviewer and architect gate can accept without residual boundary blocker.
+  impacted_modules:
+    - M-WEEK-FRONTEND
+    - M-WEEK-COMPAT
+    - M-WEEK-UI-STATE
+  allowed_write_scope:
+    - frontend/app/week/**
+    - frontend/components/week/**
+    - frontend/lib/**
+    - frontend/e2e/**
+    - frontend/test/**
+    - tests/**
+    - prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/**
+    - docs/week-legacy-boundary-refactor-rerun-20260417/**
+  frozen_scope:
+    - backend/**
+    - frontend/app/create/**
+    - frontend/app/page.tsx
+    - billing/**
+  verification_commands:
+    - docker exec astro-project-backend-1 python3 scripts/pipeline.py
+    - python3 tools/post_test_review.py --profile read-only --since 30m --report-format md
+    - ./scripts/run_e2e.sh e2e/week-runtime-indicator.spec.ts
+  verification_surfaces:
+    - week
+    - frontend_visual
+    - read_only_observability
