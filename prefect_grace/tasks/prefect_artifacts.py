@@ -64,6 +64,23 @@ def _business_context_lines(context: dict[str, Any]) -> list[str]:
     return lines or ["none"]
 
 
+def _wave_progression_lines(wave_progression: list[dict[str, Any]]) -> list[str]:
+    if not wave_progression:
+        return ["none"]
+    lines: list[str] = []
+    for wave in wave_progression:
+        wave_id = str(wave.get("wave_id") or "-")
+        status = str(wave.get("status") or "pending")
+        required = "required" if bool(wave.get("required", True)) else "optional"
+        title = str(wave.get("title") or "")
+        gate = str(wave.get("architect_gate_packet_id") or "-")
+        if title:
+            lines.append(f"{wave_id}: {status} ({required}) — {title}; architect_gate={gate}")
+        else:
+            lines.append(f"{wave_id}: {status} ({required}); architect_gate={gate}")
+    return lines
+
+
 def _path_status(path: str | None) -> str:
     if not path:
         return "-"
@@ -231,6 +248,7 @@ def _feature_summary_markdown(
     candidate_commit_files = list((final_status or {}).get("candidate_commit_files") or final_feature.get("candidate_commit_files") or [])
     commit_status = str((final_status or {}).get("commit_status") or final_feature.get("commit_status") or "-")
     commit_hash = str((final_status or {}).get("commit_hash") or final_feature.get("commit_hash") or "-")
+    wave_progression = list((final_status or {}).get("wave_progression") or final_feature.get("wave_progression") or packet_results.get("wave_progression") or [])
     lines = [
         f"# GRACE Feature Snapshot: {feature_id}",
         "",
@@ -245,6 +263,8 @@ def _feature_summary_markdown(
         f"- next_action_label_ru: {_action_hint_ru((final_status or {}).get('next_action'))}",
         f"- commit_status: {commit_status}",
         f"- commit_hash: {commit_hash}",
+        f"- next_wave_id: {(final_status or {}).get('next_wave_id') or final_feature.get('next_wave_id') or '-'}",
+        f"- all_required_waves_accepted: {(final_status or {}).get('all_required_waves_accepted', final_feature.get('all_required_waves_accepted', '-'))}",
         f"- failure_category: {(final_status or {}).get('failure_category', 'n/a')}",
         f"- feature_dir: {final_feature.get('feature_dir', '-')}",
         f"- wave_plan_path: {final_feature.get('wave_plan_path', '-')}",
@@ -259,6 +279,9 @@ def _feature_summary_markdown(
         "",
         "## Business Context",
         _bullet(_business_context_lines(final_feature.get('business_context') or {})),
+        "",
+        "## Wave Progression",
+        _bullet(_wave_progression_lines(wave_progression)),
         "",
         "## Blocker Reasons",
         _bullet(list((final_status or {}).get("reasons") or final_feature.get("blocker_reasons") or ["none"])),
@@ -411,6 +434,7 @@ def _packet_review_markdown(review_route: dict[str, Any]) -> str:
 
 def _wave_markdown(wave_route: dict[str, Any]) -> str:
     review = dict(wave_route.get("wave_review") or {})
+    progression = dict(wave_route.get("wave_progress") or {})
     return "\n".join(
         [
             f"# Architect Wave Snapshot: {review.get('architect_packet_id', '-')}",
@@ -418,6 +442,8 @@ def _wave_markdown(wave_route: dict[str, Any]) -> str:
             f"- feature_id: {review.get('feature_id', '-')}",
             f"- wave_id: {review.get('wave_id', '-')}",
             f"- verdict: {review.get('verdict', '-')}",
+            f"- progression_status: {progression.get('status', '-')}",
+            f"- required: {progression.get('required', '-')}",
             f"- review_path: {review.get('review_path', '-')}",
             "",
             "## Reasons",

@@ -155,6 +155,12 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
             "user_summary": "Итог: пайплайн некорректен. Планировщик не собрал контракт.",
             "next_action": "fix-planner-contract",
             "failure_category": "pipeline_invalid",
+            "wave_progression": [
+                {"wave_id": "W01", "title": "Main wave", "status": "accepted", "required": True, "architect_gate_packet_id": "FEAT-X-W01-ARCH"},
+                {"wave_id": "W02", "title": "Follow-up wave", "status": "pending", "required": True, "architect_gate_packet_id": "FEAT-X-W02-ARCH"},
+            ],
+            "next_wave_id": "W02",
+            "all_required_waves_accepted": False,
         },
     )
 
@@ -182,7 +188,10 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     assert "/tmp/runs/coder/stdout.jsonl" in agent_markdown
     assert "final_outcome: blocked" in feature_markdown
     assert "user_facing_status: pipeline_invalid" in feature_markdown
+    assert "next_wave_id: W02" in feature_markdown
+    assert "all_required_waves_accepted: False" in feature_markdown
     assert "Итог: пайплайн некорректен. Планировщик не собрал контракт." in feature_markdown
+    assert "W02: pending (required)" in feature_markdown
     review_markdown = next(item["markdown"] for item in created if item["key"] == "grace-review-feat-x-w01-reviewer-verdict")
     assert "feature:FEAT-X:wave:W01:packet:FEAT-X-W01-REVIEWER-VERDICT" in review_markdown
 
@@ -264,6 +273,11 @@ def test_feature_artifact_renders_awaiting_commit_and_candidate_files(monkeypatc
             "next_action": "commit-feature-changes",
             "commit_status": "awaiting_commit",
             "candidate_commit_files": ["prefect_grace/flows/feature_pipeline.py", "tests/test_prefect_grace_prefect_artifacts.py"],
+            "wave_progression": [
+                {"wave_id": "W01", "title": "Main wave", "status": "accepted", "required": True, "architect_gate_packet_id": "FEAT-COMMIT-W01-ARCH"},
+            ],
+            "next_wave_id": "",
+            "all_required_waves_accepted": True,
         },
     )
 
@@ -274,3 +288,4 @@ def test_feature_artifact_renders_awaiting_commit_and_candidate_files(monkeypatc
     assert "Дальше: закоммитить изменения." in markdown
     assert "## Candidate Commit Files" in markdown
     assert "prefect_grace/flows/feature_pipeline.py" in markdown
+    assert "W01: accepted (required)" in markdown

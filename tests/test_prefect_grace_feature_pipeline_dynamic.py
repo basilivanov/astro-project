@@ -139,6 +139,88 @@ def test_feature_pipeline_executes_multiple_waves_and_rework(tmp_path: Path) -> 
     assert len(result["review_routes"]) == 2
     assert len(result["verification_records"]) == 2
     assert "run:FEAT-MULTI-WAVE-W02-FRONTEND-SLICE" in result["runs"]
+    assert result["final_status"]["next_wave_id"] == ""
+    assert result["final_status"]["all_required_waves_accepted"] is True
+    assert [wave["wave_id"] for wave in result["final_status"]["wave_progression"]] == ["W01", "W02"]
+    assert [wave["status"] for wave in result["final_status"]["wave_progression"]] == ["accepted", "accepted"]
+
+
+def test_feature_pipeline_continues_to_next_wave_after_local_rework_acceptance(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-MULTI-WAVE-REWORK-CONTINUE",
+        title="Multi wave rework continue",
+        summary="Accepted rework in W01 must resume sequence with W02",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict_script=["rework_required", "accepted", "accepted"],
+        review_reasons_script=[["Fix W01 boundary condition"], [], []],
+        wave_verdict_script=["accepted", "accepted"],
+        verifier_observability_profile="read-only",
+        rework_routing_policy="auto_bundle",
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Backend slice", "required": True},
+                {"wave_id": "W02", "title": "Wave 2", "objective": "Frontend slice", "required": True},
+            ],
+            "packets": [
+                {"key": "coder_backend", "wave_id": "W01", "title": "Backend Slice", "role": "coder", "summary": "Implement backend slice"},
+                {"key": "verifier_backend", "wave_id": "W01", "title": "Verify Backend Slice", "role": "verifier", "summary": "Verify backend slice", "dependencies": ["coder_backend"]},
+                {"key": "reviewer_backend", "wave_id": "W01", "title": "Review Backend Slice", "role": "reviewer", "summary": "Review backend slice", "dependencies": ["coder_backend", "verifier_backend"], "review_target_key": "coder_backend"},
+                {"key": "architect_backend", "wave_id": "W01", "title": "Architect Gate Backend", "role": "architect", "summary": "Accept backend wave", "dependencies": ["reviewer_backend"]},
+                {"key": "coder_frontend", "wave_id": "W02", "title": "Frontend Slice", "role": "coder", "summary": "Implement frontend slice", "dependencies": ["architect_backend"]},
+                {"key": "verifier_frontend", "wave_id": "W02", "title": "Verify Frontend Slice", "role": "verifier", "summary": "Verify frontend slice", "dependencies": ["coder_frontend"]},
+                {"key": "reviewer_frontend", "wave_id": "W02", "title": "Review Frontend Slice", "role": "reviewer", "summary": "Review frontend slice", "dependencies": ["coder_frontend", "verifier_frontend"], "review_target_key": "coder_frontend"},
+                {"key": "architect_frontend", "wave_id": "W02", "title": "Architect Gate Frontend", "role": "architect", "summary": "Accept frontend wave", "dependencies": ["reviewer_frontend"]},
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
+    assert len(result["review_routes"]) == 3
+    assert result["review_routes"][0]["reviewer_verdict"] == "rework_required"
+    assert result["review_routes"][1]["reviewer_verdict"] == "accepted"
+    assert result["review_routes"][2]["reviewer_verdict"] == "accepted"
+    assert "run:FEAT-MULTI-WAVE-REWORK-CONTINUE-W02-FRONTEND-SLICE" in result["runs"]
+    assert [wave["status"] for wave in result["final_status"]["wave_progression"]] == ["accepted", "accepted"]
+
+
+def test_feature_pipeline_rejects_feature_completion_when_required_wave_missing(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-MISSING-REQUIRED-WAVE",
+        title="Missing required wave",
+        summary="Feature must not complete when architect-required wave was not materialized",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        business_context={
+            "architect_waves": [
+                {"wave_id": "W01", "title": "Wave 1", "goal": "Backend", "required": True},
+                {"wave_id": "W02", "title": "Wave 2", "goal": "Frontend", "required": True},
+            ],
+        },
+        planner_contract={
+            "waves": [
+                {"wave_id": "W01", "title": "Wave 1", "objective": "Backend", "required": True},
+            ],
+            "packets": [
+                {"key": "coder_main", "wave_id": "W01", "title": "Main Slice", "role": "coder", "summary": "Implement slice"},
+                {"key": "verifier_main", "wave_id": "W01", "title": "Verify Slice", "role": "verifier", "summary": "Verify slice", "dependencies": ["coder_main"]},
+                {"key": "reviewer_main", "wave_id": "W01", "title": "Review Slice", "role": "reviewer", "summary": "Review slice", "dependencies": ["coder_main", "verifier_main"], "review_target_key": "coder_main"},
+                {"key": "architect_main", "wave_id": "W01", "title": "Architect Gate", "role": "architect", "summary": "Accept wave", "dependencies": ["reviewer_main"]},
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "pipeline_invalid"
+    assert result["final_status"]["next_action"] == "fix-wave-plan-continuation"
+    assert any("W02" in reason for reason in result["final_status"]["reasons"])
+    assert result["final_status"]["all_required_waves_accepted"] is False
+    assert result["final_status"]["next_wave_id"] == "W02"
 
 
 def test_feature_pipeline_auto_executes_rework_bundle(tmp_path: Path) -> None:

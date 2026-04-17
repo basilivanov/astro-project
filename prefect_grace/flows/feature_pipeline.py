@@ -45,7 +45,7 @@ from prefect_grace.tasks.review_router import (
     record_wave_review,
 )
 from prefect_grace.tasks.state_store import find_record, load_state, update_record
-from prefect_grace.tasks.telegram_notify import notify_feature_event, notify_packet_event, notify_wave_event
+from prefect_grace.tasks.telegram_notify import notify_feature_event, notify_packet_event
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
     append_unique_packet,
@@ -74,12 +74,18 @@ def _final_failure(
     category: str,
     next_action: str,
     reasons: list[str] | None = None,
+    next_wave_id: str | None = None,
 ) -> dict:
     feature = mark_feature_status(
         feature_id,
         _failure_status_for_category(category),
         blocker_reasons=list(reasons or []),
     )
+    failure_updates: dict[str, object] = {}
+    if next_wave_id is not None:
+        failure_updates["next_wave_id"] = str(next_wave_id)
+    if failure_updates:
+        feature = update_record("features", "features", "feature_id", feature_id, failure_updates)
     return {
         "feature": feature,
         "has_failures": True,
@@ -95,6 +101,9 @@ def _final_failure(
         "next_action": next_action,
         "failure_category": category,
         "reasons": list(reasons or []),
+        "wave_progression": [dict(item) for item in list(feature.get("wave_progression") or [])],
+        "next_wave_id": str(feature.get("next_wave_id") or ""),
+        "all_required_waves_accepted": bool(feature.get("all_required_waves_accepted")),
     }
 
 
@@ -467,6 +476,7 @@ def _post_acceptance_final_status(
     review_routes: list[dict],
     wave_routes: list[dict],
     commit_hash: str | None,
+    wave_progression: list[dict[str, object]] | None = None,
 ) -> dict:
     detected_commit = _normalize_commit_marker(commit_hash) or _find_commit_marker(accepted_feature) or _find_commit_marker(packet_results)
     candidate_commit_files = _collect_candidate_commit_files(
@@ -478,10 +488,14 @@ def _post_acceptance_final_status(
         wave_routes=wave_routes,
     )
     if detected_commit:
+        resolved_wave_progression = [dict(item) for item in wave_progression or accepted_feature.get("wave_progression") or []]
         feature_updates = {
             "commit_status": "committed",
             "commit_hash": detected_commit,
             "candidate_commit_files": candidate_commit_files,
+            "wave_progression": resolved_wave_progression,
+            "next_wave_id": "",
+            "all_required_waves_accepted": True,
         }
         committed_feature = update_record("features", "features", "feature_id", feature_id, feature_updates)
         return {
@@ -500,10 +514,14 @@ def _post_acceptance_final_status(
             "commit_status": "committed",
             "commit_hash": detected_commit,
             "candidate_commit_files": candidate_commit_files,
+            "wave_progression": resolved_wave_progression,
+            "next_wave_id": "",
+            "all_required_waves_accepted": True,
             "reasons": [],
         }
 
     awaiting_feature = mark_feature_status(feature_id, FeatureStatus.AWAITING_COMMIT)
+    resolved_wave_progression = [dict(item) for item in wave_progression or awaiting_feature.get("wave_progression") or []]
     awaiting_feature = update_record(
         "features",
         "features",
@@ -512,6 +530,9 @@ def _post_acceptance_final_status(
         {
             "commit_status": "awaiting_commit",
             "candidate_commit_files": candidate_commit_files,
+            "wave_progression": resolved_wave_progression,
+            "next_wave_id": "",
+            "all_required_waves_accepted": True,
         },
     )
     return {
@@ -530,6 +551,9 @@ def _post_acceptance_final_status(
         "commit_status": "awaiting_commit",
         "commit_hash": "",
         "candidate_commit_files": candidate_commit_files,
+        "wave_progression": resolved_wave_progression,
+        "next_wave_id": "",
+        "all_required_waves_accepted": True,
         "reasons": [],
     }
 
@@ -576,6 +600,210 @@ def _string_command_list(value: object) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     return [str(value).strip()] if str(value).strip() else []
+
+
+def _wave_required(raw: dict | None) -> bool:
+    payload = dict(raw or {})
+    required = payload.get("required")
+    if required is None:
+        required = not bool(payload.get("optional"))
+    return bool(required)
+
+
+def _normalize_wave_progression_entry(
+    raw: dict | None,
+    *,
+    fallback_wave_id: str,
+    source: str,
+) -> dict[str, object]:
+    payload = dict(raw or {})
+    wave_id = str(payload.get("wave_id") or fallback_wave_id).strip().upper()
+    title = str(payload.get("title") or wave_id).strip()
+    objective = str(payload.get("objective") or payload.get("goal") or title or wave_id).strip()
+    return {
+        "wave_id": wave_id,
+        "title": title,
+        "objective": objective,
+        "required": _wave_required(payload),
+        "source": source,
+    }
+
+
+def _plan_wave_sequence(
+    *,
+    architect_manifest: dict,
+    planner_waves: list[dict],
+    generated_packets: list[dict],
+) -> list[dict[str, object]]:
+    architect_entries = [
+        _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="architect_manifest")
+        for index, raw in enumerate(architect_manifest.get("waves") or [], start=1)
+        if isinstance(raw, dict)
+    ]
+    planner_entries = [
+        _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="planner_contract")
+        for index, raw in enumerate(planner_waves or [], start=1)
+        if isinstance(raw, dict)
+    ]
+    planner_by_id = {str(item["wave_id"]): item for item in planner_entries}
+    ordered_ids: list[str] = []
+    ordered_entries: list[dict[str, object]] = []
+    seen: set[str] = set()
+
+    primary_entries = architect_entries or planner_entries
+    for entry in primary_entries:
+        wave_id = str(entry["wave_id"])
+        ordered_ids.append(wave_id)
+        ordered_entries.append(dict(entry))
+        seen.add(wave_id)
+
+    secondary_entries = planner_entries if architect_entries else []
+    for entry in secondary_entries:
+        wave_id = str(entry["wave_id"])
+        if wave_id in seen:
+            continue
+        ordered_ids.append(wave_id)
+        ordered_entries.append(dict(entry))
+        seen.add(wave_id)
+
+    for wave_id, _packets in group_packets_by_wave(generated_packets):
+        if wave_id in seen:
+            continue
+        ordered_ids.append(wave_id)
+        ordered_entries.append(
+            dict(
+                planner_by_id.get(
+                    wave_id,
+                    _normalize_wave_progression_entry(
+                        {"wave_id": wave_id, "title": wave_id, "objective": "Generated execution wave"},
+                        fallback_wave_id=wave_id,
+                        source="generated_packets",
+                    ),
+                )
+            )
+        )
+        seen.add(wave_id)
+
+    return ordered_entries
+
+
+def _wave_packets_by_wave_id(generated_packets: list[dict]) -> dict[str, list[dict]]:
+    return {
+        wave_id: list(packets)
+        for wave_id, packets in group_packets_by_wave(generated_packets)
+    }
+
+
+def _architect_wave_gate_packet_id_for_wave(wave_packets: list[dict]) -> str:
+    for packet in wave_packets:
+        if str(packet.get("role") or "").strip().lower() == "architect":
+            return str(packet.get("packet_id") or "")
+    return ""
+
+
+def _build_wave_progression(
+    *,
+    architect_manifest: dict,
+    planner_waves: list[dict],
+    generated_packets: list[dict],
+) -> list[dict[str, object]]:
+    packets_by_wave_id = _wave_packets_by_wave_id(generated_packets)
+    progression: list[dict[str, object]] = []
+    for position, entry in enumerate(
+        _plan_wave_sequence(
+            architect_manifest=architect_manifest,
+            planner_waves=planner_waves,
+            generated_packets=generated_packets,
+        ),
+        start=1,
+    ):
+        wave_id = str(entry["wave_id"])
+        wave_packets = list(packets_by_wave_id.get(wave_id) or [])
+        progression.append(
+            {
+                **entry,
+                "position": position,
+                "status": "pending",
+                "packet_ids": [str(packet.get("packet_id") or "") for packet in wave_packets if str(packet.get("packet_id") or "").strip()],
+                "architect_gate_packet_id": _architect_wave_gate_packet_id_for_wave(wave_packets),
+                "reasons": [],
+            }
+        )
+    return progression
+
+
+def _required_wave_progression_issues(wave_progression: list[dict[str, object]]) -> list[str]:
+    issues: list[str] = []
+    for wave in wave_progression:
+        if not bool(wave.get("required", True)):
+            continue
+        wave_id = str(wave.get("wave_id") or "")
+        if not list(wave.get("packet_ids") or []):
+            issues.append(f"{wave_id}: required wave from architect plan was not materialized into execution packets")
+        if not str(wave.get("architect_gate_packet_id") or "").strip():
+            issues.append(f"{wave_id}: required wave is missing an architect gate packet")
+    return issues
+
+
+def _wave_id_from_issue(reason: str) -> str:
+    text = str(reason or "").strip()
+    if ":" not in text:
+        return ""
+    wave_id = text.split(":", 1)[0].strip().upper()
+    return wave_id if wave_id else ""
+
+
+def _next_required_wave_id(wave_progression: list[dict[str, object]]) -> str:
+    for wave in wave_progression:
+        if not bool(wave.get("required", True)):
+            continue
+        if str(wave.get("status") or "") != "accepted":
+            return str(wave.get("wave_id") or "")
+    return ""
+
+
+def _all_required_waves_accepted(wave_progression: list[dict[str, object]]) -> bool:
+    return all(
+        (not bool(wave.get("required", True))) or str(wave.get("status") or "") == "accepted"
+        for wave in wave_progression
+    )
+
+
+def _persist_wave_progression(feature_id: str, wave_progression: list[dict[str, object]]) -> dict:
+    return update_record(
+        "features",
+        "features",
+        "feature_id",
+        feature_id,
+        {
+            "wave_progression": [dict(item) for item in wave_progression],
+            "next_wave_id": _next_required_wave_id(wave_progression),
+            "all_required_waves_accepted": _all_required_waves_accepted(wave_progression),
+        },
+    )
+
+
+def _set_wave_progression_status(
+    *,
+    feature_id: str,
+    wave_progression: list[dict[str, object]],
+    wave_id: str,
+    status: str,
+    reasons: list[str] | None = None,
+) -> dict[str, object]:
+    updated_wave: dict[str, object] | None = None
+    for item in wave_progression:
+        if str(item.get("wave_id") or "") != str(wave_id):
+            continue
+        item["status"] = status
+        if reasons is not None:
+            item["reasons"] = [str(reason).strip() for reason in reasons if str(reason).strip()]
+        elif status in {"running", "accepted"}:
+            item["reasons"] = []
+        updated_wave = dict(item)
+        break
+    _persist_wave_progression(feature_id, wave_progression)
+    return updated_wave or {}
 
 
 def _uses_today_week_observability(packet: dict) -> bool:
@@ -1474,12 +1702,6 @@ def route_architect_wave_verdict_task(
     else:
         mark_packet_status_task(architect_packet_id, PacketStatus.BLOCKED.value)
     logger.info("Architect wave gate routed verdict=%s for %s/%s", verdict.value, feature_id, wave_id)
-    notify_wave_event(
-        feature_id=feature_id,
-        wave_id=wave_id,
-        verdict=verdict.value,
-        reasons=wave_reasons,
-    )
     return {
         "wave_review": review,
         "wave_verdict": verdict.value,
@@ -1882,14 +2104,45 @@ def feature_pipeline(
 
         generated_packets = list(materialized_contract["packets"])
         packets_by_id = packet_map(generated_packets)
-        wave_groups = group_packets_by_wave(generated_packets)
+        wave_packets_by_id = _wave_packets_by_wave_id(generated_packets)
+        architect_manifest = _load_architect_manifest(feature_id)
+        wave_progression = _build_wave_progression(
+            architect_manifest=architect_manifest,
+            planner_waves=list(materialized_contract.get("waves") or []),
+            generated_packets=generated_packets,
+        )
+        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
+        _persist_wave_progression(feature_id, wave_progression)
+        wave_progression_issues = _required_wave_progression_issues(wave_progression)
+        if wave_progression_issues:
+            for issue in wave_progression_issues:
+                issue_wave_id = _wave_id_from_issue(issue)
+                if issue_wave_id:
+                    _set_wave_progression_status(
+                        feature_id=feature_id,
+                        wave_progression=wave_progression,
+                        wave_id=issue_wave_id,
+                        status="blocked",
+                        reasons=[issue],
+                    )
+            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="pipeline_invalid",
+                next_action="fix-wave-plan-continuation",
+                reasons=wave_progression_issues,
+                next_wave_id=_wave_id_from_issue(wave_progression_issues[0]) or _next_required_wave_id(wave_progression),
+            )
+            _persist_wave_progression(feature_id, wave_progression)
+            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
+            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
 
         verification_records: list[dict] = []
         review_routes: list[dict] = []
         wave_routes: list[dict] = []
         wave_packet_sets: dict[str, set[str]] = {
             wave_id: {str(packet["packet_id"]) for packet in packets}
-            for wave_id, packets in wave_groups
+            for wave_id, packets in wave_packets_by_id.items()
         }
         completed_packet_ids: set[str] = {architect_packet_id}
         if planner_required and planner_packet_id:
@@ -1897,7 +2150,18 @@ def feature_pipeline(
         reviewer_decision_index = 0
         wave_decision_index = 0
 
-        for wave_id, wave_packets in wave_groups:
+        for wave_entry in wave_progression:
+            wave_id = str(wave_entry.get("wave_id") or "")
+            wave_packets = list(wave_packets_by_id.get(wave_id) or [])
+            if not wave_packets:
+                continue
+            _set_wave_progression_status(
+                feature_id=feature_id,
+                wave_progression=wave_progression,
+                wave_id=wave_id,
+                status="running",
+            )
+            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
             ordered_packets = order_packets_for_wave(wave_packets)
             queue_packets = list(ordered_packets)
             queue_ids = {str(packet["packet_id"]) for packet in queue_packets}
@@ -2187,6 +2451,14 @@ def feature_pipeline(
 
                     if review_route["reviewer_verdict"] == ReviewVerdict.REWORK_REQUIRED.value:
                         rework_object = review_route.get("rework")
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="blocked",
+                            reasons=list((review_route.get("review") or {}).get("reasons") or []),
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         if (
                             review_route.get("route_classification") == REWORK_ROUTE_SELF_RESOLVABLE
                             and rework_routing_policy == REWORK_ROUTING_ARCHITECT_FIRST
@@ -2282,8 +2554,13 @@ def feature_pipeline(
                                             str(queued_packet["packet_id"]),
                                             {"dependencies": queued_packet["dependencies"]},
                                         )
-                            feature_status = FeatureStatus.IN_PROGRESS
-                            next_action = "run-rework-packet"
+                            _set_wave_progression_status(
+                                feature_id=feature_id,
+                                wave_progression=wave_progression,
+                                wave_id=wave_id,
+                                status="running",
+                            )
+                            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                             continue
                         if review_route.get("decision"):
                             next_action = (
@@ -2292,6 +2569,14 @@ def feature_pipeline(
                                 else "architect-planner-decomposition-required"
                             )
                             reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                            _set_wave_progression_status(
+                                feature_id=feature_id,
+                                wave_progression=wave_progression,
+                                wave_id=wave_id,
+                                status="blocked",
+                                reasons=reasons,
+                            )
+                            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                             feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
                             final_status = {
                                 "feature": feature_record,
@@ -2307,6 +2592,7 @@ def feature_pipeline(
                                 ),
                                 "next_action": next_action,
                                 "reasons": reasons,
+                                "wave_progression": [dict(item) for item in wave_progression],
                             }
                             notify_feature_event(
                                 feature_id=feature_id,
@@ -2357,6 +2643,14 @@ def feature_pipeline(
                         }
                     if review_route["reviewer_verdict"] == ReviewVerdict.ESCALATE_TO_ARCHITECT.value:
                         reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="blocked",
+                            reasons=reasons,
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
                         final_status = {
                             "feature": feature_record,
@@ -2372,6 +2666,7 @@ def feature_pipeline(
                             ),
                             "next_action": "architect-decision-required",
                             "reasons": reasons,
+                            "wave_progression": [dict(item) for item in wave_progression],
                         }
                         notify_feature_event(
                             feature_id=feature_id,
@@ -2400,6 +2695,14 @@ def feature_pipeline(
                         }
                     if review_route["reviewer_verdict"] == ReviewVerdict.BLOCKED.value:
                         reasons = list((review_route.get("review") or {}).get("reasons") or [])
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="blocked",
+                            reasons=reasons,
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         category = "verification_blocked"
                         if any(
                             "pipeline" in reason.lower() or "verifier packet is missing" in reason.lower() or "structured text" in reason.lower()
@@ -2456,6 +2759,10 @@ def feature_pipeline(
                             packet_id,
                             wave_decision,
                         )
+                    wave_route["wave_progress"] = next(
+                        (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
+                        {},
+                    )
                     wave_routes.append(wave_route)
                     packet_results[packet_result_key("wave", packet_id)] = wave_route
                     publish_feature_artifacts_task(
@@ -2468,9 +2775,32 @@ def feature_pipeline(
                     )
                     completed_packet_ids.add(packet_id)
                     if wave_route["wave_verdict"] == WaveVerdict.ACCEPTED.value:
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="accepted",
+                        )
+                        wave_route["wave_progress"] = next(
+                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
+                            {},
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         continue
                     if wave_route["wave_verdict"] == WaveVerdict.REWORK_REQUIRED.value:
                         reasons = list((wave_route.get("wave_review") or {}).get("reasons") or [])
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="blocked",
+                            reasons=reasons,
+                        )
+                        wave_route["wave_progress"] = next(
+                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
+                            {},
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         feature_record = mark_feature_status(
                             feature_id,
                             FeatureStatus.IN_PROGRESS,
@@ -2490,6 +2820,7 @@ def feature_pipeline(
                             ),
                             "next_action": f"architect-wave-rework-required:{wave_id}",
                             "reasons": reasons,
+                            "wave_progression": [dict(item) for item in wave_progression],
                         }
                         notify_feature_event(
                             feature_id=feature_id,
@@ -2501,11 +2832,24 @@ def feature_pipeline(
                             next_action=final_status["next_action"],
                         )
                     else:
+                        reasons = list((wave_route.get("wave_review") or {}).get("reasons") or [])
+                        _set_wave_progression_status(
+                            feature_id=feature_id,
+                            wave_progression=wave_progression,
+                            wave_id=wave_id,
+                            status="blocked",
+                            reasons=reasons,
+                        )
+                        wave_route["wave_progress"] = next(
+                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
+                            {},
+                        )
+                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                         final_status = _final_failure(
                             feature_id=feature_id,
                             category="product_blocked",
                             next_action=f"architect-wave-blocked:{wave_id}",
-                            reasons=list((wave_route.get("wave_review") or {}).get("reasons") or []),
+                            reasons=reasons,
                         )
                     publish_feature_artifacts_task(
                         seeded["feature"],
@@ -2526,6 +2870,14 @@ def feature_pipeline(
                     }
 
             if wave_route is None:
+                _set_wave_progression_status(
+                    feature_id=feature_id,
+                    wave_progression=wave_progression,
+                    wave_id=wave_id,
+                    status="blocked",
+                    reasons=[f"Missing architect wave gate for {wave_id}"],
+                )
+                packet_results["wave_progression"] = [dict(item) for item in wave_progression]
                 final_status = _final_failure(
                     feature_id=feature_id,
                     category="pipeline_invalid",
@@ -2549,7 +2901,49 @@ def feature_pipeline(
                     "final_status": final_status,
                 }
 
+        if not _all_required_waves_accepted(wave_progression):
+            next_wave_id = _next_required_wave_id(wave_progression)
+            reasons = (
+                [f"Feature cannot be accepted until required wave {next_wave_id} is accepted."]
+                if next_wave_id
+                else ["Feature cannot be accepted because not all required waves are accepted."]
+            )
+            final_status = _final_failure(
+                feature_id=feature_id,
+                category="pipeline_invalid",
+                next_action=f"incomplete-required-waves:{next_wave_id or 'unknown'}",
+                reasons=reasons,
+            )
+            publish_feature_artifacts_task(
+                seeded["feature"],
+                packet_results,
+                verification_records[-1] if verification_records else None,
+                review_routes[-1] if review_routes else None,
+                wave_routes[-1] if wave_routes else None,
+                final_status,
+            )
+            return {
+                "feature": seeded["feature"],
+                "seeded": seeded,
+                "runs": packet_results,
+                "verification_records": verification_records,
+                "review_routes": review_routes,
+                "wave_routes": wave_routes,
+                "final_status": final_status,
+            }
+
         accepted_feature = mark_feature_status(feature_id, FeatureStatus.ACCEPTED)
+        accepted_feature = update_record(
+            "features",
+            "features",
+            "feature_id",
+            feature_id,
+            {
+                "wave_progression": [dict(item) for item in wave_progression],
+                "next_wave_id": "",
+                "all_required_waves_accepted": True,
+            },
+        )
         final_status = _post_acceptance_final_status(
             feature_id=feature_id,
             accepted_feature=accepted_feature,
@@ -2559,6 +2953,7 @@ def feature_pipeline(
             review_routes=review_routes,
             wave_routes=wave_routes,
             commit_hash=commit_hash,
+            wave_progression=wave_progression,
         )
         notify_feature_event(
             feature_id=feature_id,

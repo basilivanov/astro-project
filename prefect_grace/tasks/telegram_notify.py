@@ -391,6 +391,19 @@ def _wave_verdict_label(verdict: str) -> str:
     }.get(verdict, verdict or "обновление волны")
 
 
+def _wave_progress_label(status: str | None, required: bool | None) -> str | None:
+    normalized = str(status or "").strip().lower()
+    if not normalized:
+        return None
+    suffix = "обязательная" if bool(required) else "optional"
+    return {
+        "pending": f"Статус в sequence: pending ({suffix}).",
+        "running": f"Статус в sequence: running ({suffix}).",
+        "accepted": f"Статус в sequence: accepted ({suffix}).",
+        "blocked": f"Статус в sequence: blocked ({suffix}).",
+    }.get(normalized, f"Статус в sequence: {normalized} ({suffix}).")
+
+
 def _feature_summary_text(status: str, summary: str | None, blockers: list[str] | None, next_action: str | None) -> str | None:
     normalized = str(status).strip().lower()
     cleaned_summary = " ".join(str(summary or "").strip().split())
@@ -527,6 +540,8 @@ def notify_wave_event(
     wave_id: str,
     verdict: str,
     reasons: list[str] | None = None,
+    progression_status: str | None = None,
+    required: bool | None = None,
     flow_run_id: str | None = None,
 ) -> bool:
     normalized_verdict = str(verdict).strip().lower()
@@ -542,6 +557,9 @@ def notify_wave_event(
         f"Фича: <b>{escape(feature_id)}</b>",
         f"Волна: <b>{escape(wave_id)}</b>",
     ]
+    progress_label = _wave_progress_label(progression_status, required)
+    if progress_label:
+        lines.append(escape(progress_label))
     if reasons:
         for reason in _reason_summaries_ru(reasons, limit=3):
             lines.append(f"• {escape(reason)}")

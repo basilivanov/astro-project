@@ -193,3 +193,20 @@ def test_notify_wave_event_localizes_english_reasons(monkeypatch) -> None:
     assert "Поведение Week, fail-closed состояние и локальная observability подтверждены" in sent[0]
     assert "Latest reviewer/verifier" not in sent[0]
     assert "Canonical Week continuity" not in sent[0]
+
+
+def test_notify_wave_event_includes_progression_state(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    ok = telegram_notify.notify_wave_event(
+        feature_id="FEAT-X",
+        wave_id="W02",
+        verdict="accepted",
+        progression_status="accepted",
+        required=True,
+    )
+
+    assert ok is True
+    assert sent
+    assert "Статус в sequence: accepted (обязательная)." in sent[0]

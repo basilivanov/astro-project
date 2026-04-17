@@ -61,11 +61,16 @@ def _normalize_wave_specs(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(raw, dict):
             continue
         wave_id = str(raw.get("wave_id") or f"W{index:02d}").strip().upper()
+        required = raw.get("required")
+        if required is None:
+            required = not bool(raw.get("optional"))
         waves.append(
             {
                 "wave_id": wave_id,
                 "title": str(raw.get("title") or wave_id).strip(),
                 "goal": str(raw.get("goal") or raw.get("objective") or raw.get("title") or wave_id).strip(),
+                "objective": str(raw.get("objective") or raw.get("goal") or raw.get("title") or wave_id).strip(),
+                "required": bool(required),
                 "module_refs": _string_list(raw.get("module_refs") or raw.get("modules")),
                 "allowed_write_scope": _string_list(raw.get("allowed_write_scope") or raw.get("write_scope")),
                 "frozen_scope": _string_list(raw.get("frozen_scope")),
@@ -125,7 +130,7 @@ def _wave_plan_md(
     waves = _normalize_wave_specs(payload) or _default_wave_specs(feature, payload)
     packet_candidates = _normalize_packet_candidates(payload)
     wave_lines = [
-        f"{wave['wave_id']} — {wave['title']}: {wave['goal']}"
+        f"{wave['wave_id']} — {wave['title']}: {wave['goal']} ({'required' if wave.get('required', True) else 'optional'})"
         for wave in waves
     ]
     packet_lines = [
@@ -187,6 +192,8 @@ def _default_wave_specs(feature: dict[str, Any], payload: dict[str, Any]) -> lis
             "wave_id": "W01",
             "title": "Implementation and acceptance",
             "goal": str(payload.get("wave_goal") or feature.get("title") or feature.get("feature_id")),
+            "objective": str(payload.get("wave_goal") or feature.get("title") or feature.get("feature_id")),
+            "required": True,
             "module_refs": _string_list(payload.get("impacted_modules")),
             "allowed_write_scope": _string_list(payload.get("allowed_write_scope")),
             "frozen_scope": _string_list(payload.get("frozen_scope")),

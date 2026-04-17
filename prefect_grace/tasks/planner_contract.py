@@ -243,8 +243,24 @@ def normalize_wave_plan_contract(
         if unknown_dependencies:
             raise ValueError(f"Packet {packet['key']} has unknown dependencies: {unknown_dependencies}")
 
+    normalized_waves: list[dict[str, Any]] = []
+    for index, wave in enumerate(waves or [], start=1):
+        wave_id = str(wave.get("wave_id") or f"W{index:02d}").strip().upper()
+        required = wave.get("required")
+        if required is None:
+            required = not bool(wave.get("optional"))
+        normalized_waves.append(
+            {
+                **dict(wave),
+                "wave_id": wave_id,
+                "title": str(wave.get("title") or wave_id).strip(),
+                "objective": str(wave.get("objective") or wave.get("goal") or wave.get("title") or wave_id).strip(),
+                "required": bool(required),
+            }
+        )
+
     return {
-        "waves": [dict(wave) for wave in waves or [] if isinstance(wave, dict)],
+        "waves": normalized_waves,
         "packets": normalized_packets,
     }
 
@@ -477,7 +493,9 @@ def _write_dynamic_wave_plan(feature_id: str, waves: list[dict[str, Any]], packe
         wave_id = str(wave.get("wave_id") or "W01")
         title = str(wave.get("title") or "Untitled wave")
         objective = str(wave.get("objective") or "")
-        wave_lines.append(f"{wave_id} — {title}: {objective}".strip())
+        required = bool(wave.get("required", True))
+        suffix = "required" if required else "optional"
+        wave_lines.append(f"{wave_id} — {title}: {objective} ({suffix})".strip())
     if not wave_lines:
         wave_lines = sorted({f"{packet['wave_id']} — generated execution wave" for packet in packets})
 
