@@ -1288,6 +1288,134 @@ def test_feature_pipeline_uses_architect_packet_candidates_when_planner_is_off(t
     assert "Frontend Slice" in wave_plan_text
 
 
+def test_feature_pipeline_ignores_w00_formalization_when_w01_packets_are_ready(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-W00-FORMALIZATION-BOUNDARY",
+        title="W00 formalization boundary",
+        summary="W00 architect formalization must not invalidate a ready W01 packet graph.",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        business_context={
+            "architect_waves": [
+                {"wave_id": "W00", "title": "Architect formalization", "goal": "Feature-local formalization"},
+                {"wave_id": "W01", "title": "Implementation", "goal": "Execute the first required wave"},
+            ],
+            "packet_candidates": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "packet_type": "execution",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "packet_type": "execution",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+                {
+                    "key": "architect_main",
+                    "wave_id": "W01",
+                    "title": "Architect Gate",
+                    "role": "architect",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Accept wave",
+                    "dependencies": ["reviewer_main"],
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "awaiting_commit"
+    assert "run:FEAT-W00-FORMALIZATION-BOUNDARY-W01-MAIN-SLICE" in result["runs"]
+    assert result["final_status"]["next_wave_id"] == ""
+    assert result["final_status"]["all_required_waves_accepted"] is True
+    assert [wave["wave_id"] for wave in result["final_status"]["wave_progression"]] == ["W01"]
+    assert [wave["status"] for wave in result["final_status"]["wave_progression"]] == ["accepted"]
+
+
+def test_feature_pipeline_still_blocks_when_required_w01_architect_gate_is_missing(tmp_path: Path) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+
+    result = feature_pipeline(
+        feature_id="FEAT-MISSING-W01-ARCH-GATE",
+        title="Missing W01 architect gate",
+        summary="Required W01 must still fail when the architect gate packet is not materialized.",
+        dry_run=True,
+        prefer_agent_output=False,
+        reviewer_verdict="accepted",
+        wave_verdict="accepted",
+        business_context={
+            "architect_waves": [
+                {"wave_id": "W00", "title": "Architect formalization", "goal": "Feature-local formalization"},
+                {"wave_id": "W01", "title": "Implementation", "goal": "Execute the first required wave"},
+            ],
+            "packet_candidates": [
+                {
+                    "key": "coder_main",
+                    "wave_id": "W01",
+                    "title": "Main Slice",
+                    "role": "coder",
+                    "reasoning": "high",
+                    "packet_type": "execution",
+                    "summary": "Implement slice",
+                    "dependencies": [],
+                },
+                {
+                    "key": "verifier_main",
+                    "wave_id": "W01",
+                    "title": "Verify Slice",
+                    "role": "verifier",
+                    "reasoning": "medium",
+                    "packet_type": "execution",
+                    "summary": "Verify slice",
+                    "dependencies": ["coder_main"],
+                },
+                {
+                    "key": "reviewer_main",
+                    "wave_id": "W01",
+                    "title": "Review Slice",
+                    "role": "reviewer",
+                    "reasoning": "xhigh",
+                    "packet_type": "gate_decision",
+                    "summary": "Review slice",
+                    "dependencies": ["coder_main", "verifier_main"],
+                    "review_target_key": "coder_main",
+                },
+            ],
+        },
+    )
+
+    assert result["final_status"]["feature"]["status"] == "pipeline_invalid"
+    assert result["final_status"]["next_action"] == "fix-wave-plan-continuation"
+    assert result["final_status"]["next_wave_id"] == "W01"
+    assert any("W01: required wave is missing an architect gate packet" in reason for reason in result["final_status"]["reasons"])
+
+
 def test_route_reviewer_verdict_task_tolerates_missing_packet_record_for_notify(monkeypatch) -> None:
     notifications: list[dict] = []
 

@@ -610,6 +610,10 @@ def _wave_required(raw: dict | None) -> bool:
     return bool(required)
 
 
+def _is_execution_wave_id(value: object) -> bool:
+    return str(value or "").strip().upper() != "W00"
+
+
 def _normalize_wave_progression_entry(
     raw: dict | None,
     *,
@@ -639,11 +643,13 @@ def _plan_wave_sequence(
         _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="architect_manifest")
         for index, raw in enumerate(architect_manifest.get("waves") or [], start=1)
         if isinstance(raw, dict)
+        and _is_execution_wave_id(raw.get("wave_id") or f"W{index:02d}")
     ]
     planner_entries = [
         _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="planner_contract")
         for index, raw in enumerate(planner_waves or [], start=1)
         if isinstance(raw, dict)
+        and _is_execution_wave_id(raw.get("wave_id") or f"W{index:02d}")
     ]
     planner_by_id = {str(item["wave_id"]): item for item in planner_entries}
     ordered_ids: list[str] = []
@@ -667,6 +673,8 @@ def _plan_wave_sequence(
         seen.add(wave_id)
 
     for wave_id, _packets in group_packets_by_wave(generated_packets):
+        if not _is_execution_wave_id(wave_id):
+            continue
         if wave_id in seen:
             continue
         ordered_ids.append(wave_id)
