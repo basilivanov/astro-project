@@ -1278,7 +1278,7 @@ def seed_feature_packets_task(
     )
 
 
-@task(task_run_name="planner-contract:resolve")
+@task(task_run_name="packet-graph:resolve")
 def resolve_planner_contract_task(
     planner_run: dict,
     *,
@@ -1347,7 +1347,7 @@ def resolve_planner_contract_task(
         source = 'fallback'
     elif contract is not None:
         source = 'agent_output'
-    logger.info('Resolved planner contract source=%s parser_error=%s', source, parser_error)
+    logger.info('Resolved packet graph contract source=%s parser_error=%s', source, parser_error)
     return {'contract': contract, 'source': source, 'parser_error': parser_error}
 
 
@@ -1398,7 +1398,7 @@ def write_architect_artifacts_task(
     return written
 
 
-@task(task_run_name="planner-contract:materialize:{feature_id}")
+@task(task_run_name="packet-graph:materialize:{feature_id}")
 def materialize_planner_contract_task(
     feature_id: str,
     planner_packet_id: str,
@@ -1444,11 +1444,11 @@ def materialize_planner_contract_task(
             "include_day_live_canary": verifier_include_day_live_canary,
         },
     )
-    logger.info('Materialized planner contract with %s packets for %s', len(materialized['packets']), feature_id)
+    logger.info('Materialized packet graph with %s packets for %s', len(materialized['packets']), feature_id)
     return materialized
 
 
-@task(task_run_name="planner-contract:validate:{feature_id}")
+@task(task_run_name="packet-graph:validate:{feature_id}")
 def validate_planner_contract_task(
     feature_id: str,
     materialized_contract: dict,
@@ -1542,7 +1542,7 @@ def validate_planner_contract_task(
                     if not isinstance(item, str) or not item.strip():
                         issues.append(f"{packet_id}: execution.canonical_flow_commands contains empty/non-string command")
 
-    logger.info("Planner contract validation for %s issues=%s", feature_id, len(issues))
+    logger.info("Packet graph validation for %s issues=%s", feature_id, len(issues))
     return {"valid": not issues, "issues": issues}
 
 
@@ -2104,7 +2104,7 @@ def feature_pipeline(
             final_status = _final_failure(
                 feature_id=feature_id,
                 category="pipeline_invalid",
-                next_action="fix-planner-contract",
+                next_action="fix-packet-graph-contract",
                 reasons=list(planner_validation.get("issues") or []),
             )
             publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)

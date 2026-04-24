@@ -132,8 +132,8 @@ def _action_hint_ru(next_action: str | None) -> str:
         return "Проверьте доменный блокер."
     if normalized == "architect-decision-required":
         return "Нужно решение архитектора."
-    if normalized == "fix-planner-contract":
-        return "Исправьте контракт планировщика."
+    if normalized in {"fix-planner-contract", "fix-packet-graph-contract"}:
+        return "Исправьте контракт графа пакетов."
     if normalized.startswith("architect-wave-rework-required:"):
         return f"Нужна доработка {value.split(':', 1)[1]}."
     if normalized.startswith("architect-wave-blocked:"):
@@ -537,6 +537,7 @@ def _architect_markdown(*, feature: dict[str, Any], packet_results: dict[str, An
             f"- materialization_mode: {architect_written.get('materialization_mode', manifest.get('materialization_mode', '-'))}",
             f"- architect_manifest_path: {architect_written.get('architect_manifest_path', '-')}",
             f"- execution_packet_path: {architect_written.get('execution_packet_path', '-')}",
+            f"- wave_count: {len(waves)}",
             "",
             "## Impacted Modules",
             _bullet(list(manifest.get("impacted_modules") or [])),
@@ -587,7 +588,7 @@ def _execution_packet_artifact_markdown(packet_path: str) -> str:
     )
 
 
-def _planner_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:
+def _packet_graph_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]) -> str:
     planner_contract = dict(packet_results.get("planner_contract") or {})
     materialized = dict(packet_results.get("planner_materialized") or {})
     validation = dict(packet_results.get("planner_validation") or {})
@@ -607,11 +608,14 @@ def _planner_markdown(*, feature: dict[str, Any], packet_results: dict[str, Any]
 
     return "\n".join(
         [
-            f"# Planner Snapshot: {feature.get('feature_id', '-')}",
+            f"# Packet Graph Snapshot: {feature.get('feature_id', '-')}",
             "",
             f"- source: {planner_contract.get('source', '-')}",
             f"- parser_error: {planner_contract.get('parser_error', '-')}",
             f"- validation_valid: {validation.get('valid', '-')}",
+            f"- wave_count: {len(waves)}",
+            f"- packet_count: {len(packets)}",
+            f"- materialized_packet_count: {len(materialized_packets)}",
             f"- wave_plan_path: {materialized.get('wave_plan_path', feature.get('wave_plan_path', '-'))}",
             "",
             "## Validation Issues",
@@ -766,13 +770,13 @@ def publish_feature_artifacts(
         artifact_ids.append(
             str(
                 create_markdown_artifact(
-                    key=_artifact_key("grace-planner", feature_id),
+                    key=_artifact_key("grace-packet-graph", feature_id),
                     description=_artifact_description(
-                        "Planner contract snapshot",
+                        "Packet graph snapshot",
                         feature_id=feature_id,
                         source=dict(packet_results.get("planner_contract") or {}).get("source"),
                     ),
-                    markdown=_planner_markdown(feature=feature, packet_results=packet_results),
+                    markdown=_packet_graph_markdown(feature=feature, packet_results=packet_results),
                 )
             )
         )

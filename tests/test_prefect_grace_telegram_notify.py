@@ -101,7 +101,7 @@ def test_notify_feature_event_renders_ru_short_blocked_summary(monkeypatch) -> N
         status="pipeline_invalid",
         summary="Long English summary that should not be the primary user-facing message.",
         blockers=["Planner wave plan JSON markers were not found in reviewer output and this text is intentionally long enough to be trimmed by the notifier."],
-        next_action="fix-planner-contract",
+        next_action="fix-packet-graph-contract",
     )
 
     assert ok is True
@@ -109,7 +109,7 @@ def test_notify_feature_event_renders_ru_short_blocked_summary(monkeypatch) -> N
     assert "Фича: пайплайн некорректен" in sent[0]
     assert "Итог: пайплайн некорректен." in sent[0]
     assert "Planner wave plan JSON markers were not found" in sent[0]
-    assert "Исправьте контракт планировщика." in sent[0]
+    assert "Исправьте контракт графа пакетов." in sent[0]
 
 
 def test_notify_feature_event_renders_awaiting_commit_summary(monkeypatch) -> None:

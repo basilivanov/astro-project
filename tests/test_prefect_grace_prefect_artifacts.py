@@ -153,7 +153,7 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
             "final_outcome": "blocked",
             "user_facing_status": "pipeline_invalid",
             "user_summary": "Итог: пайплайн некорректен. Планировщик не собрал контракт.",
-            "next_action": "fix-planner-contract",
+            "next_action": "fix-packet-graph-contract",
             "failure_category": "pipeline_invalid",
             "wave_progression": [
                 {"wave_id": "W01", "title": "Main wave", "status": "accepted", "required": True, "architect_gate_packet_id": "FEAT-X-W01-ARCH"},
@@ -169,20 +169,22 @@ def test_publish_feature_artifacts_includes_architect_planner_and_reviewer(monke
     assert "grace-feature-feat-x" in keys
     assert "grace-execution-packet-feat-x" in keys
     assert "grace-architect-feat-x" in keys
-    assert "grace-planner-feat-x" in keys
+    assert "grace-packet-graph-feat-x" in keys
     assert "grace-agent-outputs-feat-x" in keys
     assert "grace-review-feat-x-w01-reviewer-verdict" in keys
 
     architect_markdown = next(item["markdown"] for item in created if item["key"] == "grace-architect-feat-x")
     execution_packet_markdown = next(item["markdown"] for item in created if item["key"] == "grace-execution-packet-feat-x")
-    planner_markdown = next(item["markdown"] for item in created if item["key"] == "grace-planner-feat-x")
+    planner_markdown = next(item["markdown"] for item in created if item["key"] == "grace-packet-graph-feat-x")
     agent_markdown = next(item["markdown"] for item in created if item["key"] == "grace-agent-outputs-feat-x")
     feature_markdown = next(item["markdown"] for item in created if item["key"] == "grace-feature-feat-x")
     assert "SLICE-FEAT-X" in architect_markdown
     assert "# Execution Packet" in execution_packet_markdown
     assert "Ship feature." in execution_packet_markdown
     assert "frontend/app/page.tsx" in architect_markdown
+    assert "wave_count: 1" in architect_markdown
     assert "coder_main" in planner_markdown
+    assert "wave_count: 1" in planner_markdown
     assert "./scripts/run_e2e.sh e2e/day-dev-indicator.spec.ts" in planner_markdown
     assert "FEAT-X-W01-CODER-MAIN" in agent_markdown
     assert "/tmp/runs/coder/stdout.jsonl" in agent_markdown

@@ -298,8 +298,8 @@ def _action_hint_label(next_action: str | None) -> str | None:
         return "Проверьте доменный блокер."
     if normalized == "architect-decision-required":
         return "Нужно решение архитектора."
-    if normalized == "fix-planner-contract":
-        return "Исправьте контракт планировщика."
+    if normalized in {"fix-planner-contract", "fix-packet-graph-contract"}:
+        return "Исправьте контракт графа пакетов."
     if normalized.startswith("architect-wave-rework-required:"):
         wave_id = value.split(":", 1)[1]
         return f"Нужна доработка волны {wave_id}."
