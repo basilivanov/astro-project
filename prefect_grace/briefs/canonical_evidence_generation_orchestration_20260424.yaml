@@ -35,7 +35,7 @@ scope:
   - Add or repair deterministic Admin and Catalog success evidence generation or freshness refresh.
   - Ensure generated records contain timestamps inside the review window and stable trace/request/correlation or provenance fields required by the accepted watcher tooling.
   - Wire verifier commands so evidence generation happens before post-test review.
-  - Preserve strict reviewer behavior: do not mark rendered-only evidence as canonical and do not pass missing evidence as clean.
+  - "Preserve strict reviewer behavior: do not mark rendered-only evidence as canonical and do not pass missing evidence as clean."
 
 acceptance_criteria:
   - A single documented command or command sequence generates fresh Today, Week, Admin, and Catalog canonical evidence in the current 30-minute window.
