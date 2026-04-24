@@ -462,7 +462,7 @@ def test_week_brief_service_exposes_packet_local_grace_contract_markers():
     assert "# START_MODULE_MAP: M-WEEK-BRIEF-SERVICE" in source
     assert 'MODULE_ID = "M-WEEK-BRIEF-SERVICE"' in source
     assert 'WEEK_BRIEF_EVIDENCE_LANE = "packet_local"' in source
-    assert 'WEEK_BRIEF_PACKET_SCOPE = "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"' in source
+    assert 'WEEK_BRIEF_PACKET_SCOPE = "FEAT-BACKEND-GRACE-OBSERVABILITY-WAVE-TZ:W01:packet_local"' in source
     assert 'WEEK_BRIEF_PAYLOAD_BLOCK = "WEEK_BRIEF_PAYLOAD_ASSEMBLY"' in source
 
 
@@ -584,8 +584,9 @@ def test_build_week_brief_payload_appends_current_run_packet_local_report_log():
     assert built_row["fn"] == "build_week_brief_payload"
     assert built_row["block"] == "WEEK_BRIEF_PAYLOAD_ASSEMBLY"
     assert built_row["week_brief_evidence_lane"] == "packet_local"
-    assert built_row["week_brief_packet_scope"] == "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR:W01:packet_local"
+    assert built_row["week_brief_packet_scope"] == "FEAT-BACKEND-GRACE-OBSERVABILITY-WAVE-TZ:W01:packet_local"
     assert built_row["trace_id"] == trace_id
     assert built_row["correlation_id"] == correlation_id
+    assert built_row["correlation_source"] == "week-brief-test"
     assert built_row["request_id"] == request_id
     assert built_row["report_id"] == str(report.id)

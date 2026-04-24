@@ -30,16 +30,62 @@ mock_stellium_modules = {
 }
 sys.modules.update({name: module for name, module in mock_stellium_modules.items() if name not in sys.modules})
 
+
+class _Mapped:
+    def __class_getitem__(cls, item):
+        return cls
+
+
+def _sa_type(*args, **kwargs):
+    return {"args": args, "kwargs": kwargs}
+
+
+class _FuncNamespace:
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+
+
+def _declarative_base():
+    return _ModelFactory("Base", (), {})
+
+
+class _ColumnStub:
+    def __init__(self, name):
+        self.name = name
+
+    def __eq__(self, other):
+        return ("eq", self.name, other)
+
+    def __ge__(self, other):
+        return ("ge", self.name, other)
+
+    def __lt__(self, other):
+        return ("lt", self.name, other)
+
+    def desc(self):
+        return ("desc", self.name)
+
+
+class _ModelFactory(type):
+    def __getattr__(cls, name):
+        return _ColumnStub(name)
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__()
+        for key, value in kwargs.items():
+            setattr(instance, key, value)
+        return instance
+
 with patch.dict(os.environ, {"DATABASE_URL": "sqlite://", "SQLALCHEMY_WARN_20": "1"}, clear=False):
     orm_module = sys.modules.setdefault(
         "sqlalchemy.orm",
         SimpleNamespace(
-            Mapped=object,
-            mapped_column=lambda *args, **kwargs: None,
+            Mapped=_Mapped,
+            mapped_column=lambda *args, **kwargs: _ColumnStub("mapped_column"),
             relationship=lambda *args, **kwargs: None,
             Session=SimpleNamespace,
-            declarative_base=lambda *args, **kwargs: SimpleNamespace(),
-            sessionmaker=lambda *args, **kwargs: SimpleNamespace(return_value=None),
+            declarative_base=_declarative_base,
+            sessionmaker=lambda *args, **kwargs: (lambda *factory_args, **factory_kwargs: None),
         ),
     )
     sqlalchemy_module = sys.modules.setdefault(
@@ -47,18 +93,21 @@ with patch.dict(os.environ, {"DATABASE_URL": "sqlite://", "SQLALCHEMY_WARN_20": 
         SimpleNamespace(
             orm=orm_module,
             create_engine=lambda *args, **kwargs: SimpleNamespace(),
-            func=SimpleNamespace,
+            func=_FuncNamespace(),
             or_=lambda *args, **kwargs: None,
+            select=lambda *args, **kwargs: None,
+            extract=lambda *args, **kwargs: None,
             text=lambda *args, **kwargs: None,
-            BigInteger=int,
-            Boolean=bool,
-            DateTime=datetime,
-            Float=float,
+            BigInteger=_sa_type,
+            Boolean=_sa_type,
+            DateTime=_sa_type,
+            Float=_sa_type,
             ForeignKey=lambda *args, **kwargs: None,
-            Integer=int,
-            String=str,
-            Text=str,
-            Numeric=float,
+            Integer=_sa_type,
+            String=_sa_type,
+            Text=_sa_type,
+            Numeric=_sa_type,
+            JSON=dict,
         ),
     )
     sys.modules.setdefault(
@@ -67,7 +116,7 @@ with patch.dict(os.environ, {"DATABASE_URL": "sqlite://", "SQLALCHEMY_WARN_20": 
     )
     sys.modules.setdefault(
         "sqlalchemy.dialects.postgresql",
-        SimpleNamespace(UUID=lambda **kwargs: uuid.uuid4),
+        SimpleNamespace(UUID=lambda *args, **kwargs: uuid.uuid4),
     )
     from backend.app.main import (
         B2CReportCreateRequest,
@@ -154,9 +203,9 @@ def test_get_my_reports_emits_catalog_events():
     assert success["has_more"] is False
 
 
-@patch("backend.app.main.build_natal_chart_svg", return_value="<svg />")
-@patch("backend.app.main.build_chart_data")
-@patch("backend.app.main.load_report_payload")
+@patch("backend.app.routers.reports.build_natal_chart_svg", return_value="<svg />")
+@patch("backend.app.routers.reports.build_chart_data")
+@patch("backend.app.routers.reports.load_report_payload")
 def test_get_report_detail_logs_events(mock_payload, mock_chart, mock_svg):
     user = _build_user()
     db = MagicMock()
@@ -178,11 +227,11 @@ def test_get_report_detail_logs_events(mock_payload, mock_chart, mock_svg):
     assert success["report_id"] == str(report.id)
 
 
-@patch("backend.app.main.log_analytics_event")
-@patch("backend.app.main.initialize_report_chunks")
-@patch("backend.app.main.build_section_specs")
-@patch("backend.app.main.consume_report_access")
-@patch("backend.app.main.upsert_client_from_payload")
+@patch("backend.app.routers.b2c_reports.log_analytics_event")
+@patch("backend.app.routers.b2c_reports.initialize_report_chunks")
+@patch("backend.app.routers.b2c_reports.build_section_specs")
+@patch("backend.app.routers.b2c_reports.consume_report_access")
+@patch("backend.app.routers.b2c_reports.upsert_client_from_payload")
 @patch("backend.app.services.access_control.resolve_report_access")
 def test_create_b2c_report_logs_checkout_events(
     mock_resolve_access,
@@ -217,3 +266,48 @@ def test_create_b2c_report_logs_checkout_events(
     success_event = next(entry for entry in cap if entry["event"] == "catalog.checkout_success")
     assert success_event["decision_allowed"] is True
     assert success_event["user_id"] == str(user.id)
+
+
+def test_trace_logging_scope_does_not_modify_catalog_payload_fields():
+    from backend.app.logging_utils import catalog_event_fields
+
+    payload = catalog_event_fields(
+        surface="history",
+        correlation_id="corr-explicit",
+        trace_id="trace-explicit",
+        correlation_source="header",
+    )
+
+    assert payload == {
+        "surface": "history",
+        "correlation_id": "corr-explicit",
+        "trace_id": "trace-explicit",
+        "correlation_source": "header",
+    }
+
+
+def test_log_analytics_event_emits_success_hub_landmark():
+    from backend.app.services.analytics import log_analytics_event
+
+    db = MagicMock()
+    user_id = uuid.uuid4()
+
+    with capture_logs() as cap:
+        ok = log_analytics_event(
+            db,
+            "app_open",
+            user_id=user_id,
+            telegram_id=123,
+            source="webapp",
+            path="/",
+            metadata={"surface": "home"},
+        )
+
+    assert ok is True
+    event = next(entry for entry in cap if entry["event"] == "analytics.event_persisted")
+    assert event["module"] == "M-ANALYTICS-EVENTS"
+    assert event["fn"] == "log_analytics_event"
+    assert event["block"] == "ANALYTICS_EVENT_PERSISTENCE"
+    assert event["event_name"] == "app_open"
+    assert event["user_id"] == str(user_id)
+    assert event["has_metadata"] is True

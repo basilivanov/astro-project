@@ -141,7 +141,7 @@ class TestDailyFeedRobustness(unittest.TestCase):
         self.assertGreater(len(result), 20)
         self.assertTrue(any(call.args[1] == "feed.generated" for call in mock_log_grace_event.call_args_list))
 
-    @patch("backend.app.main.build_personalized_daily_facts")
+    @patch("backend.app.routers.public.build_personalized_daily_facts")
     def test_feed_endpoint_returns_fallback_payload_on_chart_error(self, mock_daily_facts):
         mock_daily_facts.side_effect = RuntimeError("boom")
 
@@ -156,8 +156,8 @@ class TestDailyFeedRobustness(unittest.TestCase):
         self.assertEqual(set(data["traffic_lights"].keys()), {"health", "money", "love"})
         self.assertEqual(data.get("moon", {}).get("sign"), "Луна")
 
-    @patch("backend.app.main.get_daily_vibe_llm", new_callable=AsyncMock)
-    @patch("backend.app.main.build_personalized_daily_facts")
+    @patch("backend.app.routers.public.get_daily_vibe_llm", new_callable=AsyncMock)
+    @patch("backend.app.routers.public.build_personalized_daily_facts")
     def test_feed_endpoint_passes_personalized_context_to_vibe_generation(self, mock_daily_facts, mock_vibe):
         mock_daily_facts.return_value = {
             "moon_sign": "Рыбы",
@@ -205,8 +205,8 @@ if __name__ == "__main__":
 
 
 class TestDailyFeedDebug(unittest.TestCase):
-    @patch("backend.app.main.get_daily_vibe_llm", new_callable=AsyncMock)
-    @patch("backend.app.main.build_personalized_daily_facts")
+    @patch("backend.app.routers.public.get_daily_vibe_llm", new_callable=AsyncMock)
+    @patch("backend.app.routers.public.build_personalized_daily_facts")
     def test_feed_endpoint_returns_debug_meta_only_for_internal(self, mock_daily_facts, mock_vibe):
         mock_daily_facts.return_value = {
             "moon_sign": "Рыбы",
@@ -235,9 +235,9 @@ class TestDailyFeedDebug(unittest.TestCase):
         self.assertEqual(anon.status_code, 200)
         self.assertIsNone(anon.json().get("meta"))
 
-    @patch("backend.app.main.logger")
-    @patch("backend.app.main.authenticate_telegram_user")
-    def test_feed_endpoint_auth_fallback_logs_without_raw_auth_detail(self, mock_authenticate, mock_logger):
+    @patch("backend.app.routers.public._log_api_gateway_event")
+    @patch("backend.app.routers.public.authenticate_telegram_user")
+    def test_feed_endpoint_auth_fallback_logs_without_raw_auth_detail(self, mock_authenticate, mock_log_event):
         from fastapi import HTTPException
 
         mock_authenticate.side_effect = HTTPException(
@@ -248,9 +248,9 @@ class TestDailyFeedDebug(unittest.TestCase):
         response = client.get("/api/feed/today", headers={"X-Telegram-Auth": "super-secret-init-data"})
 
         self.assertEqual(response.status_code, 200)
-        debug_calls = [call for call in mock_logger.info.call_args_list if call.args and call.args[0] == "feed.debug"]
+        debug_calls = [call for call in mock_log_event.call_args_list if len(call.args) > 1 and call.args[1] == "feed.debug"]
         auth_fallback = next(call for call in debug_calls if call.kwargs.get("stage") == "auth_fallback")
         self.assertEqual(auth_fallback.kwargs["reason"], "telegram_auth_invalid")
         self.assertNotIn("detail", auth_fallback.kwargs)
-        serialized = str(mock_logger.info.call_args_list)
+        serialized = str(mock_log_event.call_args_list)
         self.assertNotIn("super-secret-init-data", serialized)

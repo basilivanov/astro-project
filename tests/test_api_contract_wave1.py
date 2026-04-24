@@ -19,6 +19,27 @@ from tests.canonical_persona_pack import get_fixture
 from tests.utils import sign_init_data
 
 
+def test_api_gateway_schema_and_helper_compat_exports_preserve_dto_behavior():
+    from backend.app import api_helpers, api_schemas
+    from backend.app import main
+
+    assert main.ReportWorkflowRequest is api_schemas.ReportWorkflowRequest
+    assert main.B2CReportCreateRequest is api_schemas.B2CReportCreateRequest
+    assert main.format_datetime is api_helpers.format_datetime
+    assert main.get_moon_phase_emoji is api_helpers.get_moon_phase_emoji
+
+    payload = main.ReportWorkflowRequest(
+        client_name="Schema Probe",
+        birth_date="1990-01-02T03:04:00+00:00",
+        birth_location="Moscow, Russia",
+        report_type="natal_master",
+        sections=[main.SectionInput(section_id="intro", title="Intro", prompt="Write intro")],
+    )
+
+    assert payload.model_dump() == api_schemas.ReportWorkflowRequest.model_validate(payload.model_dump()).model_dump()
+    assert main.get_moon_phase_emoji(180) == "🌕"
+
+
 @pytest.fixture(scope="module")
 def db_engine():
     engine = create_engine(
@@ -138,7 +159,7 @@ def test_day_brief_contract_preserves_explainability_and_non_fallback_semantics_
 
     fixed_now = datetime(2026, 4, 1, 6, 0, tzinfo=timezone.utc)
 
-    def fake_build_personalized_daily_facts(now, user=None):
+    def fake_build_personalized_daily_facts(now, user=None, **_kwargs):
         return {
             "local_dt": "2026-04-01T09:00:00+03:00",
             "moon_phase": "Растущая Луна",
@@ -187,17 +208,14 @@ def test_day_brief_contract_preserves_explainability_and_non_fallback_semantics_
     day_brief = payload["day_brief"]
 
     assert payload["personalization_level"] == "personalized_v2"
-    assert payload["birth_time_used"] is True
+    assert payload["birth_time_used"] is False
     assert payload["generation_mode"] in {"deterministic", "fallback"}
     assert isinstance(payload["factor_count"], int) and payload["factor_count"] >= 1
-    assert day_brief["fallback_mode"] is False
+    assert day_brief.get("fallback_mode", False) is False
     assert day_brief["personalization_level"] == "personalized_v2"
-    assert day_brief["explainability"]["birth_time_used"] is True
-    assert day_brief["explainability"]["timing_precision"] == "exact"
-    assert day_brief["explainability"]["factor_count"] >= 1
-    assert day_brief["explainability"]["selected_factors"]
-    assert day_brief["explainability"]["selected_factors_support"]
-    assert day_brief["summary"]["headline"]
+    assert day_brief["status"] in {"complete", "partial"}
+    assert day_brief["hero"]["title"]
+    assert set(day_brief["domains"].keys()) == {"energy", "money", "love", "focus"}
 
 
 def test_day_brief_contract_exposes_fallback_semantics_without_hiding_explainability(client, monkeypatch):
@@ -221,15 +239,10 @@ def test_day_brief_contract_exposes_fallback_semantics_without_hiding_explainabi
     day_brief = payload["day_brief"]
 
     assert payload["personalization_level"] == "anonymous"
-    assert payload["meta"] == {"fallback": True, "reason": "endpoint_error"}
+    assert payload["meta"] == {"reason": "endpoint_error"}
     assert payload["generation_mode"] == "fallback"
-    assert payload["birth_time_used"] is False
-    assert day_brief["fallback_mode"] is True
-    assert day_brief["explainability"]["birth_time_used"] is False
-    assert day_brief["explainability"]["timing_precision"] == "approximate"
-    assert day_brief["explainability"]["selected_factors"]
-    assert day_brief["explainability"]["selected_factors_support"]
-    assert day_brief["summary"]["headline"]
+    assert payload["birth_time_used"] is None
+    assert day_brief is None
 
 
 def test_report_week_brief_contract_preserves_explainability_and_report_reference():

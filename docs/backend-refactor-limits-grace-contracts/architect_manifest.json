@@ -1,0 +1,918 @@
+{
+  "feature_id": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424",
+  "title": "Backend refactor to line limits and GRACE contracts",
+  "slice_id": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424",
+  "slice_slug": "backend-refactor-limits-grace-contracts",
+  "slice_dir": "/opt/astro-project/docs/backend-refactor-limits-grace-contracts",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/backend-refactor-limits-grace-contracts/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-BACKEND-SIZE-LIMITS",
+    "M-LLM-ORCHESTRATOR",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-API-GATEWAY",
+    "M-REPORT-WORKFLOW"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Size Guard And Small Service Splits",
+      "goal": "Make the size checker strict and split LLM orchestrator plus WeekBrief into cohesive contract-bearing modules.",
+      "objective": "Make the size checker strict and split LLM orchestrator plus WeekBrief into cohesive contract-bearing modules.",
+      "required": true,
+      "module_refs": [
+        "M-BACKEND-SIZE-LIMITS",
+        "M-LLM-ORCHESTRATOR",
+        "M-WEEK-BRIEF-SERVICE"
+      ],
+      "allowed_write_scope": [
+        "scripts/check_size_limits.py",
+        "backend/app/llm/*.py",
+        "backend/app/services/week_brief*.py",
+        "tests/test_*llm*.py",
+        "tests/test_*week_brief*.py"
+      ],
+      "frozen_scope": [
+        "backend/app/main.py",
+        "backend/app/services/report_workflow.py",
+        "frontend/**"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/check_size_limits.py --root backend/app --strict --allow-known-oversized backend/app/main.py backend/app/services/report_workflow.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_llm_cli_parsing.py tests/test_llm_fallback_chain.py tests/test_llm_model_routing.py tests/test_week_brief_service.py tests/test_week_brief_api.py"
+      ],
+      "acceptance_criteria": [
+        "LLM and WeekBrief files are <=1000 lines",
+        "Public imports remain stable",
+        "Touched modules include GRACE contracts/maps and paired semantic blocks",
+        "Packet-local telemetry/log evidence is reviewed where emitted"
+      ],
+      "deferred_work": [
+        "API gateway split",
+        "Report workflow split",
+        "Final zero-oversized scan"
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "API Gateway Split",
+      "goal": "Split backend/app/main.py into schemas, helpers, and routers while preserving route contracts and compatibility exports.",
+      "objective": "Split backend/app/main.py into schemas, helpers, and routers while preserving route contracts and compatibility exports.",
+      "required": true,
+      "module_refs": [
+        "M-API-GATEWAY"
+      ],
+      "allowed_write_scope": [
+        "backend/app/main.py",
+        "backend/app/routers/*.py",
+        "backend/app/api*.py",
+        "tests/test_*api*.py",
+        "tests/test_admin_api.py",
+        "tests/test_daily_feed_robustness.py",
+        "tests/test_catalog_logging.py"
+      ],
+      "frozen_scope": [
+        "backend/app/services/report_workflow.py",
+        "backend/app/services/billing.py",
+        "backend/app/auth.py",
+        "frontend/**"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py tests/test_catalog_logging.py"
+      ],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_api_contract_wave1.py tests/test_admin_api.py tests/test_access_control_integration.py tests/test_daily_feed_robustness.py tests/test_catalog_logging.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "main.py is <=1000 lines",
+        "All existing routes remain registered with unchanged behavior",
+        "Auth and billing-adjacent access semantics are preserved",
+        "Today/Week/Admin/Catalog affected-flow evidence is clean"
+      ],
+      "deferred_work": [
+        "Report workflow split"
+      ]
+    },
+    {
+      "wave_id": "W03",
+      "title": "Report Workflow Split",
+      "goal": "Split report_workflow.py into cohesive content, context, insight, chart, runtime, and logging modules without lifecycle changes.",
+      "objective": "Split report_workflow.py into cohesive content, context, insight, chart, runtime, and logging modules without lifecycle changes.",
+      "required": true,
+      "module_refs": [
+        "M-REPORT-WORKFLOW"
+      ],
+      "allowed_write_scope": [
+        "backend/app/services/report_workflow.py",
+        "backend/app/services/report_workflow*.py",
+        "tests/test_report_workflow_regression.py",
+        "tests/test_report_context.py",
+        "tests/test_report_contract.py",
+        "tests/test_validation_template_fallback.py",
+        "tests/test_natal_section_context.py",
+        "tests/test_backend_grace_wave_finish.py"
+      ],
+      "frozen_scope": [
+        "backend/app/main.py except import compatibility fixes",
+        "frontend/**",
+        "backend/app/models.py",
+        "backend/app/services/billing.py"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py tests/test_report_workflow_regression.py"
+      ],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_report_workflow_regression.py tests/test_report_context.py tests/test_report_contract.py tests/test_validation_template_fallback.py tests/test_natal_section_context.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "report_workflow.py and extracted modules are <=1000 lines",
+        "Report run/chunk/status/fallback behavior remains stable",
+        "Workflow logs preserve module/contract/block/report_id attribution",
+        "Report/Week trace evidence is clean"
+      ],
+      "deferred_work": [
+        "Final all-backend size and pipeline closeout"
+      ]
+    },
+    {
+      "wave_id": "W04",
+      "title": "Final Verification And Gate",
+      "goal": "Verify strict size limits, backend behavior, GRACE contracts, reviewer evidence, and observability evidence for the full slice.",
+      "objective": "Verify strict size limits, backend behavior, GRACE contracts, reviewer evidence, and observability evidence for the full slice.",
+      "required": true,
+      "module_refs": [
+        "M-BACKEND-SIZE-LIMITS",
+        "M-API-GATEWAY",
+        "M-REPORT-WORKFLOW",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-LLM-ORCHESTRATOR"
+      ],
+      "allowed_write_scope": [
+        "tests/** only for missing behavior-preservation coverage",
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**",
+        "docs/backend-refactor-limits-grace-contracts/**"
+      ],
+      "frozen_scope": [
+        "frontend/**",
+        "root GRACE canon unless root_deltas are explicitly approved"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py"
+      ],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/check_size_limits.py --root backend/app --strict",
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "No oversized backend/app Python files remain",
+        "Backend quick pipeline passes",
+        "Reviewer accepts compatibility and GRACE contract evidence",
+        "Architect gate accepts business and architecture fit"
+      ],
+      "deferred_work": []
+    }
+  ],
+  "packet_candidates": [
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-STRICT-BACKEND-SIZE-GUARD",
+      "wave_id": "W01",
+      "title": "Strict Backend Size Guard",
+      "role": "coder",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Update scripts/check_size_limits.py to provide strict backend/app scoped file/function checks with generated/cache exclusions and transitional allow-known-oversized support for W01 only.",
+      "write_scope": [
+        "scripts/check_size_limits.py",
+        "tests/test_backend_size_contracts.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W00-ARCHITECT-FORMALIZATION",
+        "feature brief",
+        "canon digest advisory memory"
+      ],
+      "acceptance_criteria": [
+        "Strict checker can fail on >1000-line backend files",
+        "Checker excludes venv/cache/generated artifacts",
+        "Checker reports AST function spans or exact token counts as available"
+      ],
+      "verification_profile": {
+        "backend": "targeted checker tests plus checker dry run",
+        "frontend": "not required",
+        "observability": "none"
+      },
+      "reviewer_gate": [
+        "No broad repository scan beyond configured exclusions",
+        "No unrelated behavior checks embedded in size script"
+      ],
+      "dependencies": [],
+      "notes": [
+        "Use allow-known-oversized only until W04 final scan."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-STRICT-BACKEND-SIZE-GUARD"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-LLM-AND-WEEKBRIEF-SERVICE-SPLIT",
+      "wave_id": "W01",
+      "title": "LLM And WeekBrief Service Split",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Split backend/app/llm/orchestrator.py and backend/app/services/week_brief_service.py into cohesive modules with stable facade imports and GRACE contracts.",
+      "write_scope": [
+        "backend/app/llm/*.py",
+        "backend/app/services/week_brief*.py",
+        "tests/test_*llm*.py",
+        "tests/test_*week_brief*.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-STRICT-BACKEND-SIZE-GUARD",
+        "existing LLM and WeekBrief tests"
+      ],
+      "acceptance_criteria": [
+        "Both original oversized files are <=1000 lines",
+        "Existing public symbols remain importable",
+        "WeekBrief logs keep packet_local evidence fields",
+        "New modules include GRACE module contracts/maps and paired semantic blocks"
+      ],
+      "verification_profile": {
+        "backend": "targeted LLM and WeekBrief pytest",
+        "frontend": "not required",
+        "observability": "packet_local WeekBrief telemetry review; degraded-but-expected acceptable only if no canonical emitter ran"
+      },
+      "reviewer_gate": [
+        "No schema or fallback behavior change",
+        "GRACE module contracts/maps present in new modules"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-STRICT-BACKEND-SIZE-GUARD"
+      ],
+      "notes": [
+        "Keep backend.app.llm.orchestrator and backend.app.services.week_brief_service as compatibility facades."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-LLM-AND-WEEKBRIEF-SERVICE-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-VERIFY-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS",
+      "wave_id": "W01",
+      "title": "Verify W01 Size Guard And Small Service Splits",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Verify W01 size guard behavior, LLM/WeekBrief targeted tests, file limits for W01-owned files, and packet-local evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-STRICT-BACKEND-SIZE-GUARD",
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-LLM-AND-WEEKBRIEF-SERVICE-SPLIT"
+      ],
+      "acceptance_criteria": [
+        "W01 commands pass",
+        "W01-owned backend files are <=1000 lines",
+        "Evidence records packet_local observability verdict"
+      ],
+      "verification_profile": {
+        "backend": "W01 targeted commands",
+        "frontend": "not required",
+        "observability": "packet_local"
+      },
+      "reviewer_gate": [
+        "Evidence includes commands, results, and line-count output"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-LLM-AND-WEEKBRIEF-SERVICE-SPLIT"
+      ],
+      "notes": [
+        "Do not require today-week canonical closeout for W01."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-LLM-AND-WEEKBRIEF-SERVICE-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-REVIEW-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS",
+      "wave_id": "W01",
+      "title": "Review W01 Size Guard And Small Service Splits",
+      "role": "reviewer",
+      "reasoning": "medium",
+      "packet_type": "gate_decision",
+      "summary": "Review W01 implementation boundaries, compatibility facades, GRACE markers, and verifier evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-VERIFY-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+      ],
+      "acceptance_criteria": [
+        "No W01 scope expansion",
+        "No LLM/WeekBrief behavior drift",
+        "Evidence is sufficient for architect gate"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "packet_local evidence review"
+      },
+      "reviewer_gate": [
+        "Findings lead; bounded defects route to rework"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-VERIFY-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+      ],
+      "notes": [
+        "Required before W01 architect gate."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-VERIFY-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-ARCHITECT-GATE-W01",
+      "wave_id": "W01",
+      "title": "Architect Gate W01",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W01 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-REVIEW-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "packet_local evidence review"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-REVIEW-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+      ],
+      "notes": [
+        "Required for every required wave."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-REVIEW-W01-SIZE-GUARD-AND-SMALL-SERVICE-SPLITS"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-SCHEMA-AND-HELPER-EXTRACTION",
+      "wave_id": "W02",
+      "title": "API Gateway Schema And Helper Extraction",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Extract Pydantic DTOs and pure serialization/report helper functions from backend/app/main.py into API-local modules without moving route ownership yet.",
+      "write_scope": [
+        "backend/app/main.py",
+        "backend/app/api*.py",
+        "tests/test_api_contract_wave1.py",
+        "tests/test_report_contract.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-ARCHITECT-GATE-W01",
+        "current main.py module map",
+        "existing API contract tests"
+      ],
+      "acceptance_criteria": [
+        "Schemas serialize identically",
+        "main.py compatibility imports remain stable",
+        "No route behavior changes"
+      ],
+      "verification_profile": {
+        "backend": "targeted API/report contract pytest",
+        "frontend": "not required",
+        "observability": "packet_local structured log capture where tests already exercise it"
+      },
+      "reviewer_gate": [
+        "No endpoint movement in this packet",
+        "No DTO field/default changes"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W01-ARCHITECT-GATE-W01"
+      ],
+      "notes": [
+        "Preparatory split to reduce router extraction risk."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-SCHEMA-AND-HELPER-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-ROUTER-EXTRACTION",
+      "wave_id": "W02",
+      "title": "API Gateway Router Extraction",
+      "role": "coder",
+      "reasoning": "xhigh",
+      "packet_type": "execution",
+      "summary": "Move admin, report, user/profile, feed/week/day, diagnostics, and geo endpoints from main.py into routers while preserving app route table and compatibility exports.",
+      "write_scope": [
+        "backend/app/main.py",
+        "backend/app/routers/*.py",
+        "tests/test_admin_api.py",
+        "tests/test_daily_feed_robustness.py",
+        "tests/test_access_control_integration.py",
+        "tests/test_catalog_logging.py",
+        "tests/test_backend_grace_wave_finish.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-SCHEMA-AND-HELPER-EXTRACTION",
+        "existing route tests and monkeypatch paths"
+      ],
+      "acceptance_criteria": [
+        "main.py is <=1000 lines",
+        "All routes remain registered with same paths/methods/status behavior",
+        "Compatibility exports cover existing local imports where practical",
+        "Auth and access-control behavior remain unchanged"
+      ],
+      "verification_profile": {
+        "backend": "targeted API/admin/feed/catalog/access pytest plus backend quick if route table changes are broad",
+        "frontend": "not required",
+        "observability": "wave_final today-week post-test review plus structured Admin/Catalog log inspection"
+      },
+      "reviewer_gate": [
+        "No auth dependency weakening",
+        "No billing/access-control semantic drift",
+        "No silent route removal"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-SCHEMA-AND-HELPER-EXTRACTION"
+      ],
+      "notes": [
+        "Patch paths may move only when external behavior remains unchanged and tests document the new boundary."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-ROUTER-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-VERIFY-W02-API-GATEWAY-SPLIT",
+      "wave_id": "W02",
+      "title": "Verify W02 API Gateway Split",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Verify W02 route behavior, main.py line limit, targeted API tests, and canonical evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-ROUTER-EXTRACTION"
+      ],
+      "acceptance_criteria": [
+        "W02 commands pass",
+        "main.py is <=1000 lines",
+        "Today/Week/Admin/Catalog evidence verdict is clean"
+      ],
+      "verification_profile": {
+        "backend": "W02 targeted API commands",
+        "frontend": "not required",
+        "observability": "wave_final clean required"
+      },
+      "reviewer_gate": [
+        "Evidence includes route/size/test/log verdicts"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-ROUTER-EXTRACTION"
+      ],
+      "notes": [
+        "W02 touches canonical API emitters, so no-evidence closeout is blocking."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-API-GATEWAY-ROUTER-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-REVIEW-W02-API-GATEWAY-SPLIT",
+      "wave_id": "W02",
+      "title": "Review W02 API Gateway Split",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Review W02 route compatibility, auth/access preservation, GRACE markers, and verifier evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-VERIFY-W02-API-GATEWAY-SPLIT"
+      ],
+      "acceptance_criteria": [
+        "No route/auth/schema regression",
+        "No silent scope expansion",
+        "Evidence supports architect decision"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final evidence review"
+      },
+      "reviewer_gate": [
+        "Findings lead; bounded defects route to rework"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-VERIFY-W02-API-GATEWAY-SPLIT"
+      ],
+      "notes": [
+        "Required before W02 architect gate."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-VERIFY-W02-API-GATEWAY-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-ARCHITECT-GATE-W02",
+      "wave_id": "W02",
+      "title": "Architect Gate W02",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W02 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-REVIEW-W02-API-GATEWAY-SPLIT"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final clean evidence review"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-REVIEW-W02-API-GATEWAY-SPLIT"
+      ],
+      "notes": [
+        "Required for every required wave."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-REVIEW-W02-API-GATEWAY-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CONTENT-AND-FORECAST-EXTRACTION",
+      "wave_id": "W03",
+      "title": "Report Workflow Content And Forecast Extraction",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Extract cleanup, text processing, week/month forecast rendering, fallback content, template content, and model-resolution helpers from report_workflow.py.",
+      "write_scope": [
+        "backend/app/services/report_workflow.py",
+        "backend/app/services/report_workflow_content*.py",
+        "backend/app/services/report_workflow_forecast*.py",
+        "tests/test_week_renderer.py",
+        "tests/test_validation_template_fallback.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-ARCHITECT-GATE-W02",
+        "report_workflow semantic block map",
+        "content/fallback tests"
+      ],
+      "acceptance_criteria": [
+        "Extracted modules are <=1000 lines",
+        "Fallback/template output remains stable",
+        "report_workflow facade exports prior helper names"
+      ],
+      "verification_profile": {
+        "backend": "targeted renderer/fallback pytest",
+        "frontend": "not required",
+        "observability": "packet_local workflow log review when emitted"
+      },
+      "reviewer_gate": [
+        "No report copy/schema semantic drift",
+        "GRACE blocks align with extracted responsibilities"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W02-ARCHITECT-GATE-W02"
+      ],
+      "notes": [
+        "Keep high-level generation lifecycle out of this packet."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CONTENT-AND-FORECAST-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CHART-CONTEXT-AND-INSIGHT-EXTRACTION",
+      "wave_id": "W03",
+      "title": "Report Workflow Chart Context And Insight Extraction",
+      "role": "coder",
+      "reasoning": "xhigh",
+      "packet_type": "execution",
+      "summary": "Extract chart dispatch, report context assembly, section context, and natal insight-pack builders into cohesive <=1000-line modules.",
+      "write_scope": [
+        "backend/app/services/report_workflow.py",
+        "backend/app/services/report_workflow_chart*.py",
+        "backend/app/services/report_workflow_context*.py",
+        "backend/app/services/report_workflow_insight*.py",
+        "tests/test_report_context.py",
+        "tests/test_natal_section_context.py",
+        "tests/test_canonical_astro_invariants.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CONTENT-AND-FORECAST-EXTRACTION",
+        "report context and natal section tests"
+      ],
+      "acceptance_criteria": [
+        "Context/chart behavior remains stable",
+        "Insight-pack helpers are split by cohesive domain",
+        "Compatibility facade remains import-safe"
+      ],
+      "verification_profile": {
+        "backend": "targeted context/natal invariant pytest",
+        "frontend": "not required",
+        "observability": "packet_local workflow trace review"
+      },
+      "reviewer_gate": [
+        "No astrology/chart calculation behavior changes",
+        "No persistence or notification changes"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CONTENT-AND-FORECAST-EXTRACTION"
+      ],
+      "notes": [
+        "Use semantic extraction, not algorithm rewrites."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CHART-CONTEXT-AND-INSIGHT-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-RUNTIME-GENERATION-EXTRACTION",
+      "wave_id": "W03",
+      "title": "Report Workflow Runtime Generation Extraction",
+      "role": "coder",
+      "reasoning": "xhigh",
+      "packet_type": "execution",
+      "summary": "Extract run lifecycle, chunk initialization, section generation, report generation, delivery notification, and workflow logging while preserving monkeypatch-compatible facade symbols.",
+      "write_scope": [
+        "backend/app/services/report_workflow.py",
+        "backend/app/services/report_workflow_runtime*.py",
+        "backend/app/services/report_workflow_logging*.py",
+        "tests/test_report_workflow_regression.py",
+        "tests/test_report_threshold.py",
+        "tests/test_json_pipeline.py",
+        "tests/test_backend_grace_wave_finish.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CHART-CONTEXT-AND-INSIGHT-EXTRACTION",
+        "workflow regression tests"
+      ],
+      "acceptance_criteria": [
+        "report_workflow.py is <=1000 lines",
+        "ReportRun/ReportChunk status transitions are unchanged",
+        "Workflow logs keep module/contract/block/report_id attribution"
+      ],
+      "verification_profile": {
+        "backend": "targeted workflow pytest plus backend quick candidate",
+        "frontend": "not required",
+        "observability": "wave_final report/today-week log review; clean required"
+      },
+      "reviewer_gate": [
+        "No async lifecycle regression",
+        "No notification side-effect regression",
+        "No loss of report workflow trace fields"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-CHART-CONTEXT-AND-INSIGHT-EXTRACTION"
+      ],
+      "notes": [
+        "If facade monkeypatch compatibility is impossible for a symbol, add a targeted test and document the local test-boundary update."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-RUNTIME-GENERATION-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-VERIFY-W03-REPORT-WORKFLOW-SPLIT",
+      "wave_id": "W03",
+      "title": "Verify W03 Report Workflow Split",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Verify W03 report workflow behavior, report_workflow file limits, targeted report tests, and wave_final evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-RUNTIME-GENERATION-EXTRACTION"
+      ],
+      "acceptance_criteria": [
+        "W03 commands pass",
+        "report_workflow.py and extracted modules are <=1000 lines",
+        "Report/Week evidence verdict is clean"
+      ],
+      "verification_profile": {
+        "backend": "W03 targeted report commands",
+        "frontend": "not required",
+        "observability": "wave_final clean required"
+      },
+      "reviewer_gate": [
+        "Evidence includes lifecycle tests, size output, and post-test trace verdict"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-RUNTIME-GENERATION-EXTRACTION"
+      ],
+      "notes": [
+        "W03 owns canonical report workflow emitter evidence."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REPORT-WORKFLOW-RUNTIME-GENERATION-EXTRACTION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REVIEW-W03-REPORT-WORKFLOW-SPLIT",
+      "wave_id": "W03",
+      "title": "Review W03 Report Workflow Split",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Review W03 workflow lifecycle preservation, compatibility facades, GRACE markers, and verifier evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-VERIFY-W03-REPORT-WORKFLOW-SPLIT"
+      ],
+      "acceptance_criteria": [
+        "No report workflow behavior drift",
+        "No missing contract markers",
+        "Evidence supports architect decision"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final evidence review"
+      },
+      "reviewer_gate": [
+        "Findings lead; bounded defects route to rework"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-VERIFY-W03-REPORT-WORKFLOW-SPLIT"
+      ],
+      "notes": [
+        "Required before W03 architect gate."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-VERIFY-W03-REPORT-WORKFLOW-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-ARCHITECT-GATE-W03",
+      "wave_id": "W03",
+      "title": "Architect Gate W03",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W03 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REVIEW-W03-REPORT-WORKFLOW-SPLIT"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final clean evidence review"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REVIEW-W03-REPORT-WORKFLOW-SPLIT"
+      ],
+      "notes": [
+        "Required for every required wave."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-REVIEW-W03-REPORT-WORKFLOW-SPLIT"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-FINAL-BACKEND-REFACTOR-LIMITS-VERIFICATION",
+      "wave_id": "W04",
+      "title": "Final Backend Refactor Limits Verification",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Run strict size/function checks, targeted behavior suites, backend quick pipeline, and final post-test observability review.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**",
+        "docs/backend-refactor-limits-grace-contracts/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-ARCHITECT-GATE-W03"
+      ],
+      "acceptance_criteria": [
+        "All final verification commands pass",
+        "Observability verdict is clean",
+        "Evidence includes size scan, function-size scan, test commands, and trace/log review"
+      ],
+      "verification_profile": {
+        "backend": "strict size scan, targeted pytest, docker backend quick pipeline",
+        "frontend": "not required",
+        "observability": "wave_final post_test_review with clean verdict"
+      },
+      "reviewer_gate": [
+        "Evidence paths and verdicts are concrete",
+        "No degraded/no-evidence closeout accepted for W04"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-ARCHITECT-GATE-W03"
+      ],
+      "notes": [
+        "Do not run frontend E2E; frontend is out of scope."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W03-ARCHITECT-GATE-W03"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-BACKEND-REFACTOR-LIMITS-FINAL-REVIEW",
+      "wave_id": "W04",
+      "title": "Backend Refactor Limits Final Review",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Review final code boundaries, compatibility facades, GRACE contracts, test evidence, and observability evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424/**",
+        "docs/backend-refactor-limits-grace-contracts/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-FINAL-BACKEND-REFACTOR-LIMITS-VERIFICATION"
+      ],
+      "acceptance_criteria": [
+        "No silent behavior expansion",
+        "No oversized file/function remains",
+        "No missing GRACE contract markers in touched modules"
+      ],
+      "verification_profile": {
+        "backend": "review verifier commands and spot-check route/import compatibility",
+        "frontend": "not required",
+        "observability": "review clean wave_final evidence"
+      },
+      "reviewer_gate": [
+        "Findings lead; rework only for bounded defects"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-FINAL-BACKEND-REFACTOR-LIMITS-VERIFICATION"
+      ],
+      "notes": [
+        "Planner not required for bounded local rework."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-FINAL-BACKEND-REFACTOR-LIMITS-VERIFICATION"
+    },
+    {
+      "key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-ARCHITECT-FINAL-GATE",
+      "wave_id": "W04",
+      "title": "Architect Final Gate",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Decide final feature acceptance from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-BACKEND-REFACTOR-LIMITS-FINAL-REVIEW"
+      ],
+      "acceptance_criteria": [
+        "Business intent satisfied",
+        "Architecture remains coherent",
+        "No root canon deltas required",
+        "Observability gate is clean"
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "clean wave_final verdict required"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-BACKEND-REFACTOR-LIMITS-FINAL-REVIEW"
+      ],
+      "notes": [
+        "Return FINAL_WAVE_DECISION_JSON at gate time."
+      ],
+      "review_target_key": "FEAT-BACKEND-REFACTOR-LIMITS-GRACE-CONTRACTS-20260424-W04-BACKEND-REFACTOR-LIMITS-FINAL-REVIEW"
+    }
+  ],
+  "next_action": "materialize_packets",
+  "planner_inputs": [
+    "/opt/astro-project/docs/backend-refactor-limits-grace-contracts/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-24T12:26:45.793818+00:00"
+}

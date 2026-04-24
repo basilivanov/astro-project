@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.app.logging_utils import LOG_DIR as ACTIVE_LOG_DIR
 from tools.feed_logs.replay_last import _summarize as summarize_feed_flow
-from tools.log_watch.common import extract_timestamp, load_records
+from tools.log_watch.common import extract_timestamp, load_records, summarize_landmarks
 from tools.rendered_artifacts import load_rendered_summaries
 
 VERDICTS = {
@@ -53,7 +53,6 @@ REPORT_EVENTS = {
     "week_brief_validation_failed",
     "week_brief.response_returned",
 }
-
 EXPECTED_REASON_CODES = {
     "fallback_expected",
     "expected_degradation",
@@ -78,6 +77,7 @@ class FlowDigest:
     alerts: list[str]
     counters: dict[str, int]
     evidence: list[dict[str, Any]]
+    landmarks: list[dict[str, Any]] | None = None
 
 
 def parse_since(value: str) -> timedelta:
@@ -442,7 +442,18 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         and counters["today_text_role_policy_violation_total"] == 0
     )
 
-    if status == "clean" and not signed_today_clean:
+    observed_today_degradation = (
+        auth_fallback_detected
+        or fallback_record_detected
+        or validator_fallback_detected
+        or counters["today_text_description_incomplete_total"] > 0
+        or counters["today_text_why_incomplete_total"] > 0
+        or counters["today_text_role_policy_violation_total"] > 0
+    )
+
+    if status == "clean" and not signed_today_clean and observed_today_degradation:
+        status = "unexpected-degradation"
+    elif status == "clean" and not signed_today_clean:
         alerts.append("today signed proof gap")
         status = "no-evidence-blocker"
 
@@ -543,6 +554,7 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
         alerts=alerts,
         counters=dict(counters),
         evidence=_pick_evidence(records),
+        landmarks=summarize_landmarks(records),
     )
 
 

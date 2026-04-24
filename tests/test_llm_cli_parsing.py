@@ -48,14 +48,14 @@ class TestLLMCliParsing(unittest.TestCase):
         os.environ["LLM_CLI_MODEL"] = "gemini-3-flash-preview"
         os.environ["LLM_CLI_REASONING"] = "medium"
         os.environ["LLM_CLI_ARGS"] = "--debug"
-        os.environ["LLM_CLI_MODEL_CODEX"] = "codex-codex4/gpt-5.4"
+        os.environ["LLM_CLI_MODEL_CODEX"] = "codex-codex4/gpt-5.5"
         os.environ["LLM_CLI_REASONING_CODEX"] = "high"
         os.environ["LLM_CLI_ARGS_CODEX"] = "--skip-git-repo-check"
 
         client = build_cli_client_from_env(provider_override="codex")
 
         self.assertEqual(client.provider, "codex")
-        self.assertEqual(client.model, "codex-codex4/gpt-5.4")
+        self.assertEqual(client.model, "codex-codex4/gpt-5.5")
         self.assertEqual(client.reasoning, "high")
         self.assertEqual(client.extra_args, ["--skip-git-repo-check"])
 

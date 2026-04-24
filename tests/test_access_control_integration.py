@@ -25,7 +25,7 @@ class TestAccessControlIntegration(unittest.TestCase):
             birth_place="Moscow"
         )
 
-    @patch("backend.app.main.upsert_client_from_payload")
+    @patch("backend.app.routers.b2c_reports.upsert_client_from_payload")
     @patch("backend.app.services.access_control.consume_report_access")
     @patch("backend.app.services.access_control.resolve_report_access")
     def test_report_create_allow(self, mock_resolve, mock_consume, mock_upsert):
@@ -73,7 +73,7 @@ class TestAccessControlIntegration(unittest.TestCase):
         self.assertEqual(response.status_code, 402)
         print("\n[Integration] Report Create DENY verified.")
 
-    @patch("backend.app.main.upsert_client_from_payload")
+    @patch("backend.app.routers.b2c_reports.upsert_client_from_payload")
     @patch("backend.app.services.access_control.resolve_report_access")
     def test_synastry_requires_partner_birth_inputs(self, mock_resolve, mock_upsert):
         mock_resolve.return_value = allow_access("synastry", AccessGrantSource.SUBSCRIPTION)

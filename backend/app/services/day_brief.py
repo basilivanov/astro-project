@@ -1,5 +1,64 @@
 """Strict canonical DayBrief assembly for the daily feed surface."""
 
+# ############################################################################
+# AI_HEADER: MODULE_DAY_BRIEF_SERVICE
+# ROLE: Assemble canonical DayBrief payloads and telemetry for the daily feed surface.
+# DEPENDENCIES: backend.app.logging_utils, day_brief_validators, forecast_factor_pipeline.
+# GRACE_ANCHORS: [DAY_BRIEF_CONSTANTS, DAY_BRIEF_TEXT_TYPES, DAY_BRIEF_TEXT_COMPOSITION, DAY_BRIEF_PAYLOAD_ASSEMBLY, DAY_BRIEF_TELEMETRY, DAY_BRIEF_ENTRYPOINTS]
+# ############################################################################
+
+# START_MODULE_CONTRACT: M-DAY-BRIEF-SERVICE
+# purpose: Build canonical DayBrief payloads and telemetry without changing DayBrief business semantics.
+# owns:
+#   - backend/app/services/day_brief.py
+# inputs:
+#   - personalized daily fact payloads
+#   - optional authenticated user context for premium and CTA shaping
+#   - optional general_vibe and generation_mode hints from API orchestration
+# outputs:
+#   - canonical DayBrief DTO payloads
+#   - DayBrief telemetry payloads for structured logs
+# dependencies:
+#   - backend.app.logging_utils for correlation-aware event logging
+#   - backend.app.services.forecast_factor_pipeline for normalized factor ranking
+#   - backend.app.services.day_brief_validators for canonical DTO validation and serialization
+# side_effects:
+#   - emits day_brief.* structured events
+# invariants:
+#   - payload shape remains day_brief_canon_v1
+#   - domain keys remain energy/money/love/focus
+#   - stable module/function/block naming is available for post-test evidence review
+# failure_policy:
+#   - logging failures degrade to warning events and do not block payload delivery
+#   - invalid payloads fail via canonical validator contracts instead of drifting silently
+# non_goals:
+#   - changing scoring logic
+#   - changing DayBrief payload semantics
+# END_MODULE_CONTRACT: M-DAY-BRIEF-SERVICE
+
+# START_MODULE_MAP: M-DAY-BRIEF-SERVICE
+# public_entrypoints:
+#   - build_day_brief_payload -> backend/app/main.py:/api/feed/today
+#   - build_day_brief_telemetry -> DayBrief telemetry/readability envelope
+# internal_entrypoints:
+#   - _assemble_day_brief_payload -> canonical DayBrief DTO assembly
+#   - _build_domain_text_layers -> deterministic domain text composition
+# semantic_blocks:
+#   - DAY_BRIEF_CONSTANTS: module identifiers, score tables, lexical guards
+#   - DAY_BRIEF_TEXT_TYPES: dataclasses used by deterministic text assembly
+#   - DAY_BRIEF_TEXT_COMPOSITION: text clipping, dedupe, description, and why-text helpers
+#   - DAY_BRIEF_PAYLOAD_ASSEMBLY: score normalization, domain assembly, premium/cta shaping
+#   - DAY_BRIEF_TELEMETRY: trace resolution and structured event payload shaping
+#   - DAY_BRIEF_ENTRYPOINTS: exported DayBrief build entrypoint and stable DAY_BRIEF_BUILD emission boundary
+# owned_tests:
+#   - tests/test_day_brief.py
+#   - tests/test_day_brief_schema.py
+# adjacent_modules:
+#   - backend/app/services/day_brief_validators.py
+#   - backend/app/services/personalized_daily.py
+#   - backend/app/main.py
+# END_MODULE_MAP: M-DAY-BRIEF-SERVICE
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,7 +72,9 @@ from .day_brief_validators import serialize_day_brief, validate_day_brief_payloa
 from .forecast_factor_pipeline import NormalizedFactor
 from .forecast_factor_pipeline import build_normalized_factors, preprocess_factors_for_ranking
 
+# START_BLOCK: DAY_BRIEF_CONSTANTS
 MODULE_NAME = "M-DAY-BRIEF-SERVICE"
+DAY_BRIEF_BUILD_BLOCK = "DAY_BRIEF_BUILD"
 DOMAIN_KEYS = ("energy", "money", "love", "focus")
 DOMAIN_ALIASES = {
     "energy": {"energy", "health", "tonus"},
@@ -51,8 +112,12 @@ DOMAIN_MARKER_HINTS = {
     "focus": ("фокус", "вниман", "переключ", "приоритет", "контур"),
     "energy": ("ресурс", "темп", "ритм", "восстанов", "нагруз", "рывок"),
 }
+DESCRIPTION_FORBIDDEN_RE = ("дом", "аспект", "квадрат", "секстиль", "трин", "оппози", "соедин", "марс", "венер", "меркур", "луна", "солнц", "мс", "mc", "твой", "твоя", "твоё")
+WHY_ANCHOR_RE = ("твой", "твоя", "твоё", "твоём", "луна", "марс", "венер", "меркур", "солнц", "мс", "mc", "дом")
+WHY_CAUSAL_RE = ("поэтому", "потому", "из-за", "задаёт", "задают", "акцент", "включ", "проходит", "цепляет", "считывается", "идёт", "заметно", "реагирует")
+# END_BLOCK: DAY_BRIEF_CONSTANTS
 
-
+# START_BLOCK: DAY_BRIEF_TEXT_TYPES
 @dataclass
 class FactorRecord:
     id: str
@@ -71,8 +136,10 @@ class DomainTextLayerResult:
     evidence_refs: list[dict[str, Any]] = field(default_factory=list)
     reason_codes: list[str] = field(default_factory=list)
     composition_mode: str = "deterministic"
+# END_BLOCK: DAY_BRIEF_TEXT_TYPES
 
 
+# START_BLOCK: DAY_BRIEF_TEXT_COMPOSITION
 def _clip_text(value: str, *, fallback: str, max_len: int) -> str:
     text = " ".join(str(value or "").split()).strip()
     if not text:
@@ -243,11 +310,6 @@ def _human_house_label(value: int | None) -> str | None:
         12: "12-й дом восстановления и тихой внутренней работы",
     }
     return labels.get(value)
-
-
-DESCRIPTION_FORBIDDEN_RE = ("дом", "аспект", "квадрат", "секстиль", "трин", "оппози", "соедин", "марс", "венер", "меркур", "луна", "солнц", "мс", "mc", "твой", "твоя", "твоё")
-WHY_ANCHOR_RE = ("твой", "твоя", "твоё", "твоём", "луна", "марс", "венер", "меркур", "солнц", "мс", "mc", "дом")
-WHY_CAUSAL_RE = ("поэтому", "потому", "из-за", "задаёт", "задают", "акцент", "включ", "проходит", "цепляет", "считывается", "идёт", "заметно", "реагирует")
 
 
 def _domain_description(key: str, semantic: dict[str, Any]) -> str | None:
@@ -508,6 +570,17 @@ def _compose_domain_why_text(inputs: dict[str, Any]) -> tuple[str | None, list[s
     return (None if reasons else text), reasons
 
 
+# START_CONTRACT: FN-BUILD-DOMAIN-TEXT-LAYERS
+# purpose: Assemble deterministic DayBrief description and why-text layers for one canonical domain.
+# inputs:
+#   - key: canonical DayBrief domain key
+#   - semantic: semantic layer hints used for copy shaping
+#   - factor_refs: explainability refs already narrowed to the domain surface
+#   - facts: daily fact payload for lunar/profection context
+# returns: DayBrief domain text layer result with statuses, refs, and reason codes
+# invariants:
+#   - description and why-text semantics remain deterministic and domain-scoped
+#   - failure reasons are explicit instead of silently falling back to non-canonical copy
 def _build_domain_text_layers(key: str, semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> DomainTextLayerResult:
     inputs = _collect_domain_text_inputs(key, semantic, factor_refs, facts)
     description, description_reasons = _compose_domain_description(inputs)
@@ -525,6 +598,7 @@ def _build_domain_text_layers(key: str, semantic: dict[str, Any], factor_refs: l
         reason_codes=reason_codes,
         composition_mode="deterministic",
     )
+# END_CONTRACT: FN-BUILD-DOMAIN-TEXT-LAYERS
 
 
 def _guard_cross_domain_why_duplicates(domains: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -546,7 +620,10 @@ def _guard_cross_domain_why_duplicates(domains: dict[str, dict[str, Any]]) -> di
             continue
         seen[key] = canon
     return domains
+# END_BLOCK: DAY_BRIEF_TEXT_COMPOSITION
 
+
+# START_BLOCK: DAY_BRIEF_PAYLOAD_ASSEMBLY
 def _build_day_domain(key: str, scores: dict[str, int], semantic: dict[str, Any], factor_refs: list[dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
     text_layers = _build_domain_text_layers(key, semantic, factor_refs, facts)
     score = scores.get(key)
@@ -624,7 +701,16 @@ def _build_cta(user: Any | None) -> dict[str, Any] | None:
         "secondary": {"type": "open_history", "label": "История", "href": "/reports/history"},
     }
 
-
+# START_CONTRACT: FN-ASSEMBLE-DAY-BRIEF-PAYLOAD
+# purpose: Compose the canonical DayBrief DTO before validation and serialization.
+# inputs:
+#   - facts: personalized daily fact payload
+#   - user: optional authenticated user context
+#   - general_vibe: optional API-supplied copy seed
+# returns: canonical DayBrief payload dict
+# invariants:
+#   - output remains compatible with day_brief_canon_v1
+#   - domain set remains limited to energy/money/love/focus
 def _assemble_day_brief_payload(
     facts: dict[str, Any],
     *,
@@ -658,13 +744,24 @@ def _assemble_day_brief_payload(
         "premium": _build_premium_state(now_local, user),
         "cta": _build_cta(user),
     }
+# END_CONTRACT: FN-ASSEMBLE-DAY-BRIEF-PAYLOAD
+# END_BLOCK: DAY_BRIEF_PAYLOAD_ASSEMBLY
 
 
+# START_BLOCK: DAY_BRIEF_TELEMETRY
 def _resolve_trace_id(explicit: str | None = None) -> str | None:
     context = get_correlation_ids()
     return explicit or context.get("trace_id")
 
-
+# START_CONTRACT: FN-BUILD-DAY-BRIEF-TELEMETRY
+# purpose: Produce a stable telemetry envelope for DayBrief structured logs.
+# inputs:
+#   - payload: canonical or validator-compatible DayBrief payload
+#   - generation_mode/trace_id/request_id: optional caller metadata
+# returns: telemetry dict with confidence and factor summary
+# invariants:
+#   - telemetry is derived from validated DayBrief payloads
+#   - request_id falls back to trace_id when no explicit request_id exists
 def build_day_brief_telemetry(
     payload: dict[str, Any],
     *,
@@ -673,7 +770,9 @@ def build_day_brief_telemetry(
     request_id: str | None = None,
 ) -> dict[str, Any]:
     model = validate_day_brief_payload(payload)
+    context = get_correlation_ids()
     resolved_trace_id = _resolve_trace_id(trace_id)
+    resolved_request_id = request_id or context.get("request_id") or resolved_trace_id
     complete_domains = sum(
         1
         for domain in model.domains.values()
@@ -681,14 +780,23 @@ def build_day_brief_telemetry(
     )
     return {
         "trace_id": resolved_trace_id,
-        "request_id": request_id or resolved_trace_id,
+        "request_id": resolved_request_id,
         "generation_mode": generation_mode or "deterministic",
         "birth_time_used": False,
         "confidence_bucket": "high" if complete_domains == 4 else "medium" if complete_domains >= 2 else "low",
         "factor_count": sum(len(domain.evidence_refs) for domain in model.domains.values()),
     }
+# END_CONTRACT: FN-BUILD-DAY-BRIEF-TELEMETRY
 
 
+# START_CONTRACT: FN-LOG-DAY-BRIEF-EVENT
+# purpose: Emit canonical DayBrief structured logs with stable attribution fields.
+# inputs:
+#   - level/event/fn/block: structured log routing metadata
+#   - payload: canonical DayBrief payload used for telemetry derivation
+# returns: None
+# side_effects:
+#   - emits day_brief.* events via log_grace_event
 def _log_day_brief_event(
     level: str,
     event: str,
@@ -731,8 +839,22 @@ def _log_day_brief_event(
         reason=reason,
         error=error,
     )
+# END_CONTRACT: FN-LOG-DAY-BRIEF-EVENT
+# END_BLOCK: DAY_BRIEF_TELEMETRY
 
 
+# START_BLOCK: DAY_BRIEF_ENTRYPOINTS
+# START_CONTRACT: FN-BUILD-DAY-BRIEF-PAYLOAD
+# purpose: Build, validate, serialize, and log the canonical DayBrief payload.
+# inputs:
+#   - facts: personalized daily facts
+#   - user/general_vibe/generation_mode: optional API-layer inputs
+# returns: serialized canonical DayBrief payload
+# side_effects:
+#   - emits day_brief.built or day_brief.log_failed events
+# invariants:
+#   - payload remains validator-compatible and canon-v1 shaped
+#   - logging degradation must not block payload delivery
 def build_day_brief_payload(
     facts: dict[str, Any],
     *,
@@ -752,7 +874,7 @@ def build_day_brief_payload(
             "info",
             "day_brief.built",
             fn="build_day_brief_payload",
-            block="DAY_BRIEF_BUILD",
+            block=DAY_BRIEF_BUILD_BLOCK,
             payload=payload,
             generation_mode=generation_mode,
         )
@@ -762,10 +884,12 @@ def build_day_brief_payload(
             "day_brief.log_failed",
             module=MODULE_NAME,
             fn="build_day_brief_payload",
-            block="DAY_BRIEF_BUILD",
+            block=DAY_BRIEF_BUILD_BLOCK,
             generation_mode=generation_mode or "deterministic",
             personalization_level=payload.get("personalization_level"),
             status=payload.get("status"),
             error=str(exc),
         )
     return payload
+# END_CONTRACT: FN-BUILD-DAY-BRIEF-PAYLOAD
+# END_BLOCK: DAY_BRIEF_ENTRYPOINTS

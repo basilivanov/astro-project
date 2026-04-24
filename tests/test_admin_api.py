@@ -20,6 +20,7 @@ os.environ["ENVIRONMENT"] = "test"
 from backend.app.main import app, get_db
 from backend.app.db import apply_runtime_migrations, Base
 from backend.app.models import User
+from backend.app.auth import get_admin_user
 
 # DB Fixture with Migrations
 @pytest.fixture(scope="module")
@@ -45,11 +46,20 @@ def db_engine():
                 birth_place VARCHAR(255),
                 birth_lat FLOAT,
                 birth_lon FLOAT,
+                birth_timezone VARCHAR(64),
+                current_location VARCHAR(255),
+                current_lat FLOAT,
+                current_lon FLOAT,
+                current_timezone VARCHAR(64),
+                sun_sign VARCHAR(32),
                 is_partner BOOLEAN DEFAULT 0,
                 is_test BOOLEAN DEFAULT 0,
                 balance FLOAT DEFAULT 0,
                 subscription_active_until DATETIME,
                 referral_code VARCHAR(10),
+                last_horary_reset_at DATETIME,
+                susceptibility_profile JSON,
+                consent_log JSON,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """))
@@ -100,6 +110,19 @@ def db_engine():
                 updated_at DATETIME
             )
         """))
+
+        conn.execute(text("""
+            CREATE TABLE transactions (
+                id CHAR(32) PRIMARY KEY,
+                user_id CHAR(32),
+                amount FLOAT,
+                currency VARCHAR(8),
+                type VARCHAR(32),
+                status VARCHAR(32),
+                provider_id VARCHAR(255),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
         conn.execute(text("""
             CREATE TABLE report_runs (
                 id CHAR(32) PRIMARY KEY,
@@ -139,8 +162,10 @@ def client(db_session):
         finally:
             pass
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_admin_user] = lambda: User(telegram_id=123, full_name="Admin")
     yield TestClient(app)
     del app.dependency_overrides[get_db]
+    del app.dependency_overrides[get_admin_user]
 
 def test_admin_list_users_success(client, db_session):
     """
