@@ -1,0 +1,84 @@
+feature_id: FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424
+title: Canonical observability evidence repair for Today Week Admin Catalog
+summary: >-
+  Repair the canonical post-test observability evidence path so Today, Week,
+  Admin, and Catalog gates produce fresh, correctly classified GRACE evidence.
+  The prior backend refactor stopped at W02 because repeated evidence refresh
+  still failed with Today/Week degradation and stale Admin/Catalog evidence.
+
+impacted_surfaces:
+  - tools/post_test_review.py
+  - tools/log_watch
+  - backend/app logging producers for Today, Week, Admin, and Catalog only where evidence production is broken
+  - backend tests covering observability evidence and GRACE logging contracts
+
+impacted_grace_artifacts:
+  - docs/prefect_grace/BLUEPRINT.md only if the evidence contract changes
+  - verification-matrix.md only if the canonical observability gate semantics change
+  - knowledge-graph.xml only if module/evidence ownership changes materially
+
+wave_proposal:
+  - W00 architect formalization must identify whether failures are runtime data absence, stale log windows, incorrect classification, or broken producers.
+  - Architect must split producer fixes from reviewer/tooling classification fixes if both are needed.
+  - Each execution wave must include concrete commands that generate or locate fresh evidence before running post_test_review.
+  - If live data cannot be generated safely, architect must create a bounded dev evidence producer or explicitly block with a user-action requirement.
+
+open_decisions:
+  - Decide whether Today auth fallback and text-layer failures are expected development degradation or real product regressions.
+  - Decide whether Week chunk parse fallback is expected during backend refactor or must be repaired before acceptance.
+  - Decide the minimum fresh Admin/Catalog evidence commands required for reviewer acceptance.
+
+scope:
+  - "Fix misleading `FAIL_NO_EVIDENCE` classification when canonical logs contain concrete degraded evidence with trace/request/correlation identifiers."
+  - "Ensure Today evidence reports `unexpected-degradation` for real auth/text-layer degradation instead of no-evidence."
+  - Ensure Week evidence clearly reports chunk parse fallback/degradation with stable reason codes or fixes the producer if fallback is unintended.
+  - Refresh or repair Admin and Catalog evidence freshness so reviewer can distinguish stale evidence from missing evidence.
+  - Preserve GRACE module contracts, maps, function contracts, and paired START/END blocks for touched modules.
+  - Do not hide real degradation by marking it clean; acceptance requires clean evidence or explicit expected-degradation reason codes approved by architect.
+
+acceptance_criteria:
+  - "`python3 tools/post_test_review.py --profile today-week --since 30m --report-format md` no longer returns `FAIL_NO_EVIDENCE` when canonical logs contain request-bound evidence."
+  - Today and Week verdicts are either clean or explicit expected-degradation with reason codes; unexpected-degradation must be repaired or blocked by architect.
+  - Admin and Catalog evidence is fresh within the configured review window or the tooling explains exactly which producer command is missing.
+  - Targeted tests cover Today classification, Week fallback classification, and stale-vs-missing evidence behavior.
+  - Verifier records concrete log paths, report paths, commands run, and before/after verdicts.
+  - Reviewer rejects fabricated evidence and rejects green-only evidence without canonical logs/traces.
+
+non_goals:
+  - Do not redesign product behavior, auth, pricing, report schemas, or frontend UI.
+  - Do not weaken observability gates to pass degraded behavior as clean.
+  - Do not perform broad backend refactors beyond the evidence producers/tooling needed for this repair.
+  - Do not touch frontend visual tests unless the architect proves rendered evidence production is the root cause.
+
+touches_frontend: false
+requires_frontend_visual: false
+visual_expectations: []
+
+implementation:
+  title: Canonical Observability Evidence Repair
+  summary: >-
+    Let the architect decompose the evidence repair into safe waves. The work
+    must distinguish absent evidence from degraded evidence, refresh Admin and
+    Catalog proof, and either repair or explicitly classify Today/Week runtime
+    degradation without weakening reviewer standards.
+
+execute: true
+run_planner: false
+timeout_seconds: 14400
+agent_workdir: /opt/astro-project
+agent_sandbox: danger-full-access
+
+verifier:
+  backend_profile: backend_quick
+  frontend_profile:
+  frontend_commands: []
+  observability_profile: today-week
+  observability_commands:
+    - python3 tools/post_test_review.py --profile today-week --since 30m --report-format md
+    - python3 tools/post_test_review.py --profile read-only --since 30m --report-format md
+  artifact_globs:
+    - logs/*.jsonl
+    - test-results/**/*.json
+    - test-results/**/*.md
+    - prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/evidence/**
+  include_day_live_canary: false
