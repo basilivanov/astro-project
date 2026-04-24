@@ -18,6 +18,7 @@ try:  # pragma: no cover - runtime flexibility for PYTHONPATH
         format_dt,
         load_records,
         parse_datetime_arg,
+        summarize_landmarks,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct invocation fallback
     from common import (  # type: ignore
@@ -28,6 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct invocation fallback
         format_dt,
         load_records,
         parse_datetime_arg,
+        summarize_landmarks,
     )
 
 FLOW_SET_ID = "FLOW-SCHEDULER"
@@ -37,6 +39,13 @@ JOB_EVENTS = {
     "scheduler.job_start",
     "scheduler.job_success",
     "scheduler.job_error",
+    "scheduler.start",
+    "scheduler.birthday_check.start",
+    "scheduler.birthday_notify",
+    "scheduler.birthday_check.error",
+    "scheduler.sub_check.start",
+    "scheduler.sub_expired",
+    "scheduler.sub_check.error",
 }
 RESERVED_FIELDS = {
     "event",
@@ -46,6 +55,12 @@ RESERVED_FIELDS = {
     "job_name",
     "job_run_id",
     "duration_ms",
+    "module",
+    "fn",
+    "block",
+    "correlation_id",
+    "trace_id",
+    "request_id",
 }
 STATUS_ORDER = ("ok", "warning", "critical", "error", "invalid")
 
@@ -81,6 +96,7 @@ class JobStatus:
     last_error_run_id: str | None = None
     last_error_message: str | None = None
     last_error_metrics: dict[str, Any] | None = None
+    landmarks: list[dict[str, Any]] = field(default_factory=list)
     alerts: list[str] = field(default_factory=list)
     status: str = "ok"
     missing_log: bool = False
@@ -204,6 +220,7 @@ class JobStatus:
             "alerts": list(self.alerts),
             "status": self.status,
             "minutes_since_success": self.minutes_since_success(now),
+            "landmarks": self.landmarks,
         }
         error_minutes = self.minutes_since_error(now)
         if error_minutes is not None:
@@ -222,6 +239,7 @@ class JobStatus:
             "log_path": self.log_path,
             "window_minutes": window_minutes,
             "block": self.job_name,
+            "landmarks": self.landmarks,
             "alerts": list(self.alerts),
             "latest_event": self._latest_payload(),
             "last_success": self._success_payload(),
@@ -324,10 +342,13 @@ def _analyze_records(
         if ts is None:
             ts = fallback_timestamp(path, index, total)
         status.record_latest(event if isinstance(event, str) else None, ts, record.get("job_run_id"))
+        status.landmarks = summarize_landmarks([*status.landmarks, record], limit=5)
         if event == "scheduler.job_success":
             status.record_success(record, ts)
-        elif event == "scheduler.job_error":
+        elif event in {"scheduler.job_error", "scheduler.birthday_check.error", "scheduler.sub_check.error"}:
             status.record_error(record, ts)
+        elif event in {"scheduler.sub_expired", "scheduler.birthday_notify"}:
+            status.record_success(record, ts)
     for status in statuses.values():
         status.finalize(now, window)
     return list(statuses.values())

@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:  # pragma: no cover - runtime import flexibility
-    from tools.log_watch.common import extract_timestamp, format_dt, load_records, parse_datetime_arg
+    from tools.log_watch.common import extract_timestamp, format_dt, freshness_fields, load_records, parse_datetime_arg
 except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
-    from common import extract_timestamp, format_dt, load_records, parse_datetime_arg  # type: ignore
+    from common import extract_timestamp, format_dt, freshness_fields, load_records, parse_datetime_arg  # type: ignore
 
 CATALOG_ALLOWED_EVENTS: set[str] = {
     "catalog.history_start",
@@ -108,12 +108,9 @@ class FlowStatus:
     last_error_context: dict[str, Any] | None = None
     alerts: list[str] = field(default_factory=list)
     missing_log: bool = False
+    unreadable_log: bool = False
 
-    def to_dict(self, now: datetime) -> dict[str, Any]:
-        minutes_since_success: float | None = None
-        if self.last_success_at is not None:
-            delta = now - self.last_success_at
-            minutes_since_success = round(delta.total_seconds() / 60, 2)
+    def to_dict(self, now: datetime, window: timedelta) -> dict[str, Any]:
         payload = {
             "flow_id": self.flow_id,
             "label": self.label,
@@ -125,7 +122,7 @@ class FlowStatus:
             "latest_timestamp": format_dt(self.latest_timestamp),
             "last_success_at": format_dt(self.last_success_at),
             "last_success_event": self.last_success_event,
-            "minutes_since_success": minutes_since_success,
+            **freshness_fields(now, self.last_success_at, window),
             "alerts": list(self.alerts),
         }
         if self.success_context:
@@ -138,6 +135,8 @@ class FlowStatus:
                 payload["last_error_context"] = self.last_error_context
         if self.missing_log:
             payload["missing_log"] = True
+        if self.unreadable_log:
+            payload["unreadable_log"] = True
         return payload
 
 
@@ -160,6 +159,7 @@ def _analyze_flow(config: FlowConfig, now: datetime, window: timedelta, limit: i
     try:
         records = load_records(config.log_path, config.allowed_events, limit)
     except OSError as exc:
+        status.unreadable_log = True
         status.alerts.append(f"{config.flow_id}: unable to read {config.log_path}: {exc}")
         return status
 
@@ -262,7 +262,7 @@ def main(argv: list[str]) -> int:
         "generated_at": now.isoformat(),
         "window_minutes": args.window_minutes,
         "limit": args.limit,
-        "flows": [status.to_dict(now)],
+        "flows": [status.to_dict(now, window)],
         "alerts": list(status.alerts),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

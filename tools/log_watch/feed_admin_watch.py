@@ -12,6 +12,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+try:  # pragma: no cover - runtime import flexibility
+    from tools.log_watch.common import freshness_fields
+except ModuleNotFoundError:  # pragma: no cover - fallback for direct invocation
+    from common import freshness_fields  # type: ignore
+
 
 TIMESTAMP_KEYS = (
     "timestamp",
@@ -96,15 +101,15 @@ class FlowStatus:
     latest_timestamp: datetime | None = None
     last_success_at: datetime | None = None
     last_success_event: str | None = None
+    last_error_at: datetime | None = None
+    last_error_event: str | None = None
+    last_error_stage: str | None = None
     alerts: list[str] = field(default_factory=list)
     missing_log: bool = False
+    unreadable_log: bool = False
 
-    def to_dict(self, now: datetime) -> dict[str, Any]:
-        minutes_since_success: float | None = None
-        if self.last_success_at is not None:
-            delta = now - self.last_success_at
-            minutes_since_success = round(delta.total_seconds() / 60, 2)
-        return {
+    def to_dict(self, now: datetime, window: timedelta) -> dict[str, Any]:
+        payload = {
             "flow_id": self.flow_id,
             "label": self.label,
             "log_path": self.log_path,
@@ -114,9 +119,18 @@ class FlowStatus:
             "latest_timestamp": _format_dt(self.latest_timestamp),
             "last_success_at": _format_dt(self.last_success_at),
             "last_success_event": self.last_success_event,
-            "minutes_since_success": minutes_since_success,
+            **freshness_fields(now, self.last_success_at, window),
             "alerts": list(self.alerts),
         }
+        if self.last_error_at:
+            payload["last_error_at"] = _format_dt(self.last_error_at)
+            payload["last_error_event"] = self.last_error_event
+            payload["last_error_stage"] = self.last_error_stage
+        if self.missing_log:
+            payload["missing_log"] = True
+        if self.unreadable_log:
+            payload["unreadable_log"] = True
+        return payload
 
 
 def _load_records(path: Path, allowed_events: set[str], limit: int) -> list[dict[str, Any]]:
@@ -145,6 +159,7 @@ def _analyze_flow(config: FlowConfig, now: datetime, window: timedelta, limit: i
     try:
         records = _load_records(config.log_path, config.allowed_events, limit)
     except OSError as exc:
+        status.unreadable_log = True
         status.alerts.append(f"{config.flow_id}: unable to read {config.log_path}: {exc}")
         return status
 
@@ -175,11 +190,18 @@ def _analyze_flow(config: FlowConfig, now: datetime, window: timedelta, limit: i
         if config.success_predicate(record):
             status.last_success_at = ts
             status.last_success_event = event
+        if event in config.error_events:
+            status.last_error_at = ts
+            status.last_error_event = event
+            status.last_error_stage = record.get("stage") if isinstance(record.get("stage"), str) else None
 
-    if status.latest_event in config.error_events:
-        stage = status.latest_stage or "n/a"
+    if status.last_error_at is not None and (
+        status.last_success_at is None or status.last_error_at > status.last_success_at
+    ):
+        stage = status.last_error_stage or "n/a"
         status.alerts.append(
-            f"{config.flow_id}: latest event {status.latest_event} (stage={stage}) is an error"
+            f"{config.flow_id}: last error {status.last_error_event} at {status.last_error_at.isoformat()} "
+            f"(stage={stage}) is newer than last success"
         )
 
     if status.last_success_at is None:
@@ -279,7 +301,7 @@ def main(argv: list[str]) -> int:
         "generated_at": now.isoformat(),
         "window_minutes": args.window_minutes,
         "limit": args.limit,
-        "flows": [status.to_dict(now) for status in statuses],
+        "flows": [status.to_dict(now, window) for status in statuses],
         "alerts": alerts,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

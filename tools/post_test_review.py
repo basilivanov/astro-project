@@ -53,6 +53,13 @@ REPORT_EVENTS = {
     "week_brief_validation_failed",
     "week_brief.response_returned",
 }
+OBSERVABILITY_HUB_EVENTS = {
+    "scheduler.sub_check.start",
+    "scheduler.sub_check.complete",
+    "scheduler.sub_check.error",
+    "analytics.event_persisted",
+    "analytics.event_error",
+}
 EXPECTED_REASON_CODES = {
     "fallback_expected",
     "expected_degradation",
@@ -128,7 +135,7 @@ def _pick_evidence(records: list[dict[str, Any]], limit: int = 3) -> list[dict[s
     picked: list[dict[str, Any]] = []
     for record in reversed(records):
         event = record.get("event")
-        if event in {"feed.error", "day_brief.fallback", "day_brief.validation_failed", "week_brief_fallback_triggered", "week_brief_validation_failed", "report.failure_packet"} or record.get("fallback_mode"):
+        if event in {"feed.error", "day_brief.fallback", "day_brief.validation_failed", "week_brief_fallback_triggered", "week_brief_validation_failed", "report.failure_packet"} or record.get("fallback_mode") or record.get("chunk_parse_degraded") is True:
             picked.append({
                 "event": event,
                 "timestamp": record.get("timestamp") or record.get("logged_at") or record.get("time"),
@@ -401,6 +408,14 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
     if counters["today_text_role_policy_violation_total"] > 0:
         alerts.append("today text role policy violation detected")
     effective_fallback_count = 0 if saw_today_success else fallback_count
+    observed_today_degradation = (
+        auth_fallback_detected
+        or fallback_record_detected
+        or validator_fallback_detected
+        or counters["today_text_description_incomplete_total"] > 0
+        or counters["today_text_why_incomplete_total"] > 0
+        or counters["today_text_role_policy_violation_total"] > 0
+    )
     status = _classify_status(
         has_records=bool(records),
         degradation_count=effective_fallback_count,
@@ -409,7 +424,7 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
 
     if not records:
         alerts.append("no recent today/day brief evidence")
-    elif saw_feed_entry and saw_today_success and not (sample_trace_id or sample_request_id):
+    elif saw_feed_entry and saw_today_success and not observed_today_degradation and not (sample_trace_id or sample_request_id):
         alerts.append("today evidence missing concrete trace_id/request_id")
         status = "no-evidence-blocker"
 
@@ -440,15 +455,6 @@ def analyze_today(feed_log: Path, *, since_delta: timedelta, limit: int) -> Flow
         and counters["today_text_description_incomplete_total"] == 0
         and counters["today_text_why_incomplete_total"] == 0
         and counters["today_text_role_policy_violation_total"] == 0
-    )
-
-    observed_today_degradation = (
-        auth_fallback_detected
-        or fallback_record_detected
-        or validator_fallback_detected
-        or counters["today_text_description_incomplete_total"] > 0
-        or counters["today_text_why_incomplete_total"] > 0
-        or counters["today_text_role_policy_violation_total"] > 0
     )
 
     if status == "clean" and not signed_today_clean and observed_today_degradation:
@@ -517,6 +523,8 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
             counters["week_validation_failed_total"] += 1
         if record.get("chunk_parse_degraded") is True:
             counters["report_chunk_parse_degraded_total"] += 1
+            if not _reason_code(record):
+                reason_codes["chunk_parse_degraded"] += 1
         factor_count = record.get("factor_count")
         if isinstance(factor_count, int) and factor_count <= 1:
             counters["week_low_factor_count_total"] += 1
@@ -533,7 +541,7 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
         alerts.append("week/report chunk parse degraded")
     status = _classify_status(
         has_records=bool(records),
-        degradation_count=fallback_count,
+        degradation_count=fallback_count + counters["report_chunk_parse_degraded_total"],
         expected_reason_hit=not reason_codes.keys().isdisjoint(EXPECTED_REASON_CODES),
     )
 
@@ -556,6 +564,67 @@ def analyze_week(report_log: Path, *, since_delta: timedelta, limit: int) -> Flo
         evidence=_pick_evidence(records),
         landmarks=summarize_landmarks(records),
     )
+
+
+def analyze_observability_hubs(*, since_delta: timedelta, limit: int) -> list[FlowDigest]:
+    records: list[dict[str, Any]] = []
+    for filename in ("scheduler.jsonl", "diagnostic.jsonl"):
+        for path in _canonical_log_paths(ACTIVE_LOG_DIR / filename, filename):
+            records.extend(_recent_records(path, allowed_events=OBSERVABILITY_HUB_EVENTS, limit=limit, since_delta=since_delta))
+    records = sorted(records, key=lambda record: extract_timestamp(record) or datetime.min.replace(tzinfo=timezone.utc))[-limit:]
+
+    counters = Counter()
+    alerts: list[str] = []
+    sample_trace_id = None
+    sample_correlation_id = None
+    sample_request_id = None
+    last_timestamp = None
+
+    for record in records:
+        sample_trace_id = sample_trace_id or record.get("trace_id")
+        sample_correlation_id = sample_correlation_id or record.get("correlation_id")
+        sample_request_id = sample_request_id or record.get("request_id")
+        event = record.get("event")
+        if event in {"scheduler.sub_check.start", "scheduler.sub_check.complete"}:
+            counters["scheduler_hub_records_total"] += 1
+        if event == "analytics.event_persisted":
+            counters["analytics_hub_records_total"] += 1
+        if event in {"scheduler.sub_check.error", "analytics.event_error"}:
+            counters["observability_hub_errors_total"] += 1
+        ts = extract_timestamp(record)
+        if ts is not None:
+            last_timestamp = ts.isoformat()
+
+    if counters["scheduler_hub_records_total"] == 0:
+        alerts.append("scheduler hub emitted no recent records in packet-local window")
+    if counters["analytics_hub_records_total"] == 0:
+        alerts.append("analytics hub emitted no recent records in packet-local window")
+    if counters["observability_hub_errors_total"] > 0:
+        alerts.append("observability hub error detected")
+
+    if counters["observability_hub_errors_total"] > 0:
+        status = "unexpected-degradation"
+    elif alerts:
+        status = "degraded-but-expected"
+    else:
+        status = "clean"
+
+    return [FlowDigest(
+        flow_id="FLOW-OBSERVABILITY-HUBS",
+        status=status,
+        records_checked=len(records),
+        last_timestamp=last_timestamp,
+        sample_trace_id=sample_trace_id,
+        sample_correlation_id=sample_correlation_id,
+        sample_request_id=sample_request_id,
+        sample_report_id=None,
+        fallback_count=0,
+        reason_codes=[],
+        alerts=alerts,
+        counters=dict(counters),
+        evidence=_pick_evidence(records),
+        landmarks=summarize_landmarks(records),
+    )]
 
 
 def _rendered_gate_summary_map(rendered_summaries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -668,52 +737,64 @@ def _augment_flow_with_rendered(flow: FlowDigest, rendered: list[dict[str, Any]]
     return payload
 
 
-def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None, canary: FlowDigest | None = None) -> dict[str, Any]:
+def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, today: FlowDigest, week: FlowDigest, rendered_summaries: list[dict[str, Any]] | None = None, canary: FlowDigest | None = None, hub_digests: list[FlowDigest] | None = None) -> dict[str, Any]:
     rendered_index = _rendered_gate_summary_map(rendered_summaries or [])
     flows: list[dict[str, Any]] = []
     overall = "clean"
 
     if profile == "read-only":
-        read_rendered = rendered_index["FLOW-READ-SURFACE"]
-        read_presence = _rendered_presence_summary(read_rendered)
-        read_status = "clean"
-        if read_presence.get("summary_count", 0) == 0:
-            read_status = "no-evidence-blocker"
-        elif not read_presence.get("site_web_present"):
-            read_status = "no-evidence-blocker"
-        elif "fallback_expected" in read_presence.get("assertion_classes", []) and "rendered_hygiene" not in read_presence.get("assertion_classes", []):
-            read_status = "degraded-but-expected"
+        if hub_digests:
+            flows = [flow.__dict__ for flow in hub_digests]
+            for flow in hub_digests:
+                if flow.status == "unexpected-degradation":
+                    overall = "unexpected-degradation"
+                    break
+                if flow.status == "no-evidence-blocker":
+                    overall = "no-evidence-blocker"
+                    break
+                if flow.status == "degraded-but-expected":
+                    overall = "degraded-but-expected"
+        else:
+            read_rendered = rendered_index["FLOW-READ-SURFACE"]
+            read_presence = _rendered_presence_summary(read_rendered)
+            read_status = "clean"
+            if read_presence.get("summary_count", 0) == 0:
+                read_status = "no-evidence-blocker"
+            elif not read_presence.get("site_web_present"):
+                read_status = "no-evidence-blocker"
+            elif "fallback_expected" in read_presence.get("assertion_classes", []) and "rendered_hygiene" not in read_presence.get("assertion_classes", []):
+                read_status = "degraded-but-expected"
 
-        read_flow = {
-            "flow_id": "FLOW-READ-SURFACE",
-            "status": read_status,
-            "records_checked": read_presence.get("summary_count", 0),
-            "last_timestamp": max((item.get("recorded_at") for item in read_rendered), default=None),
-            "fallback_count": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
-            "sample_trace_id": None,
-            "sample_correlation_id": None,
-            "sample_request_id": None,
-            "sample_report_id": None,
-            "reason_codes": sorted(set(str((item.get("details") or {}).get("fallbackReason")) for item in read_rendered if (item.get("details") or {}).get("fallbackReason"))),
-            "alerts": [] if read_presence.get("summary_count", 0) else ["no rendered read evidence materialized"],
-            "counters": {
-                "rendered_site_web_total": sum(1 for item in read_rendered if ((item.get("pass_mode") or {}).get("key") == "site_web")),
-                "rendered_fallback_expected_total": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
-            },
-            "evidence": [
-                {
-                    "event": item.get("scenario_id"),
-                    "timestamp": item.get("recorded_at"),
-                    "trace_id": None,
-                    "correlation_id": None,
-                    "report_id": (item.get("details") or {}).get("route"),
-                    "reason": (item.get("details") or {}).get("fallbackReason"),
-                }
-                for item in read_rendered[-3:]
-            ],
-        }
-        flows = [_augment_flow_with_rendered(FlowDigest(**read_flow), read_rendered)]
-        overall = read_status
+            read_flow = {
+                "flow_id": "FLOW-READ-SURFACE",
+                "status": read_status,
+                "records_checked": read_presence.get("summary_count", 0),
+                "last_timestamp": max((item.get("recorded_at") for item in read_rendered), default=None),
+                "fallback_count": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
+                "sample_trace_id": None,
+                "sample_correlation_id": None,
+                "sample_request_id": None,
+                "sample_report_id": None,
+                "reason_codes": sorted(set(str((item.get("details") or {}).get("fallbackReason")) for item in read_rendered if (item.get("details") or {}).get("fallbackReason"))),
+                "alerts": [] if read_presence.get("summary_count", 0) else ["no rendered read evidence materialized"],
+                "counters": {
+                    "rendered_site_web_total": sum(1 for item in read_rendered if ((item.get("pass_mode") or {}).get("key") == "site_web")),
+                    "rendered_fallback_expected_total": sum(1 for item in read_rendered if item.get("assertion_class") == "fallback_expected"),
+                },
+                "evidence": [
+                    {
+                        "event": item.get("scenario_id"),
+                        "timestamp": item.get("recorded_at"),
+                        "trace_id": None,
+                        "correlation_id": None,
+                        "report_id": (item.get("details") or {}).get("route"),
+                        "reason": (item.get("details") or {}).get("fallbackReason"),
+                    }
+                    for item in read_rendered[-3:]
+                ],
+            }
+            flows = [_augment_flow_with_rendered(FlowDigest(**read_flow), read_rendered)]
+            overall = read_status
         replay_summary = None
     else:
         candidate_flows = (*([canary] if canary else []), today, week)
@@ -723,11 +804,11 @@ def build_output(*, profile: str, since: str, feed_log: Path, report_log: Path, 
             if flow.status == "primary-live-session-mismatch":
                 overall = "primary-live-session-mismatch"
                 break
-            if flow.status == "no-evidence-blocker":
-                overall = "no-evidence-blocker"
-                break
             if flow.status == "unexpected-degradation":
                 overall = "unexpected-degradation"
+                break
+            if flow.status == "no-evidence-blocker":
+                overall = "no-evidence-blocker"
                 break
             if flow.status == "degraded-but-expected":
                 overall = "degraded-but-expected"

@@ -27,6 +27,16 @@ TIMESTAMP_KEYS = (
     "logged_at",
 )
 
+LANDMARK_KEYS = (
+    "module",
+    "fn",
+    "block",
+    "event",
+    "correlation_id",
+    "trace_id",
+    "request_id",
+)
+
 
 def parse_datetime_arg(value: str) -> datetime:
     """Parse an ISO datetime argument for CLI overrides."""
@@ -83,6 +93,29 @@ def format_dt(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat() if value else None
 
 
+def minutes_since(now: datetime, value: datetime | None) -> float | None:
+    if value is None:
+        return None
+    return round((now - value).total_seconds() / 60, 2)
+
+
+def is_fresh(now: datetime, value: datetime | None, window: timedelta) -> bool | None:
+    if value is None:
+        return None
+    return now - value <= window
+
+
+def freshness_fields(now: datetime, value: datetime | None, window: timedelta) -> dict[str, Any]:
+    fresh = is_fresh(now, value, window)
+    return {
+        "freshness_age_minutes": minutes_since(now, value),
+        "minutes_since_success": minutes_since(now, value),
+        "success_fresh": fresh,
+        "stale_success": False if fresh is None else not fresh,
+        "freshness_window_minutes": int(window.total_seconds() / 60),
+    }
+
+
 def load_records(
     path: Path,
     allowed_events: set[str] | None,
@@ -110,6 +143,23 @@ def load_records(
                 continue
             records.append(data)
     return list(records)
+
+
+def summarize_landmarks(records: Sequence[dict[str, Any]], *, limit: int = 5) -> list[dict[str, Any]]:
+    landmarks: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for record in reversed(records):
+        landmark = {key: record.get(key) for key in LANDMARK_KEYS if record.get(key) is not None}
+        if not landmark:
+            continue
+        signature = tuple(landmark.get(key) for key in LANDMARK_KEYS)
+        if signature in seen:
+            continue
+        seen.add(signature)
+        landmarks.append(landmark)
+        if len(landmarks) >= limit:
+            break
+    return list(reversed(landmarks))
 
 
 def fallback_timestamp(path: Path, index: int, total: int) -> datetime:

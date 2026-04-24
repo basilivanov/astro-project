@@ -1,0 +1,562 @@
+{
+  "feature_id": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424",
+  "title": "Canonical observability evidence repair for Today Week Admin Catalog",
+  "slice_id": "SLICE-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424",
+  "slice_slug": "canonical-observability-evidence-repair",
+  "slice_dir": "/opt/astro-project/docs/canonical-observability-evidence-repair",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/canonical-observability-evidence-repair/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-OBSERVABILITY-POST-TEST-REVIEW",
+    "M-OBSERVABILITY-LOG-WATCH",
+    "M-CANONICAL-EVIDENCE-TESTS"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Today/Week Review Classification",
+      "goal": "Repair post-test review classification for concrete degraded Today/Week evidence without product behavior changes.",
+      "objective": "Repair post-test review classification for concrete degraded Today/Week evidence without product behavior changes.",
+      "required": true,
+      "module_refs": [
+        "M-OBSERVABILITY-POST-TEST-REVIEW",
+        "M-CANONICAL-EVIDENCE-TESTS"
+      ],
+      "allowed_write_scope": [
+        "tools/post_test_review.py",
+        "tests/test_post_test_review.py",
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "frozen_scope": [
+        "frontend/**",
+        "backend/app/** except no changes expected in W01",
+        "root GRACE canon documents"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "python3 -m pytest tests/test_post_test_review.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Concrete degraded Today evidence with identifiers never yields no-evidence-blocker.",
+        "Today auth/text degradation yields unexpected-degradation unless explicitly expected by stable reason code.",
+        "Week fallback/degradation includes reason code evidence and yields unexpected-degradation unless explicitly expected.",
+        "Missing/unreadable logs still yield no-evidence-blocker with explicit reason."
+      ],
+      "deferred_work": [
+        "Admin/Catalog freshness repair.",
+        "Producer fixes unless parser evidence proves they are required."
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "Admin/Catalog Freshness Provenance",
+      "goal": "Repair watcher freshness/provenance reporting for Admin and Catalog evidence.",
+      "objective": "Repair watcher freshness/provenance reporting for Admin and Catalog evidence.",
+      "required": true,
+      "module_refs": [
+        "M-OBSERVABILITY-LOG-WATCH",
+        "M-CANONICAL-EVIDENCE-TESTS"
+      ],
+      "allowed_write_scope": [
+        "tools/log_watch/common.py",
+        "tools/log_watch/feed_admin_watch.py",
+        "tools/log_watch/forecast_catalog_watch.py",
+        "tests/test_log_watch_feed_admin.py",
+        "tests/test_forecast_catalog_watch.py",
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "frozen_scope": [
+        "frontend/**",
+        "pricing/auth/report schema behavior",
+        "root GRACE canon documents"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "python3 -m pytest tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py"
+      ],
+      "acceptance_criteria": [
+        "Admin watcher reports latest success, latest error, freshness age, and stale-success alert deterministically.",
+        "Catalog watcher reports latest success, latest error, freshness age, and stale-success alert deterministically.",
+        "Missing/unreadable logs remain explicit evidence blockers.",
+        "Tests cover stale success, newer error, missing log, and fresh success paths."
+      ],
+      "deferred_work": [
+        "Backend producer repair only if watcher evidence proves canonical producer emission is absent."
+      ]
+    },
+    {
+      "wave_id": "W03",
+      "title": "Integrated Evidence Closeout",
+      "goal": "Verify repaired tooling through targeted tests, backend quick pipeline, and canonical post-test review output.",
+      "objective": "Verify repaired tooling through targeted tests, backend quick pipeline, and canonical post-test review output.",
+      "required": true,
+      "module_refs": [
+        "M-OBSERVABILITY-POST-TEST-REVIEW",
+        "M-OBSERVABILITY-LOG-WATCH",
+        "M-CANONICAL-EVIDENCE-TESTS"
+      ],
+      "allowed_write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**",
+        "tests/test_post_test_review.py",
+        "tests/test_log_watch_feed_admin.py",
+        "tests/test_forecast_catalog_watch.py"
+      ],
+      "frozen_scope": [
+        "frontend/**",
+        "root GRACE canon documents unless separately approved"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "python3 -m pytest tests/test_post_test_review.py tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py",
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Targeted tests pass.",
+        "Backend quick pipeline passes or unrelated failure is isolated with evidence.",
+        "Final post-test review verdict is explicit and not misleading.",
+        "Degraded-but-expected is accepted only with architect-approved reason codes."
+      ],
+      "deferred_work": [
+        "Frontend visual work.",
+        "Broad producer redesign.",
+        "Release/full regression."
+      ]
+    }
+  ],
+  "packet_candidates": [
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION",
+      "wave_id": "W01",
+      "title": "Repair Today/Week Post-Test Classification",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Update tools/post_test_review.py and tests so concrete degraded Today/Week evidence is classified as degradation rather than no-evidence.",
+      "write_scope": [
+        "tools/post_test_review.py",
+        "tests/test_post_test_review.py",
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W00-ARCHITECT-FORMALIZATION",
+        "feature brief",
+        "current tools/post_test_review.py",
+        "tests/test_post_test_review.py"
+      ],
+      "acceptance_criteria": [
+        "Identifier-bearing degraded evidence cannot produce no-evidence-blocker.",
+        "Today auth/text degradation produces unexpected-degradation unless stable expected reason code is approved.",
+        "Week fallback/degradation exposes stable reason codes and correct degradation classification.",
+        "True missing evidence remains no-evidence-blocker."
+      ],
+      "verification_profile": {
+        "backend": "python3 -m pytest tests/test_post_test_review.py",
+        "frontend": "not required",
+        "observability": "packet_local: python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      },
+      "reviewer_gate": [
+        "No product behavior changes.",
+        "No degraded behavior hidden as clean.",
+        "Tests demonstrate regression against FAIL_NO_EVIDENCE misclassification."
+      ],
+      "dependencies": [],
+      "notes": [
+        "Do not touch frontend.",
+        "Preserve existing verdict vocabulary."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-VERIFY-TODAY-WEEK-CLASSIFICATION",
+      "wave_id": "W01",
+      "title": "Verify Today/Week Classification",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run targeted tests and packet-local post-test review output for W01 classification repair.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "coder_w01_post_test_review output"
+      ],
+      "acceptance_criteria": [
+        "Targeted pytest passes.",
+        "Post-test review output contains explicit flow verdicts and identifiers where available.",
+        "Verifier records clean, unexpected-degradation, degraded-but-expected, or no-evidence-blocker with rationale."
+      ],
+      "verification_profile": {
+        "backend": "python3 -m pytest tests/test_post_test_review.py",
+        "frontend": "not required",
+        "observability": "packet_local post-test review evidence"
+      },
+      "reviewer_gate": [
+        "Evidence includes command output summary and verdict.",
+        "No missing identifier analysis for degraded evidence."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION"
+      ],
+      "notes": [
+        "Do not run frontend regression."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REVIEW-TODAY-WEEK-CLASSIFICATION-REPAIR",
+      "wave_id": "W01",
+      "title": "Review Today/Week Classification Repair",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review W01 code and verifier evidence for business and observability correctness.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION",
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-VERIFY-TODAY-WEEK-CLASSIFICATION"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms no misleading no-evidence classification remains for concrete degraded evidence.",
+        "Reviewer confirms missing evidence semantics are preserved.",
+        "Reviewer confirms no product behavior or frontend scope expansion."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "Self-review complete."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-VERIFY-TODAY-WEEK-CLASSIFICATION"
+      ],
+      "notes": [
+        "Route bounded rework directly if defects are local."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REPAIR-TODAY-WEEK-POST-TEST-CLASSIFICATION"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-ARCHITECT-GATE-W01",
+      "wave_id": "W01",
+      "title": "Architect Gate W01",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W01 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REVIEW-TODAY-WEEK-CLASSIFICATION-REPAIR"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "evidence review only",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REVIEW-TODAY-WEEK-CLASSIFICATION-REPAIR"
+      ],
+      "notes": [
+        "Required for every required wave."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-REVIEW-TODAY-WEEK-CLASSIFICATION-REPAIR"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS",
+      "wave_id": "W02",
+      "title": "Repair Admin/Catalog Freshness Watchers",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Update Admin/Catalog watcher freshness and provenance reporting with targeted tests.",
+      "write_scope": [
+        "tools/log_watch/common.py",
+        "tools/log_watch/feed_admin_watch.py",
+        "tools/log_watch/forecast_catalog_watch.py",
+        "tests/test_log_watch_feed_admin.py",
+        "tests/test_forecast_catalog_watch.py",
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W00-ARCHITECT-FORMALIZATION",
+        "current log watcher files",
+        "current watcher tests"
+      ],
+      "acceptance_criteria": [
+        "Fresh success, stale success, missing log, unreadable log, and error-after-success states are distinguishable.",
+        "Admin and Catalog outputs include timestamp/context provenance for reviewer decisions.",
+        "No permissions, auth, catalog, or admin product behavior changes."
+      ],
+      "verification_profile": {
+        "backend": "python3 -m pytest tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py",
+        "frontend": "not required",
+        "observability": "packet_local watcher JSON/MD output from tests or fixtures"
+      },
+      "reviewer_gate": [
+        "Freshness/provenance semantics are explicit.",
+        "No stale evidence silently passes as clean."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-ARCHITECT-GATE-W01"
+      ],
+      "notes": [
+        "Prefer shared helpers only when both watcher files need the same local behavior.",
+        "Escalate only if a real producer command is absent and cannot be represented as watcher provenance."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-VERIFY-ADMIN-CATALOG-WATCHERS",
+      "wave_id": "W02",
+      "title": "Verify Admin/Catalog Watchers",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run targeted watcher tests and capture freshness/provenance verdict evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "coder_w02_admin_catalog_watchers output"
+      ],
+      "acceptance_criteria": [
+        "Watcher tests pass.",
+        "Verifier evidence shows stale and missing evidence are distinguishable.",
+        "Verifier records whether any producer-side absence remains."
+      ],
+      "verification_profile": {
+        "backend": "python3 -m pytest tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py",
+        "frontend": "not required",
+        "observability": "packet_local watcher evidence"
+      },
+      "reviewer_gate": [
+        "Evidence includes commands and provenance verdict."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS"
+      ],
+      "notes": [
+        "No frontend verification required."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REVIEW-ADMIN-CATALOG-FRESHNESS-REPAIR",
+      "wave_id": "W02",
+      "title": "Review Admin/Catalog Freshness Repair",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review W02 watcher changes and verifier evidence for provenance correctness.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS",
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-VERIFY-ADMIN-CATALOG-WATCHERS"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms stale, missing, and degraded Admin/Catalog evidence are distinguishable.",
+        "Reviewer confirms no product behavior changes.",
+        "Reviewer identifies producer-fix need only if evidence proves watcher repair is insufficient."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "Self-review complete."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-VERIFY-ADMIN-CATALOG-WATCHERS"
+      ],
+      "notes": [
+        "Route bounded producer rework only with concrete evidence."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REPAIR-ADMIN-CATALOG-FRESHNESS-WATCHERS"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-ARCHITECT-GATE-W02",
+      "wave_id": "W02",
+      "title": "Architect Gate W02",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W02 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REVIEW-ADMIN-CATALOG-FRESHNESS-REPAIR"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "evidence review only",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REVIEW-ADMIN-CATALOG-FRESHNESS-REPAIR"
+      ],
+      "notes": [
+        "Required for every required wave."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-REVIEW-ADMIN-CATALOG-FRESHNESS-REPAIR"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-INTEGRATED-EVIDENCE-VERIFICATION",
+      "wave_id": "W03",
+      "title": "Integrated Evidence Verification",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Run integrated targeted tests, backend quick pipeline, and canonical post-test evidence commands for final closeout.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-ARCHITECT-GATE-W01",
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-ARCHITECT-GATE-W02"
+      ],
+      "acceptance_criteria": [
+        "Targeted tests pass.",
+        "Backend quick pipeline passes or unrelated failure is clearly isolated.",
+        "Post-test evidence verdict is explicit and not misleading.",
+        "Any degradation is classified as unexpected unless architect-approved expected reason codes are present."
+      ],
+      "verification_profile": {
+        "backend": "python3 -m pytest tests/test_post_test_review.py tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py && docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "frontend": "not required",
+        "observability": "wave_final canonical post-test review commands"
+      },
+      "reviewer_gate": [
+        "Evidence includes final verdict and relevant identifiers.",
+        "No no-evidence-blocker when concrete degraded evidence exists."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W01-ARCHITECT-GATE-W01",
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W02-ARCHITECT-GATE-W02"
+      ],
+      "notes": [
+        "This wave owns canonical runtime evidence closeout.",
+        "Do not add frontend visual requirements."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-INTEGRATED-EVIDENCE-VERIFICATION"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-REVIEW-INTEGRATED-EVIDENCE-CLOSEOUT",
+      "wave_id": "W03",
+      "title": "Review Integrated Evidence Closeout",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review final integrated verifier evidence for release-quality observability correctness.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424/**"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-INTEGRATED-EVIDENCE-VERIFICATION"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms business intent is satisfied.",
+        "Reviewer confirms no hidden degradation or misleading no-evidence verdict remains.",
+        "Reviewer confirms root/global canon remained unchanged unless separately approved."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final evidence review only"
+      },
+      "reviewer_gate": [
+        "Self-review complete."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-INTEGRATED-EVIDENCE-VERIFICATION"
+      ],
+      "notes": [
+        "Route bounded direct rework for local evidence defects."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-INTEGRATED-EVIDENCE-VERIFICATION"
+    },
+    {
+      "key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-ARCHITECT-GATE-W03",
+      "wave_id": "W03",
+      "title": "Architect Gate W03",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block final integrated evidence closeout.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-REVIEW-INTEGRATED-EVIDENCE-CLOSEOUT"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit.",
+        "Final observability verdict is clean or correctly degraded, never misleading."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "wave_final evidence review only"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-REVIEW-INTEGRATED-EVIDENCE-CLOSEOUT"
+      ],
+      "notes": [
+        "Required final architect gate."
+      ],
+      "review_target_key": "FEAT-CANONICAL-OBSERVABILITY-EVIDENCE-REPAIR-20260424-W03-REVIEW-INTEGRATED-EVIDENCE-CLOSEOUT"
+    }
+  ],
+  "next_action": "materialize_packets",
+  "planner_inputs": [
+    "/opt/astro-project/docs/canonical-observability-evidence-repair/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-24T14:08:14.975823+00:00"
+}
