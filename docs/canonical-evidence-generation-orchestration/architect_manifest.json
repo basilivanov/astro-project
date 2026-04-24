@@ -1,0 +1,401 @@
+{
+  "feature_id": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424",
+  "title": "Canonical evidence generation orchestration for W03 closeout",
+  "slice_id": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424",
+  "slice_slug": "canonical-evidence-generation-orchestration",
+  "slice_dir": "/opt/astro-project/docs/canonical-evidence-generation-orchestration",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/canonical-evidence-generation-orchestration/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-DAY-BRIEF-SERVICE",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-OPS-AUTOMATION",
+    "M-API-GATEWAY",
+    "FLOW-FORECAST-CATALOG",
+    "FLOW-ADMIN-OPS",
+    "VM-POST-TEST-OBSERVABILITY"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Evidence Command Implementation",
+      "goal": "Add and test the deterministic command that emits fresh canonical evidence for all required flows.",
+      "objective": "Add and test the deterministic command that emits fresh canonical evidence for all required flows.",
+      "required": true,
+      "module_refs": [
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-OPS-AUTOMATION",
+        "M-API-GATEWAY",
+        "FLOW-FORECAST-CATALOG",
+        "FLOW-ADMIN-OPS"
+      ],
+      "allowed_write_scope": [
+        "scripts/generate_canonical_evidence.py",
+        "tests/test_canonical_evidence_generation.py",
+        "tests/test_post_test_review.py",
+        "tests/test_log_watch_feed_admin.py",
+        "tests/test_forecast_catalog_watch.py",
+        "tools/post_test_review.py only for minimal adapter if strictly required",
+        "tools/log_watch/*.py only for minimal hook support if strictly required"
+      ],
+      "frozen_scope": [
+        "frontend/**",
+        "watcher verdict weakening",
+        "auth, pricing, billing, and report schema semantics"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [
+        "python3 scripts/generate_canonical_evidence.py --flows today,week,admin,catalog --window-minutes 30"
+      ],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "python3 scripts/generate_canonical_evidence.py --flows today,week,admin,catalog --window-minutes 30",
+        "python3 -m pytest tests/test_canonical_evidence_generation.py tests/test_post_test_review.py tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py",
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py"
+      ],
+      "acceptance_criteria": [
+        "Command exists at `scripts/generate_canonical_evidence.py` and defaults to all required flows.",
+        "Command exercises owned dev/test producers or backend logging helpers through existing flow contracts, not raw fabricated watcher pass payloads.",
+        "Generated records include fresh timestamps and stable trace/request/correlation or report/provenance fields.",
+        "Targeted tests prove freshness-window pass and stale/missing evidence failure behavior.",
+        "No watcher strictness is relaxed."
+      ],
+      "deferred_work": [
+        "Final closeout watcher run belongs to W02."
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "Strict Closeout Verification",
+      "goal": "Run generation first, then collect strict Today/Week/Admin/Catalog evidence for reviewer and architect acceptance.",
+      "objective": "Run generation first, then collect strict Today/Week/Admin/Catalog evidence for reviewer and architect acceptance.",
+      "required": true,
+      "module_refs": [
+        "VM-POST-TEST-OBSERVABILITY",
+        "FLOW-FORECAST-CATALOG",
+        "FLOW-ADMIN-OPS"
+      ],
+      "allowed_write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424/evidence/**",
+        "feature-local verifier/reviewer/gate artifacts only"
+      ],
+      "frozen_scope": [
+        "source code unless W01 gate accepted but closeout reveals a local blocker requiring rework",
+        "watcher verdict semantics"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "python3 scripts/generate_canonical_evidence.py --flows today,week,admin,catalog --window-minutes 30",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "python3 tools/log_watch/feed_admin_watch.py --feed-log logs/feed.jsonl --admin-log logs/admin.jsonl --window-minutes 30 --limit 200",
+        "python3 tools/log_watch/forecast_catalog_watch.py --catalog-log logs/catalog.jsonl --window-minutes 30 --limit 200"
+      ],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "python3 scripts/generate_canonical_evidence.py --flows today,week,admin,catalog --window-minutes 30",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "python3 tools/log_watch/feed_admin_watch.py --feed-log logs/feed.jsonl --admin-log logs/admin.jsonl --window-minutes 30 --limit 200",
+        "python3 tools/log_watch/forecast_catalog_watch.py --catalog-log logs/catalog.jsonl --window-minutes 30 --limit 200"
+      ],
+      "acceptance_criteria": [
+        "Generation command precedes all review commands.",
+        "Today/Week review is `clean` or `degraded-but-expected`, not `no-evidence-blocker`.",
+        "Admin and Catalog watchers find fresh success evidence or return a precise expected blocker.",
+        "Reviewer evidence includes sample timestamps and identifiers for each flow.",
+        "Architect can accept W03 closeout without relaxing canonical evidence rules."
+      ],
+      "deferred_work": [
+        "No frontend visual proof required because no UI is touched."
+      ]
+    }
+  ],
+  "packet_candidates": [
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-CANONICAL-EVIDENCE-COMMAND",
+      "wave_id": "W01",
+      "title": "Canonical Evidence Command",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Implement `scripts/generate_canonical_evidence.py` and targeted tests for deterministic Today, Week, Admin, and Catalog evidence generation.",
+      "write_scope": [
+        "scripts/generate_canonical_evidence.py",
+        "tests/test_canonical_evidence_generation.py",
+        "tests/test_post_test_review.py",
+        "tests/test_log_watch_feed_admin.py",
+        "tests/test_forecast_catalog_watch.py",
+        "tools/post_test_review.py only for minimal adapter if strictly required",
+        "tools/log_watch/*.py only for minimal hook support if strictly required"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W00-ARCHITECT-FORMALIZATION",
+        "feature brief",
+        "tools/post_test_review.py",
+        "tools/log_watch/feed_admin_watch.py",
+        "tools/log_watch/forecast_catalog_watch.py",
+        "backend/app/logging_utils.py",
+        "existing Today/Week/Admin/Catalog producer tests"
+      ],
+      "acceptance_criteria": [
+        "Command emits all four canonical flow evidences inside the current review window.",
+        "Command uses existing backend producer/logging contracts rather than direct fabricated watcher pass records.",
+        "Records include timestamps plus trace/request/correlation/report/provenance identifiers.",
+        "Targeted tests cover successful fresh generation and stale/missing failure behavior.",
+        "No strict watcher verdict rules are weakened."
+      ],
+      "verification_profile": {
+        "backend": "targeted pytest plus `docker exec astro-project-backend-1 python3 scripts/pipeline.py`",
+        "frontend": "not required",
+        "observability": "packet_local generation logs; `degraded-but-expected` acceptable only with explicit reason codes"
+      },
+      "reviewer_gate": [
+        "No fabricated direct JSONL pass payloads.",
+        "No parser/reviewer strictness weakening.",
+        "Command name and verifier usage are documented in packet evidence."
+      ],
+      "dependencies": [],
+      "notes": [
+        "Prefer invoking existing router/service producer paths with deterministic stubs/mocks where needed.",
+        "If live credentials are required, stop and report blocker instead of fabricating canonical evidence."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-VERIFY-EVIDENCE-COMMAND",
+      "wave_id": "W01",
+      "title": "Verify Evidence Command",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run targeted command tests, backend quick pipeline, and packet-local evidence inspection for W01.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424/evidence/W01/**"
+      ],
+      "inputs": [
+        "coder_w01_evidence_command output"
+      ],
+      "acceptance_criteria": [
+        "Generation command runs successfully.",
+        "Targeted tests pass.",
+        "Backend quick pipeline passes or unrelated failures are explicitly isolated.",
+        "Packet-local logs show fresh records and identifiers for all four flows."
+      ],
+      "verification_profile": {
+        "backend": "`python3 -m pytest tests/test_canonical_evidence_generation.py tests/test_post_test_review.py tests/test_log_watch_feed_admin.py tests/test_forecast_catalog_watch.py` and `docker exec astro-project-backend-1 python3 scripts/pipeline.py`",
+        "frontend": "not required",
+        "observability": "packet_local; inspect generated JSONL records and report verdict clean/degraded-but-expected/unexpected/no-evidence"
+      },
+      "reviewer_gate": [
+        "Evidence includes command output and sampled log records.",
+        "Verdict is explicit."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-CANONICAL-EVIDENCE-COMMAND"
+      ],
+      "notes": [
+        "Do not run full frontend E2E."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-CANONICAL-EVIDENCE-COMMAND"
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-REVIEW-EVIDENCE-COMMAND",
+      "wave_id": "W01",
+      "title": "Review Evidence Command",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review W01 implementation and verifier evidence for strict canonical evidence correctness.",
+      "write_scope": [
+        "feature-local review artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-CANONICAL-EVIDENCE-COMMAND",
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-VERIFY-EVIDENCE-COMMAND"
+      ],
+      "acceptance_criteria": [
+        "Implementation stays within allowed scope.",
+        "Generation path exercises owned producers.",
+        "Watcher/reviewer strictness remains intact.",
+        "Verifier evidence proves freshness and identifiers."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "No unrelated backend refactor.",
+        "No fabricated evidence.",
+        "No missing evidence flow."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-VERIFY-EVIDENCE-COMMAND"
+      ],
+      "notes": [
+        "Escalate only if command cannot be deterministic without live dependencies."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-CANONICAL-EVIDENCE-COMMAND"
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-ARCHITECT-GATE-W01",
+      "wave_id": "W01",
+      "title": "Architect Gate W01",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block W01 from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-REVIEW-EVIDENCE-COMMAND"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business and architecture fit."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-REVIEW-EVIDENCE-COMMAND"
+      ],
+      "notes": [
+        "Required before W02 closeout."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-REVIEW-EVIDENCE-COMMAND"
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-VERIFY-W03-CLOSEOUT-EVIDENCE",
+      "wave_id": "W02",
+      "title": "Verify W03 Closeout Evidence",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run generation first, then Today/Week, read-only, Admin, and Catalog watcher commands and store evidence.",
+      "write_scope": [
+        "prefect_grace/packets/FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424/evidence/W02/**"
+      ],
+      "inputs": [
+        "architect_w01_gate accepted",
+        "generation command"
+      ],
+      "acceptance_criteria": [
+        "Generation command is run before all watcher commands.",
+        "Post-test review no longer returns `FAIL_NO_EVIDENCE` immediately after generation.",
+        "Admin and Catalog watcher outputs include fresh success evidence or precise expected blockers.",
+        "Evidence includes timestamps and identifiers for each flow."
+      ],
+      "verification_profile": {
+        "backend": "not required unless W01 changed after gate",
+        "frontend": "not required",
+        "observability": "wave_final canonical command sequence"
+      },
+      "reviewer_gate": [
+        "Evidence order is generation before review.",
+        "All commands and verdicts are captured."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-ARCHITECT-GATE-W01"
+      ],
+      "notes": [
+        "`degraded-but-expected` is acceptable only with explicit accepted reason codes or precise blocker context."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W01-ARCHITECT-GATE-W01"
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-REVIEW-W03-CLOSEOUT-EVIDENCE",
+      "wave_id": "W02",
+      "title": "Review W03 Closeout Evidence",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review closeout evidence for strict canonical Today/Week/Admin/Catalog acceptance.",
+      "write_scope": [
+        "feature-local review artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-VERIFY-W03-CLOSEOUT-EVIDENCE"
+      ],
+      "acceptance_criteria": [
+        "No missing or stale canonical evidence is treated as clean.",
+        "No rendered-only or replay-only evidence substitutes for canonical logs.",
+        "All watcher outputs are fresh and traceable.",
+        "Any degradation is expected and explicitly justified."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "Strict reviewer behavior preserved.",
+        "Closeout evidence is sufficient for architect decision."
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-VERIFY-W03-CLOSEOUT-EVIDENCE"
+      ],
+      "notes": [
+        "If evidence is absent or fragmented, return rework rather than acceptance."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-VERIFY-W03-CLOSEOUT-EVIDENCE"
+    },
+    {
+      "key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-ARCHITECT-GATE-W02",
+      "wave_id": "W02",
+      "title": "Architect Gate W02",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Accept, rework, or block final closeout from reviewer and verifier evidence.",
+      "write_scope": [
+        "feature-local decision artifacts only"
+      ],
+      "inputs": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-REVIEW-W03-CLOSEOUT-EVIDENCE"
+      ],
+      "acceptance_criteria": [
+        "Wave evidence satisfies business fit, architecture fit, and strict observability fit."
+      ],
+      "verification_profile": {
+        "backend": "evidence review only",
+        "frontend": "not required",
+        "observability": "evidence review only"
+      },
+      "reviewer_gate": [
+        "N/A"
+      ],
+      "dependencies": [
+        "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-REVIEW-W03-CLOSEOUT-EVIDENCE"
+      ],
+      "notes": [
+        "Final wave gate for this feature."
+      ],
+      "review_target_key": "FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424-W02-REVIEW-W03-CLOSEOUT-EVIDENCE"
+    }
+  ],
+  "next_action": "materialize_packets",
+  "planner_inputs": [
+    "/opt/astro-project/docs/canonical-evidence-generation-orchestration/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-24T14:58:35.894118+00:00"
+}
