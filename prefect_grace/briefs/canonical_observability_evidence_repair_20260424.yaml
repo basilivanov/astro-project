@@ -21,6 +21,8 @@ wave_proposal:
   - W00 architect formalization must identify whether failures are runtime data absence, stale log windows, incorrect classification, or broken producers.
   - Architect must split producer fixes from reviewer/tooling classification fixes if both are needed.
   - Each execution wave must include concrete commands that generate or locate fresh evidence before running post_test_review.
+  - Intermediate verifier packets must stay packet_local/read-only unless they intentionally generate fresh Today/Week canonical runtime evidence.
+  - The final integrated verifier may run the Today/Week canonical gate, but if it does, its packet_candidates entry must set verification_profile.execution.observability_scope to wave_final and include the exact canonical_flow_commands.
   - If live data cannot be generated safely, architect must create a bounded dev evidence producer or explicitly block with a user-action requirement.
 
 open_decisions:
@@ -72,9 +74,8 @@ verifier:
   backend_profile: backend_quick
   frontend_profile:
   frontend_commands: []
-  observability_profile: today-week
+  observability_profile: read-only
   observability_commands:
-    - python3 tools/post_test_review.py --profile today-week --since 30m --report-format md
     - python3 tools/post_test_review.py --profile read-only --since 30m --report-format md
   artifact_globs:
     - logs/*.jsonl
