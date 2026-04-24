@@ -2,8 +2,15 @@ version: 1
 codex:
   binary: codex1
   workdir: /opt/astro-project
-  shared_model: gpt-5.4
+  shared_model: gpt-5.5
   roles:
+    canon_digest:
+      model: gpt-5.4-mini
+      reasoning: medium
+      sandbox: danger-full-access
+      approval: never
+      stall_timeout_seconds: 300
+      max_auto_resume_attempts: 1
     architect:
       reasoning: xhigh
       sandbox: danger-full-access
@@ -40,8 +47,8 @@ verification:
   frontend_profiles:
     frontend_quick: ./scripts/run_e2e.sh --last-failed
   observability_profiles:
-    today-week: python3 tools/post_test_review.py --profile today-week --report-format json
-    read-only: python3 tools/post_test_review.py --profile read-only --report-format json
+    today-week: /opt/prefect/venv/bin/python -m gracectl.cli evidence review today-week --report-format json
+    read-only: /opt/prefect/venv/bin/python -m gracectl.cli evidence review read-only --report-format json
     grace_smoke: python3 -c 'import json; print(json.dumps({"verdict":"PASS_CLEAN","flows":[{"flow_id":"prefect-grace-prod-smoke","status":"ok","sample_trace_id":"prefect-grace-prod-smoke-trace"}]}))'
   default_artifact_globs:
     - frontend/test-results/**/*

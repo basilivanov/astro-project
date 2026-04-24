@@ -6,6 +6,7 @@ import pytest
 from prefect_grace.tasks import state_store
 from prefect_grace.flows.feature_pipeline import (
     _collect_candidate_commit_files,
+    _enrich_verifier_evidence_paths,
     _normalize_reviewer_decision_for_pipeline,
     feature_pipeline,
     route_reviewer_verdict_task,
@@ -428,6 +429,98 @@ def test_collect_candidate_commit_files_merges_scope_changed_files_and_evidence(
         "frontend/test/app/home-page.test.tsx",
         "prefect_grace/packets/FEAT-CANDIDATES/reviews/FEAT-CANDIDATES-W01-REVIEW.md",
     ]
+
+
+def test_enrich_verifier_evidence_paths_adds_run_artifacts_and_globs(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    state_store.STATE_DIR.mkdir(parents=True)
+    monkeypatch.setitem(_enrich_verifier_evidence_paths.__globals__, "PROJECT_ROOT", tmp_path)
+
+    run_dir = tmp_path / "prefect_grace" / "state" / "runs" / "run-1"
+    run_dir.mkdir(parents=True)
+    last_message = run_dir / "last-message.md"
+    stdout = run_dir / "stdout.jsonl"
+    stderr = run_dir / "stderr.log"
+    last_message.write_text("FINAL_VERIFIER_EVIDENCE_JSON\n{}\nEND_FINAL_VERIFIER_EVIDENCE_JSON\n", encoding="utf-8")
+    stdout.write_text('{"type":"item.completed"}\n', encoding="utf-8")
+    stderr.write_text("verifier stderr\n", encoding="utf-8")
+    artifact = tmp_path / "frontend" / "test-results" / "visual-proof.png"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text("png", encoding="utf-8")
+    feed_log = tmp_path / "logs" / "feed.jsonl"
+    feed_log.parent.mkdir(parents=True)
+    feed_log.write_text('{"trace_id":"trace-1"}\n', encoding="utf-8")
+
+    (state_store.STATE_DIR / "packets.yaml").write_text(
+        """
+packets:
+- packet_id: PKT-VERIFY
+  execution_hints:
+    workdir: {}
+    artifact_globs:
+    - frontend/test-results/**/*.png
+""".format(tmp_path),
+        encoding="utf-8",
+    )
+
+    enriched = _enrich_verifier_evidence_paths(
+        {
+            "packet_id": "PKT-VERIFY",
+            "last_message_path": str(last_message),
+            "stdout_path": str(stdout),
+            "stderr_path": str(stderr),
+        },
+        {
+            "source": "agent_output",
+            "commands_run": [
+                "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+            ],
+            "evidence_paths": [],
+        },
+    )
+
+    assert enriched["source"] == "agent_output_enriched"
+    assert enriched["evidence_paths"] == [
+        "prefect_grace/state/runs/run-1/last-message.md",
+        "prefect_grace/state/runs/run-1/stdout.jsonl",
+        "prefect_grace/state/runs/run-1/stderr.log",
+        "frontend/test-results/visual-proof.png",
+        "logs/feed.jsonl",
+    ]
+
+
+def test_enrich_verifier_evidence_paths_recognizes_gracectl_review(tmp_path: Path, monkeypatch) -> None:
+    state_store.STATE_DIR = tmp_path / "state"
+    state_store.STATE_DIR.mkdir(parents=True)
+    monkeypatch.setitem(_enrich_verifier_evidence_paths.__globals__, "PROJECT_ROOT", tmp_path)
+
+    feed_log = tmp_path / "logs" / "feed.jsonl"
+    feed_log.parent.mkdir(parents=True)
+    feed_log.write_text('{"trace_id":"trace-1"}\n', encoding="utf-8")
+
+    (state_store.STATE_DIR / "packets.yaml").write_text(
+        """
+packets:
+- packet_id: PKT-GRACECTL-VERIFY
+  execution_hints:
+    workdir: {}
+""".format(tmp_path),
+        encoding="utf-8",
+    )
+
+    enriched = _enrich_verifier_evidence_paths(
+        {"packet_id": "PKT-GRACECTL-VERIFY"},
+        {
+            "source": "agent_output",
+            "commands_run": [
+                "/opt/prefect/venv/bin/python -m gracectl.cli evidence review today-week --report-format json",
+            ],
+            "evidence_paths": [],
+        },
+    )
+
+    assert enriched["source"] == "agent_output_enriched"
+    assert enriched["evidence_paths"] == ["logs/feed.jsonl"]
 
 
 def test_feature_pipeline_architect_first_rework_default(tmp_path: Path) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import glob
 import json
 from pathlib import Path
 import re
@@ -309,6 +310,13 @@ _CANDIDATE_PATH_KEYS = {
     "verification_path",
     "wave_plan_path",
 }
+_VERIFIER_RUN_ARTIFACT_KEYS = ("last_message_path", "stdout_path", "stderr_path")
+_COMMON_OBSERVABILITY_EVIDENCE = (
+    "logs/feed.jsonl",
+    "logs/report.jsonl",
+    "test-results/grace-report.json",
+)
+_MAX_ENRICHED_EVIDENCE_PATHS = 80
 
 
 def _normalize_commit_marker(value: object) -> str:
@@ -464,6 +472,128 @@ def _collect_candidate_commit_files(
     for record in _feature_line_records(feature_id):
         _collect_candidate_commit_files_from_payload(record, files)
     return files
+
+
+def _normalize_evidence_path(path: Path | str) -> str:
+    raw = str(path or "").strip()
+    if not raw:
+        return ""
+    candidate = Path(raw)
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        return raw
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def _append_evidence_path(paths: list[str], value: object) -> None:
+    raw = str(value or "").strip()
+    if not raw:
+        return
+    candidate = Path(raw)
+    if candidate.is_absolute():
+        normalized = _normalize_evidence_path(candidate)
+    elif raw.startswith("./"):
+        normalized = raw[2:]
+    else:
+        normalized = raw
+    if normalized and normalized not in paths:
+        paths.append(normalized)
+
+
+def _existing_file_path(value: object) -> Path | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    path = Path(raw)
+    try:
+        if path.is_file():
+            return path
+    except OSError:
+        return None
+    return None
+
+
+def _verifier_packet_for_run(verifier_run: dict) -> dict:
+    packet_id = str(verifier_run.get("packet_id") or "").strip()
+    if not packet_id:
+        return {}
+    try:
+        return find_record("packets", "packets", "packet_id", packet_id)
+    except KeyError:
+        return {}
+
+
+def _artifact_glob_matches(patterns: list[str], *, workdir: Path) -> list[str]:
+    matches: list[str] = []
+    for pattern in patterns:
+        raw_pattern = str(pattern or "").strip()
+        if not raw_pattern:
+            continue
+        search_pattern = raw_pattern if Path(raw_pattern).is_absolute() else str(workdir / raw_pattern)
+        for match in glob.glob(search_pattern, recursive=True):
+            path = Path(match)
+            if not path.is_file():
+                continue
+            normalized = _normalize_evidence_path(path)
+            if normalized and normalized not in matches:
+                matches.append(normalized)
+            if len(matches) >= _MAX_ENRICHED_EVIDENCE_PATHS:
+                return matches
+    return matches
+
+
+def _collect_verifier_supplemental_evidence(verifier_run: dict, verifier_result: dict) -> list[str]:
+    evidence: list[str] = []
+    packet = _verifier_packet_for_run(verifier_run)
+    execution_hints = dict(packet.get("execution_hints") or {})
+    workdir = Path(str(execution_hints.get("workdir") or PROJECT_ROOT))
+    if not workdir.is_absolute():
+        workdir = PROJECT_ROOT / workdir
+
+    for key in _VERIFIER_RUN_ARTIFACT_KEYS:
+        path = _existing_file_path(verifier_run.get(key))
+        if path is not None:
+            _append_evidence_path(evidence, path)
+
+    for attempt in list(verifier_run.get("attempts") or []):
+        if not isinstance(attempt, dict):
+            continue
+        for key in _VERIFIER_RUN_ARTIFACT_KEYS:
+            path = _existing_file_path(attempt.get(key))
+            if path is not None:
+                _append_evidence_path(evidence, path)
+
+    artifact_globs = [str(item).strip() for item in list(execution_hints.get("artifact_globs") or []) if str(item).strip()]
+    for path in _artifact_glob_matches(artifact_globs, workdir=workdir):
+        _append_evidence_path(evidence, path)
+
+    commands_run = [str(item) for item in list(verifier_result.get("commands_run") or [])]
+    if any("tools/post_test_review.py" in command or "gracectl.cli evidence review" in command for command in commands_run):
+        for candidate in _COMMON_OBSERVABILITY_EVIDENCE:
+            path = workdir / candidate
+            if path.is_file():
+                _append_evidence_path(evidence, path)
+
+    return evidence[:_MAX_ENRICHED_EVIDENCE_PATHS]
+
+
+def _enrich_verifier_evidence_paths(verifier_run: dict, verifier_result: dict) -> dict:
+    if str(verifier_result.get("source") or "") != "agent_output":
+        return verifier_result
+    evidence_paths = [str(item).strip() for item in list(verifier_result.get("evidence_paths") or []) if str(item).strip()]
+    for path in _collect_verifier_supplemental_evidence(verifier_run, verifier_result):
+        _append_evidence_path(evidence_paths, path)
+    if evidence_paths == list(verifier_result.get("evidence_paths") or []):
+        return verifier_result
+    return {
+        **verifier_result,
+        "evidence_paths": evidence_paths,
+        "source": "agent_output_enriched",
+    }
 
 
 def _post_acceptance_final_status(
@@ -1591,6 +1721,25 @@ def mark_packet_status_task(packet_id: str, status: str):
     return record
 
 
+@task(task_run_name="canon-digest:record:{feature_id}")
+def record_canon_digest_task(feature_id: str, canon_digest_run: dict):
+    try:
+        logger = get_run_logger()
+    except Exception:
+        logger = None
+    feature = find_record("features", "features", "feature_id", feature_id)
+    feature_dir = Path(str(feature.get("feature_dir") or (Path("prefect_grace/packets") / feature_id)))
+    output_path = feature_dir / "canon-digest.md"
+    output_text = read_agent_message(canon_digest_run.get("last_message_path"), canon_digest_run.get("stdout_path")).strip()
+    if not output_text:
+        output_text = "# Canon Digest\n\nNo canon digest output was captured.\n"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(output_text + "\n", encoding="utf-8")
+    if logger is not None:
+        logger.info("Recorded canon digest for %s at %s", feature_id, output_path)
+    return update_record("features", "features", "feature_id", feature_id, {"canon_digest_path": str(output_path)})
+
+
 @task(task_run_name="review-route:{coder_packet_id}")
 def route_reviewer_verdict_task(
     coder_packet_id: str,
@@ -1741,6 +1890,7 @@ def resolve_verifier_result_task(
             fallback_blocking_issues=verifier_blocking_issues,
             prefer_agent_output=prefer_agent_output,
         )
+        result = _enrich_verifier_evidence_paths(verifier_run, result)
     except ValueError as exc:
         result = {
             "test_verdict": TestVerdict.FAILED.value,
@@ -1947,10 +2097,29 @@ def feature_pipeline(
         packet_results: dict[str, dict] = {}
         review_route = None
 
+        canon_digest_packet_id = str((seeded["packets"].get("canon_digest") or {}).get("packet_id") or "")
         architect_packet_id = seeded["packets"]["architect"]["packet_id"]
         should_run_planner = _should_run_planner(run_planner=run_planner, planner_contract=planner_contract)
         planner_packet = seeded["packets"].get("planner")
         planner_packet_id = str((planner_packet or {}).get("packet_id") or "")
+
+        if canon_digest_packet_id:
+            with tags("wave:W00", "role:canon_digest"):
+                canon_digest_run = run_packet_task(canon_digest_packet_id, dry_run, timeout_seconds)
+            packet_results["canon_digest"] = canon_digest_run
+            if canon_digest_run.get("returncode") == 0:
+                record_canon_digest_task(feature_id, canon_digest_run)
+                mark_packet_status_task(canon_digest_packet_id, PacketStatus.ACCEPTED.value)
+            else:
+                mark_packet_status_task(canon_digest_packet_id, PacketStatus.BLOCKED.value)
+                final_status = _final_failure(
+                    feature_id=feature_id,
+                    category="environment_blocked",
+                    next_action="inspect-failed-canon-digest",
+                    reasons=["canon_digest preflight failed before architect formalization"],
+                )
+                publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
+                return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
 
         if run_architect:
             with tags("wave:W00", "role:architect"):
