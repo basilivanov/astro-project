@@ -127,6 +127,24 @@ Mutable state не должен загрязнять проектный git tree
 
 На MVP можно хранить state в файлах. Позже можно заменить на SQLite/Postgres без изменения project packets.
 
+Storage must be behind stable interfaces from day one:
+
+```python
+class PacketRegistryStore:
+    def load_packet(packet_id: str) -> dict: ...
+    def upsert_packet(packet: dict) -> None: ...
+    def list_packets(project_key: str) -> list[dict]: ...
+
+class RunStore:
+    def create_run(record: dict) -> str: ...
+    def update_run(run_id: str, patch: dict) -> None: ...
+
+class ExecutorHistoryStore:
+    def append_execution(record: dict) -> None: ...
+```
+
+MVP implementation may be YAML files. SQLite/Postgres implementation must not require changes in controller, executor, verifier, or packet parser code.
+
 ## Что остаётся в текущем проекте
 
 Для `/opt/solarsage-astro` можно временно оставить существующий `prefect_grace/` как prototype, но новая архитектура должна постепенно вынести reusable код в `grace_orchestrator`.
@@ -442,6 +460,43 @@ role:<role>
 executor:<executor>
 ```
 
+#### Workflow runtime adapter
+
+Prefect is the first workflow runtime, not a permanent hard dependency of the domain controller.
+
+Platform core must call a runtime adapter:
+
+```python
+class WorkflowRuntime:
+    name: str
+
+    def submit_packet_run(packet: ControllerPacket, parameters: dict) -> WorkflowRunRef: ...
+    def submit_backlog_run(project: ProjectConfig, parameters: dict) -> WorkflowRunRef: ...
+    def publish_artifact(run_ref: WorkflowRunRef, name: str, body: str | dict) -> None: ...
+    def read_run_status(run_ref: WorkflowRunRef) -> dict: ...
+```
+
+MVP runtime:
+
+```yaml
+workflow_runtime:
+  type: prefect
+```
+
+Future runtime options may include `temporal`, `github_actions`, or a local process runner. Controller semantics must not depend on Prefect-specific objects outside the Prefect adapter.
+
+#### Why Prefect v1 runtime is still acceptable
+
+Prefect is intentionally used as an operating plane:
+
+- queue and scheduling;
+- UI for long-running LLM jobs;
+- retries/timeouts;
+- artifacts;
+- operator dashboard.
+
+It is not the GRACE brain. Agent decisions, packet status, scope guard, verification, and merge policy remain in platform code and project state. If Prefect becomes too heavy, replacing only `WorkflowRuntime` should be possible.
+
 ### 6. Worktree manager
 
 Каждый packet выполняется не в основном repo, а в isolated worktree.
@@ -504,6 +559,32 @@ class AgentExecutor:
   "evidence_paths": []
 }
 ```
+
+Stable executor input contract:
+
+```json
+{
+  "project": {"key": "...", "root": "..."},
+  "packet": {"packet_id": "...", "source_path": "...", "source_hash": "..."},
+  "role": "coder",
+  "attempt": 1,
+  "worktree": {"path": "...", "branch": "..."},
+  "context_paths": [],
+  "policy": {},
+  "timeout_seconds": 3600
+}
+```
+
+Executor errors must use stable categories:
+
+- `executor_start_failed`;
+- `executor_timeout`;
+- `executor_stalled`;
+- `executor_output_parse_error`;
+- `executor_returncode_failed`;
+- `executor_contract_violation`.
+
+Reviewer/verifier/merge code must consume `AgentRunResult`, not executor-specific stdout.
 
 MVP executors:
 
@@ -644,6 +725,22 @@ Verifier обязан вернуть:
 - evidence paths;
 - scope guard result;
 - final verdict.
+
+Stable verifier output contract:
+
+```json
+{
+  "packet_id": "W-1.2",
+  "verdict": "passed|failed|blocked",
+  "commands": [
+    {"cmd": "pytest -q", "cwd": "apps/api", "exit_code": 0, "stdout_path": "...", "stderr_path": "..."}
+  ],
+  "scope_guard": {"verdict": "pass", "violations": []},
+  "evidence_paths": [],
+  "blocking_issues": [],
+  "metrics": {"duration_seconds": 12.3}
+}
+```
 
 LLM-verifier может дополнительно интерпретировать logs, но не должен заменять command execution.
 
@@ -879,7 +976,139 @@ verification_runtime:
 
 MVP may run on host for trusted local projects, but the platform contract must support isolated verification because worktrees are not a security boundary.
 
-### 18. Portability contract
+#### Secret scanning gate
+
+Before merge steward can accept a packet, the platform must run a secret scan on:
+
+- `git diff`;
+- newly created files;
+- generated artifacts that may be committed.
+
+MVP can use a lightweight regex scanner. Production can switch to `gitleaks`, `detect-secrets`, or GitHub secret scanning.
+
+Secret scan result:
+
+```json
+{
+  "verdict": "pass|fail",
+  "findings": [
+    {"path": "file", "line": 10, "rule": "possible_api_key", "redacted_sample": "sk-..."}
+  ]
+}
+```
+
+Any positive finding blocks merge until manually waived by controller policy.
+
+#### Least-privilege branch policy
+
+Agent branches/worktrees must have minimum operational rights:
+
+- no direct push to protected branches;
+- no automatic force-push unless explicitly enabled per project;
+- merge to target branch only through merge steward;
+- external executors get an allowlist of env vars and commands;
+- destructive commands require explicit project policy approval.
+
+### 18. CI/CD integration
+
+The platform behaves like a local CI/CD layer, so it must not fight external CI.
+
+Rules:
+
+- Local GRACE verification gates run before merge/push.
+- External CI, such as GitHub Actions, remains an independent final gate after push/PR.
+- If external CI fails, packet or phase status becomes `external_ci_failed`.
+- The platform must not disable or bypass required branch protection checks.
+- `auto_push` must default to `false` until a project explicitly opts in.
+- GitHub Actions jobs triggered by agent pushes should be linked back into Prefect artifacts when possible.
+
+CI policy:
+
+```yaml
+external_ci:
+  enabled: true
+  provider: github_actions
+  wait_for_checks: false
+  fail_status: external_ci_failed
+  required_checks: []
+```
+
+MVP can record the pushed commit URL only. Later versions can poll GitHub check-runs and update registry.
+
+### 19. Operational observability
+
+Artifacts and Telegram are enough for debugging, but operations need metrics.
+
+MVP metrics can be emitted as JSON artifacts and appended to runtime state. Later they can be exported to Prometheus/StatsD/OpenTelemetry.
+
+Required metric names:
+
+```text
+grace_packet_duration_seconds
+grace_packet_ready_to_terminal_seconds
+grace_packets_accepted_total
+grace_packets_blocked_total
+grace_packets_failed_total
+grace_rework_total
+grace_rework_by_reason_total
+grace_executor_runs_total
+grace_executor_failures_total
+grace_executor_rotation_total
+grace_scope_violations_total
+grace_verification_failures_total
+grace_merge_conflicts_total
+grace_external_ci_failures_total
+```
+
+Every terminal packet run must record:
+
+- ready timestamp;
+- start timestamp;
+- terminal timestamp;
+- terminal status;
+- blocker category if any;
+- executor attempts;
+- rework count;
+- verification duration;
+- merge duration.
+
+### 20. CLI and machine-readable output
+
+Every CLI command must support human output and `--json`.
+
+Required commands:
+
+```bash
+grace-orchestrator validate-project --project /path --json
+grace-orchestrator sync-packets --project /path --dry-run --json
+grace-orchestrator submit-packets --project /path --execute --json
+grace-orchestrator run-nightly --project /path --until-blocked --json
+grace-orchestrator packet-status --project /path --packet-id W-1.2 --json
+grace-orchestrator registry-dump --project /path --json
+```
+
+JSON response envelope:
+
+```json
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "sync-packets",
+  "result": {},
+  "errors": [],
+  "warnings": []
+}
+```
+
+Non-zero exit codes:
+
+- `1` validation/runtime error;
+- `2` packet schema invalid;
+- `3` dependency/DAG invalid;
+- `4` external runtime unavailable;
+- `5` security/scope violation.
+
+### 21. Portability contract
 
 Чтобы подключить новый проект, нужны только:
 
