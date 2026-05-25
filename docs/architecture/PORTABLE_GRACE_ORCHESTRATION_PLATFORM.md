@@ -218,6 +218,68 @@ depends_on:
 
 Parser не должен быть LLM-based. Это deterministic слой.
 
+#### Markdown schema contract
+
+Parser должен ожидать фиксированную Markdown-схему, а не "примерный текст".
+
+Минимально допустимый controller packet:
+
+```markdown
+# Controller Packet — W-1.2: Telegram auth + users
+
+status: ready
+phase: PHASE-1-MOCKED-PIPELINE
+wave: W-1.2
+modules: M-AUTH-TG · M-PROFILE
+depends_on:
+  - W-1.1
+  - W-1.1B
+
+---
+
+## Goal
+
+## Allowed Write Scope
+
+## Frozen / Out Of Scope
+
+## Must Preserve
+
+## Verification
+
+## Expected Evidence
+
+## Escalation triggers
+
+## Decision
+
+## Evidence
+
+## Reviewer notes
+```
+
+Rules:
+
+- front matter may be YAML or simple `key: value` lines before the first `---`;
+- section names are case-sensitive in MVP;
+- missing required runtime sections produce `packet_schema_invalid`;
+- unknown sections are allowed only under `## Notes` or `## Appendix`;
+- parser records source line numbers for every section.
+
+Validation error shape:
+
+```json
+{
+  "error_code": "packet_schema_invalid",
+  "packet_path": "grace/packets/W-1.2.md",
+  "line": 42,
+  "section": "Verification",
+  "message": "Missing required section: ## Verification"
+}
+```
+
+Schema errors are published as Prefect artifacts and Telegram blockers. They do not start agent execution.
+
 ### 3. Packet registry
 
 Хранит runtime-состояние независимо от source packet:
@@ -250,6 +312,33 @@ Idempotency:
 - если статус `blocked`, повторно запускать только с `--retry-blocked` или после изменения packet hash;
 - Prefect idempotency key должен включать `project_key + packet_id + source_hash`.
 
+#### Source hash normalization
+
+`source_hash` должен считаться не по всему файлу, а по canonical execution contract.
+
+В hash входят:
+
+- front matter keys that affect execution: `status`, `phase`, `wave`, `modules`, `depends_on`, `planner_required`, executor hints;
+- `Goal`;
+- `Allowed Write Scope`;
+- `Frozen / Out Of Scope`;
+- `Must Preserve`;
+- `Verification`;
+- `Expected Evidence`;
+- `Escalation triggers`;
+- `Decision`, only if it changes implementation semantics.
+
+В hash не входят:
+
+- `Evidence`;
+- `Reviewer notes`;
+- runtime comments;
+- timestamps;
+- generated Prefect links;
+- final acceptance appendices.
+
+Это нужно, чтобы добавление evidence/review notes не вызывало вечный rerun уже принятого packet.
+
 ### 4. Backlog controller
 
 Главный runtime-flow.
@@ -264,18 +353,53 @@ grace-orchestrator run-nightly --project /opt/solarsage-astro --until-blocked
 
 Поведение:
 
-1. Сканирует `grace/packets`.
-2. Валидирует packet format.
-3. Обновляет registry.
-4. Строит DAG.
-5. Выбирает ready packets:
+1. Acquires project runtime lock.
+   - lock path: `<state_root>/locks/backlog-controller.lock`;
+   - second nightly run exits with `controller_already_running`;
+   - stale lock detection is based on PID/process heartbeat and max lock age.
+2. Сканирует `grace/packets`.
+3. Валидирует packet format.
+   - schema errors stop the affected packet before agent execution;
+   - global parse failures stop the whole backlog run.
+4. Обновляет registry.
+   - computes normalized `source_hash`;
+   - preserves accepted packets with same hash;
+   - marks changed accepted packets as `changed_after_acceptance`;
+   - marks changed blocked packets as `ready_for_retry`.
+5. Строит DAG.
+   - dependencies come from explicit `depends_on`;
+   - implicit wave ordering is allowed only as MVP fallback and emits warning;
+   - cycles produce `dependency_cycle_blocker` and stop the run.
+6. Выбирает ready packets:
    - `status: ready`;
    - все dependencies accepted;
    - packet не accepted раньше с тем же hash;
    - нет активного conflicting packet.
-6. Создаёт Prefect flow runs.
-7. Соблюдает project concurrency.
-8. Останавливается на blocker, если policy требует fail-fast.
+7. Cascading dependency rules:
+   - if a dependency becomes `blocked`, dependent packets become `cascading_blocked`;
+   - cascading packets are not executed until dependency is accepted or packet dependencies change.
+8. Создаёт Prefect flow runs.
+9. Соблюдает project concurrency.
+10. Останавливается на blocker, если policy требует fail-fast.
+
+#### DAG validation output
+
+Backlog controller must publish a machine-readable DAG artifact:
+
+```json
+{
+  "project_key": "astro-project",
+  "packets_total": 20,
+  "ready": ["W-1.1"],
+  "accepted": [],
+  "blocked": [],
+  "cascading_blocked": [],
+  "cycles": [],
+  "warnings": []
+}
+```
+
+The same data should also be rendered as a concise Markdown table in Prefect UI.
 
 ### 5. Prefect runtime
 
@@ -577,6 +701,41 @@ rework:
 - bad packet contract;
 - frozen scope conflict.
 
+#### Rework loop detail
+
+One packet attempt has strict phases:
+
+```text
+coder
+  → scope guard
+  → deterministic verification commands
+  → verifier evidence summary
+  → reviewer verdict
+  → architect gate
+```
+
+If deterministic verification fails:
+
+- create `rework_evidence.md`;
+- classify blocker as `failed_verification`;
+- increment `rework_count`;
+- if below limit, return to coder with only packet context + verification evidence;
+- if over limit, mark packet `blocked`.
+
+If reviewer fails the packet:
+
+- create `review_comments.md`;
+- classify blocker;
+- increment `rework_count` only for `quality_rework`;
+- route scope/canon/environment failures to the responsible lane instead of blindly returning to coder.
+
+Every rework must preserve:
+
+- original packet intent;
+- allowed/frozen scope;
+- dependency context;
+- previous verifier/reviewer evidence.
+
 ### 14. Merge steward
 
 Merge steward не должен быть LLM.
@@ -584,12 +743,33 @@ Merge steward не должен быть LLM.
 Responsibilities:
 
 - ensure clean worktree;
+- rebase packet branch onto latest merge target before final acceptance;
 - run final verification;
 - enforce scope guard;
 - squash commit with generated message;
 - optionally push;
 - update registry;
 - publish Prefect artifacts.
+
+Merge policy:
+
+```yaml
+merge:
+  target_branch: main
+  integration_branch: grace/integration
+  before_merge: rebase_onto_target
+  final_verification_required: true
+  conflict_policy: block_and_preserve_worktree
+  strategy: squash_after_acceptance
+```
+
+If rebase/merge conflicts happen:
+
+- packet status becomes `blocked`;
+- blocker category is `merge_conflict`;
+- worktree and branch are preserved;
+- no auto-resolution by LLM unless controller explicitly launches a conflict-resolution packet;
+- dependent packets become `cascading_blocked`.
 
 Commit message format:
 
@@ -633,6 +813,14 @@ Prefect artifacts should include a human-readable Markdown table:
 packet_id | phase | wave | status | executor | branch | commit | evidence
 ```
 
+Nightly flow artifact should additionally include:
+
+- Mermaid DAG with accepted/blocked/pending states;
+- diff stat per accepted packet;
+- failed command summary per blocked packet;
+- links to worktree/branch/commit;
+- executor rotation history.
+
 ### 16. Notifications
 
 Telegram should send only major events:
@@ -647,6 +835,26 @@ Telegram should send only major events:
 
 Do not send every task heartbeat.
 
+Nightly summary format:
+
+```text
+🤖 GRACE Nightly: <project_key>
+Flow: <prefect_run_url>
+
+✅ ACCEPTED (<n>)
+• W-1.1 — <title> — <commit>
+
+🚫 BLOCKED (<n>)
+• W-1.3 — <title>
+  Reason: <category>, attempt <x>/<max>
+  Branch: <branch>
+
+⏳ PENDING / CASCADING (<n>)
+• W-1.4 — depends on W-1.3
+```
+
+Telegram payload must be short enough to scan in under 10 seconds. Full evidence belongs in Prefect artifacts, not Telegram.
+
 ### 17. Security/secrets
 
 Платформа не должна копировать `.env` в artifacts.
@@ -658,6 +866,18 @@ Rules:
 - agents receive only paths and allowed commands;
 - worktrees use project-local `.env` only if policy allows;
 - external executors must be explicitly trusted per project.
+
+Verification isolation policy:
+
+```yaml
+verification_runtime:
+  mode: host|docker|project_venv
+  default: project_venv
+  allow_host_commands: false
+  docker_image: null
+```
+
+MVP may run on host for trusted local projects, but the platform contract must support isolated verification because worktrees are not a security boundary.
 
 ### 18. Portability contract
 
