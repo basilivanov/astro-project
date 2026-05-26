@@ -190,4 +190,22 @@ def test_worktree_scope_check_cli_contract() -> None:
     assert "--base-ref" in result.stdout
     assert "--keep-on-failure" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_run_worktree_scope_flow_cli_contract() -> None:
+    """Verify run-worktree-scope-flow CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-worktree-scope-flow", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--keep-on-failure" in result.stdout
     assert "--json" in result.stdout

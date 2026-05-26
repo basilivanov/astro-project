@@ -1220,6 +1220,88 @@ def _cmd_worktree_scope_check(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_run_worktree_scope_flow(args: argparse.Namespace) -> None:
+    """Run worktree scope lifecycle Prefect flow."""
+    command = "run-worktree-scope-flow"
+    try:
+        from prefect_grace.flows.worktree_scope_lifecycle_flow import (
+            worktree_scope_lifecycle_flow,
+        )
+
+        result = worktree_scope_lifecycle_flow(
+            packet_file=str(args.packet),
+            repo_root=str(args.repo_root),
+            worktree_root=str(args.worktree_root),
+            project_key=args.project_key,
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            keep_on_failure=args.keep_on_failure,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result["ok"],
+                command=command,
+                result=result,
+            ))
+        else:
+            # Text mode
+            domain_status = result["domain_status"]
+            if domain_status == "passed":
+                print(f"Flow: PASSED")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Worktree: {result['worktree_path']}")
+                print(f"  Branch: {result['branch_name']}")
+                print(f"  Changed files: {len(result['changed_files'])}")
+                print(f"  Artifacts: {len(result['artifact_ids'])}")
+            elif domain_status == "scope_blocked":
+                print(f"Flow: SCOPE BLOCKED")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Worktree: {result['worktree_path']}")
+                print(f"  Branch: {result['branch_name']}")
+                print(f"  Changed files: {len(result['changed_files'])}")
+                print(f"  Artifacts: {len(result['artifact_ids'])}")
+
+                scope_guard = result["scope_guard"]
+                if scope_guard.get("frozen_violations"):
+                    print(f"\n  Frozen violations:")
+                    for v in scope_guard["frozen_violations"][:5]:
+                        print(f"    - {v['file_path']}")
+                if scope_guard.get("outside_allowed"):
+                    print(f"\n  Outside allowed:")
+                    for v in scope_guard["outside_allowed"][:5]:
+                        print(f"    - {v['file_path']}")
+            else:
+                print(f"Flow: ERROR")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                if result.get("worktree_path"):
+                    print(f"  Worktree: {result['worktree_path']}")
+
+        # Exit codes
+        domain_status = result["domain_status"]
+        if domain_status == "passed":
+            sys.exit(0)
+        elif domain_status == "scope_blocked":
+            sys.exit(1)
+        else:
+            sys.exit(2)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_WORKTREE_SCOPE_FLOW_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run worktree scope flow failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1500,6 +1582,18 @@ def build_parser() -> argparse.ArgumentParser:
     worktree_scope_check.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
     worktree_scope_check.add_argument("--json", action="store_true", help="JSON output")
     worktree_scope_check.set_defaults(func=_cmd_worktree_scope_check)
+
+    run_worktree_scope_flow = subparsers.add_parser("run-worktree-scope-flow", help="Run worktree scope lifecycle Prefect flow")
+    run_worktree_scope_flow.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_worktree_scope_flow.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    run_worktree_scope_flow.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_worktree_scope_flow.add_argument("--project-key", required=True, help="Project key")
+    run_worktree_scope_flow.add_argument("--packet-id", required=True, help="Packet ID")
+    run_worktree_scope_flow.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_worktree_scope_flow.add_argument("--base-ref", required=True, help="Base git ref")
+    run_worktree_scope_flow.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
+    run_worktree_scope_flow.add_argument("--json", action="store_true", help="JSON output")
+    run_worktree_scope_flow.set_defaults(func=_cmd_run_worktree_scope_flow)
 
     return parser
 
