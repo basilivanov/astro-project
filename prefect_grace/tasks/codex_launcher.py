@@ -1,3 +1,27 @@
+# ############################################################################
+# AI_HEADER: codex_launcher
+# ROLE: Launches Codex agent sessions for packet execution with resume control.
+# ############################################################################
+
+# START_MODULE_CONTRACT
+# purpose: Launch and monitor Codex agent sessions for packet execution.
+# inputs: Packet ID, agent config, execution hints, timeout settings.
+# returns: CodexLaunchResult with execution details and thread IDs.
+# side_effects: Spawns Codex subprocess, writes run artifacts, updates packet state.
+# emitted_logs: Heartbeat progress, stall warnings, resume decisions.
+# error_behavior: Returns non-zero returncode on failure, auto-resumes on stall.
+# END_MODULE_CONTRACT
+
+# START_MODULE_MAP
+# mapping:
+#   - class: CodexLaunchResult
+#   - class: CodexProcessResult
+#   - function: load_agent_config
+#   - function: build_packet_prompt
+#   - function: role_prompt_for
+#   - function: launch_codex_for_packet
+# END_MODULE_MAP
+
 from __future__ import annotations
 
 import json
@@ -26,11 +50,13 @@ from prefect_grace.tasks.agent_output_parser import (
 )
 from prefect_grace.tasks.state_store import find_record, update_record
 from prefect_grace.tasks.workdir import resolve_execution_workdir
+from prefect_grace.platform.state_store import PacketRegistryStore
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
 RUNS_DIR = Path(__file__).resolve().parents[1] / "state" / "runs"
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
 DEFAULT_STALL_TIMEOUT_SECONDS = 900.0
 DEFAULT_FINAL_OUTPUT_GRACE_SECONDS = 60.0
@@ -72,6 +98,15 @@ class CodexLaunchResult:
     attempt_count: int = 1
     attempts: list[dict[str, Any]] = field(default_factory=list)
 
+    # START_FUNCTION_CONTRACT
+    # name: to_dict
+    # purpose: Convert CodexLaunchResult to dictionary for serialization.
+    # inputs: None (instance method)
+    # returns: dict[str, Any] - Dictionary with all result fields.
+    # side_effects: None
+    # emitted_logs: None
+    # error_behavior: None
+    # END_FUNCTION_CONTRACT
     def to_dict(self) -> dict[str, Any]:
         return {
             "packet_id": self.packet_id,
@@ -100,6 +135,15 @@ class CodexProcessResult:
     termination_reason: str
 
 
+# START_FUNCTION_CONTRACT
+# name: load_agent_config
+# purpose: Load agent configuration from YAML file.
+# inputs: None
+# returns: dict[str, Any] - Agent configuration with codex settings and role defaults.
+# side_effects: Reads CONFIG_PATH file from disk.
+# emitted_logs: None
+# error_behavior: Raises exception on file read or YAML parse errors.
+# END_FUNCTION_CONTRACT
 def load_agent_config() -> dict[str, Any]:
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
 
@@ -403,6 +447,17 @@ def _architect_mode_preamble(context_mode: str) -> str:
     )
 
 
+# START_FUNCTION_CONTRACT
+# name: build_packet_prompt
+# purpose: Build complete prompt for Codex agent from packet data and role prompt.
+# inputs:
+#   packet: Packet record with role, paths, dependencies.
+#   role_prompt: Base role instructions.
+# returns: str - Complete prompt with role instructions, packet context, feature context, and dependency context.
+# side_effects: Reads packet files, feature files, dependency files, and canon digest sources from disk.
+# emitted_logs: None
+# error_behavior: Returns partial prompt if files are missing; raises exception on state store errors.
+# END_FUNCTION_CONTRACT
 def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
     role = str(packet.get("role") or "")
     packet_path = packet.get("packet_path") or ""
@@ -491,6 +546,16 @@ def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
     return "\n\n".join(prompt_parts) + "\n"
 
 
+# START_FUNCTION_CONTRACT
+# name: role_prompt_for
+# purpose: Load role-specific prompt template from prompts directory.
+# inputs:
+#   role: Agent role name (e.g., "coder", "architect", "planner").
+# returns: str - Role prompt template text, or default strict-GRACE prompt if file not found.
+# side_effects: Reads prompt file from disk.
+# emitted_logs: None
+# error_behavior: Returns default prompt if role prompt file does not exist.
+# END_FUNCTION_CONTRACT
 def role_prompt_for(role: str) -> str:
     prompt_path = Path(__file__).resolve().parents[1] / "prompts" / f"{role}_prompt.md"
     if prompt_path.exists():
@@ -523,6 +588,70 @@ def _normalize_positive_float(value: Any) -> float | None:
     if parsed <= 0:
         return None
     return parsed
+
+
+# START_FUNCTION_CONTRACT
+# name: _check_resume_allowed
+# purpose: Check if resume is allowed for this packet based on registry state.
+# inputs:
+#   packet_id: Packet identifier.
+#   resume_strategy: Resume strategy (none, feature_role, packet_parent).
+#   logger: Optional logger for warnings.
+# returns: bool - True if resume allowed, False if blocked by source hash change or registry errors for managed strategies.
+# side_effects: Reads packet record from PacketRegistryStore.
+# emitted_logs: Warning when resume blocked or registry check fails.
+# error_behavior: Fails open for legacy (none strategy), fails closed for managed strategies (feature_role, packet_parent).
+# END_FUNCTION_CONTRACT
+def _check_resume_allowed(packet_id: str, resume_strategy: str, logger: logging.Logger | None = None) -> bool:
+    """
+    Check if resume is allowed for this packet based on registry state.
+
+    Returns True if resume is allowed, False if blocked by source hash change.
+    For managed resume strategies (feature_role, packet_parent), registry errors fail closed.
+    """
+    is_managed_strategy = resume_strategy in {"feature_role", "packet_parent"}
+
+    try:
+        registry = PacketRegistryStore(STATE_ROOT)
+        packet_record = registry.load_packet(packet_id)
+
+        if packet_record is None:
+            # No registry record, allow resume (backward compatibility)
+            return True
+
+        resume_allowed = packet_record.get("resume_allowed")
+        if resume_allowed is False:
+            resume_block_reason = packet_record.get("resume_block_reason", "unknown")
+            if logger is not None:
+                logger.warning(
+                    "Resume blocked for packet=%s reason=%s. Forcing fresh session.",
+                    packet_id,
+                    resume_block_reason,
+                )
+            return False
+
+        # resume_allowed is True or None (not set), allow resume
+        return True
+    except Exception as e:
+        # For managed strategies, fail closed on registry errors
+        if is_managed_strategy:
+            if logger is not None:
+                logger.error(
+                    "Registry error for managed resume strategy packet=%s strategy=%s error=%s. Blocking resume for safety.",
+                    packet_id,
+                    resume_strategy,
+                    str(e),
+                )
+            return False
+
+        # For legacy/none strategy, fail open for backward compatibility
+        if logger is not None:
+            logger.warning(
+                "Failed to check resume_allowed for packet=%s error=%s. Allowing resume (legacy strategy).",
+                packet_id,
+                str(e),
+            )
+        return True
 
 
 def _resolve_resume_strategy(packet: dict[str, Any], role_defaults: dict[str, Any]) -> str:
@@ -1221,6 +1350,21 @@ def _run_codex_process(
     return CodexProcessResult(returncode=returncode, termination_reason=termination_reason)
 
 
+# START_FUNCTION_CONTRACT
+# name: launch_codex_for_packet
+# purpose: Launch Codex agent session for packet execution with resume control and auto-retry.
+# inputs:
+#   packet_id: Packet identifier.
+#   dry_run: Skip actual execution.
+#   timeout_seconds: Process timeout.
+#   logger: Optional logger.
+#   heartbeat_interval_seconds: Heartbeat frequency.
+#   stall_timeout_seconds: Stall detection timeout.
+# returns: dict[str, Any] - CodexLaunchResult with execution details, thread IDs, and attempt history.
+# side_effects: Spawns Codex subprocess, writes run artifacts to RUNS_DIR, updates packet state in state store, updates registry resume state for coder role.
+# emitted_logs: Launch info, heartbeat progress, stall warnings, resume decisions, execution state updates.
+# error_behavior: Returns non-zero returncode on failure, auto-resumes on stall if max_auto_resume_attempts allows, fails gracefully on registry update errors.
+# END_FUNCTION_CONTRACT
 def launch_codex_for_packet(
     packet_id: str,
     *,
@@ -1248,9 +1392,12 @@ def launch_codex_for_packet(
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
 
-    if resume_strategy == "feature_role":
+    # Check if resume is allowed based on source hash gate
+    resume_allowed = _check_resume_allowed(packet_id, resume_strategy, logger)
+
+    if resume_strategy == "feature_role" and resume_allowed:
         existing_session = _feature_role_session(str(packet.get("feature_id")), role)
-    elif resume_strategy == "packet_parent":
+    elif resume_strategy == "packet_parent" and resume_allowed:
         existing_session = _packet_parent_session(packet)
     else:
         existing_session = None
@@ -1464,4 +1611,25 @@ def launch_codex_for_packet(
             "status": "review" if returncode == 0 else "blocked",
         },
     )
+
+    # Update registry with execution state for resume decision tracking
+    if role == "coder" and thread_id:
+        try:
+            registry = PacketRegistryStore(STATE_ROOT)
+            packet_record = registry.load_packet(packet_id)
+            if packet_record is not None:
+                current_source_hash = packet_record.get("source_hash")
+                registry.update_resume_state(
+                    packet_id=packet_id,
+                    last_executed_source_hash=current_source_hash,
+                    latest_coder_session_id=thread_id,
+                )
+        except Exception as e:
+            if logger is not None:
+                logger.warning(
+                    "Failed to update registry resume state for packet=%s error=%s",
+                    packet_id,
+                    str(e),
+                )
+
     return result

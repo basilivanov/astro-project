@@ -76,7 +76,27 @@ class PacketRegistryStore:
         if not packet_id:
             raise ValueError("packet_id is required")
         data = self._load_all()
-        data[packet_id] = packet
+        existing = data.get(packet_id, {})
+        merged = {**existing, **packet}
+        data[packet_id] = merged
+        self._save_all(data)
+
+    # START_FUNCTION_CONTRACT
+    # name: update_resume_state
+    # purpose: Updates resume tracking fields for a packet.
+    # inputs:
+    #   packet_id: string identifier.
+    #   **kwargs: resume state fields to update.
+    # returns: none.
+    # side_effects: Writes registry file to disk.
+    # emitted_logs: none.
+    # error_behavior: Raises ValueError if packet not found in registry.
+    # END_FUNCTION_CONTRACT
+    def update_resume_state(self, packet_id: str, **kwargs: Any) -> None:
+        data = self._load_all()
+        if packet_id not in data:
+            raise ValueError(f"Packet {packet_id} not found in registry")
+        data[packet_id].update(kwargs)
         self._save_all(data)
 
     # START_FUNCTION_CONTRACT

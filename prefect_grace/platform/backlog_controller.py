@@ -281,6 +281,9 @@ class BacklogController:
                                 **packet,
                                 "registry_status": "ready",
                                 "registry_reason": "changed_after_acceptance",
+                                "resume_allowed": False,
+                                "resume_block_reason": "contract_changed",
+                                "recommended_rework_mode": "bounded_fresh",
                             })
                             result.registry_updates += 1
                     else:
@@ -289,6 +292,9 @@ class BacklogController:
                             registry.upsert_packet({
                                 **packet,
                                 "registry_status": "changed_after_acceptance",
+                                "resume_allowed": False,
+                                "resume_block_reason": "contract_changed",
+                                "recommended_rework_mode": "bounded_fresh",
                             })
                             result.registry_updates += 1
                 else:
@@ -303,6 +309,9 @@ class BacklogController:
                                 **packet,
                                 "registry_status": "ready",
                                 "registry_reason": "retry_after_change",
+                                "resume_allowed": False,
+                                "resume_block_reason": "contract_changed",
+                                "recommended_rework_mode": "bounded_fresh",
                             })
                             result.registry_updates += 1
                     else:
@@ -311,6 +320,9 @@ class BacklogController:
                             registry.upsert_packet({
                                 **packet,
                                 "registry_status": "ready_for_retry",
+                                "resume_allowed": False,
+                                "resume_block_reason": "contract_changed",
+                                "recommended_rework_mode": "bounded_fresh",
                             })
                             result.registry_updates += 1
                 else:
