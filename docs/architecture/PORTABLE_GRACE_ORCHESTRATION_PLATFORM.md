@@ -1267,6 +1267,42 @@ Rules:
 - synthetic edge matrix must remain green before and after each split;
 - `codex_launcher.py` must not be split while a source-hash resume gate rework is still open.
 
+### MVP-7D: Agent API failure classification
+
+This is intentionally separate from MVP-7B. The synthetic matrix tests
+orchestrator state transitions without live agents. API/provider failures need
+their own runtime classifier before they become matrix dimensions.
+
+Deliverables:
+
+- pure agent failure classifier for fake stdout/stderr/run metadata;
+- normalized categories:
+  - `rate_limit`;
+  - `quota_exceeded`;
+  - `auth_failed`;
+  - `network_timeout`;
+  - `provider_unavailable`;
+  - `unknown_api_error`;
+- Codex launcher termination reason mapping for classified failures;
+- JSON artifact/report fields that expose category, retryability, and suggested
+  next action;
+- synthetic matrix dimension `api_failure` only after the classifier exists.
+
+Rules:
+
+- do not add backoff/retry policy in the same packet as classification;
+- do not call live APIs in classifier tests;
+- do not treat rate-limit/quota failures as quality rework;
+- do not immediately retry quota/auth failures with the same executor profile.
+
+Acceptance:
+
+- fake stderr/stdout samples classify deterministically;
+- `rate_limit` and `network_timeout` are retryable infrastructure blockers;
+- `quota_exceeded` and `auth_failed` are non-quality blockers requiring
+  operator/config action;
+- synthetic matrix can include `api_failure` without starting live agents.
+
 ### MVP-8: Merge steward + nightly mode
 
 Deliverables:

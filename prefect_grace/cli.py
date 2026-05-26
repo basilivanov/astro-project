@@ -763,6 +763,126 @@ def _cmd_write_evidence(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_synthetic_edge_matrix(args: argparse.Namespace) -> None:
+    """Run synthetic edge matrix tests."""
+    import time
+    from pathlib import Path
+    import tempfile
+    from prefect_grace.platform.synthetic_edge_matrix import build_synthetic_edge_matrix
+    from prefect_grace.platform.synthetic_runner import run_synthetic_scenario
+    from prefect_grace.platform.synthetic_invariants import assert_all_invariants
+
+    profile = args.profile
+    seed = args.seed
+
+    # Generate scenarios
+    scenarios = build_synthetic_edge_matrix(profile=profile, seed=seed)
+
+    # Count scenarios
+    total_generated = len(scenarios)
+    pruned_scenarios = [s for s in scenarios if s.pruned]
+    executed_scenarios = [s for s in scenarios if not s.pruned]
+
+    pruned_list = []
+    for scenario in pruned_scenarios:
+        pruned_list.append({
+            "scenario_id": scenario.scenario_id,
+            "dimensions": scenario.dimensions,
+            "reason": scenario.prune_reason,
+        })
+
+    # Run scenarios
+    failures = []
+    passed_count = 0
+    failed_count = 0
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        start_time = time.time()
+
+        for scenario in executed_scenarios:
+            result = run_synthetic_scenario(scenario, tmp_path)
+
+            # Check invariants
+            passed_invariants, failed_invariants = assert_all_invariants(
+                result, scenario.expected_invariants
+            )
+
+            if failed_invariants:
+                failed_count += 1
+                # Build detailed per-failure records
+                for failed_inv_msg in failed_invariants:
+                    # Parse invariant name and assertion message
+                    if ":" in failed_inv_msg:
+                        failed_invariant, assertion = failed_inv_msg.split(":", 1)
+                        assertion = assertion.strip()
+                    else:
+                        failed_invariant = failed_inv_msg
+                        assertion = "Invariant failed"
+
+                    # Determine expected command pattern based on invariant
+                    expected_pattern = []
+                    if "NO-RESUME" in failed_invariant:
+                        expected_pattern = ["mock-codex", "exec", "-C", "...", "-m", "mock-model", "--json", "-"]
+                    elif "MERGE" in failed_invariant:
+                        expected_pattern = ["no merge command expected"]
+                    elif "ACCEPT" in failed_invariant:
+                        expected_pattern = ["returncode != 0 or packet_accepted = false"]
+
+                    failures.append({
+                        "scenario_id": scenario.scenario_id,
+                        "dimensions": scenario.dimensions,
+                        "failed_invariant": failed_invariant,
+                        "assertion": assertion,
+                        "actual_command": result.command,
+                        "expected_command_pattern": expected_pattern,
+                        "session_mode": result.session_mode,
+                        "resumed_from_thread_id": result.resumed_from_thread_id,
+                        "returncode": result.returncode,
+                        "merge_allowed": result.merge_allowed,
+                        "packet_accepted": result.packet_accepted,
+                        "blocked_reason": result.blocked_reason,
+                    })
+            else:
+                passed_count += 1
+
+        elapsed_time = time.time() - start_time
+
+    # Build result
+    result = {
+        "ok": failed_count == 0,
+        "profile": profile,
+        "seed": seed,
+        "generated": total_generated,
+        "pruned": len(pruned_scenarios),
+        "passed": passed_count,
+        "failed": failed_count,
+        "elapsed_seconds": round(elapsed_time, 2),
+        "pruned_scenarios": pruned_list,
+        "failures": failures,
+    }
+
+    if args.json:
+        _print_json(result)
+    else:
+        print(f"Synthetic Edge Matrix: {profile} profile")
+        print(f"  Generated: {total_generated}")
+        print(f"  Pruned: {len(pruned_scenarios)}")
+        print(f"  Executed: {len(executed_scenarios)}")
+        print(f"  Passed: {passed_count}")
+        print(f"  Failed: {failed_count}")
+        print(f"  Elapsed: {elapsed_time:.2f}s")
+        if failures:
+            print(f"\nFailures:")
+            for failure in failures[:5]:  # Show first 5
+                # Handle both old and new payload formats
+                failed_inv = failure.get('failed_invariant') or ', '.join(failure.get('failed_invariants', []))
+                print(f"  - {failure['scenario_id']}: {failed_inv}")
+
+    if failed_count > 0:
+        sys.exit(1)
+
+
 def _cmd_write_rework(args: argparse.Namespace) -> None:
     command = "write-rework"
     try:
@@ -1025,6 +1145,12 @@ def build_parser() -> argparse.ArgumentParser:
     write_rework.add_argument("--blocker", action="append", help="Blocker description (can be repeated)")
     write_rework.add_argument("--json", action="store_true")
     write_rework.set_defaults(func=_cmd_write_rework)
+
+    synthetic_edge_matrix = subparsers.add_parser("synthetic-edge-matrix")
+    synthetic_edge_matrix.add_argument("--profile", choices=["smoke", "full"], default="smoke")
+    synthetic_edge_matrix.add_argument("--seed", type=int, default=1)
+    synthetic_edge_matrix.add_argument("--json", action="store_true")
+    synthetic_edge_matrix.set_defaults(func=_cmd_synthetic_edge_matrix)
 
     return parser
 
