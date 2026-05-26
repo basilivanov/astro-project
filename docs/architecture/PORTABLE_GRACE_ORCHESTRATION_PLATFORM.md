@@ -1303,6 +1303,260 @@ Acceptance:
   operator/config action;
 - synthetic matrix can include `api_failure` without starting live agents.
 
+### MVP-7E: Status model hardening
+
+This MVP must happen before the end-to-end packet runner becomes the main
+orchestration path.
+
+Problem:
+
+The platform currently has overlapping status strings in three layers:
+
+1. source packet intent:
+   - `ready`;
+   - `blocked`;
+   - legacy `accepted`.
+2. registry runtime state:
+   - `ready`;
+   - `running`;
+   - `accepted`;
+   - `blocked`;
+   - `cascading_blocked`;
+   - `waiting_for_dependencies`;
+   - `ready_for_retry`;
+   - `changed_after_acceptance`.
+3. domain execution outcome:
+   - `accepted`;
+   - `rework_required`;
+   - `blocked`;
+   - `scope_blocked`;
+   - `agent_failed`;
+   - `verifier_failed`;
+   - `reviewer_failed`;
+   - `runner_error`;
+   - `handoff_error`;
+   - compatibility local-gate `passed`.
+
+These layers must not be treated as interchangeable. A domain result drives a
+registry transition; it is not itself the registry state.
+
+Deliverables:
+
+- `prefect_grace/platform/status_model.py`;
+- typed enums:
+  - `SourcePacketStatus`;
+  - `RegistryStatus`;
+  - `DomainStatus`;
+- deterministic normalization helpers for legacy strings;
+- explicit transition helper:
+  - `apply_domain_result_to_registry(...)`;
+- tests for known values, unknown values, and transition table behavior;
+- focused integration in:
+  - backlog controller;
+  - managed packet runner;
+  - worktree scope lifecycle;
+  - verifier/reviewer handoff;
+  - executor registry.
+
+Rules:
+
+- unknown statuses must fail closed, never become accepted;
+- `passed` is only a compatibility/local-gate signal and must not become the
+  preferred final packet status;
+- public CLI/JSON output stays string-based; enums are internal safety
+  primitives;
+- do not rewrite `feature_pipeline.py` in this packet;
+- do not edit `codex_launcher.py` in this packet.
+
+Acceptance:
+
+- `accepted -> registry.accepted`;
+- `rework_required -> registry.ready_for_retry`;
+- `scope_blocked -> registry.blocked(reason=scope_violation)`;
+- `agent_failed -> registry.blocked(reason=agent_execution_failed)`;
+- unknown domain status -> registry.blocked, never accepted;
+- existing public JSON status fields remain strings;
+- tests prove source/registry/domain statuses are not mixed accidentally.
+
+### MVP-7F: End-to-end packet runner dry-run
+
+This MVP proves that the independent platform primitives can execute one packet
+through a deterministic orchestration path without launching live agents.
+
+Target path:
+
+```text
+packet discovery
+→ registry readiness
+→ worktree creation/reuse
+→ executor selection
+→ managed packet runner dry-run
+→ worktree scope lifecycle
+→ verifier/reviewer handoff dry-run
+→ registry domain status transition
+→ optional Prefect artifact publication
+```
+
+Deliverables:
+
+- `prefect_grace/platform/e2e_packet_runner.py`;
+- CLI command `run-e2e-packet`;
+- fake verifier/reviewer output support;
+- dry-run default;
+- domain status normalization:
+  - only `accepted` means `ok=true`;
+  - `rework_required`, `blocked`, `scope_blocked`, `agent_failed`,
+    `runner_error`, `handoff_error` mean `ok=false`;
+- exact tests for accepted, rework, scope-blocked, and runner-error paths;
+- CLI smoke in a temporary git repository.
+
+Rules:
+
+- no live Codex/Claude/agy/OpenRouter/OpenAI/cliproxy calls;
+- no backend/frontend/Docker/Playwright startup;
+- no merge, squash, push, or worktree deletion;
+- no mutation of source `EXECUTION_PACKET.md` for runtime evidence;
+- Prefect artifacts are best-effort and must not hide the domain result.
+
+Acceptance:
+
+- one fake packet can run to `accepted`;
+- one fake reviewer blocker returns `rework_required` and `ok=false`;
+- one scope violation returns `scope_blocked` and `ok=false`;
+- CLI exit codes are stable:
+  - `0` accepted;
+  - `1` domain blocker/rework;
+  - `2` runner/config error.
+
+### MVP-7G: Real-world failure hardening gates
+
+This section exists because the platform will fail in real ways even if the
+architecture is correct on paper. The goal is to make those failures observable,
+typed, and regression-tested before enabling non-stop live execution.
+
+Expected real bug classes:
+
+1. contract drift:
+   - packet declares an artifact that is never produced;
+   - verifier references paths outside allowed roots;
+   - reviewer accepts without required evidence;
+   - source packet status and registry status diverge.
+2. status drift:
+   - `passed` is treated as final acceptance;
+   - `rework_required` returns `ok=true`;
+   - `domain_status` is written directly as `registry_status`;
+   - unknown status silently becomes success.
+3. worktree/git failures:
+   - worktree path escapes `worktree_root`;
+   - stale worktree is reused with wrong attempt or packet id;
+   - untracked files are missed by changed-file extraction;
+   - branch already exists with incompatible state.
+4. executor failures:
+   - Codex/Claude process stalls but does not exit;
+   - provider rate-limit is treated as coder quality failure;
+   - auth/quota failure retries same executor immediately;
+   - resume starts from stale source hash.
+5. handoff failures:
+   - verifier marker missing or malformed;
+   - reviewer marker missing or malformed;
+   - evidence manifest exists but contains invalid artifact paths;
+   - handoff blocker is lost and the packet is accepted.
+6. Prefect/runtime failures:
+   - artifact publication fails after domain success;
+   - flow run completes while domain status is blocked;
+   - worker crash is confused with packet rework;
+   - repeated submission creates duplicate runs.
+7. operator/CLI failures:
+   - command exits `0` for a non-accepted domain status;
+   - JSON envelope changes shape;
+   - dry-run flag accidentally allows live agent execution;
+   - dirty workspace files are accidentally committed with packet changes.
+
+Hardening requirements:
+
+- every bug class above must have either:
+  - a unit/integration regression test;
+  - a synthetic matrix invariant;
+  - or an explicit manual operator checklist item in the packet evidence.
+- unknown/ambiguous failures must default to blocked/runner-error, never
+  accepted;
+- live execution cannot be enabled until dry-run E2E covers accepted, rework,
+  scope-blocked, agent-failed, handoff-error, and runner-error paths;
+- batch execution cannot be enabled until one-packet live execution has passed
+  with typed status transitions;
+- merge steward cannot be enabled until scope guard, secret scan, and evidence
+  validation are all mandatory gates.
+
+Acceptance:
+
+- synthetic matrix includes status/model/API-failure dimensions;
+- one-packet E2E dry-run has regression coverage for every terminal domain
+  status;
+- CLI exit codes are tested for accepted/rework/blocker/error;
+- packet evidence explicitly states that no live agents were started unless the
+  packet is a live-opt-in packet;
+- status transition table is visible as a generated or copied evidence artifact.
+
+### MVP-7H: Live opt-in single packet
+
+This is the first point where real agents may be launched through the portable
+orchestrator. It must run exactly one packet, not a batch.
+
+Deliverables:
+
+- explicit `--execute-agent --no-dry-run` gate;
+- executor registry selection;
+- source-hash resume gate enforcement;
+- API failure classification in result metadata;
+- worktree scope lifecycle after agent execution;
+- verifier/reviewer handoff after coder result;
+- registry transition through status model.
+
+Rules:
+
+- live execution must be impossible with only `--execute-agent`;
+- live execution must be impossible with only `--no-dry-run`;
+- both flags must be required together;
+- accepted domain result still does not merge automatically;
+- failed provider/auth/quota/rate-limit results must not become quality rework.
+
+Acceptance:
+
+- one test packet can be launched with a real executor by explicit operator
+  command;
+- dry-run path remains the default and unchanged;
+- failed live agent exits produce typed domain/runtime metadata;
+- no batch queue is drained in this MVP.
+
+### MVP-7I: Batch/backlog drain
+
+This MVP allows a folder of ready packets to be submitted and executed one at a
+time according to registry readiness and dependency order.
+
+Deliverables:
+
+- queue/drain command;
+- max concurrency setting, default `1`;
+- dependency-aware ready selection;
+- duplicate-run protection;
+- stop-on-blocker policy;
+- continue-independent policy;
+- operator summary artifact.
+
+Rules:
+
+- source packets are not mutated;
+- accepted packets with unchanged source hash are not rerun;
+- `blocked` dependencies produce `cascading_blocked`;
+- repeated provider failures must not burn coder rework counters.
+
+Acceptance:
+
+- a three-packet dependency chain runs in order;
+- one blocked parent blocks dependents as `cascading_blocked`;
+- independent packets continue when configured;
+- Prefect UI shows separate runs for each packet.
+
 ### MVP-8: Merge steward + nightly mode
 
 Deliverables:

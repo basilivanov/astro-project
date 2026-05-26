@@ -31,6 +31,8 @@ from pathlib import Path
 import json
 import re
 
+from prefect_grace.platform.status_model import DomainStatus, normalize_domain_status
+
 # START_MODULE_CONTRACT
 # Module: verifier_reviewer_handoff
 # Purpose: Formal handoff from coder to verifier to reviewer agents
@@ -368,7 +370,7 @@ def run_verifier_reviewer_handoff(
     except Exception as e:
         return PacketHandoffResult(
             ok=False,
-            domain_status="handoff_error",
+            domain_status=DomainStatus.HANDOFF_ERROR.value,
             packet_id=packet_id,
             attempt=attempt,
             verifier=HandoffAgentResult(
@@ -405,7 +407,7 @@ def run_verifier_reviewer_handoff(
     if not verifier_result.ok:
         return PacketHandoffResult(
             ok=False,
-            domain_status="verifier_failed",
+            domain_status=DomainStatus.VERIFIER_FAILED.value,
             packet_id=packet_id,
             attempt=attempt,
             verifier=verifier_result,
@@ -426,7 +428,7 @@ def run_verifier_reviewer_handoff(
     if not evidence_ok:
         return PacketHandoffResult(
             ok=False,
-            domain_status="verifier_failed",
+            domain_status=DomainStatus.VERIFIER_FAILED.value,
             packet_id=packet_id,
             attempt=attempt,
             verifier=HandoffAgentResult(
@@ -464,7 +466,7 @@ def run_verifier_reviewer_handoff(
     except Exception as e:
         return PacketHandoffResult(
             ok=False,
-            domain_status="handoff_error",
+            domain_status=DomainStatus.HANDOFF_ERROR.value,
             packet_id=packet_id,
             attempt=attempt,
             verifier=verifier_result,
@@ -501,7 +503,7 @@ def run_verifier_reviewer_handoff(
     if not reviewer_result.ok:
         return PacketHandoffResult(
             ok=False,
-            domain_status="reviewer_failed",
+            domain_status=DomainStatus.REVIEWER_FAILED.value,
             packet_id=packet_id,
             attempt=attempt,
             verifier=verifier_result,
@@ -518,14 +520,14 @@ def run_verifier_reviewer_handoff(
     rework_mode = parsed_decision.get("rework_mode")
     reasons = parsed_decision.get("reasons", [])
 
-    # Map verdict to domain status
+    # Map verdict to domain status using DomainStatus enum
     domain_status_map = {
-        "accepted": "accepted",
-        "rework_required": "rework_required",
-        "blocked": "blocked",
-        "escalate_to_architect": "escalate_to_architect",
+        "accepted": DomainStatus.ACCEPTED.value,
+        "rework_required": DomainStatus.REWORK_REQUIRED.value,
+        "blocked": DomainStatus.BLOCKED.value,
+        "escalate_to_architect": "escalate_to_architect",  # Keep legacy value for now
     }
-    domain_status = domain_status_map.get(packet_verdict, "blocked")
+    domain_status = domain_status_map.get(packet_verdict, DomainStatus.BLOCKED.value)
 
     # Write review artifact
     review_body = f"## Verdict\n\n{packet_verdict}\n\n## Reasons\n\n"

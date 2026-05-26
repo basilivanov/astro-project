@@ -27,6 +27,7 @@ from typing import Any, Callable
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.worktree_manager import WorktreeManager
 from prefect_grace.platform.worktree_scope_lifecycle import evaluate_worktree_scope
+from prefect_grace.platform.status_model import DomainStatus, normalize_domain_status
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 
 
@@ -34,7 +35,7 @@ from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
 class ManagedPacketRunResult:
     """Result of managed packet execution with domain status."""
     ok: bool
-    domain_status: str  # "passed", "scope_blocked", "agent_failed", "runner_error"
+    domain_status: str  # "passed", "scope_blocked", "agent_failed", "runner_error" - normalized via DomainStatus
     packet_id: str
     attempt: int
     worktree_path: str
@@ -155,7 +156,7 @@ def run_managed_packet(
     except Exception as e:
         return ManagedPacketRunResult(
             ok=False,
-            domain_status="runner_error",
+            domain_status=DomainStatus.RUNNER_ERROR.value,
             packet_id=packet_id,
             attempt=attempt,
             worktree_path="",
@@ -257,7 +258,7 @@ def run_managed_packet(
     except Exception as e:
         return ManagedPacketRunResult(
             ok=False,
-            domain_status="runner_error",
+            domain_status=DomainStatus.RUNNER_ERROR.value,
             packet_id=packet_id,
             attempt=attempt,
             worktree_path="",
@@ -326,7 +327,7 @@ def run_managed_packet(
     except Exception as e:
         return ManagedPacketRunResult(
             ok=False,
-            domain_status="runner_error",
+            domain_status=DomainStatus.RUNNER_ERROR.value,
             packet_id=packet_id,
             attempt=attempt,
             worktree_path=str(worktree_path),
@@ -344,20 +345,21 @@ def run_managed_packet(
     lifecycle_result_dict = lifecycle_result.to_dict()
 
     # Determine domain status (priority: runner_error > scope_blocked > agent_failed > passed)
+    # Use DomainStatus enum for normalization
     if lifecycle_status == "scope_blocked":
-        domain_status = "scope_blocked"
+        domain_status = DomainStatus.SCOPE_BLOCKED.value
         ok = False
         blocker_reason = lifecycle_result.blocker_reason
     elif not agent_ok:
-        domain_status = "agent_failed"
+        domain_status = DomainStatus.AGENT_FAILED.value
         ok = False
         blocker_reason = f"Agent failed: returncode={agent_result.get('returncode')}, reason={agent_result.get('termination_reason')}"
     elif lifecycle_status == "passed":
-        domain_status = "passed"
+        domain_status = DomainStatus.CHECK_PASSED.value
         ok = True
         blocker_reason = None
     else:
-        domain_status = "runner_error"
+        domain_status = DomainStatus.RUNNER_ERROR.value
         ok = False
         blocker_reason = f"Unexpected lifecycle status: {lifecycle_status}"
 

@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from prefect_grace.platform.status_model import DomainStatus
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.scope_guard import validate_scope
 from prefect_grace.platform.worktree_manager import WorktreeManager
@@ -39,7 +40,11 @@ class WorktreeScopeLifecycleResult:
     branch_name: str
     changed_files: list[str]
     scope_guard: dict[str, Any]
-    status: Literal["passed", "scope_blocked", "worktree_error"]
+    status: Literal[
+        "passed",
+        "scope_blocked",
+        "worktree_error",
+    ]
     blocker_reason: str | None = None
 
     # START_FUNCTION_CONTRACT
@@ -238,7 +243,7 @@ def evaluate_worktree_scope(
             branch_name=context.branch_name,
             changed_files=changed_files,
             scope_guard=scope_result.to_dict(),
-            status="passed",
+            status=DomainStatus.CHECK_PASSED.value,
             blocker_reason=None,
         )
     else:
@@ -261,6 +266,6 @@ def evaluate_worktree_scope(
             branch_name=context.branch_name,
             changed_files=changed_files,
             scope_guard=scope_result.to_dict(),
-            status="scope_blocked",
+            status=DomainStatus.SCOPE_BLOCKED.value,
             blocker_reason=blocker_reason,
         )

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from prefect_grace.platform.status_model import DomainStatus
 from prefect_grace.platform.worktree_scope_lifecycle import evaluate_worktree_scope
 
 
@@ -424,3 +425,5 @@ def test_lifecycle_to_dict_serialization(temp_git_repo, temp_packet_file):
     assert "scope_guard" in result_dict
     assert "status" in result_dict
     assert "blocker_reason" in result_dict
+    assert isinstance(result_dict["status"], str)
+    assert result_dict["status"] == DomainStatus.CHECK_PASSED.value

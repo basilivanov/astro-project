@@ -30,6 +30,14 @@ from typing import Any
 from prefect_grace.platform.dag import validate_packet_dag
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.state_store import PacketRegistryStore
+from prefect_grace.platform.status_model import (
+    RegistryStatus,
+    SourcePacketStatus,
+    normalize_registry_status,
+    normalize_source_status,
+    is_terminal_registry_status,
+    is_runnable_registry_status,
+)
 
 # START_BLOCK: models
 
@@ -83,7 +91,7 @@ def update_dependent_packets(
 ) -> list[str]:
     updated = []
 
-    if new_status == "blocked":
+    if new_status == RegistryStatus.BLOCKED.value:
         # Find packets that depend on this one
         for p in all_packets:
             if packet_id in p.get("depends_on", []):
@@ -91,26 +99,26 @@ def update_dependent_packets(
                 if existing:
                     registry.upsert_packet({
                         **existing,
-                        "registry_status": "cascading_blocked",
+                        "registry_status": RegistryStatus.CASCADING_BLOCKED.value,
                         "registry_reason": f"dependency_{packet_id}_blocked",
                     })
                     updated.append(p["packet_id"])
 
-    elif new_status == "accepted":
+    elif new_status == RegistryStatus.ACCEPTED.value:
         # Unblock dependents if all their deps are now satisfied
         for p in all_packets:
             if packet_id in p.get("depends_on", []):
                 existing = registry.load_packet(p["packet_id"])
-                if existing and existing.get("registry_status") in ("cascading_blocked", "waiting_for_dependencies"):
+                if existing and existing.get("registry_status") in (RegistryStatus.CASCADING_BLOCKED.value, RegistryStatus.WAITING_FOR_DEPENDENCIES.value):
                     deps = p.get("depends_on", [])
                     all_deps_ok = all(
-                        registry.load_packet(d) and registry.load_packet(d).get("registry_status") == "accepted"
+                        registry.load_packet(d) and registry.load_packet(d).get("registry_status") == RegistryStatus.ACCEPTED.value
                         for d in deps
                     )
                     if all_deps_ok:
                         registry.upsert_packet({
                             **existing,
-                            "registry_status": "ready",
+                            "registry_status": RegistryStatus.READY.value,
                             "registry_reason": "dependencies_satisfied",
                         })
                         updated.append(p["packet_id"])
@@ -201,7 +209,7 @@ class BacklogController:
                     "wave_id": parsed.wave_id,
                     "title": parsed.title,
                     "objective": parsed.objective,
-                    "status": parsed.status or "ready",
+                    "status": normalize_source_status(parsed.status).value,
                     "phase": parsed.phase,
                     "depends_on": parsed.depends_on,
                     "source_hash": parsed.source_hash,
@@ -226,7 +234,7 @@ class BacklogController:
                 return True
             for dep_id in deps:
                 dep_record = registry.load_packet(dep_id)
-                if dep_record is None or dep_record.get("registry_status") != "accepted":
+                if dep_record is None or dep_record.get("registry_status") != RegistryStatus.ACCEPTED.value:
                     return False
             return True
 
@@ -240,7 +248,7 @@ class BacklogController:
                 if not dry_run:
                     registry.upsert_packet({
                         **packet,
-                        "registry_status": "cascading_blocked",
+                        "registry_status": RegistryStatus.CASCADING_BLOCKED.value,
                         "registry_reason": "dependency_blocked",
                     })
                     result.registry_updates += 1
@@ -255,7 +263,7 @@ class BacklogController:
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "ready",
+                            "registry_status": RegistryStatus.READY.value,
                         })
                         result.registry_updates += 1
                 else:
@@ -263,7 +271,7 @@ class BacklogController:
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "waiting_for_dependencies",
+                            "registry_status": RegistryStatus.WAITING_FOR_DEPENDENCIES.value,
                             "registry_reason": f"waiting for: {', '.join(packet.get('depends_on', []))}",
                         })
                         result.registry_updates += 1
@@ -272,14 +280,14 @@ class BacklogController:
             registry_status = registry_record.get("registry_status", "")
             registry_hash = registry_record.get("source_hash", "")
 
-            if registry_status == "accepted":
+            if registry_status == RegistryStatus.ACCEPTED.value:
                 if source_hash != registry_hash:
                     if rerun_changed:
                         result.ready.append(packet_id)
                         if not dry_run:
                             registry.upsert_packet({
                                 **packet,
-                                "registry_status": "ready",
+                                "registry_status": RegistryStatus.READY.value,
                                 "registry_reason": "changed_after_acceptance",
                                 "resume_allowed": False,
                                 "resume_block_reason": "contract_changed",
@@ -291,7 +299,7 @@ class BacklogController:
                         if not dry_run:
                             registry.upsert_packet({
                                 **packet,
-                                "registry_status": "changed_after_acceptance",
+                                "registry_status": RegistryStatus.CHANGED_AFTER_ACCEPTANCE.value,
                                 "resume_allowed": False,
                                 "resume_block_reason": "contract_changed",
                                 "recommended_rework_mode": "bounded_fresh",
@@ -300,14 +308,14 @@ class BacklogController:
                 else:
                     result.accepted.append(packet_id)
 
-            elif registry_status == "blocked":
+            elif registry_status == RegistryStatus.BLOCKED.value:
                 if source_hash != registry_hash:
                     if retry_blocked:
                         result.ready_for_retry.append(packet_id)
                         if not dry_run:
                             registry.upsert_packet({
                                 **packet,
-                                "registry_status": "ready",
+                                "registry_status": RegistryStatus.READY.value,
                                 "registry_reason": "retry_after_change",
                                 "resume_allowed": False,
                                 "resume_block_reason": "contract_changed",
@@ -319,7 +327,7 @@ class BacklogController:
                         if not dry_run:
                             registry.upsert_packet({
                                 **packet,
-                                "registry_status": "ready_for_retry",
+                                "registry_status": RegistryStatus.READY_FOR_RETRY.value,
                                 "resume_allowed": False,
                                 "resume_block_reason": "contract_changed",
                                 "recommended_rework_mode": "bounded_fresh",
@@ -328,14 +336,14 @@ class BacklogController:
                 else:
                     result.blocked.append(packet_id)
 
-            elif registry_status in ("waiting_for_dependencies", "cascading_blocked"):
+            elif registry_status in (RegistryStatus.WAITING_FOR_DEPENDENCIES.value, RegistryStatus.CASCADING_BLOCKED.value):
                 # Re-check if dependencies are now satisfied
                 if deps_satisfied:
                     result.ready.append(packet_id)
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "ready",
+                            "registry_status": RegistryStatus.READY.value,
                             "registry_reason": "dependencies_satisfied",
                         })
                         result.registry_updates += 1
@@ -344,7 +352,7 @@ class BacklogController:
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "waiting_for_dependencies",
+                            "registry_status": RegistryStatus.WAITING_FOR_DEPENDENCIES.value,
                             "registry_reason": f"waiting for: {', '.join(packet.get('depends_on', []))}",
                         })
                         result.registry_updates += 1
@@ -356,14 +364,14 @@ class BacklogController:
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "ready",
+                            "registry_status": RegistryStatus.READY.value,
                         })
                         result.registry_updates += 1
                 else:
                     if not dry_run:
                         registry.upsert_packet({
                             **packet,
-                            "registry_status": "waiting_for_dependencies",
+                            "registry_status": RegistryStatus.WAITING_FOR_DEPENDENCIES.value,
                             "registry_reason": f"waiting for: {', '.join(packet.get('depends_on', []))}",
                         })
                         result.registry_updates += 1
@@ -389,12 +397,12 @@ class BacklogController:
 
         ready_packets = [
             p for p in all_packets
-            if p.get("registry_status") in ("ready", "ready_for_retry")
+            if p.get("registry_status") in (RegistryStatus.READY.value, RegistryStatus.READY_FOR_RETRY.value)
         ]
 
         blocked_packets = [
             p for p in all_packets
-            if p.get("registry_status") in ("blocked", "cascading_blocked")
+            if p.get("registry_status") in (RegistryStatus.BLOCKED.value, RegistryStatus.CASCADING_BLOCKED.value)
         ]
 
         # Validate DAG against full registry state, not just ready packets
@@ -411,7 +419,7 @@ class BacklogController:
             all_deps_accepted = True
             for dep_id in deps:
                 dep_record = registry.load_packet(dep_id)
-                if dep_record is None or dep_record.get("registry_status") != "accepted":
+                if dep_record is None or dep_record.get("registry_status") != RegistryStatus.ACCEPTED.value:
                     all_deps_accepted = False
                     plan.warnings.append(
                         f"Packet {packet_id} has unmet dependency: {dep_id}"

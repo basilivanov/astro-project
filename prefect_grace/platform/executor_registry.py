@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+from prefect_grace.platform.status_model import DomainStatus, is_failure_domain_status
+
 from prefect_grace.platform.state_store import ExecutorHistoryStore
 
 # START_BLOCK: data_models
@@ -240,9 +242,9 @@ def _is_executor_failure(record: dict[str, Any]) -> bool:
 
     # Check domain_status
     domain_status = record.get("domain_status")
-    if domain_status == "agent_failed":
+    if domain_status == DomainStatus.AGENT_FAILED.value:
         return True
-    if domain_status == "scope_blocked":
+    if domain_status == DomainStatus.SCOPE_BLOCKED.value:
         return False
 
     # Check termination_reason
