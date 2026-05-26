@@ -20,6 +20,110 @@ from prefect_grace.tasks.grace_dashboard import build_grace_dashboard_snapshot, 
 from prefect_grace.tasks.business_intake import TEMPLATE_PATH as BUSINESS_BRIEF_TEMPLATE_PATH, submit_feature_run_from_brief
 from prefect_grace.tasks.prefect_runs import list_recent_feature_flow_runs
 from prefect_grace.tasks.prefect_submitter import feature_flow_parameters, submit_feature_flow_run
+from prefect_grace.platform.project_adapter import load_project_adapter
+from prefect_grace.platform.verification_profile import load_verification_profiles
+from prefect_grace.platform.packet_parser import parse_packet_markdown
+from prefect_grace.platform.state_store import PacketRegistryStore, RunStore, ExecutorHistoryStore
+from pathlib import Path
+import sys
+
+
+def _json_envelope(
+    *,
+    ok: bool,
+    command: str,
+    project_key: str | None = None,
+    result: dict | list | str | None = None,
+    warnings: list | None = None,
+    errors: list | None = None,
+) -> dict:
+    payload = result if result is not None else {}
+    return {
+        "ok": ok,
+        "project_key": project_key,
+        "command": command,
+        "result": payload,
+        "data": payload,
+        "warnings": warnings or [],
+        "errors": errors or [],
+    }
+
+
+def _print_json(payload: dict) -> None:
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def _profile_config_path(project_path: str | None) -> Path | None:
+    if not project_path:
+        return None
+    path = Path(project_path)
+    if path.is_file():
+        project_root = path.parent.parent if path.name == "project.yaml" else path.parent
+    else:
+        project_root = path
+    grace_path = project_root / "grace" / "policies" / "verification.yaml"
+    if grace_path.exists():
+        return grace_path
+    legacy_path = project_root / "prefect_grace" / "policies" / "verification.yaml"
+    if legacy_path.exists():
+        return legacy_path
+    return None
+
+
+def _load_adapter_from_args(args: argparse.Namespace):
+    return load_project_adapter(getattr(args, "project", None))
+
+
+def _packet_to_dict(parsed, *, path: Path | None = None, repo_root: Path | None = None) -> dict:
+    data = {
+        "packet_id": parsed.packet_id,
+        "feature_id": parsed.feature_id,
+        "wave_id": parsed.wave_id,
+        "title": parsed.title,
+        "objective": parsed.objective,
+        "status": parsed.status,
+        "phase": parsed.phase,
+        "depends_on": parsed.depends_on,
+        "modules": parsed.modules,
+        "allowed_write_scope": parsed.allowed_write_scope,
+        "frozen_scope": parsed.frozen_scope,
+        "must_preserve": parsed.must_preserve,
+        "verification": parsed.verification,
+        "expected_evidence": parsed.expected_evidence,
+        "escalation_triggers": parsed.escalation_triggers,
+        "source_hash": parsed.source_hash,
+        "section_lines": parsed.section_lines,
+        "legacy_warnings": parsed.legacy_warnings,
+    }
+    if path is not None:
+        try:
+            data["path"] = str(path.relative_to(repo_root or Path.cwd()))
+        except ValueError:
+            data["path"] = str(path)
+    return data
+
+
+def _scan_project_packets(adapter, *, mode: str) -> tuple[list[dict], list[str], list[dict]]:
+    packets_dir = Path(adapter.repo_root) / adapter.packets_dir
+    if not packets_dir.exists():
+        raise FileNotFoundError(f"Packets directory not found at {packets_dir}")
+
+    packets_data: list[dict] = []
+    all_warnings: list[str] = []
+    errors: list[dict] = []
+
+    for path in sorted(packets_dir.glob("**/*.md")):
+        try:
+            parsed = parse_packet_markdown(path, mode=mode)
+            packet_data = _packet_to_dict(parsed, path=path, repo_root=Path(adapter.repo_root))
+            packet_data["status"] = packet_data["status"] or "ready"
+            packets_data.append(packet_data)
+            all_warnings.extend(parsed.legacy_warnings)
+        except Exception as e:
+            errors.append({"code": "PACKET_INVALID", "message": f"Packet {path}: {e}"})
+            if mode == "strict":
+                break
+    return packets_data, all_warnings, errors
 
 
 def _cmd_feature(args: argparse.Namespace) -> None:
@@ -217,6 +321,306 @@ def _cmd_dashboard(args: argparse.Namespace) -> None:
     print(render_grace_dashboard(snapshot))
 
 
+def _cmd_validate_project(args: argparse.Namespace) -> None:
+    command = "validate-project"
+    try:
+        adapter = _load_adapter_from_args(args)
+        profiles = load_verification_profiles(_profile_config_path(getattr(args, "project", None)))
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result={
+                    "project": adapter.to_dict(),
+                    "verification_profiles": profiles
+                },
+            ))
+        else:
+            print("Project configuration and verification profiles are valid.")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "VALIDATION_FAILED", "message": str(e)}],
+            ))
+            sys.exit(1)
+        else:
+            print(f"Validation failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+
+def _cmd_scan_packets(args: argparse.Namespace) -> None:
+    command = "scan-packets"
+    try:
+        adapter = _load_adapter_from_args(args)
+        mode = args.mode or "legacy_warn"
+        packets_data, all_warnings, errors = _scan_project_packets(adapter, mode=mode)
+
+        if errors:
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    project_key=adapter.project_key,
+                    warnings=all_warnings,
+                    errors=errors,
+                ))
+                sys.exit(1)
+            else:
+                for err in errors:
+                    print(err["message"], file=sys.stderr)
+                sys.exit(1)
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result={
+                    "packets": packets_data
+                },
+                warnings=all_warnings,
+            ))
+        else:
+            print(f"Successfully scanned {len(packets_data)} packets.")
+            if all_warnings:
+                print(f"Collected {len(all_warnings)} warnings:")
+                for w in all_warnings:
+                    print(f" - {w}")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SCAN_FAILED", "message": str(e)}],
+            ))
+            sys.exit(1)
+        else:
+            print(f"Scan failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+
+def _cmd_validate_packet(args: argparse.Namespace) -> None:
+    command = "validate-packet"
+    try:
+        mode = "strict" if args.strict else "legacy_warn"
+        path = Path(args.path)
+        if not path.exists():
+            raise FileNotFoundError(f"Packet file not found at {path}")
+
+        parsed = parse_packet_markdown(path, mode=mode)
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=_packet_to_dict(parsed, path=path),
+                warnings=parsed.legacy_warnings,
+            ))
+        else:
+            print(f"Packet {parsed.packet_id} is valid.")
+            if parsed.legacy_warnings:
+                print("Warnings:")
+                for w in parsed.legacy_warnings:
+                    print(f" - {w}")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PACKET_INVALID", "message": str(e)}],
+            ))
+            sys.exit(1)
+        else:
+            print(f"Packet validation failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+
+def _cmd_sync_packets(args: argparse.Namespace) -> None:
+    command = "sync-packets"
+    try:
+        adapter = _load_adapter_from_args(args)
+        packets_data, all_warnings, errors = _scan_project_packets(adapter, mode=args.mode)
+        if errors:
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    project_key=adapter.project_key,
+                    warnings=all_warnings,
+                    errors=errors,
+                ))
+            else:
+                for err in errors:
+                    print(err["message"], file=sys.stderr)
+            sys.exit(2)
+
+        registry = PacketRegistryStore(Path(adapter.runtime_state_root) / "state")
+        registered = 0
+        if not args.dry_run:
+            for packet in packets_data:
+                registry.upsert_packet(packet)
+                registered += 1
+
+        result = {
+            "dry_run": args.dry_run,
+            "packets_total": len(packets_data),
+            "ready": [p["packet_id"] for p in packets_data if p.get("status") == "ready"],
+            "accepted": [p["packet_id"] for p in packets_data if p.get("status") == "accepted"],
+            "blocked": [p["packet_id"] for p in packets_data if p.get("status") == "blocked"],
+            "registered": registered,
+            "packets": packets_data,
+        }
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result=result,
+                warnings=all_warnings,
+            ))
+        else:
+            verb = "Would sync" if args.dry_run else "Synced"
+            print(f"{verb} {len(packets_data)} packets for {adapter.project_key}.")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SYNC_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Sync failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_packet_status(args: argparse.Namespace) -> None:
+    command = "packet-status"
+    try:
+        adapter = _load_adapter_from_args(args)
+        registry = PacketRegistryStore(Path(adapter.runtime_state_root) / "state")
+        packet = registry.load_packet(args.packet_id)
+        if packet is None:
+            raise KeyError(f"Packet {args.packet_id} not found in registry")
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result={"packet": packet},
+            ))
+        else:
+            print(json.dumps(packet, indent=2, ensure_ascii=False))
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PACKET_NOT_FOUND", "message": str(e)}],
+            ))
+        else:
+            print(f"Packet status failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_registry_dump(args: argparse.Namespace) -> None:
+    command = "registry-dump"
+    try:
+        adapter = _load_adapter_from_args(args)
+        state_root = Path(adapter.runtime_state_root) / "state"
+        result = {
+            "packets": PacketRegistryStore(state_root).list_packets(adapter.project_key),
+            "runs": RunStore(state_root).list_runs(),
+            "executor_history": ExecutorHistoryStore(state_root).list_executions(),
+        }
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result=result,
+            ))
+        else:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "REGISTRY_DUMP_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Registry dump failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_submit_packets(args: argparse.Namespace) -> None:
+    command = "submit-packets"
+    try:
+        adapter = _load_adapter_from_args(args)
+        packets_data, all_warnings, errors = _scan_project_packets(adapter, mode="strict")
+        result = {
+            "execute": args.execute,
+            "packets_total": len(packets_data),
+            "submitted": [],
+            "note": "Prefect submission is intentionally not wired in this contract-only MVP.",
+        }
+        if errors:
+            raise ValueError(errors[0]["message"])
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result=result,
+                warnings=all_warnings,
+            ))
+        else:
+            print(result["note"])
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SUBMIT_NOT_READY", "message": str(e)}],
+            ))
+        else:
+            print(f"Submit failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_run_nightly(args: argparse.Namespace) -> None:
+    command = "run-nightly"
+    try:
+        adapter = _load_adapter_from_args(args)
+        result = {
+            "until_blocked": args.until_blocked,
+            "submitted": [],
+            "note": "Nightly execution is declared but not enabled in this contract-only MVP.",
+        }
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                project_key=adapter.project_key,
+                result=result,
+                warnings=["NIGHTLY_EXECUTION_NOT_ENABLED"],
+            ))
+        else:
+            print(result["note"])
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "NIGHTLY_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Nightly failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -369,6 +773,53 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard = subparsers.add_parser("dashboard")
     dashboard.add_argument("--json", action="store_true")
     dashboard.set_defaults(func=_cmd_dashboard)
+
+    validate_project = subparsers.add_parser("validate-project")
+    validate_project.add_argument("--project")
+    validate_project.add_argument("--json", action="store_true")
+    validate_project.set_defaults(func=_cmd_validate_project)
+
+    scan_packets = subparsers.add_parser("scan-packets")
+    scan_packets.add_argument("--project")
+    scan_packets.add_argument("--mode", choices=["legacy_warn", "strict"], default="legacy_warn")
+    scan_packets.add_argument("--json", action="store_true")
+    scan_packets.set_defaults(func=_cmd_scan_packets)
+
+    validate_packet = subparsers.add_parser("validate-packet")
+    validate_packet.add_argument("path")
+    validate_packet.add_argument("--strict", action="store_true")
+    validate_packet.add_argument("--json", action="store_true")
+    validate_packet.set_defaults(func=_cmd_validate_packet)
+
+    sync_packets = subparsers.add_parser("sync-packets")
+    sync_packets.add_argument("--project")
+    sync_packets.add_argument("--mode", choices=["legacy_warn", "strict"], default="legacy_warn")
+    sync_packets.add_argument("--dry-run", action="store_true")
+    sync_packets.add_argument("--json", action="store_true")
+    sync_packets.set_defaults(func=_cmd_sync_packets)
+
+    submit_packets = subparsers.add_parser("submit-packets")
+    submit_packets.add_argument("--project")
+    submit_packets.add_argument("--execute", action="store_true")
+    submit_packets.add_argument("--json", action="store_true")
+    submit_packets.set_defaults(func=_cmd_submit_packets)
+
+    run_nightly = subparsers.add_parser("run-nightly")
+    run_nightly.add_argument("--project")
+    run_nightly.add_argument("--until-blocked", action="store_true")
+    run_nightly.add_argument("--json", action="store_true")
+    run_nightly.set_defaults(func=_cmd_run_nightly)
+
+    packet_status = subparsers.add_parser("packet-status")
+    packet_status.add_argument("--project")
+    packet_status.add_argument("--packet-id", required=True)
+    packet_status.add_argument("--json", action="store_true")
+    packet_status.set_defaults(func=_cmd_packet_status)
+
+    registry_dump = subparsers.add_parser("registry-dump")
+    registry_dump.add_argument("--project")
+    registry_dump.add_argument("--json", action="store_true")
+    registry_dump.set_defaults(func=_cmd_registry_dump)
 
     return parser
 

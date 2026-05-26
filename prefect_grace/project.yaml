@@ -1,0 +1,17 @@
+version: 1
+project_key: astro-project
+repo_root: /opt/astro-project
+default_branch: prod-release-20260327
+grace_dir: grace
+packets_dir: prefect_grace/packets
+runtime_state_root: /var/lib/grace-orchestrator/astro-project
+artifact_root: /var/lib/grace-orchestrator/astro-project/artifacts
+worktree_root: /var/lib/grace-orchestrator/astro-project/worktrees
+workflow_runtime: prefect
+prefect:
+  work_pool: astro-process
+  live_queue: grace-live
+  monitoring_queue: grace-monitoring
+agent_executor:
+  default: codex-cli
+  command: codex1
