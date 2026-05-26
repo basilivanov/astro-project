@@ -1223,10 +1223,49 @@ Deliverables:
 - quality/environment/canon/scope blocker taxonomy;
 - switch coder after configured rework count;
 - Prefect artifact explaining rotation.
+- source-hash resume gate:
+  - if `EXECUTION_PACKET.md` source contract changes, previous coder session is stale;
+  - changed `source_hash` forbids `light_resume`;
+  - managed resume must not fail open on registry corruption;
+  - launcher must force fresh execution when registry says `resume_allowed=false`.
 
 Acceptance:
 
 - simulated two quality reworks rotate coder from `codex` to `agy` or fallback executor.
+- changed source contract never produces `codex resume`.
+- same source contract plus reviewer-only small fix may resume only when a valid coder session exists.
+
+### MVP-7B: Synthetic edge matrix
+
+Deliverables:
+
+- generated synthetic scenario matrix;
+- named invariants for source hash, resume, registry, dependency, scope, and artifact edge cases;
+- fast `smoke` matrix for PR checks;
+- larger deterministic `full` matrix for nightly/local stress.
+
+Acceptance:
+
+- matrix proves `source_hash_changed -> no resume command ever`;
+- matrix proves `resume_allowed=false -> fresh exec`;
+- matrix proves registry error on managed light-resume cannot silently reuse an old thread;
+- no live Codex/Claude/agy/Prefect/Product services are started by matrix tests.
+
+### MVP-7C: Large module split sequence
+
+Large-file refactors must happen only after MVP-7 and MVP-7B are accepted.
+
+Order:
+
+1. `feature_pipeline.py` split;
+2. `codex_launcher.py` split.
+
+Rules:
+
+- these are extraction-only packets;
+- no behavior changes are allowed inside module-split packets;
+- synthetic edge matrix must remain green before and after each split;
+- `codex_launcher.py` must not be split while a source-hash resume gate rework is still open.
 
 ### MVP-8: Merge steward + nightly mode
 
@@ -1285,6 +1324,28 @@ Codex is default executor, not the platform.
 ### Decision 5: Verification commands are deterministic
 
 LLM can review logs, but tests and scope checks are deterministic command runs.
+
+### Decision 6: Safety gate before large-file refactor
+
+The orchestrator must not refactor large runtime modules before the source-hash
+resume gate and synthetic edge matrix are accepted.
+
+Rationale:
+
+- large refactors increase rework probability;
+- stale resume during refactor can continue from an obsolete contract;
+- synthetic invariants are the cheapest way to prove behavior preservation;
+- keeping safety gates separate from module splits makes reviewer verdicts
+  defensible.
+
+Required sequence:
+
+```text
+FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP
+  -> FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP
+  -> FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT
+  -> FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT
+```
 
 ## Acceptance criteria for the portable platform
 
