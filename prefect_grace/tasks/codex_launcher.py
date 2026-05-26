@@ -1360,10 +1360,11 @@ def _run_codex_process(
 #   logger: Optional logger.
 #   heartbeat_interval_seconds: Heartbeat frequency.
 #   stall_timeout_seconds: Stall detection timeout.
+#   workdir_override: Optional working directory override (wins over config and packet hints).
 # returns: dict[str, Any] - CodexLaunchResult with execution details, thread IDs, and attempt history.
 # side_effects: Spawns Codex subprocess, writes run artifacts to RUNS_DIR, updates packet state in state store, updates registry resume state for coder role.
 # emitted_logs: Launch info, heartbeat progress, stall warnings, resume decisions, execution state updates.
-# error_behavior: Returns non-zero returncode on failure, auto-resumes on stall if max_auto_resume_attempts allows, fails gracefully on registry update errors.
+# error_behavior: Returns non-zero returncode on failure, auto-resumes on stall if max_auto_resume_attempts allows, fails gracefully on registry update errors. Returns error if workdir_override does not exist or is not a directory.
 # END_FUNCTION_CONTRACT
 def launch_codex_for_packet(
     packet_id: str,
@@ -1373,6 +1374,7 @@ def launch_codex_for_packet(
     logger: logging.Logger | None = None,
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     stall_timeout_seconds: float | None = None,
+    workdir_override: str | Path | None = None,
 ) -> dict[str, Any]:
     config = load_agent_config()
     packet = find_record("packets", "packets", "packet_id", packet_id)
@@ -1387,8 +1389,61 @@ def launch_codex_for_packet(
     max_auto_resume_attempts = _resolve_max_auto_resume_attempts(packet, role_defaults)
     codex_binary = str(config.get("codex", {}).get("binary") or "codex1")
     shared_model = str(config.get("codex", {}).get("shared_model") or "gpt-5.4")
-    configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
-    workdir = str(resolve_execution_workdir(configured_workdir))
+
+    # Resolve working directory: workdir_override wins over packet hints and config
+    if workdir_override is not None:
+        workdir_path = Path(workdir_override).resolve()
+        if not workdir_path.exists():
+            error_msg = f"workdir_override does not exist: {workdir_path}"
+            if logger:
+                logger.error(error_msg)
+            return CodexLaunchResult(
+                packet_id=packet_id,
+                returncode=1,
+                launcher="codex",
+                command="",
+                session_mode="exec",
+                resume_strategy=resume_strategy,
+                thread_id="",
+                resumed_from_thread_id=None,
+                stdout_path="",
+                stderr_path="",
+                last_message_path="",
+                started_at=datetime.now(timezone.utc).isoformat(),
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                termination_reason="workdir_override_not_found",
+                attempt=0,
+                attempt_count=0,
+                attempts=[],
+            ).to_dict()
+        if not workdir_path.is_dir():
+            error_msg = f"workdir_override is not a directory: {workdir_path}"
+            if logger:
+                logger.error(error_msg)
+            return CodexLaunchResult(
+                packet_id=packet_id,
+                returncode=1,
+                launcher="codex",
+                command="",
+                session_mode="exec",
+                resume_strategy=resume_strategy,
+                thread_id="",
+                resumed_from_thread_id=None,
+                stdout_path="",
+                stderr_path="",
+                last_message_path="",
+                started_at=datetime.now(timezone.utc).isoformat(),
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                termination_reason="workdir_override_not_directory",
+                attempt=0,
+                attempt_count=0,
+                attempts=[],
+            ).to_dict()
+        workdir = str(workdir_path)
+    else:
+        configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
+        workdir = str(resolve_execution_workdir(configured_workdir))
+
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
 

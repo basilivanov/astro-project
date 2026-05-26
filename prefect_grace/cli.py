@@ -1302,9 +1302,126 @@ def _cmd_run_worktree_scope_flow(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_run_managed_packet(args: argparse.Namespace) -> None:
+    """Run managed packet execution with worktree isolation."""
+    command = "run-managed-packet"
+
+    # Safety check: fail closed on unsafe flag combinations
+    # For live execution, BOTH --execute-agent AND --no-dry-run must be explicitly provided
+
+    # First check if --execute-agent was used without explicit --no-dry-run
+    # This catches both: no flags (default dry_run=True) and explicit --dry-run
+    if args.execute_agent and not hasattr(args, '_no_dry_run_explicit'):
+        error_msg = "Live agent execution requires explicit --no-dry-run flag. Use: --execute-agent --no-dry-run"
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "MISSING_EXPLICIT_NO_DRY_RUN", "message": error_msg}],
+            ))
+        else:
+            print(f"Error: {error_msg}", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        from prefect_grace.flows.managed_packet_runner_flow import (
+            managed_packet_runner_flow,
+        )
+
+        result = managed_packet_runner_flow(
+            packet_file=str(args.packet),
+            repo_root=str(args.repo_root),
+            worktree_root=str(args.worktree_root),
+            project_key=args.project_key,
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            dry_run=args.dry_run,
+            execute_agent=args.execute_agent,
+            timeout_seconds=args.timeout_seconds,
+            keep_worktree=args.keep_worktree,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result["ok"],
+                command=command,
+                result=result,
+            ))
+        else:
+            # Text mode
+            domain_status = result["domain_status"]
+            if domain_status == "passed":
+                print(f"Managed packet run: PASSED")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Worktree: {result['worktree_path']}")
+                print(f"  Branch: {result['branch_name']}")
+                print(f"  Changed files: {len(result['changed_files'])}")
+                print(f"  Artifacts: {len(result['artifact_ids'])}")
+            elif domain_status == "scope_blocked":
+                print(f"Managed packet run: SCOPE BLOCKED")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Worktree: {result['worktree_path']}")
+                print(f"  Branch: {result['branch_name']}")
+                print(f"  Changed files: {len(result['changed_files'])}")
+                print(f"  Artifacts: {len(result['artifact_ids'])}")
+
+                scope_guard = result["scope_guard"]
+                if scope_guard.get("frozen_violations"):
+                    print(f"\n  Frozen violations:")
+                    for v in scope_guard["frozen_violations"][:5]:
+                        print(f"    - {v['file_path']}")
+                if scope_guard.get("outside_allowed"):
+                    print(f"\n  Outside allowed:")
+                    for v in scope_guard["outside_allowed"][:5]:
+                        print(f"    - {v['file_path']}")
+            elif domain_status == "agent_failed":
+                print(f"Managed packet run: AGENT FAILED")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Worktree: {result['worktree_path']}")
+                print(f"  Branch: {result['branch_name']}")
+                print(f"  Blocker: {result.get('blocker_reason', 'unknown')}")
+            else:
+                print(f"Managed packet run: ERROR")
+                print(f"  Packet: {result['packet_id']}")
+                print(f"  Attempt: {result['attempt']}")
+                print(f"  Domain status: {domain_status}")
+                if result.get("blocker_reason"):
+                    print(f"  Blocker: {result['blocker_reason']}")
+
+        # Exit codes: 0=passed, 1=scope_blocked, 2=agent_failed/runner_error/command_error
+        domain_status = result["domain_status"]
+        if domain_status == "passed":
+            sys.exit(0)
+        elif domain_status == "scope_blocked":
+            sys.exit(1)
+        else:
+            sys.exit(2)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_MANAGED_PACKET_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run managed packet failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
+
+    # Custom action for --no-dry-run to track explicit usage
+    class NoDryRunAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, False)
+            setattr(namespace, '_no_dry_run_explicit', True)
 
     feature = subparsers.add_parser("feature")
     feature.add_argument("feature_id")
@@ -1594,6 +1711,22 @@ def build_parser() -> argparse.ArgumentParser:
     run_worktree_scope_flow.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
     run_worktree_scope_flow.add_argument("--json", action="store_true", help="JSON output")
     run_worktree_scope_flow.set_defaults(func=_cmd_run_worktree_scope_flow)
+
+    run_managed_packet = subparsers.add_parser("run-managed-packet", help="Run managed packet execution with worktree isolation")
+    run_managed_packet.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_managed_packet.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    run_managed_packet.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_managed_packet.add_argument("--project-key", required=True, help="Project key")
+    run_managed_packet.add_argument("--packet-id", required=True, help="Packet ID")
+    run_managed_packet.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_managed_packet.add_argument("--base-ref", required=True, help="Base git ref")
+    run_managed_packet.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (no agent execution, default)")
+    run_managed_packet.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run (required with --execute-agent)")
+    run_managed_packet.add_argument("--execute-agent", action="store_true", help="Explicitly allow live agent execution")
+    run_managed_packet.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds")
+    run_managed_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_managed_packet.add_argument("--json", action="store_true", help="JSON output")
+    run_managed_packet.set_defaults(func=_cmd_run_managed_packet)
 
     return parser
 
