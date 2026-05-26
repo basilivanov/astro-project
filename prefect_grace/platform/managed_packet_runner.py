@@ -88,6 +88,7 @@ class ManagedPacketRunResult:
 #   timeout_seconds: Agent timeout.
 #   keep_worktree: Preserve worktree after execution.
 #   launcher: Optional launcher callable (default: launch_codex_for_packet).
+#   project: Optional project config for executor selection.
 # returns: ManagedPacketRunResult with domain status and execution details.
 # side_effects: Creates worktree, launches agent if execute_agent=True and dry_run=False, evaluates scope, preserves worktree if keep_worktree=True.
 # emitted_logs: None (caller should log).
@@ -107,16 +108,18 @@ def run_managed_packet(
     timeout_seconds: int = 3600,
     keep_worktree: bool = True,
     launcher: Callable[..., dict[str, Any]] | None = None,
+    project: Any | None = None,
 ) -> ManagedPacketRunResult:
     """
     Execute packet in isolated worktree with agent and scope validation.
 
     Sequence:
     1. Parse EXECUTION_PACKET.md
-    2. Create or resolve packet worktree
-    3. Run agent in worktree (if execute_agent=True and dry_run=False)
-    4. Evaluate worktree scope
-    5. Return ManagedPacketRunResult
+    2. Select executor (if project provided)
+    3. Create or resolve packet worktree
+    4. Run agent in worktree (if execute_agent=True and dry_run=False)
+    5. Evaluate worktree scope
+    6. Return ManagedPacketRunResult
 
     Domain status priority:
     - runner_error: setup/parsing/worktree/launcher failed before reliable post-scope result
@@ -137,6 +140,7 @@ def run_managed_packet(
         timeout_seconds: Agent timeout
         keep_worktree: Preserve worktree after execution
         launcher: Optional launcher callable (default: launch_codex_for_packet)
+        project: Optional project config for executor selection
 
     Returns:
         ManagedPacketRunResult with domain status and execution details
@@ -162,6 +166,69 @@ def run_managed_packet(
             scope_guard={},
             blocker_reason=f"Packet parse failed: {e}",
         )
+
+    # Select executor if project provided
+    selected_executor = None
+    if project is not None:
+        from prefect_grace.platform.executor_registry import select_executor_for_packet, record_executor_attempt
+        from prefect_grace.platform.state_store import ExecutorHistoryStore
+
+        history_store = ExecutorHistoryStore(Path(project.runtime_state_root))
+        history = history_store.list_executions()
+
+        role = "coder"  # Default role, ParsedPacket doesn't have role field
+        selection = select_executor_for_packet(
+            project=project,
+            packet=packet,
+            history=history,
+            requested_executor=None,  # ParsedPacket doesn't have requested_executor field
+        )
+
+        if not selection.ok:
+            return ManagedPacketRunResult(
+                ok=False,
+                domain_status="runner_error",
+                packet_id=packet_id,
+                attempt=attempt,
+                worktree_path="",
+                branch_name="",
+                changed_files=[],
+                agent_result={},
+                lifecycle_result={},
+                scope_guard={},
+                blocker_reason=f"no_executor_available: {selection.reason}",
+            )
+
+        selected_executor = selection.selected
+
+        # Fail closed if executor kind is unsupported
+        if selected_executor.kind not in ["codex", "mock"]:
+            # Record skipped attempt
+            record_executor_attempt(
+                state_root=Path(project.runtime_state_root),
+                packet_id=packet_id,
+                role=role,
+                executor_id=selected_executor.executor_id,
+                result={
+                    "status": "skipped",
+                    "selection_reason": "unsupported_executor_kind",
+                    "executor_kind": selected_executor.kind,
+                },
+                attempt=attempt,
+            )
+            return ManagedPacketRunResult(
+                ok=False,
+                domain_status="runner_error",
+                packet_id=packet_id,
+                attempt=attempt,
+                worktree_path="",
+                branch_name="",
+                changed_files=[],
+                agent_result={},
+                lifecycle_result={},
+                scope_guard={},
+                blocker_reason=f"unsupported_executor_kind:{selected_executor.kind}",
+            )
 
     # Create or resolve worktree
     try:
@@ -239,6 +306,11 @@ def run_managed_packet(
         }
         agent_ok = True
 
+    # Include executor metadata in agent_result
+    if selected_executor is not None:
+        agent_result["executor_id"] = selected_executor.executor_id
+        agent_result["executor_kind"] = selected_executor.kind
+
     # Evaluate worktree scope
     try:
         lifecycle_result = evaluate_worktree_scope(
@@ -288,6 +360,26 @@ def run_managed_packet(
         domain_status = "runner_error"
         ok = False
         blocker_reason = f"Unexpected lifecycle status: {lifecycle_status}"
+
+    # Record executor attempt if project provided
+    if selected_executor is not None and project is not None:
+        from prefect_grace.platform.executor_registry import record_executor_attempt
+
+        role = "coder"  # Default role, ParsedPacket doesn't have role field
+        agent_result_with_domain = dict(agent_result)
+        agent_result_with_domain["domain_status"] = domain_status
+        agent_result_with_domain["feature_id"] = packet.feature_id
+        agent_result_with_domain["wave_id"] = packet.wave_id
+        agent_result_with_domain["source_hash"] = packet.source_hash
+
+        record_executor_attempt(
+            state_root=Path(project.runtime_state_root),
+            packet_id=packet_id,
+            role=role,
+            executor_id=selected_executor.executor_id,
+            result=agent_result_with_domain,
+            attempt=attempt,
+        )
 
     return ManagedPacketRunResult(
         ok=ok,

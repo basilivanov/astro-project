@@ -186,6 +186,7 @@ class PrefectConfig:
 class AgentExecutorConfig:
     default: str
     command: str
+    executors: list[dict[str, Any]] | None = None
 
     # START_FUNCTION_CONTRACT
     # name: from_dict
@@ -202,6 +203,7 @@ class AgentExecutorConfig:
         return cls(
             default=_required_string(data, "default", "agent_executor"),
             command=_required_string(data, "command", "agent_executor"),
+            executors=data.get("executors"),
         )
 
     # START_FUNCTION_CONTRACT
@@ -214,10 +216,13 @@ class AgentExecutorConfig:
     # error_behavior: none.
     # END_FUNCTION_CONTRACT
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "default": self.default,
             "command": self.command,
         }
+        if self.executors is not None:
+            result["executors"] = self.executors
+        return result
 
 
 @dataclass(frozen=True)

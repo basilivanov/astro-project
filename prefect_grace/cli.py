@@ -1442,6 +1442,97 @@ def _cmd_run_managed_packet(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_list_executors(args: argparse.Namespace) -> None:
+    """List all executor specs from project config."""
+    command = "list-executors"
+    try:
+        from prefect_grace.platform.project_adapter import load_project_adapter
+        from prefect_grace.platform.executor_registry import load_executor_specs
+
+        project = load_project_adapter(args.project)
+        specs = load_executor_specs(project)
+
+        result = {
+            "executors": [spec.to_dict() for spec in specs],
+            "count": len(specs),
+        }
+
+        if args.json:
+            _print_json(_json_envelope(ok=True, command=command, result=result))
+        else:
+            print(f"Executors: {len(specs)}")
+            for spec in specs:
+                status = "enabled" if spec.enabled else "disabled"
+                roles = ", ".join(spec.roles) if spec.roles else "all"
+                print(f"  - {spec.executor_id} ({spec.kind}) [{status}] roles={roles} priority={spec.priority}")
+
+        sys.exit(0)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "LIST_EXECUTORS_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"List executors failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_select_executor(args: argparse.Namespace) -> None:
+    """Select executor for packet."""
+    command = "select-executor"
+    try:
+        from prefect_grace.platform.project_adapter import load_project_adapter
+        from prefect_grace.platform.executor_registry import select_executor_for_packet
+        from prefect_grace.platform.state_store import ExecutorHistoryStore
+
+        project = load_project_adapter(args.project)
+        history_store = ExecutorHistoryStore(Path(project.runtime_state_root))
+        history = history_store.list_executions()
+
+        packet = {
+            "packet_id": args.packet_id,
+            "role": args.role or "coder",
+        }
+
+        selection = select_executor_for_packet(
+            project=project,
+            packet=packet,
+            history=history,
+            requested_executor=args.requested_executor,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(ok=selection.ok, command=command, result=selection.to_dict()))
+        else:
+            if selection.ok:
+                print(f"Selected: {selection.selected.executor_id} ({selection.selected.kind})")
+                if selection.rotated_from:
+                    print(f"  Rotated from: {selection.rotated_from}")
+                if selection.reason:
+                    print(f"  Reason: {selection.reason}")
+            else:
+                print(f"Selection failed: {selection.reason}")
+                if selection.warnings:
+                    for warning in selection.warnings:
+                        print(f"  Warning: {warning}")
+
+        sys.exit(0 if selection.ok else 1)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SELECT_EXECUTOR_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Select executor failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1756,6 +1847,21 @@ def build_parser() -> argparse.ArgumentParser:
     run_managed_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
     run_managed_packet.add_argument("--json", action="store_true", help="JSON output")
     run_managed_packet.set_defaults(func=_cmd_run_managed_packet)
+
+    # list-executors
+    list_executors = subparsers.add_parser("list-executors", help="List executor specs from project config")
+    list_executors.add_argument("--project", type=Path, default=Path.cwd(), help="Project root directory")
+    list_executors.add_argument("--json", action="store_true", help="JSON output")
+    list_executors.set_defaults(func=_cmd_list_executors)
+
+    # select-executor
+    select_executor = subparsers.add_parser("select-executor", help="Select executor for packet")
+    select_executor.add_argument("--project", type=Path, default=Path.cwd(), help="Project root directory")
+    select_executor.add_argument("--packet-id", required=True, help="Packet ID")
+    select_executor.add_argument("--role", help="Packet role (default: coder)")
+    select_executor.add_argument("--requested-executor", help="Requested executor ID")
+    select_executor.add_argument("--json", action="store_true", help="JSON output")
+    select_executor.set_defaults(func=_cmd_select_executor)
 
     return parser
 

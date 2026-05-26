@@ -209,3 +209,30 @@ def test_run_worktree_scope_flow_cli_contract() -> None:
     assert "--base-ref" in result.stdout
     assert "--keep-on-failure" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_list_executors_cli_contract() -> None:
+    """Verify list-executors CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "list-executors", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_select_executor_cli_contract() -> None:
+    """Verify select-executor CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "select-executor", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--role" in result.stdout
+    assert "--requested-executor" in result.stdout
+    assert "--json" in result.stdout
