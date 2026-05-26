@@ -171,3 +171,23 @@ def test_worktree_cleanup_cli_contract() -> None:
     assert "--attempt" in result.stdout
     assert "--keep-on-failure" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_worktree_scope_check_cli_contract() -> None:
+    """Verify worktree-scope-check CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "worktree-scope-check", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--keep-on-failure" in result.stdout
+    assert "--json" in result.stdout
+    assert "--json" in result.stdout

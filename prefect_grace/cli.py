@@ -1144,6 +1144,82 @@ def _cmd_worktree_cleanup(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_worktree_scope_check(args: argparse.Namespace) -> None:
+    """Evaluate worktree scope lifecycle gate."""
+    command = "worktree-scope-check"
+    try:
+        from prefect_grace.platform.worktree_scope_lifecycle import evaluate_worktree_scope
+
+        result = evaluate_worktree_scope(
+            packet_file=args.packet,
+            repo_root=args.repo_root,
+            worktree_root=args.worktree_root,
+            project_key=args.project_key,
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            keep_on_failure=args.keep_on_failure,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=result.to_dict(),
+            ))
+        else:
+            # Text mode
+            if result.status == "passed":
+                print(f"Lifecycle: PASSED")
+                print(f"  Packet: {result.packet_id}")
+                print(f"  Attempt: {result.attempt}")
+                print(f"  Worktree: {result.worktree_path}")
+                print(f"  Branch: {result.branch_name}")
+                print(f"  Changed files: {len(result.changed_files)}")
+            elif result.status == "scope_blocked":
+                print(f"Lifecycle: SCOPE BLOCKED")
+                print(f"  Packet: {result.packet_id}")
+                print(f"  Attempt: {result.attempt}")
+                print(f"  Worktree: {result.worktree_path}")
+                print(f"  Branch: {result.branch_name}")
+                print(f"  Blocker: {result.blocker_reason}")
+                print(f"  Changed files: {len(result.changed_files)}")
+
+                scope_guard = result.scope_guard
+                if scope_guard.get("frozen_violations"):
+                    print(f"\n  Frozen violations:")
+                    for v in scope_guard["frozen_violations"][:5]:
+                        print(f"    - {v['file_path']}")
+                if scope_guard.get("outside_allowed"):
+                    print(f"\n  Outside allowed:")
+                    for v in scope_guard["outside_allowed"][:5]:
+                        print(f"    - {v['file_path']}")
+            else:
+                print(f"Lifecycle: ERROR")
+                print(f"  Packet: {result.packet_id}")
+                print(f"  Attempt: {result.attempt}")
+                print(f"  Blocker: {result.blocker_reason}")
+
+        # Exit codes
+        if result.status == "passed":
+            sys.exit(0)
+        elif result.status == "scope_blocked":
+            sys.exit(1)
+        else:
+            sys.exit(2)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WORKTREE_SCOPE_CHECK_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Worktree scope check failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1412,6 +1488,18 @@ def build_parser() -> argparse.ArgumentParser:
     worktree_cleanup.add_argument("--keep-on-failure", action="store_true", help="Keep worktree if dirty")
     worktree_cleanup.add_argument("--json", action="store_true", help="JSON output")
     worktree_cleanup.set_defaults(func=_cmd_worktree_cleanup)
+
+    worktree_scope_check = subparsers.add_parser("worktree-scope-check", help="Evaluate worktree scope lifecycle gate")
+    worktree_scope_check.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    worktree_scope_check.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_scope_check.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_scope_check.add_argument("--project-key", required=True, help="Project key")
+    worktree_scope_check.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_scope_check.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_scope_check.add_argument("--base-ref", required=True, help="Base git ref")
+    worktree_scope_check.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
+    worktree_scope_check.add_argument("--json", action="store_true", help="JSON output")
+    worktree_scope_check.set_defaults(func=_cmd_worktree_scope_check)
 
     return parser
 
