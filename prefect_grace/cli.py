@@ -920,6 +920,230 @@ def _cmd_write_rework(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_check_scope(args: argparse.Namespace) -> None:
+    """Check scope violations for changed files against packet scope."""
+    command = "check-scope"
+    try:
+        from prefect_grace.platform.scope_guard import validate_scope
+
+        # Parse packet
+        packet_path = Path(args.packet)
+        if not packet_path.exists():
+            raise FileNotFoundError(f"Packet file not found: {packet_path}")
+
+        parsed = parse_packet_markdown(packet_path, mode="legacy_warn")
+
+        # Collect changed files
+        changed_files = []
+        if args.changed_files:
+            changed_files.extend(args.changed_files)
+        if args.changed_files_file:
+            changed_files_file = Path(args.changed_files_file)
+            if not changed_files_file.exists():
+                raise FileNotFoundError(f"Changed files file not found: {changed_files_file}")
+            changed_files.extend(
+                line.strip()
+                for line in changed_files_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+
+        if not changed_files:
+            raise ValueError("No changed files provided. Use --changed-file or --changed-files-file.")
+
+        # Validate scope
+        result = validate_scope(
+            changed_files=changed_files,
+            allowed_scope=parsed.allowed_write_scope,
+            frozen_scope=parsed.frozen_scope,
+            repo_root=args.repo_root,
+        )
+
+        # Output
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=result.to_dict(),
+            ))
+        else:
+            # Text mode
+            if result.ok:
+                print("Scope check: OK")
+                print(f"  Changed: {len(result.changed_files)} files")
+                print(f"  Allowed: {len(result.allowed_files)} files")
+            else:
+                print("Scope check: FAILED")
+                print(f"  Changed: {len(result.changed_files)} files")
+                print(f"  Allowed: {len(result.allowed_files)} files")
+
+                if result.invalid_paths:
+                    print("\nInvalid paths:")
+                    for v in result.invalid_paths:
+                        print(f"  - {v.file_path}: {v.reason}")
+
+                if result.frozen_violations:
+                    print("\nFrozen violations:")
+                    for v in result.frozen_violations:
+                        pattern_info = f" (matched: {v.matched_pattern})" if v.matched_pattern else ""
+                        print(f"  - {v.file_path}{pattern_info}")
+
+                if result.outside_allowed:
+                    print("\nOutside allowed:")
+                    for v in result.outside_allowed:
+                        print(f"  - {v.file_path}")
+
+        # Exit codes
+        if not result.ok:
+            sys.exit(1)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "CHECK_SCOPE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Check scope failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_worktree_create(args: argparse.Namespace) -> None:
+    """Create a worktree for packet execution."""
+    command = "worktree-create"
+    try:
+        from prefect_grace.platform.worktree_manager import WorktreeManager
+
+        manager = WorktreeManager(
+            repo_root=args.repo_root,
+            worktree_root=args.worktree_root,
+            project_key=args.project_key,
+        )
+
+        context = manager.create_packet_worktree(
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+        )
+
+        result = {
+            "packet_id": context.packet_id,
+            "attempt": context.attempt,
+            "worktree_path": str(context.worktree_path),
+            "branch_name": context.branch_name,
+            "base_ref": context.base_ref,
+            "created": context.created,
+        }
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"Worktree created: {context.worktree_path}")
+            print(f"  Branch: {context.branch_name}")
+            print(f"  Base ref: {context.base_ref}")
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WORKTREE_CREATE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Worktree create failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_worktree_status(args: argparse.Namespace) -> None:
+    """Get status of a worktree."""
+    command = "worktree-status"
+    try:
+        from prefect_grace.platform.worktree_manager import WorktreeManager
+
+        manager = WorktreeManager(
+            repo_root=args.repo_root,
+            worktree_root=args.worktree_root,
+            project_key=args.project_key,
+        )
+
+        status = manager.status(
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=status.to_dict(),
+            ))
+        else:
+            if status.exists:
+                print(f"Worktree: {status.path}")
+                print(f"  Branch: {status.branch_name}")
+                print(f"  Dirty: {status.dirty}")
+                print(f"  Changed files: {len(status.changed_files)}")
+            else:
+                print(f"Worktree does not exist: {status.path}")
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WORKTREE_STATUS_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Worktree status failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_worktree_cleanup(args: argparse.Namespace) -> None:
+    """Clean up a worktree."""
+    command = "worktree-cleanup"
+    try:
+        from prefect_grace.platform.worktree_manager import WorktreeManager
+
+        manager = WorktreeManager(
+            repo_root=args.repo_root,
+            worktree_root=args.worktree_root,
+            project_key=args.project_key,
+        )
+
+        status = manager.cleanup_worktree(
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            keep_on_failure=args.keep_on_failure,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=status.to_dict(),
+            ))
+        else:
+            if status.exists:
+                print(f"Worktree preserved: {status.path}")
+            else:
+                print(f"Worktree cleaned up: {status.path}")
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WORKTREE_CLEANUP_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Worktree cleanup failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1151,6 +1375,43 @@ def build_parser() -> argparse.ArgumentParser:
     synthetic_edge_matrix.add_argument("--seed", type=int, default=1)
     synthetic_edge_matrix.add_argument("--json", action="store_true")
     synthetic_edge_matrix.set_defaults(func=_cmd_synthetic_edge_matrix)
+
+    check_scope = subparsers.add_parser("check-scope", help="Check scope violations")
+    check_scope.add_argument("--packet", required=True, help="Path to EXECUTION_PACKET.md")
+    check_scope.add_argument("--changed-file", action="append", dest="changed_files", help="Changed file path (repeatable)")
+    check_scope.add_argument("--changed-files-file", help="File with newline-delimited changed files")
+    check_scope.add_argument("--repo-root", type=Path, default=Path.cwd(), help="Repository root")
+    check_scope.add_argument("--json", action="store_true", help="JSON output")
+    check_scope.set_defaults(func=_cmd_check_scope)
+
+    worktree_create = subparsers.add_parser("worktree-create", help="Create worktree for packet")
+    worktree_create.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_create.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_create.add_argument("--project-key", required=True, help="Project key")
+    worktree_create.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_create.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_create.add_argument("--base-ref", required=True, help="Base git ref")
+    worktree_create.add_argument("--json", action="store_true", help="JSON output")
+    worktree_create.set_defaults(func=_cmd_worktree_create)
+
+    worktree_status = subparsers.add_parser("worktree-status", help="Get worktree status")
+    worktree_status.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_status.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_status.add_argument("--project-key", required=True, help="Project key")
+    worktree_status.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_status.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_status.add_argument("--json", action="store_true", help="JSON output")
+    worktree_status.set_defaults(func=_cmd_worktree_status)
+
+    worktree_cleanup = subparsers.add_parser("worktree-cleanup", help="Clean up worktree")
+    worktree_cleanup.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_cleanup.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_cleanup.add_argument("--project-key", required=True, help="Project key")
+    worktree_cleanup.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_cleanup.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_cleanup.add_argument("--keep-on-failure", action="store_true", help="Keep worktree if dirty")
+    worktree_cleanup.add_argument("--json", action="store_true", help="JSON output")
+    worktree_cleanup.set_defaults(func=_cmd_worktree_cleanup)
 
     return parser
 

@@ -105,3 +105,69 @@ def test_cli_sync_packets_dry_run() -> None:
     assert "ready" in data["data"]
     assert "accepted" in data["data"]
     assert "blocked" in data["data"]
+
+
+def test_check_scope_cli_contract() -> None:
+    """Verify check-scope CLI follows contract."""
+    # Test that command exists and has required args
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "check-scope", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--changed-file" in result.stdout
+    assert "--json" in result.stdout
+    assert "--repo-root" in result.stdout
+    assert "--changed-files-file" in result.stdout
+
+
+def test_worktree_create_cli_contract() -> None:
+    """Verify worktree-create CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "worktree-create", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_worktree_status_cli_contract() -> None:
+    """Verify worktree-status CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "worktree-status", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_worktree_cleanup_cli_contract() -> None:
+    """Verify worktree-cleanup CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "worktree-cleanup", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--keep-on-failure" in result.stdout
+    assert "--json" in result.stdout
