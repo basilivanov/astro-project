@@ -96,13 +96,14 @@ def lint_platform_modules(target_dir: str):
         if start_blocks != end_blocks:
             errors.append(f"{rel_path}: Unbalanced blocks. START_BLOCK count ({start_blocks}) != END_BLOCK count ({end_blocks}).")
 
-        # 5. Prefect imports check
-        prefect_imports = []
-        for i, line in enumerate(lines, 1):
-            if re.match(r"^\s*(import\s+prefect|from\s+prefect\b)", line):
-                prefect_imports.append(i)
-        if prefect_imports:
-            errors.append(f"{rel_path}: Forbidden prefect imports found on lines: {prefect_imports}")
+        # 5. Prefect imports check (allowed only in runtime_adapter.py)
+        if file_path.name != "runtime_adapter.py":
+            prefect_imports = []
+            for i, line in enumerate(lines, 1):
+                if re.match(r"^\s*(import\s+prefect|from\s+prefect\b)", line):
+                    prefect_imports.append(i)
+            if prefect_imports:
+                errors.append(f"{rel_path}: Forbidden prefect imports found on lines: {prefect_imports}")
 
         # 6. Extract all function contracts
         # We can find blocks between START_FUNCTION_CONTRACT and END_FUNCTION_CONTRACT

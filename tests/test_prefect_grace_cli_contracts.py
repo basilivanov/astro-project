@@ -100,5 +100,8 @@ def test_cli_sync_packets_dry_run() -> None:
     assert data["command"] == "sync-packets"
     assert data["result"] == data["data"]
     assert data["data"]["dry_run"] is True
-    assert data["data"]["registered"] == 0
+    assert data["data"]["registry_updates"] == 0
     assert data["data"]["packets_total"] > 0
+    assert "ready" in data["data"]
+    assert "accepted" in data["data"]
+    assert "blocked" in data["data"]

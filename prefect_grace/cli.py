@@ -440,49 +440,67 @@ def _cmd_validate_packet(args: argparse.Namespace) -> None:
 def _cmd_sync_packets(args: argparse.Namespace) -> None:
     command = "sync-packets"
     try:
+        from prefect_grace.platform.backlog_controller import BacklogController
+
         adapter = _load_adapter_from_args(args)
-        packets_data, all_warnings, errors = _scan_project_packets(adapter, mode=args.mode)
-        if errors:
+
+        sync_result = BacklogController.sync(
+            project=adapter,
+            dry_run=args.dry_run,
+            retry_blocked=getattr(args, "retry_blocked", False),
+            rerun_changed=getattr(args, "rerun_changed", False),
+        )
+
+        if sync_result.errors:
             if args.json:
                 _print_json(_json_envelope(
                     ok=False,
                     command=command,
                     project_key=adapter.project_key,
-                    warnings=all_warnings,
-                    errors=errors,
+                    result={
+                        "packets_total": sync_result.packets_total,
+                        "registry_updates": sync_result.registry_updates,
+                        "ready": sync_result.ready,
+                        "accepted": sync_result.accepted,
+                        "blocked": sync_result.blocked,
+                        "changed_after_acceptance": sync_result.changed_after_acceptance,
+                        "ready_for_retry": sync_result.ready_for_retry,
+                        "cascading_blocked": sync_result.cascading_blocked,
+                        "cycles": sync_result.cycles,
+                    },
+                    warnings=sync_result.warnings,
+                    errors=sync_result.errors,
                 ))
             else:
-                for err in errors:
-                    print(err["message"], file=sys.stderr)
+                for err in sync_result.errors:
+                    print(err, file=sys.stderr)
             sys.exit(2)
-
-        registry = PacketRegistryStore(Path(adapter.runtime_state_root) / "state")
-        registered = 0
-        if not args.dry_run:
-            for packet in packets_data:
-                registry.upsert_packet(packet)
-                registered += 1
 
         result = {
             "dry_run": args.dry_run,
-            "packets_total": len(packets_data),
-            "ready": [p["packet_id"] for p in packets_data if p.get("status") == "ready"],
-            "accepted": [p["packet_id"] for p in packets_data if p.get("status") == "accepted"],
-            "blocked": [p["packet_id"] for p in packets_data if p.get("status") == "blocked"],
-            "registered": registered,
-            "packets": packets_data,
+            "packets_total": sync_result.packets_total,
+            "registry_updates": sync_result.registry_updates,
+            "ready": sync_result.ready,
+            "accepted": sync_result.accepted,
+            "blocked": sync_result.blocked,
+            "changed_after_acceptance": sync_result.changed_after_acceptance,
+            "ready_for_retry": sync_result.ready_for_retry,
+            "cascading_blocked": sync_result.cascading_blocked,
+            "cycles": sync_result.cycles,
         }
+
         if args.json:
             _print_json(_json_envelope(
                 ok=True,
                 command=command,
                 project_key=adapter.project_key,
                 result=result,
-                warnings=all_warnings,
+                warnings=sync_result.warnings,
             ))
         else:
             verb = "Would sync" if args.dry_run else "Synced"
-            print(f"{verb} {len(packets_data)} packets for {adapter.project_key}.")
+            print(f"{verb} {sync_result.packets_total} packets for {adapter.project_key}.")
+            print(f"Ready: {len(sync_result.ready)}, Accepted: {len(sync_result.accepted)}, Blocked: {len(sync_result.blocked)}")
     except Exception as e:
         if args.json:
             _print_json(_json_envelope(
@@ -558,32 +576,81 @@ def _cmd_registry_dump(args: argparse.Namespace) -> None:
 def _cmd_submit_packets(args: argparse.Namespace) -> None:
     command = "submit-packets"
     try:
+        from prefect_grace.platform.backlog_controller import BacklogController
+
         adapter = _load_adapter_from_args(args)
-        packets_data, all_warnings, errors = _scan_project_packets(adapter, mode="strict")
+
+        # Read registry state and plan submission
+        submission_plan = BacklogController.plan_submission(adapter)
+
+        # Check if RuntimeLock/Worktree/Scope lifecycle is available
+        # For MVP-2, fail closed with safety error
+        if args.execute:
+            safety_error = {
+                "code": "SAFETY_GATE_NOT_READY",
+                "message": (
+                    "Live packet execution requires RuntimeLock, WorktreeManager, and Scope Guard lifecycle. "
+                    "These safety gates are not yet implemented. Use --dry-run to validate submission plan only."
+                ),
+                "required_gates": ["RuntimeLock", "WorktreeManager", "ScopeGuardLifecycle"],
+                "current_mvp": "MVP-2",
+                "execution_enabled_in": "MVP-5+",
+            }
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    project_key=adapter.project_key,
+                    errors=[safety_error],
+                ))
+            else:
+                print(f"ERROR: {safety_error['message']}", file=sys.stderr)
+            sys.exit(5)  # Exit code 5 for security/scope violation
+
         result = {
-            "execute": args.execute,
-            "packets_total": len(packets_data),
-            "submitted": [],
-            "note": "Prefect submission is intentionally not wired in this contract-only MVP.",
+            "dry_run": not args.execute,
+            "packets_to_submit": submission_plan.packets_to_submit,
+            "submission_order": submission_plan.submission_order,
+            "blocked_packets": submission_plan.blocked_packets,
+            "note": "Submission plan validated. Use --execute when safety gates are ready.",
         }
-        if errors:
-            raise ValueError(errors[0]["message"])
+
+        if submission_plan.errors:
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    project_key=adapter.project_key,
+                    result=result,
+                    warnings=submission_plan.warnings,
+                    errors=submission_plan.errors,
+                ))
+            else:
+                for err in submission_plan.errors:
+                    print(f"ERROR: {err}", file=sys.stderr)
+            sys.exit(3)  # Exit code 3 for dependency/DAG invalid
+
         if args.json:
             _print_json(_json_envelope(
                 ok=True,
                 command=command,
                 project_key=adapter.project_key,
                 result=result,
-                warnings=all_warnings,
+                warnings=submission_plan.warnings,
             ))
         else:
-            print(result["note"])
+            print(f"Submission plan for {adapter.project_key}:")
+            print(f"  Packets to submit: {len(submission_plan.packets_to_submit)}")
+            print(f"  Submission order: {submission_plan.submission_order}")
+            print(f"  Blocked packets: {len(submission_plan.blocked_packets)}")
+            if submission_plan.warnings:
+                print(f"  Warnings: {len(submission_plan.warnings)}")
     except Exception as e:
         if args.json:
             _print_json(_json_envelope(
                 ok=False,
                 command=command,
-                errors=[{"code": "SUBMIT_NOT_READY", "message": str(e)}],
+                errors=[{"code": "SUBMIT_FAILED", "message": str(e)}],
             ))
         else:
             print(f"Submit failed: {e}", file=sys.stderr)
@@ -793,8 +860,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sync_packets = subparsers.add_parser("sync-packets")
     sync_packets.add_argument("--project")
-    sync_packets.add_argument("--mode", choices=["legacy_warn", "strict"], default="legacy_warn")
     sync_packets.add_argument("--dry-run", action="store_true")
+    sync_packets.add_argument("--retry-blocked", action="store_true")
+    sync_packets.add_argument("--rerun-changed", action="store_true")
     sync_packets.add_argument("--json", action="store_true")
     sync_packets.set_defaults(func=_cmd_sync_packets)
 
