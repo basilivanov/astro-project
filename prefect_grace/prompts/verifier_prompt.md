@@ -25,6 +25,36 @@ Rules:
 11. If canonical Today/Week evidence was not intentionally exercised for this packet, you may classify observability as `degraded-but-expected` instead of `no-evidence-blocker`, but explain precisely why the evidence is deferred.
 12. Reserve `no-evidence-blocker` for cases where the packet contract explicitly expected fresh runtime evidence and the exercised flow failed to produce it.
 13. After command execution, inspect configured artifact paths and globs and include the concrete matched files in `evidence_paths`.
+14. Return a structured evidence manifest JSON that maps evidence requirement IDs to collected artifacts. Each evidence item must include:
+    - `id`: Evidence requirement ID from packet contract
+    - `status`: `collected` (artifact produced), `missing` (required evidence not produced), `deferred` (wave_final evidence not produced in packet_local context), `not_applicable` (requirement doesn't apply), `failed` (producer ran but failed)
+    - `stage`: `packet_local`, `wave_final`, or `release_final`
+    - `producer`: Who produced the evidence (pytest, playwright, cli, log_watch, etc.)
+    - `artifact_paths`: List of absolute or relative paths to artifacts
+    - `summary`: Brief description of what was verified
+15. Distinguish impossible/deferred evidence from implementation failure:
+    - If evidence requirement is impossible (missing profile, unowned, unprofiled), mark as `contract_invalid` and route to architect
+    - If wave_final evidence cannot be produced in packet_local context, mark as `deferred` (not a blocker)
+    - If implementation tests fail, mark as `failed` or `missing` and route to coder
+    - If artifact paths don't exist, mark as `artifact_reference_invalid` and route to verifier/pipeline
+16. Evidence manifest structure:
+    ```json
+    {
+      "packet_id": "PKT-001",
+      "generated_by": "verifier",
+      "evidence": [
+        {
+          "id": "EV-TEST-001",
+          "status": "collected",
+          "stage": "packet_local",
+          "producer": "pytest",
+          "artifact_paths": ["artifacts/test-output.txt"],
+          "summary": "All tests passed"
+        }
+      ],
+      "blockers": []
+    }
+    ```
 
 Output sections:
 - Verification Scope

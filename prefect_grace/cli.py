@@ -1533,6 +1533,112 @@ def _cmd_select_executor(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_validate_evidence_contract(args: argparse.Namespace) -> None:
+    """Validate evidence contract from packet."""
+    command = "validate-evidence-contract"
+    try:
+        from prefect_grace.platform.packet_parser import parse_packet_markdown
+        from prefect_grace.platform.evidence_contract import parse_evidence_contract, validate_evidence_contract
+        from prefect_grace.platform.verification_profile import load_verification_profiles
+
+        packet = parse_packet_markdown(args.packet_path)
+        contract = parse_evidence_contract(packet)
+        profiles = load_verification_profiles()
+        validation = validate_evidence_contract(contract, profiles)
+
+        result = {
+            "packet_id": contract.packet_id,
+            "requirements_count": len(contract.requirements),
+            "validation": validation.to_dict(),
+        }
+
+        if args.json:
+            _print_json(_json_envelope(ok=validation.ok, command=command, result=result))
+        else:
+            print(f"Packet: {contract.packet_id}")
+            print(f"Requirements: {len(contract.requirements)}")
+            if validation.ok:
+                print("✓ Contract valid")
+            else:
+                print(f"✗ Contract invalid ({len(validation.errors)} errors)")
+                for error in validation.errors:
+                    print(f"  - {error['code']}: {error['message']}")
+
+        sys.exit(0 if validation.ok else 1)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "VALIDATE_CONTRACT_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Validate evidence contract failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_validate_evidence_manifest(args: argparse.Namespace) -> None:
+    """Validate evidence manifest against contract."""
+    command = "validate-evidence-manifest"
+    try:
+        from prefect_grace.platform.packet_parser import parse_packet_markdown
+        from prefect_grace.platform.evidence_contract import parse_evidence_contract
+        from prefect_grace.platform.evidence_manifest import parse_evidence_manifest, validate_evidence_manifest
+        from prefect_grace.platform.artifact_validator import validate_artifact_references
+
+        packet = parse_packet_markdown(args.packet)
+        contract = parse_evidence_contract(packet)
+        manifest = parse_evidence_manifest(args.manifest_path)
+
+        # Validate manifest against contract
+        contract_validation = validate_evidence_manifest(manifest, contract)
+
+        # Validate artifact references
+        artifact_roots = [Path(args.artifact_root)] if args.artifact_root else []
+        artifact_validation = validate_artifact_references(manifest, artifact_roots)
+
+        result = {
+            "packet_id": manifest.packet_id,
+            "evidence_count": len(manifest.evidence),
+            "contract_validation": contract_validation.to_dict(),
+            "artifact_validation": artifact_validation.to_dict(),
+        }
+
+        ok = contract_validation.ok and artifact_validation.ok
+
+        if args.json:
+            _print_json(_json_envelope(ok=ok, command=command, result=result))
+        else:
+            print(f"Packet: {manifest.packet_id}")
+            print(f"Evidence items: {len(manifest.evidence)}")
+            if ok:
+                print("✓ Manifest valid")
+            else:
+                print(f"✗ Manifest invalid")
+                if not contract_validation.ok:
+                    print(f"  Contract errors: {len(contract_validation.errors)}")
+                    for error in contract_validation.errors:
+                        print(f"    - {error['code']}: {error['message']}")
+                if not artifact_validation.ok:
+                    print(f"  Missing artifacts: {len(artifact_validation.missing_artifacts)}")
+                    for path in artifact_validation.missing_artifacts:
+                        print(f"    - {path}")
+
+        sys.exit(0 if ok else 1)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "VALIDATE_MANIFEST_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Validate evidence manifest failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1862,6 +1968,20 @@ def build_parser() -> argparse.ArgumentParser:
     select_executor.add_argument("--requested-executor", help="Requested executor ID")
     select_executor.add_argument("--json", action="store_true", help="JSON output")
     select_executor.set_defaults(func=_cmd_select_executor)
+
+    # validate-evidence-contract
+    validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")
+    validate_contract.add_argument("packet_path", type=Path, help="Path to EXECUTION_PACKET.md")
+    validate_contract.add_argument("--json", action="store_true", help="JSON output")
+    validate_contract.set_defaults(func=_cmd_validate_evidence_contract)
+
+    # validate-evidence-manifest
+    validate_manifest = subparsers.add_parser("validate-evidence-manifest", help="Validate evidence manifest against contract")
+    validate_manifest.add_argument("manifest_path", type=Path, help="Path to evidence_manifest.json")
+    validate_manifest.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    validate_manifest.add_argument("--artifact-root", type=Path, help="Artifact root directory")
+    validate_manifest.add_argument("--json", action="store_true", help="JSON output")
+    validate_manifest.set_defaults(func=_cmd_validate_evidence_manifest)
 
     return parser
 

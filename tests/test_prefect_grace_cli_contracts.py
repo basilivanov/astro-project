@@ -236,3 +236,29 @@ def test_select_executor_cli_contract() -> None:
     assert "--role" in result.stdout
     assert "--requested-executor" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_validate_evidence_contract_cli_contract() -> None:
+    """Verify validate-evidence-contract CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "validate-evidence-contract", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "packet_path" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_validate_evidence_manifest_cli_contract() -> None:
+    """Verify validate-evidence-manifest CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "validate-evidence-manifest", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "manifest_path" in result.stdout
+    assert "--packet" in result.stdout
+    assert "--artifact-root" in result.stdout
+    assert "--json" in result.stdout

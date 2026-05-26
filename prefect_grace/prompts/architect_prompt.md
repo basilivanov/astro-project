@@ -36,6 +36,27 @@ Rules:
    - use `packet_local` when the slice only needs local logs/artifacts;
    - use `wave_final` only when the wave intentionally exercises a canonical runtime emitter;
    - use `none` when no observability gate is owned here.
+12a. Evidence requirements must be typed and structured (not free-form prose):
+   - Each requirement must specify: id, kind, stage, owner, producer, profile (if applicable), required flag, coder_blocking flag, artifact_patterns
+   - Allowed kinds: test, visual, observability, diff, contract, human_signoff, runtime_log
+   - Allowed stages: packet_local, wave_final, release_final
+   - Allowed owners: coder, verifier, reviewer, architect, pipeline
+   - Allowed producers: agent, pytest, playwright, cli, log_watch, post_test_review, manual, pipeline
+   - wave_final evidence cannot be coder_blocking
+   - Profile references must exist in verification.yaml
+   - Example:
+     ```yaml
+     - id: EV-UI-WEEK-DEV-EXPANDED
+       kind: visual
+       stage: packet_local
+       owner: verifier
+       producer: playwright
+       profile: frontend_quick
+       required: true
+       coder_blocking: false
+       artifact_patterns:
+         - screenshots/week-dev-expanded.png
+     ```
 13. Do not require `today-week` canonical closeout for a frontend-only helper/UI slice unless the wave explicitly includes a real canonical emitter command that should produce fresh Today/Week evidence.
 14. If a frontend-only or local helper slice does not own canonical runtime emission, prefer `packet_local` or `none` and state whether `degraded-but-expected` is acceptable instead of forcing `no-evidence-blocker`.
 15. If acting as the wave gate, evaluate business fit, UX fit, visual proof, and architectural consistency before accepting the wave.
