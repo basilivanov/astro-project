@@ -97,6 +97,10 @@ class CodexLaunchResult:
     attempt: int = 1
     attempt_count: int = 1
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    # API failure classification metadata
+    api_failure_category: str | None = None
+    api_failure_retryable: bool | None = None
+    api_failure_reason: str | None = None
 
     # START_FUNCTION_CONTRACT
     # name: to_dict
@@ -108,7 +112,7 @@ class CodexLaunchResult:
     # error_behavior: None
     # END_FUNCTION_CONTRACT
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "packet_id": self.packet_id,
             "returncode": self.returncode,
             "launcher": self.launcher,
@@ -127,6 +131,14 @@ class CodexLaunchResult:
             "attempt_count": self.attempt_count,
             "attempts": list(self.attempts),
         }
+
+        # Add API failure metadata if present
+        if self.api_failure_category is not None:
+            result["api_failure_category"] = self.api_failure_category
+            result["api_failure_retryable"] = self.api_failure_retryable
+            result["api_failure_reason"] = self.api_failure_reason
+
+        return result
 
 
 @dataclass(frozen=True)
@@ -1552,6 +1564,29 @@ def launch_codex_for_packet(
             thread_id = _extract_thread_id(stdout_path) or resumed_from_thread_id
         finished_at = datetime.now(timezone.utc).isoformat()
 
+        # Classify API failure if returncode != 0
+        api_failure_category = None
+        api_failure_retryable = None
+        api_failure_reason = None
+
+        if returncode != 0:
+            from prefect_grace.platform.agent_failure_classifier import classify_agent_failure
+
+            stderr_text = _read_text(stderr_path)
+            stdout_text = _read_text(stdout_path)
+
+            classification = classify_agent_failure(
+                stdout_text=stdout_text,
+                stderr_text=stderr_text,
+                exit_code=returncode,
+                termination_reason=termination_reason,
+            )
+
+            if classification.category != "none":
+                api_failure_category = classification.category
+                api_failure_retryable = classification.retryable
+                api_failure_reason = classification.reason
+
         if resume_strategy == "feature_role" and thread_id:
             _store_feature_role_session(
                 feature_id=str(packet.get("feature_id")),
@@ -1586,6 +1621,9 @@ def launch_codex_for_packet(
             attempt=attempt,
             attempt_count=attempt,
             attempts=[],
+            api_failure_category=api_failure_category,
+            api_failure_retryable=api_failure_retryable,
+            api_failure_reason=api_failure_reason,
         ).to_dict()
         attempts.append(attempt_result)
 
