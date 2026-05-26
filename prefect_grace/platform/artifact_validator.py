@@ -202,25 +202,55 @@ def _validate_single_artifact(
                 hash=None,
             )
 
-    # Check if file exists
-    if not path.exists():
+        # Check if absolute path exists
+        if not path.exists():
+            return ArtifactReference(
+                path=artifact_path,
+                exists=False,
+                size=None,
+                hash=None,
+            )
+
+        # File exists - record metadata
+        size = path.stat().st_size if path.is_file() else None
+        file_hash = _compute_file_hash(path) if path.is_file() else None
+
+        return ArtifactReference(
+            path=artifact_path,
+            exists=True,
+            size=size,
+            hash=file_hash,
+        )
+    else:
+        # Relative path - try to resolve against each artifact root
+        for root in artifact_roots:
+            resolved_path = root / path
+            try:
+                # Check that resolved path is still under root (no traversal)
+                resolved_path.resolve().relative_to(root.resolve())
+            except ValueError:
+                # Path traverses outside root
+                continue
+
+            if resolved_path.exists():
+                # File exists - record metadata
+                size = resolved_path.stat().st_size if resolved_path.is_file() else None
+                file_hash = _compute_file_hash(resolved_path) if resolved_path.is_file() else None
+
+                return ArtifactReference(
+                    path=artifact_path,
+                    exists=True,
+                    size=size,
+                    hash=file_hash,
+                )
+
+        # File not found in any artifact root
         return ArtifactReference(
             path=artifact_path,
             exists=False,
             size=None,
             hash=None,
         )
-
-    # File exists - record metadata
-    size = path.stat().st_size if path.is_file() else None
-    file_hash = _compute_file_hash(path) if path.is_file() else None
-
-    return ArtifactReference(
-        path=artifact_path,
-        exists=True,
-        size=size,
-        hash=file_hash,
-    )
 
 
 def _compute_file_hash(path: Path) -> str:

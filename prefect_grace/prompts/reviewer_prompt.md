@@ -27,7 +27,7 @@ Rules:
 15. Prefer `self_resolvable_rework` by default. Do not send user-facing escalation unless the blocker truly requires a user/product decision.
 16. Set `rework_mode=light_resume` only when the blocker is a small packet-local fix safe to resume in the existing coder context. Use `bounded_fresh` for broader bounded fixes and `decision_required` for user/planner/business blockers.
 17. Do not use `light/basic` packet-type semantics. The system uses only `execution`, `rework`, and `gate_decision` packet types.
-18. Consume the structured evidence manifest from verifier output. The manifest maps evidence requirement IDs to collected artifacts with status, stage, producer, artifact_paths, and summary.
+18. Consume the structured evidence manifest from verifier output. The manifest contains `requirement_results` array mapping evidence requirement IDs to collected artifacts with status, stage, producer, artifact_paths, and summary.
 19. Evidence contract failures route to architect, not coder:
     - If evidence requirement is impossible (missing profile, unowned, unprofiled), route to architect with `evidence_contract_invalid`
     - If artifact paths claimed by verifier don't exist, route to verifier/pipeline with `artifact_reference_invalid`
@@ -43,12 +43,12 @@ Rules:
     - `environment_blocker` → infra (infrastructure issue)
     - `scope_violation` → architect (scope expansion needed)
     - `wave_final_evidence_pending` → none (not packet-blocking)
-21. Example evidence manifest structure:
+21. Example verifier evidence manifest structure (from FINAL_VERIFIER_EVIDENCE_JSON):
     ```json
     {
       "packet_id": "PKT-001",
       "generated_by": "verifier",
-      "evidence": [
+      "requirement_results": [
         {
           "id": "EV-TEST-001",
           "status": "collected",
@@ -56,16 +56,22 @@ Rules:
           "producer": "pytest",
           "artifact_paths": ["artifacts/test-output.txt"],
           "summary": "All tests passed"
+        },
+        {
+          "id": "EV-IMPOSSIBLE-001",
+          "status": "contract_invalid",
+          "stage": "packet_local",
+          "producer": "unknown",
+          "artifact_paths": [],
+          "summary": "Evidence requirement has no owner"
         }
       ],
-      "blockers": [
-        {
-          "code": "evidence_contract_invalid",
-          "evidence_id": "EV-IMPOSSIBLE-001",
-          "message": "Evidence requirement has no owner",
-          "route_to": "architect"
-        }
-      ]
+      "test_verdict": "passed",
+      "observability_verdict": "clean",
+      "frontend_visual_verdict": "not_applicable",
+      "commands_run": ["pytest tests/"],
+      "evidence_paths": ["artifacts/test-output.txt"],
+      "blocking_issues": []
     }
     ```
 

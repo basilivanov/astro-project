@@ -191,14 +191,15 @@ def test_validate_artifact_references_relative_path():
             blockers=[],
         )
 
-        # Relative paths are checked from current directory
-        # This test assumes the relative path doesn't exist in cwd
+        # Relative paths are resolved against artifact_roots
         result = validate_artifact_references(manifest, [tmpdir_path])
 
-        # Relative path not found (not in cwd)
-        assert result.ok is False
+        # Relative path found in artifact_root
+        assert result.ok is True
         assert len(result.validated_artifacts) == 1
-        assert result.validated_artifacts[0].exists is False
+        assert result.validated_artifacts[0].exists is True
+        assert result.validated_artifacts[0].size == 11
+        assert result.validated_artifacts[0].hash is not None
 
 
 def test_validate_artifact_references_records_metadata():

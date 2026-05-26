@@ -68,6 +68,18 @@ Output sections:
 Final machine-readable block:
 FINAL_VERIFIER_EVIDENCE_JSON
 {
+  "packet_id": "PKT-001",
+  "generated_by": "verifier",
+  "requirement_results": [
+    {
+      "id": "EV-TEST-001",
+      "status": "collected | missing | deferred | not_applicable | failed | artifact_reference_invalid | contract_invalid",
+      "stage": "packet_local | wave_final | release_final",
+      "producer": "pytest | playwright | cli | log_watch | manual | pipeline",
+      "artifact_paths": ["relative/path/to/artifact.txt"],
+      "summary": "Brief description of what was verified"
+    }
+  ],
   "test_verdict": "passed | failed | not_run",
   "observability_verdict": "clean | degraded-but-expected | unexpected-degradation | no-evidence-blocker",
   "frontend_visual_verdict": "sufficient | insufficient | not_applicable",

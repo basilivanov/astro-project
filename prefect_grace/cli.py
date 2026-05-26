@@ -1639,6 +1639,147 @@ def _cmd_validate_evidence_manifest(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_run_handoff(args: argparse.Namespace) -> None:
+    """Run verifier-reviewer handoff."""
+    command = "run-handoff"
+    try:
+        from prefect_grace.flows.verifier_reviewer_handoff_flow import verifier_reviewer_handoff_flow
+
+        packet_dir = Path(args.packet_dir)
+        packet_file = Path(args.packet)
+
+        # Load coder result
+        coder_result_path = Path(args.coder_result)
+        if not coder_result_path.exists():
+            raise FileNotFoundError(f"Coder result file not found: {coder_result_path}")
+
+        coder_result = json.loads(coder_result_path.read_text(encoding="utf-8"))
+
+        # In dry-run mode, require fake outputs
+        if args.dry_run:
+            if not args.fake_verifier_output or not args.fake_reviewer_output:
+                error_msg = "Dry-run mode requires --fake-verifier-output and --fake-reviewer-output"
+                if args.json:
+                    _print_json(_json_envelope(
+                        ok=False,
+                        command=command,
+                        errors=[{"code": "MISSING_FAKE_OUTPUTS", "message": error_msg}],
+                    ))
+                else:
+                    print(f"Error: {error_msg}", file=sys.stderr)
+                sys.exit(2)
+
+            # Load fake outputs
+            fake_verifier_path = Path(args.fake_verifier_output)
+            fake_reviewer_path = Path(args.fake_reviewer_output)
+
+            if not fake_verifier_path.exists():
+                raise FileNotFoundError(f"Fake verifier output not found: {fake_verifier_path}")
+            if not fake_reviewer_path.exists():
+                raise FileNotFoundError(f"Fake reviewer output not found: {fake_reviewer_path}")
+
+            fake_verifier_output = fake_verifier_path.read_text(encoding="utf-8")
+            fake_reviewer_output = fake_reviewer_path.read_text(encoding="utf-8")
+
+            # Create fake launchers
+            def fake_verifier_launcher(**kwargs):
+                return {"raw_output": fake_verifier_output}
+
+            def fake_reviewer_launcher(**kwargs):
+                return {"raw_output": fake_reviewer_output}
+
+            verifier_launcher = fake_verifier_launcher
+            reviewer_launcher = fake_reviewer_launcher
+        else:
+            # Live mode: fail with error (no live launcher implementation in MVP)
+            error_msg = "Live handoff execution not implemented in MVP. Use --dry-run with fake outputs."
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    errors=[{"code": "LIVE_EXECUTION_NOT_IMPLEMENTED", "message": error_msg}],
+                ))
+            else:
+                print(f"Error: {error_msg}", file=sys.stderr)
+            sys.exit(2)
+
+        # Run handoff flow
+        result = verifier_reviewer_handoff_flow(
+            packet_dir=packet_dir,
+            packet_file=packet_file,
+            attempt=args.attempt,
+            coder_result=coder_result,
+            verifier_launcher=verifier_launcher,
+            reviewer_launcher=reviewer_launcher,
+            project=None,
+            dry_run=args.dry_run,
+        )
+
+        domain_status = result["domain_status"]
+
+        # Map domain status to exit code
+        exit_code_map = {
+            "accepted": 0,
+            "rework_required": 1,
+            "blocked": 2,
+            "escalate_to_architect": 2,
+            "verifier_failed": 2,
+            "reviewer_failed": 2,
+            "handoff_error": 2,
+        }
+        exit_code = exit_code_map.get(domain_status, 2)
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result["ok"],
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"Handoff status: {domain_status}")
+            print(f"  Packet: {result['packet_id']}")
+            print(f"  Attempt: {result['attempt']}")
+
+            verifier = result["verifier"]
+            print(f"\nVerifier:")
+            print(f"  OK: {verifier['ok']}")
+            print(f"  Marker found: {verifier['marker_found']}")
+            if verifier['errors']:
+                print(f"  Errors: {len(verifier['errors'])}")
+                for error in verifier['errors']:
+                    print(f"    - {error}")
+
+            reviewer = result.get("reviewer")
+            if reviewer:
+                print(f"\nReviewer:")
+                print(f"  OK: {reviewer['ok']}")
+                print(f"  Marker found: {reviewer['marker_found']}")
+                if reviewer['errors']:
+                    print(f"  Errors: {len(reviewer['errors'])}")
+                    for error in reviewer['errors']:
+                        print(f"    - {error}")
+
+            if result.get("evidence_manifest_path"):
+                print(f"\nEvidence manifest: {result['evidence_manifest_path']}")
+            if result.get("review_path"):
+                print(f"Review: {result['review_path']}")
+            if result.get("rework_path"):
+                print(f"Rework: {result['rework_path']}")
+
+        sys.exit(exit_code)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_HANDOFF_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run handoff failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -1982,6 +2123,18 @@ def build_parser() -> argparse.ArgumentParser:
     validate_manifest.add_argument("--artifact-root", type=Path, help="Artifact root directory")
     validate_manifest.add_argument("--json", action="store_true", help="JSON output")
     validate_manifest.set_defaults(func=_cmd_validate_evidence_manifest)
+
+    # run-handoff
+    run_handoff = subparsers.add_parser("run-handoff", help="Run verifier-reviewer handoff")
+    run_handoff.add_argument("--packet-dir", type=Path, required=True, help="Path to packet directory")
+    run_handoff.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_handoff.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_handoff.add_argument("--coder-result", type=Path, required=True, help="Path to coder result JSON file")
+    run_handoff.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_handoff.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file (required in dry-run)")
+    run_handoff.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file (required in dry-run)")
+    run_handoff.add_argument("--json", action="store_true", help="JSON output")
+    run_handoff.set_defaults(func=_cmd_run_handoff)
 
     return parser
 
