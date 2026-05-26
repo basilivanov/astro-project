@@ -17,6 +17,7 @@
 #   - class: WorkflowRuntime
 #   - class: DryRunRuntime
 #   - class: PrefectRuntimeAdapter
+#   - class: ManagedPacketSubmitter
 #   - function: create_runtime
 # END_MODULE_MAP
 
@@ -127,7 +128,7 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
 
     def submit_packet_run(self, packet: dict[str, Any], parameters: dict[str, Any]) -> dict[str, Any]:
         try:
-            from prefect_grace.tasks.prefect_submitter import submit_feature_flow_run
+            from prefect_grace.tasks.prefect_submitter import submit_feature_flow_run, feature_flow_parameters
         except ImportError as e:
             raise RuntimeError(f"Prefect runtime unavailable: {e}")
 
@@ -137,20 +138,52 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
         if not packet_id or not feature_id:
             raise ValueError("packet_id and feature_id are required")
 
-        flow_run = submit_feature_flow_run(
+        # Extract known fields from parameters with defaults
+        title = parameters.get("title", "Untitled Feature")
+        summary = parameters.get("summary", "No summary provided")
+
+        # Build feature flow parameters using the new API with known fields only
+        flow_params = feature_flow_parameters(
             feature_id=feature_id,
-            parameters=parameters,
-            work_pool=self.work_pool,
-            queue=self.queue,
+            title=title,
+            summary=summary,
+            implementation_title=parameters.get("implementation_title"),
+            implementation_summary=parameters.get("implementation_summary"),
+            execute=parameters.get("execute", False),
+            timeout_seconds=parameters.get("timeout_seconds", 3600),
+            verifier_backend_profile=parameters.get("verifier_backend_profile", "backend_quick"),
+            verifier_frontend_profile=parameters.get("verifier_frontend_profile"),
+            verifier_frontend_commands=parameters.get("verifier_frontend_commands"),
+            verifier_observability_profile=parameters.get("verifier_observability_profile"),
+            verifier_observability_commands=parameters.get("verifier_observability_commands"),
+            verifier_artifact_globs=parameters.get("verifier_artifact_globs"),
+            verifier_touches_frontend=parameters.get("verifier_touches_frontend", False),
+            verifier_requires_frontend_visual=parameters.get("verifier_requires_frontend_visual", False),
+            verifier_include_day_live_canary=parameters.get("verifier_include_day_live_canary", False),
+            prefer_agent_output=parameters.get("prefer_agent_output", True),
+            run_planner=parameters.get("run_planner"),
+            agent_workdir=parameters.get("agent_workdir"),
+            agent_sandbox=parameters.get("agent_sandbox"),
+            business_context=parameters.get("business_context"),
+            planner_contract=parameters.get("planner_contract"),
+            commit_hash=parameters.get("commit_hash"),
+        )
+
+        # Submit using new signature
+        result = submit_feature_flow_run(
+            parameters=flow_params,
+            scheduled_for=None,
+            tags=None,
+            idempotency_key=None,
         )
 
         return {
-            "run_id": flow_run.id,
+            "run_id": result["flow_run_id"],
             "runtime": "prefect",
             "packet_id": packet_id,
             "feature_id": feature_id,
-            "url": f"/flow-runs/flow-run/{flow_run.id}",
-            "state": flow_run.state.name if flow_run.state else "UNKNOWN",
+            "url": f"/flow-runs/flow-run/{result['flow_run_id']}",
+            "state": result.get("status", "UNKNOWN"),
         }
 
     def publish_artifact(self, run_ref: dict[str, Any], name: str, body: str | dict) -> None:
@@ -198,6 +231,157 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
             return {"error": str(e)}
 
 # END_BLOCK: prefect_runtime_adapter
+
+# START_BLOCK: feature_submitter
+
+class FeatureSubmitter:
+    """Submitter for feature flow runs via Prefect native submission."""
+
+    def __init__(self):
+        pass
+
+    # START_FUNCTION_CONTRACT
+    # name: __call__
+    # purpose: Submit feature flow run to Prefect.
+    # inputs:
+    #   parameters: dict with feature_id, title, summary, etc.
+    #   scheduled_for: optional ISO8601 scheduled time.
+    #   tags: optional list of additional tags.
+    #   idempotency_key: optional idempotency key.
+    # returns: dict with flow_run_id, deployment_id, feature_id, title, status, scheduled_for, work_queue_name, tags.
+    # side_effects: Creates Prefect flow run.
+    # emitted_logs: None.
+    # error_behavior: Raises RuntimeError on submission failure.
+    # END_FUNCTION_CONTRACT
+    def __call__(
+        self,
+        *,
+        parameters: dict[str, Any],
+        scheduled_for: str | None = None,
+        tags: list[str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        import os
+        try:
+            from prefect_grace.tasks.prefect_submitter import build_feature_submission_request
+            from prefect.client.orchestration import get_client
+            from prefect.states import Scheduled
+        except ImportError as e:
+            raise RuntimeError(f"Prefect unavailable: {e}")
+
+        # Build submission request without Prefect calls
+        request = build_feature_submission_request(
+            parameters=parameters,
+            scheduled_for=scheduled_for,
+            tags=tags,
+            idempotency_key=idempotency_key,
+        )
+
+        # Execute Prefect submission
+        os.environ["PREFECT_API_URL"] = request["api_url"]
+
+        with get_client(sync_client=True) as client:
+            deployment = client.read_deployment_by_name(request["deployment_name"])
+            flow_run = client.create_flow_run_from_deployment(
+                deployment_id=deployment.id,
+                parameters=request["parameters"],
+                state=Scheduled(scheduled_time=request["scheduled_time"]),
+                name=request["flow_run_name"],
+                work_queue_name=request["work_queue_name"],
+                idempotency_key=request["idempotency_key"],
+                labels=request["labels"],
+                tags=request["tags"],
+            )
+
+        return {
+            "flow_run_id": str(flow_run.id),
+            "deployment_id": str(deployment.id),
+            "feature_id": request["feature_id"],
+            "title": request["title"],
+            "status": str(getattr(flow_run.state, "name", None) or getattr(flow_run, "state_name", "") or "Scheduled"),
+            "scheduled_for": request["scheduled_time"].isoformat(),
+            "work_queue_name": request["work_queue_name"],
+            "tags": request["tags"],
+        }
+
+# END_BLOCK: feature_submitter
+
+# START_BLOCK: managed_packet_submitter
+
+class ManagedPacketSubmitter:
+    """Submitter for managed packet flow runs via Prefect native submission."""
+
+    def __init__(self):
+        pass
+
+    # START_FUNCTION_CONTRACT
+    # name: __call__
+    # purpose: Submit managed packet flow run to Prefect.
+    # inputs:
+    #   parameters: dict with packet_file, repo_root, worktree_root, project_key, packet_id, attempt, base_ref, dry_run, execute_agent, timeout_seconds.
+    #   scheduled_for: optional ISO8601 scheduled time.
+    #   tags: optional list of additional tags.
+    #   idempotency_key: optional idempotency key.
+    # returns: dict with flow_run_id, flow_run_name, deployment_name, work_queue_name, url.
+    # side_effects: Creates Prefect flow run.
+    # emitted_logs: None.
+    # error_behavior: Raises RuntimeError on submission failure.
+    # END_FUNCTION_CONTRACT
+    def __call__(
+        self,
+        *,
+        parameters: dict[str, Any],
+        scheduled_for: str | None = None,
+        tags: list[str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        import os
+        try:
+            from prefect_grace.tasks.prefect_submitter import build_managed_packet_submission_request
+            from prefect.client.orchestration import get_client
+            from prefect.states import Scheduled
+        except ImportError as e:
+            raise RuntimeError(f"Prefect unavailable: {e}")
+
+        # Build submission request without Prefect calls
+        request = build_managed_packet_submission_request(
+            parameters=parameters,
+            scheduled_for=scheduled_for,
+            tags=tags,
+            idempotency_key=idempotency_key,
+        )
+
+        # Execute Prefect submission
+        os.environ["PREFECT_API_URL"] = request["api_url"]
+
+        with get_client(sync_client=True) as client:
+            deployment = client.read_deployment_by_name(request["deployment_name"])
+            flow_run = client.create_flow_run_from_deployment(
+                deployment_id=deployment.id,
+                parameters=request["parameters"],
+                state=Scheduled(scheduled_time=request["scheduled_time"]),
+                name=request["flow_run_name"],
+                work_queue_name=request["work_queue_name"],
+                idempotency_key=request["idempotency_key"],
+                labels=request["labels"],
+                tags=request["tags"],
+            )
+
+        return {
+            "flow_run_id": str(flow_run.id),
+            "flow_run_name": request["flow_run_name"],
+            "deployment_id": str(deployment.id),
+            "deployment_name": request["deployment_name"],
+            "packet_id": request["packet_id"],
+            "project_key": request["project_key"],
+            "status": str(getattr(flow_run.state, "name", None) or getattr(flow_run, "state_name", "") or "Scheduled"),
+            "scheduled_for": request["scheduled_time"].isoformat(),
+            "work_queue_name": request["work_queue_name"],
+            "url": f"{request['api_url'].rstrip('/')}/flow-runs/flow-run/{flow_run.id}",
+            "tags": request["tags"],
+        }
+
+# END_BLOCK: managed_packet_submitter
 
 # START_BLOCK: factory
 

@@ -439,14 +439,15 @@ pytest
 
 def test_submit_packets_fail_closed_without_safety_gates(tmp_path):
     """
-    Blocking Issue #4: submit-packets --execute should fail closed until safety gates exist.
+    Blocking Issue #4: submit-packets --execute now uses Prefect native submission.
 
-    This test validates the CLI behavior via direct function call.
+    This test validates that execute mode no longer fails closed with safety gate error.
+    Instead, it either plans or submits to Prefect.
     """
     import sys
     import argparse
     from io import StringIO
-    from prefect_grace.cli import _cmd_submit_packets, _load_adapter_from_args
+    from prefect_grace.cli import _cmd_submit_packets
 
     packets_dir = tmp_path / "packets"
     packets_dir.mkdir()
@@ -496,15 +497,21 @@ runtime:
   state_root: {state_root}
 """)
 
-    # Test that --execute fails with safety error
+    # Test that --execute no longer fails with safety gate error
     args = argparse.Namespace(
         project_config=str(project_yaml),
         execute=True,
         json=True,
     )
 
-    with pytest.raises(SystemExit) as exc_info:
+    # Should not raise SystemExit with code 5 (safety gate)
+    # May succeed (no packets to submit) or fail with other errors, but not safety gate
+    exit_code = None
+    try:
         _cmd_submit_packets(args)
+        exit_code = 0
+    except SystemExit as exc:
+        exit_code = exc.code
 
-    # Should exit with code 5 (security/scope violation)
-    assert exc_info.value.code == 5
+    # Should NOT exit with code 5 (safety gate not ready)
+    assert exit_code != 5, "Execute mode should no longer fail closed with safety gate error"

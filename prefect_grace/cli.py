@@ -577,6 +577,8 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
     command = "submit-packets"
     try:
         from prefect_grace.platform.backlog_controller import BacklogController
+        from prefect_grace.platform.prefect_native_submission import submit_ready_packets_to_prefect
+        from prefect_grace.platform.runtime_adapter import ManagedPacketSubmitter
 
         adapter = _load_adapter_from_args(args)
 
@@ -586,65 +588,92 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
         # Check if RuntimeLock/Worktree/Scope lifecycle is available
         # For MVP-2, fail closed with safety error
         if args.execute:
-            safety_error = {
-                "code": "SAFETY_GATE_NOT_READY",
-                "message": (
-                    "Live packet execution requires RuntimeLock, WorktreeManager, and Scope Guard lifecycle. "
-                    "These safety gates are not yet implemented. Use --dry-run to validate submission plan only."
-                ),
-                "required_gates": ["RuntimeLock", "WorktreeManager", "ScopeGuardLifecycle"],
-                "current_mvp": "MVP-2",
-                "execution_enabled_in": "MVP-5+",
-            }
+            # Execute mode: submit packets to Prefect
+            submitter = ManagedPacketSubmitter()
+
+            submission_result = submit_ready_packets_to_prefect(
+                project=adapter,
+                dry_run=False,
+                limit=getattr(args, "limit", None),
+                execute_agent=False,  # Managed packet runner controls this
+                timeout_seconds=getattr(args, "timeout_seconds", 3600),
+                base_ref=getattr(args, "base_ref", "HEAD"),
+                worktree_root=None,  # Use default from runtime_state_root
+                scheduled_for=None,
+                continue_on_error=getattr(args, "continue_on_error", False),
+                submitter=submitter,
+            )
+
+            if submission_result.errors:
+                if args.json:
+                    _print_json(_json_envelope(
+                        ok=False,
+                        command=command,
+                        project_key=adapter.project_key,
+                        result=submission_result.to_dict(),
+                        warnings=submission_result.warnings,
+                        errors=submission_result.errors,
+                    ))
+                else:
+                    for err in submission_result.errors:
+                        print(f"ERROR: {err}", file=sys.stderr)
+                sys.exit(3)  # Exit code 3 for submission errors
+
             if args.json:
                 _print_json(_json_envelope(
-                    ok=False,
+                    ok=True,
                     command=command,
                     project_key=adapter.project_key,
-                    errors=[safety_error],
+                    result=submission_result.to_dict(),
+                    warnings=submission_result.warnings,
                 ))
             else:
-                print(f"ERROR: {safety_error['message']}", file=sys.stderr)
-            sys.exit(5)  # Exit code 5 for security/scope violation
+                print(f"Submitted {len(submission_result.packets_submitted)} packets for {adapter.project_key}.")
+                print(f"  Planned: {len(submission_result.packets_planned)}")
+                print(f"  Submitted: {len(submission_result.packets_submitted)}")
+                print(f"  Blocked: {len(submission_result.blocked_packets)}")
+                if submission_result.warnings:
+                    print(f"  Warnings: {len(submission_result.warnings)}")
+        else:
+            # Dry-run mode: validate submission plan only
+            result = {
+                "dry_run": True,
+                "packets_to_submit": submission_plan.packets_to_submit,
+                "submission_order": submission_plan.submission_order,
+                "blocked_packets": submission_plan.blocked_packets,
+                "note": "Submission plan validated. Use --execute to submit to Prefect.",
+            }
 
-        result = {
-            "dry_run": not args.execute,
-            "packets_to_submit": submission_plan.packets_to_submit,
-            "submission_order": submission_plan.submission_order,
-            "blocked_packets": submission_plan.blocked_packets,
-            "note": "Submission plan validated. Use --execute when safety gates are ready.",
-        }
+            if submission_plan.errors:
+                if args.json:
+                    _print_json(_json_envelope(
+                        ok=False,
+                        command=command,
+                        project_key=adapter.project_key,
+                        result=result,
+                        warnings=submission_plan.warnings,
+                        errors=submission_plan.errors,
+                    ))
+                else:
+                    for err in submission_plan.errors:
+                        print(f"ERROR: {err}", file=sys.stderr)
+                sys.exit(3)  # Exit code 3 for dependency/DAG invalid
 
-        if submission_plan.errors:
             if args.json:
                 _print_json(_json_envelope(
-                    ok=False,
+                    ok=True,
                     command=command,
                     project_key=adapter.project_key,
                     result=result,
                     warnings=submission_plan.warnings,
-                    errors=submission_plan.errors,
                 ))
             else:
-                for err in submission_plan.errors:
-                    print(f"ERROR: {err}", file=sys.stderr)
-            sys.exit(3)  # Exit code 3 for dependency/DAG invalid
-
-        if args.json:
-            _print_json(_json_envelope(
-                ok=True,
-                command=command,
-                project_key=adapter.project_key,
-                result=result,
-                warnings=submission_plan.warnings,
-            ))
-        else:
-            print(f"Submission plan for {adapter.project_key}:")
-            print(f"  Packets to submit: {len(submission_plan.packets_to_submit)}")
-            print(f"  Submission order: {submission_plan.submission_order}")
-            print(f"  Blocked packets: {len(submission_plan.blocked_packets)}")
-            if submission_plan.warnings:
-                print(f"  Warnings: {len(submission_plan.warnings)}")
+                print(f"Submission plan for {adapter.project_key}:")
+                print(f"  Packets to submit: {len(submission_plan.packets_to_submit)}")
+                print(f"  Submission order: {submission_plan.submission_order}")
+                print(f"  Blocked packets: {len(submission_plan.blocked_packets)}")
+                if submission_plan.warnings:
+                    print(f"  Warnings: {len(submission_plan.warnings)}")
     except Exception as e:
         if args.json:
             _print_json(_json_envelope(
