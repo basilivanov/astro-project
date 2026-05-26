@@ -1639,6 +1639,91 @@ def _cmd_validate_evidence_manifest(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_run_e2e_packet(args: argparse.Namespace) -> None:
+    """Run end-to-end packet execution."""
+    command = "run-e2e-packet"
+    try:
+        from prefect_grace.platform.e2e_packet_runner import run_e2e_packet
+
+        project_root = Path(args.project_root)
+        packet_path = Path(args.packet)
+        state_root = Path(args.state_root)
+        worktree_root = Path(args.worktree_root)
+
+        # Validate paths
+        if not project_root.exists():
+            raise FileNotFoundError(f"Project root not found: {project_root}")
+        if not packet_path.exists():
+            raise FileNotFoundError(f"Packet file not found: {packet_path}")
+
+        # Create state and worktree roots if they don't exist
+        state_root.mkdir(parents=True, exist_ok=True)
+        worktree_root.mkdir(parents=True, exist_ok=True)
+
+        # Prepare fake output paths
+        fake_verifier_output = Path(args.fake_verifier_output) if args.fake_verifier_output else None
+        fake_reviewer_output = Path(args.fake_reviewer_output) if args.fake_reviewer_output else None
+
+        # Run e2e packet
+        result = run_e2e_packet(
+            project_root=project_root,
+            packet_path=packet_path,
+            state_root=state_root,
+            worktree_root=worktree_root,
+            project_key=args.project_key,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            dry_run=args.dry_run,
+            execute_agent=args.execute_agent,
+            fake_verifier_output=fake_verifier_output,
+            fake_reviewer_output=fake_reviewer_output,
+            timeout_seconds=args.timeout_seconds,
+            keep_worktree=args.keep_worktree,
+        )
+
+        domain_status = result.domain_status
+
+        # Map domain status to exit code
+        # 0: accepted
+        # 1: rework_required, blocked, scope_blocked, agent_failed
+        # 2: runner_error, verifier_failed, reviewer_failed, handoff_error
+        if domain_status == "accepted":
+            exit_code = 0
+        elif domain_status in ["rework_required", "blocked", "scope_blocked", "agent_failed"]:
+            exit_code = 1
+        else:
+            exit_code = 2
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=result.to_dict(),
+            ))
+        else:
+            print(f"E2E Packet Runner: {domain_status}")
+            print(f"  Packet: {result.packet_id}")
+            print(f"  Attempt: {result.attempt}")
+            print(f"  Runtime status: {result.runtime_status}")
+            print(f"  Worktree: {result.worktree_path}")
+            print(f"  Branch: {result.branch_name}")
+            if result.errors:
+                print(f"  Errors: {', '.join(result.errors)}")
+
+        sys.exit(exit_code)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "E2E_RUNNER_ERROR", "message": str(e)}],
+            ))
+        else:
+            print(f"Error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def _cmd_run_handoff(args: argparse.Namespace) -> None:
     """Run verifier-reviewer handoff."""
     command = "run-handoff"
@@ -2135,6 +2220,25 @@ def build_parser() -> argparse.ArgumentParser:
     run_handoff.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file (required in dry-run)")
     run_handoff.add_argument("--json", action="store_true", help="JSON output")
     run_handoff.set_defaults(func=_cmd_run_handoff)
+
+    # run-e2e-packet
+    run_e2e_packet = subparsers.add_parser("run-e2e-packet", help="Run end-to-end packet execution")
+    run_e2e_packet.add_argument("--project-root", type=Path, required=True, help="Project root directory")
+    run_e2e_packet.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_e2e_packet.add_argument("--state-root", type=Path, required=True, help="State root directory")
+    run_e2e_packet.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_e2e_packet.add_argument("--project-key", default="default", help="Project key (default: default)")
+    run_e2e_packet.add_argument("--attempt", type=int, default=1, help="Attempt number (default: 1)")
+    run_e2e_packet.add_argument("--base-ref", default="HEAD", help="Git base ref (default: HEAD)")
+    run_e2e_packet.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_e2e_packet.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run")
+    run_e2e_packet.add_argument("--execute-agent", action="store_true", help="Execute live agent (requires --no-dry-run)")
+    run_e2e_packet.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file")
+    run_e2e_packet.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file")
+    run_e2e_packet.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds (default: 3600)")
+    run_e2e_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_e2e_packet.add_argument("--json", action="store_true", help="JSON output")
+    run_e2e_packet.set_defaults(func=_cmd_run_e2e_packet)
 
     return parser
 
