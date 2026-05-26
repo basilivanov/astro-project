@@ -688,6 +688,118 @@ def _cmd_run_nightly(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_write_review(args: argparse.Namespace) -> None:
+    command = "write-review"
+    try:
+        from prefect_grace.platform.packet_artifacts import write_review
+
+        packet_dir = Path(args.packet_dir)
+        body = Path(args.body).read_text(encoding="utf-8") if args.body else args.body_text or ""
+
+        metadata = {}
+        if args.reviewer:
+            metadata["reviewer"] = args.reviewer
+
+        review_path = write_review(packet_dir, args.verdict, body, metadata)
+
+        result = {
+            "review_path": str(review_path.relative_to(packet_dir)),
+            "verdict": args.verdict,
+        }
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"Review written to {review_path}")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WRITE_REVIEW_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Write review failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_write_evidence(args: argparse.Namespace) -> None:
+    command = "write-evidence"
+    try:
+        import json
+        from prefect_grace.platform.packet_artifacts import write_evidence
+
+        packet_dir = Path(args.packet_dir)
+        manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+
+        evidence_path = write_evidence(packet_dir, args.attempt, manifest)
+
+        result = {
+            "evidence_path": str(evidence_path.relative_to(packet_dir)),
+            "attempt": args.attempt,
+        }
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"Evidence written to {evidence_path}")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WRITE_EVIDENCE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Write evidence failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_write_rework(args: argparse.Namespace) -> None:
+    command = "write-rework"
+    try:
+        from prefect_grace.platform.packet_artifacts import write_rework
+
+        packet_dir = Path(args.packet_dir)
+        body = Path(args.body).read_text(encoding="utf-8") if args.body else args.body_text or ""
+
+        blockers = args.blocker if args.blocker else None
+
+        rework_path = write_rework(packet_dir, args.attempt, body, blockers)
+
+        result = {
+            "rework_path": str(rework_path.relative_to(packet_dir)),
+            "attempt": args.attempt,
+        }
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=True,
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"Rework written to {rework_path}")
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "WRITE_REWORK_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Write rework failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="prefect-grace")
     subparsers = parser.add_subparsers(required=True)
@@ -888,6 +1000,31 @@ def build_parser() -> argparse.ArgumentParser:
     registry_dump.add_argument("--project")
     registry_dump.add_argument("--json", action="store_true")
     registry_dump.set_defaults(func=_cmd_registry_dump)
+
+    write_review = subparsers.add_parser("write-review")
+    write_review.add_argument("packet_dir")
+    write_review.add_argument("--verdict", required=True, choices=["accepted", "rework_required", "blocked"])
+    write_review.add_argument("--body", help="Path to review body file")
+    write_review.add_argument("--body-text", help="Review body text (alternative to --body)")
+    write_review.add_argument("--reviewer", help="Reviewer name")
+    write_review.add_argument("--json", action="store_true")
+    write_review.set_defaults(func=_cmd_write_review)
+
+    write_evidence = subparsers.add_parser("write-evidence")
+    write_evidence.add_argument("packet_dir")
+    write_evidence.add_argument("--attempt", type=int, required=True)
+    write_evidence.add_argument("--manifest", required=True, help="Path to evidence manifest JSON file")
+    write_evidence.add_argument("--json", action="store_true")
+    write_evidence.set_defaults(func=_cmd_write_evidence)
+
+    write_rework = subparsers.add_parser("write-rework")
+    write_rework.add_argument("packet_dir")
+    write_rework.add_argument("--attempt", type=int, required=True)
+    write_rework.add_argument("--body", help="Path to rework body file")
+    write_rework.add_argument("--body-text", help="Rework body text (alternative to --body)")
+    write_rework.add_argument("--blocker", action="append", help="Blocker description (can be repeated)")
+    write_rework.add_argument("--json", action="store_true")
+    write_rework.set_defaults(func=_cmd_write_rework)
 
     return parser
 
