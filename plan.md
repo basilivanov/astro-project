@@ -14,15 +14,15 @@
 - Verification profile: document-review evidence only. Backend/frontend tests are not required unless a later round changes executable code, which this task currently forbids.
 
 ## Task Checklist
-- [ ] In the execution round, read the architecture source of truth:
+- [x] In the execution round, read the architecture source of truth:
   `docs/architecture/PORTABLE_GRACE_ORCHESTRATION_PLATFORM.md`.
-- [ ] Read the related packet:
+- [x] Read the related packet:
   `prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER/EXECUTION_PACKET.md`.
-- [ ] Decide and justify the recommended product/project naming:
+- [x] Decide and justify the recommended product/project naming:
   - product/project name candidate: `GRACE Portable Orchestrator`;
   - architecture title: `Portable GRACE Orchestration Platform`;
   - package/repo name: `grace-orchestrator`.
-- [ ] Identify must-fix issues before implementation, especially:
+- [x] Identify must-fix issues before implementation, especially:
   - unclear MVP boundary, non-goals, and acceptance criteria;
   - unclear install/runtime boundary between portable package, host project, containers, Prefect, and local CLI;
   - missing public contracts for inputs, outputs, events, state transitions, config, secrets, and adapters;
@@ -32,14 +32,14 @@
   - auth, secrets handling, tenant/project isolation, and permission model;
   - observability requirements: structured logs, trace IDs, report/request IDs, replay/digest evidence, degradation signals;
   - operational controls: health checks, readiness, rollback, kill switch, quotas, cost limits, concurrency limits.
-- [ ] Identify should-fix improvements, such as:
+- [x] Identify should-fix improvements, such as:
   - concise lifecycle or sequence diagram;
   - failure-mode matrix with expected fallback/degradation behavior;
   - explicit adapter/plugin contract for host applications;
   - sample minimal install and local smoke path;
   - compatibility/versioning policy for package, packet schema, and runtime;
   - UAT checklist and post-test evidence checklist.
-- [ ] Produce a compact Council consensus artifact with:
+- [x] Produce a compact Council consensus artifact with:
   - final recommended name;
   - must-fix issues before implementation;
   - should-fix improvements;
