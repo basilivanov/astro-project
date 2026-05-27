@@ -1,0 +1,593 @@
+# ############################################################################
+# AI_HEADER: parser
+# ROLE: Builds the structured CLI parser with nested subcommands.
+# ############################################################################
+
+# START_MODULE_CONTRACT
+# purpose: Assemble the CLI argument parser hierarchy with type conversions.
+# inputs: None.
+# returns: argparse.ArgumentParser.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_MODULE_CONTRACT
+
+# START_MODULE_MAP
+# mapping:
+#   - function: build_parser
+# END_MODULE_MAP
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from prefect_grace.models import (
+    FeatureStatus,
+    FrontendVisualVerdict,
+    ObservabilityVerdict,
+    ReasoningProfile,
+    ReviewVerdict,
+    TestVerdict,
+    WaveVerdict,
+)
+
+from prefect_grace.cli_commands.legacy_feature import (
+    _cmd_feature,
+    _cmd_mark_feature,
+    _cmd_packet,
+    _cmd_run_codex,
+    _cmd_run_verifier,
+    _cmd_test_feature,
+    _cmd_submit_feature,
+    _cmd_submit_brief,
+    _cmd_print_brief_template,
+    _cmd_queue,
+    _cmd_dashboard,
+)
+from prefect_grace.cli_commands.project_registry import (
+    _cmd_validate_project,
+    _cmd_scan_packets,
+    _cmd_validate_packet,
+    _cmd_sync_packets,
+    _cmd_bootstrap_backlog,
+    _cmd_packet_status,
+    _cmd_registry_dump,
+)
+from prefect_grace.cli_commands.packet_submission import (
+    _cmd_submit_packets,
+)
+from prefect_grace.cli_commands.prefect_smokes import (
+    _cmd_registry_apply_smoke,
+    _cmd_run_e2e_registry_seeded_smoke,
+    _cmd_run_prefect_e2e_live_smoke,
+    _cmd_run_prefect_e2e_batch_smoke,
+    _cmd_run_prefect_e2e_real_dry_run_smoke,
+    _cmd_run_nightly,
+)
+from prefect_grace.cli_commands.worktrees import (
+    _cmd_worktree_create,
+    _cmd_worktree_status,
+    _cmd_worktree_cleanup,
+    _cmd_worktree_scope_check,
+    _cmd_run_worktree_scope_flow,
+)
+from prefect_grace.cli_commands.packet_execution import (
+    _cmd_run_managed_packet,
+    _cmd_run_e2e_packet,
+    _cmd_run_e2e_packet_flow,
+    _cmd_run_handoff,
+)
+from prefect_grace.cli_commands.evidence import (
+    _cmd_review,
+    _cmd_write_review,
+    _cmd_write_evidence,
+    _cmd_write_rework,
+    _cmd_check_scope,
+    _cmd_validate_evidence_contract,
+    _cmd_validate_evidence_manifest,
+)
+from prefect_grace.cli_commands.executors import (
+    _cmd_list_executors,
+    _cmd_select_executor,
+    _cmd_synthetic_edge_matrix,
+)
+
+
+class NoDryRunAction(argparse.Action):
+    """Custom action for --no-dry-run to track explicit usage."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, False)
+        setattr(namespace, '_no_dry_run_explicit', True)
+
+
+def _register_legacy_feature_commands(subparsers) -> None:
+    feature = subparsers.add_parser("feature")
+    feature.add_argument("feature_id")
+    feature.add_argument("title")
+    feature.add_argument("summary")
+    feature.set_defaults(func=_cmd_feature)
+
+    mark_feature = subparsers.add_parser("mark-feature")
+    mark_feature.add_argument("feature_id")
+    mark_feature.add_argument("status", choices=[item.value for item in FeatureStatus])
+    mark_feature.set_defaults(func=_cmd_mark_feature)
+
+    packet = subparsers.add_parser("packet")
+    packet.add_argument("feature_id")
+    packet.add_argument("wave_id")
+    packet.add_argument("title")
+    packet.add_argument("summary")
+    packet.add_argument("--role", default="coder")
+    packet.add_argument("--reasoning", choices=[item.value for item in ReasoningProfile], default=ReasoningProfile.HIGH.value)
+    packet.set_defaults(func=_cmd_packet)
+
+    run_codex = subparsers.add_parser("run-codex")
+    run_codex.add_argument("packet_id")
+    run_codex.add_argument("--dry-run", action="store_true")
+    run_codex.add_argument("--timeout-seconds", type=int, default=3600)
+    run_codex.set_defaults(func=_cmd_run_codex)
+
+    run_verifier = subparsers.add_parser("run-verifier")
+    run_verifier.add_argument("packet_id")
+    run_verifier.add_argument("--dry-run", action="store_true")
+    run_verifier.add_argument("--timeout-seconds", type=int, default=3600)
+    run_verifier.set_defaults(func=_cmd_run_verifier)
+
+    test_feature = subparsers.add_parser("test-feature")
+    test_feature.add_argument("feature_id")
+    test_feature.add_argument("title")
+    test_feature.add_argument("summary")
+    test_feature.add_argument(
+        "--implementation-title",
+        default="Test Implementation Packet",
+    )
+    test_feature.add_argument(
+        "--implementation-summary",
+        default="Run a bounded end-to-end test feature through architect, planner, coder, verifier, and reviewer packets.",
+    )
+    test_feature.add_argument(
+        "--reviewer-verdict",
+        choices=[item.value for item in ReviewVerdict],
+    )
+    test_feature.add_argument("--review-reason", action="append")
+    test_feature.add_argument("--skip-backend-quick", action="store_true")
+    test_feature.add_argument("--backend-profile")
+    test_feature.add_argument("--touches-frontend", action="store_true")
+    test_feature.add_argument("--frontend-profile")
+    test_feature.add_argument("--frontend-command", action="append")
+    test_feature.add_argument("--observability-profile")
+    test_feature.add_argument("--observability-command", action="append")
+    test_feature.add_argument("--artifact-glob", action="append")
+    test_feature.add_argument("--include-day-live-canary", action="store_true")
+    test_feature.add_argument("--agent-workdir")
+    test_feature.add_argument("--agent-sandbox")
+    test_feature.add_argument("--commit-hash")
+    test_feature.add_argument("--planner-contract")
+    test_feature.add_argument("--run-planner", action="store_true")
+    test_feature.add_argument("--reviewer-verdict-script", action="append")
+    test_feature.add_argument("--review-reasons-script", action="append")
+    test_feature.add_argument("--wave-verdict-script", action="append")
+    test_feature.add_argument("--wave-reasons-script", action="append")
+    test_feature.add_argument(
+        "--verifier-test-verdict",
+        choices=[item.value for item in TestVerdict],
+    )
+    test_feature.add_argument(
+        "--verifier-observability-verdict",
+        choices=[item.value for item in ObservabilityVerdict],
+    )
+    test_feature.add_argument(
+        "--verifier-frontend-visual-verdict",
+        choices=[item.value for item in FrontendVisualVerdict],
+    )
+    test_feature.add_argument("--verifier-command", action="append")
+    test_feature.add_argument("--verifier-evidence", action="append")
+    test_feature.add_argument("--verifier-issue", action="append")
+    test_feature.add_argument(
+        "--wave-verdict",
+        choices=[item.value for item in WaveVerdict],
+    )
+    test_feature.add_argument("--wave-reason", action="append")
+    test_feature.add_argument("--no-create-rework", action="store_true")
+    test_feature.add_argument("--parse-agent-output", action="store_true")
+    test_feature.add_argument("--timeout-seconds", type=int, default=3600)
+    test_feature.add_argument("--execute", action="store_true")
+    test_feature.set_defaults(func=_cmd_test_feature)
+
+    submit_feature = subparsers.add_parser("submit-feature")
+    submit_feature.add_argument("feature_id")
+    submit_feature.add_argument("title")
+    submit_feature.add_argument("summary")
+    submit_feature.add_argument(
+        "--implementation-title",
+        default="Live Implementation Packet",
+    )
+    submit_feature.add_argument(
+        "--implementation-summary",
+        default="Execute the feature through architect, planner, coder, verifier, reviewer, and architect wave gate.",
+    )
+    submit_feature.add_argument("--skip-backend-quick", action="store_true")
+    submit_feature.add_argument("--backend-profile")
+    submit_feature.add_argument("--touches-frontend", action="store_true")
+    submit_feature.add_argument("--frontend-profile")
+    submit_feature.add_argument("--frontend-command", action="append")
+    submit_feature.add_argument("--observability-profile")
+    submit_feature.add_argument("--observability-command", action="append")
+    submit_feature.add_argument("--artifact-glob", action="append")
+    submit_feature.add_argument("--include-day-live-canary", action="store_true")
+    submit_feature.add_argument("--agent-workdir")
+    submit_feature.add_argument("--agent-sandbox")
+    submit_feature.add_argument("--commit-hash")
+    submit_feature.add_argument("--run-planner", action="store_true")
+    submit_feature.add_argument("--timeout-seconds", type=int, default=7200)
+    submit_feature.add_argument("--scheduled-for")
+    submit_feature.add_argument("--delay-minutes", type=int)
+    submit_feature.add_argument("--execute", action="store_true")
+    submit_feature.set_defaults(func=_cmd_submit_feature)
+
+    submit_brief = subparsers.add_parser("submit-brief")
+    submit_brief.add_argument("path")
+    submit_brief.add_argument("--scheduled-for")
+    submit_brief.add_argument("--delay-minutes", type=int)
+    submit_brief.set_defaults(func=_cmd_submit_brief)
+
+    print_brief_template = subparsers.add_parser("print-brief-template")
+    print_brief_template.set_defaults(func=_cmd_print_brief_template)
+
+    queue = subparsers.add_parser("queue")
+    queue.add_argument("--limit", type=int, default=20)
+    queue.set_defaults(func=_cmd_queue)
+
+    dashboard = subparsers.add_parser("dashboard")
+    dashboard.add_argument("--json", action="store_true")
+    dashboard.set_defaults(func=_cmd_dashboard)
+
+
+def _register_project_registry_commands(subparsers) -> None:
+    validate_project = subparsers.add_parser("validate-project")
+    validate_project.add_argument("--project")
+    validate_project.add_argument("--json", action="store_true")
+    validate_project.set_defaults(func=_cmd_validate_project)
+
+    scan_packets = subparsers.add_parser("scan-packets")
+    scan_packets.add_argument("--project")
+    scan_packets.add_argument("--mode", choices=["legacy_warn", "strict"], default="legacy_warn")
+    scan_packets.add_argument("--json", action="store_true")
+    scan_packets.set_defaults(func=_cmd_scan_packets)
+
+    validate_packet = subparsers.add_parser("validate-packet")
+    validate_packet.add_argument("path")
+    validate_packet.add_argument("--strict", action="store_true")
+    validate_packet.add_argument("--json", action="store_true")
+    validate_packet.set_defaults(func=_cmd_validate_packet)
+
+    sync_packets = subparsers.add_parser("sync-packets")
+    sync_packets.add_argument("--project")
+    sync_packets.add_argument("--dry-run", action="store_true")
+    sync_packets.add_argument("--retry-blocked", action="store_true")
+    sync_packets.add_argument("--rerun-changed", action="store_true")
+    sync_packets.add_argument("--json", action="store_true")
+    sync_packets.set_defaults(func=_cmd_sync_packets)
+
+    bootstrap_backlog = subparsers.add_parser("bootstrap-backlog")
+    bootstrap_backlog.add_argument("--project", "--project-config", dest="project")
+    bootstrap_mode = bootstrap_backlog.add_mutually_exclusive_group()
+    bootstrap_mode.add_argument("--dry-run", action="store_true")
+    bootstrap_mode.add_argument("--apply", action="store_true")
+    bootstrap_backlog.add_argument("--json", action="store_true")
+    bootstrap_backlog.set_defaults(func=_cmd_bootstrap_backlog)
+
+    packet_status = subparsers.add_parser("packet-status")
+    packet_status.add_argument("--project")
+    packet_status.add_argument("--packet-id", required=True)
+    packet_status.add_argument("--json", action="store_true")
+    packet_status.set_defaults(func=_cmd_packet_status)
+
+    registry_dump = subparsers.add_parser("registry-dump")
+    registry_dump.add_argument("--project")
+    registry_dump.add_argument("--json", action="store_true")
+    registry_dump.set_defaults(func=_cmd_registry_dump)
+
+
+def _register_packet_submission_commands(subparsers) -> None:
+    submit_packets = subparsers.add_parser("submit-packets")
+    submit_packets.add_argument("--project", "--project-config", dest="project")
+    submit_packets.add_argument("--runner", choices=["e2e", "managed"], default="e2e")
+    submit_packets.add_argument("--execute", action="store_true")
+    submit_packets.add_argument("--dry-run", dest="execute", action="store_false")
+    submit_packets.add_argument("--limit", type=int)
+    submit_packets.add_argument("--base-ref", default="HEAD")
+    submit_packets.add_argument("--timeout-seconds", type=int, default=3600)
+    submit_packets.add_argument("--continue-on-error", action="store_true")
+    submit_packets.add_argument("--json", action="store_true")
+    submit_packets.set_defaults(func=_cmd_submit_packets)
+
+
+def _register_prefect_smokes_commands(subparsers) -> None:
+    registry_apply_smoke = subparsers.add_parser("registry-apply-smoke")
+    registry_apply_smoke.add_argument("--project", required=True)
+    registry_apply_smoke.add_argument("--state-root", required=True)
+    registry_apply_smoke.add_argument("--packet-root")
+    registry_apply_smoke.add_argument("--json", action="store_true")
+    registry_apply_smoke.set_defaults(func=_cmd_registry_apply_smoke)
+
+    e2e_registry_seeded_smoke = subparsers.add_parser("run-e2e-registry-seeded-smoke")
+    e2e_registry_seeded_smoke.add_argument("--project", required=True)
+    e2e_registry_seeded_smoke.add_argument("--state-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--worktree-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--packet-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--json", action="store_true")
+    e2e_registry_seeded_smoke.set_defaults(func=_cmd_run_e2e_registry_seeded_smoke)
+
+    run_prefect_e2e_live_smoke = subparsers.add_parser("run-prefect-e2e-live-smoke", help="Run a controlled Prefect E2E live smoke")
+    run_prefect_e2e_live_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_live_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_live_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_live_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_live_smoke.add_argument("--dry-run", dest="dry_run", action="store_true", default=True, help="Agent dry-run mode (default)")
+    run_prefect_e2e_live_smoke.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable agent dry-run")
+    run_prefect_e2e_live_smoke.add_argument("--execute-agent", action="store_true", help="Enable live agent execution")
+    run_prefect_e2e_live_smoke.add_argument("--allow-live-agent-smoke", action="store_true", help="Allow one-packet live agent smoke")
+    run_prefect_e2e_live_smoke.add_argument("--offline-fake-submitter", action="store_true", help="Use fake submitter for offline validation")
+    run_prefect_e2e_live_smoke.add_argument("--limit", type=int, default=1, help="Submission limit (must be 1)")
+    run_prefect_e2e_live_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_live_smoke.set_defaults(func=_cmd_run_prefect_e2e_live_smoke)
+
+    run_prefect_e2e_batch_smoke = subparsers.add_parser("run-prefect-e2e-batch-smoke", help="Run a bounded Prefect E2E batch queue smoke")
+    run_prefect_e2e_batch_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_batch_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_batch_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_batch_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_batch_smoke.add_argument("--batch-size", type=int, default=2, help="Batch size, must be 2 or 3")
+    run_prefect_e2e_batch_smoke.add_argument("--execute-agent", action="store_true", help="Rejected in batch smoke mode")
+    run_prefect_e2e_batch_smoke.add_argument("--offline-fake-submitter", action="store_true", help="Use fake submitter for offline validation")
+    run_prefect_e2e_batch_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_batch_smoke.set_defaults(func=_cmd_run_prefect_e2e_batch_smoke)
+
+    run_prefect_e2e_real_dry_run_smoke = subparsers.add_parser(
+        "run-prefect-e2e-real-dry-run-smoke",
+        help="Run one real Prefect E2E dry-run smoke",
+    )
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--timeout-seconds", type=int, default=900, help="Wait timeout seconds")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--poll-interval-seconds", type=int, default=5, help="Wait poll interval seconds")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--no-wait", action="store_true", help="Only verify Prefect flow run creation")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--execute-agent", action="store_true", help="Rejected in real dry-run smoke mode")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_real_dry_run_smoke.set_defaults(func=_cmd_run_prefect_e2e_real_dry_run_smoke)
+
+    run_nightly = subparsers.add_parser("run-nightly")
+    run_nightly.add_argument("--project")
+    run_nightly.add_argument("--until-blocked", action="store_true")
+    run_nightly.add_argument("--json", action="store_true")
+    run_nightly.set_defaults(func=_cmd_run_nightly)
+
+
+def _register_worktrees_commands(subparsers) -> None:
+    worktree_create = subparsers.add_parser("worktree-create", help="Create worktree for packet")
+    worktree_create.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_create.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_create.add_argument("--project-key", required=True, help="Project key")
+    worktree_create.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_create.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_create.add_argument("--base-ref", required=True, help="Base git ref")
+    worktree_create.add_argument("--json", action="store_true", help="JSON output")
+    worktree_create.set_defaults(func=_cmd_worktree_create)
+
+    worktree_status = subparsers.add_parser("worktree-status", help="Get worktree status")
+    worktree_status.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_status.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_status.add_argument("--project-key", required=True, help="Project key")
+    worktree_status.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_status.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_status.add_argument("--json", action="store_true", help="JSON output")
+    worktree_status.set_defaults(func=_cmd_worktree_status)
+
+    worktree_cleanup = subparsers.add_parser("worktree-cleanup", help="Clean up worktree")
+    worktree_cleanup.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_cleanup.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_cleanup.add_argument("--project-key", required=True, help="Project key")
+    worktree_cleanup.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_cleanup.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_cleanup.add_argument("--keep-on-failure", action="store_true", help="Keep worktree if dirty")
+    worktree_cleanup.add_argument("--json", action="store_true", help="JSON output")
+    worktree_cleanup.set_defaults(func=_cmd_worktree_cleanup)
+
+    worktree_scope_check = subparsers.add_parser("worktree-scope-check", help="Evaluate worktree scope lifecycle gate")
+    worktree_scope_check.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    worktree_scope_check.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    worktree_scope_check.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    worktree_scope_check.add_argument("--project-key", required=True, help="Project key")
+    worktree_scope_check.add_argument("--packet-id", required=True, help="Packet ID")
+    worktree_scope_check.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    worktree_scope_check.add_argument("--base-ref", required=True, help="Base git ref")
+    worktree_scope_check.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
+    worktree_scope_check.add_argument("--json", action="store_true", help="JSON output")
+    worktree_scope_check.set_defaults(func=_cmd_worktree_scope_check)
+
+    run_worktree_scope_flow = subparsers.add_parser("run-worktree-scope-flow", help="Run worktree scope lifecycle Prefect flow")
+    run_worktree_scope_flow.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_worktree_scope_flow.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    run_worktree_scope_flow.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_worktree_scope_flow.add_argument("--project-key", required=True, help="Project key")
+    run_worktree_scope_flow.add_argument("--packet-id", required=True, help="Packet ID")
+    run_worktree_scope_flow.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_worktree_scope_flow.add_argument("--base-ref", required=True, help="Base git ref")
+    run_worktree_scope_flow.add_argument("--keep-on-failure", action="store_true", default=True, help="Keep worktree on block/error (default: true)")
+    run_worktree_scope_flow.add_argument("--json", action="store_true", help="JSON output")
+    run_worktree_scope_flow.set_defaults(func=_cmd_run_worktree_scope_flow)
+
+
+def _register_packet_execution_commands(subparsers) -> None:
+    run_managed_packet = subparsers.add_parser("run-managed-packet", help="Run managed packet execution with worktree isolation")
+    run_managed_packet.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_managed_packet.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    run_managed_packet.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_managed_packet.add_argument("--project-key", required=True, help="Project key")
+    run_managed_packet.add_argument("--packet-id", required=True, help="Packet ID")
+    run_managed_packet.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_managed_packet.add_argument("--base-ref", required=True, help="Base git ref")
+    run_managed_packet.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (no agent execution, default)")
+    run_managed_packet.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run (required with --execute-agent)")
+    run_managed_packet.add_argument("--execute-agent", action="store_true", help="Explicitly allow live agent execution")
+    run_managed_packet.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds")
+    run_managed_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_managed_packet.add_argument("--json", action="store_true", help="JSON output")
+    run_managed_packet.set_defaults(func=_cmd_run_managed_packet)
+
+    run_e2e_packet = subparsers.add_parser("run-e2e-packet", help="Run end-to-end packet execution")
+    run_e2e_packet.add_argument("--project-root", type=Path, required=True, help="Project root directory")
+    run_e2e_packet.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_e2e_packet.add_argument("--state-root", type=Path, required=True, help="State root directory")
+    run_e2e_packet.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_e2e_packet.add_argument("--project-key", default="default", help="Project key (default: default)")
+    run_e2e_packet.add_argument("--attempt", type=int, default=1, help="Attempt number (default: 1)")
+    run_e2e_packet.add_argument("--base-ref", default="HEAD", help="Git base ref (default: HEAD)")
+    run_e2e_packet.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_e2e_packet.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run")
+    run_e2e_packet.add_argument("--execute-agent", action="store_true", help="Execute live agent (requires --no-dry-run)")
+    run_e2e_packet.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file")
+    run_e2e_packet.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file")
+    run_e2e_packet.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds (default: 3600)")
+    run_e2e_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_e2e_packet.add_argument("--json", action="store_true", help="JSON output")
+    run_e2e_packet.set_defaults(func=_cmd_run_e2e_packet)
+
+    run_e2e_packet_flow = subparsers.add_parser("run-e2e-packet-flow", help="Run end-to-end packet execution through Prefect flow")
+    run_e2e_packet_flow.add_argument("--project-root", type=Path, required=True, help="Project root directory")
+    run_e2e_packet_flow.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_e2e_packet_flow.add_argument("--state-root", type=Path, required=True, help="State root directory")
+    run_e2e_packet_flow.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_e2e_packet_flow.add_argument("--project-key", required=True, help="Project key")
+    run_e2e_packet_flow.add_argument("--packet-id", required=True, help="Packet ID")
+    run_e2e_packet_flow.add_argument("--attempt", type=int, default=1, help="Attempt number (default: 1)")
+    run_e2e_packet_flow.add_argument("--base-ref", default="HEAD", help="Git base ref (default: HEAD)")
+    run_e2e_packet_flow.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_e2e_packet_flow.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run")
+    run_e2e_packet_flow.add_argument("--execute-agent", action="store_true", help="Execute live agent (requires --no-dry-run)")
+    run_e2e_packet_flow.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file")
+    run_e2e_packet_flow.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file")
+    run_e2e_packet_flow.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds (default: 3600)")
+    run_e2e_packet_flow.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_e2e_packet_flow.add_argument("--json", action="store_true", help="JSON output")
+    run_e2e_packet_flow.set_defaults(func=_cmd_run_e2e_packet_flow)
+
+    run_handoff = subparsers.add_parser("run-handoff", help="Run verifier-reviewer handoff")
+    run_handoff.add_argument("--packet-dir", type=Path, required=True, help="Path to packet directory")
+    run_handoff.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_handoff.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    run_handoff.add_argument("--coder-result", type=Path, required=True, help="Path to coder result JSON file")
+    run_handoff.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_handoff.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file (required in dry-run)")
+    run_handoff.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file (required in dry-run)")
+    run_handoff.add_argument("--json", action="store_true", help="JSON output")
+    run_handoff.set_defaults(func=_cmd_run_handoff)
+
+
+def _register_evidence_commands(subparsers) -> None:
+    review = subparsers.add_parser("review")
+    review.add_argument("packet_id")
+    review.add_argument("verdict", choices=[item.value for item in ReviewVerdict])
+    review.add_argument("--reason", action="append")
+    review.add_argument("--follow-up-action", default="none")
+    review.add_argument("--create-rework", action="store_true")
+    review.set_defaults(func=_cmd_review)
+
+    write_review = subparsers.add_parser("write-review")
+    write_review.add_argument("packet_dir")
+    write_review.add_argument("--verdict", required=True, choices=["accepted", "rework_required", "blocked"])
+    write_review.add_argument("--body", help="Path to review body file")
+    write_review.add_argument("--body-text", help="Review body text (alternative to --body)")
+    write_review.add_argument("--reviewer", help="Reviewer name")
+    write_review.add_argument("--json", action="store_true")
+    write_review.set_defaults(func=_cmd_write_review)
+
+    write_evidence = subparsers.add_parser("write-evidence")
+    write_evidence.add_argument("packet_dir")
+    write_evidence.add_argument("--attempt", type=int, required=True)
+    write_evidence.add_argument("--manifest", required=True, help="Path to evidence manifest JSON file")
+    write_evidence.add_argument("--json", action="store_true")
+    write_evidence.set_defaults(func=_cmd_write_evidence)
+
+    write_rework = subparsers.add_parser("write-rework")
+    write_rework.add_argument("packet_dir")
+    write_rework.add_argument("--attempt", type=int, required=True)
+    write_rework.add_argument("--body", help="Path to rework body file")
+    write_rework.add_argument("--body-text", help="Rework body text (alternative to --body)")
+    write_rework.add_argument("--blocker", action="append", help="Blocker description (can be repeated)")
+    write_rework.add_argument("--json", action="store_true")
+    write_rework.set_defaults(func=_cmd_write_rework)
+
+    check_scope = subparsers.add_parser("check-scope", help="Check scope violations")
+    check_scope.add_argument("--packet", required=True, help="Path to EXECUTION_PACKET.md")
+    check_scope.add_argument("--changed-file", action="append", dest="changed_files", help="Changed file path (repeatable)")
+    check_scope.add_argument("--changed-files-file", help="File with newline-delimited changed files")
+    check_scope.add_argument("--repo-root", type=Path, default=Path.cwd(), help="Repository root")
+    check_scope.add_argument("--json", action="store_true", help="JSON output")
+    check_scope.set_defaults(func=_cmd_check_scope)
+
+    # validate-evidence-contract
+    validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")
+    validate_contract.add_argument("packet_path", type=Path, help="Path to EXECUTION_PACKET.md")
+    validate_contract.add_argument("--json", action="store_true", help="JSON output")
+    validate_contract.set_defaults(func=_cmd_validate_evidence_contract)
+
+    # validate-evidence-manifest
+    validate_manifest = subparsers.add_parser("validate-evidence-manifest", help="Validate evidence manifest against contract")
+    validate_manifest.add_argument("manifest_path", type=Path, help="Path to evidence_manifest.json")
+    validate_manifest.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    validate_manifest.add_argument("--artifact-root", type=Path, help="Artifact root directory")
+    validate_manifest.add_argument("--json", action="store_true", help="JSON output")
+    validate_manifest.set_defaults(func=_cmd_validate_evidence_manifest)
+
+
+def _register_executors_commands(subparsers) -> None:
+    # list-executors
+    list_executors = subparsers.add_parser("list-executors", help="List executor specs from project config")
+    list_executors.add_argument("--project", type=Path, default=Path.cwd(), help="Project root directory")
+    list_executors.add_argument("--json", action="store_true", help="JSON output")
+    list_executors.set_defaults(func=_cmd_list_executors)
+
+    # select-executor
+    select_executor = subparsers.add_parser("select-executor", help="Select executor for packet")
+    select_executor.add_argument("--project", type=Path, default=Path.cwd(), help="Project root directory")
+    select_executor.add_argument("--packet-id", required=True, help="Packet ID")
+    select_executor.add_argument("--role", help="Packet role (default: coder)")
+    select_executor.add_argument("--requested-executor", help="Requested executor ID")
+    select_executor.add_argument("--json", action="store_true", help="JSON output")
+    select_executor.set_defaults(func=_cmd_select_executor)
+
+    synthetic_edge_matrix = subparsers.add_parser("synthetic-edge-matrix")
+    synthetic_edge_matrix.add_argument("--profile", choices=["smoke", "full"], default="smoke")
+    synthetic_edge_matrix.add_argument("--seed", type=int, default=1)
+    synthetic_edge_matrix.add_argument("--json", action="store_true")
+    synthetic_edge_matrix.set_defaults(func=_cmd_synthetic_edge_matrix)
+
+
+# START_FUNCTION_CONTRACT
+# name: build_parser
+# purpose: Assemble and return the complete argument parser.
+# inputs: None.
+# returns: The configured ArgumentParser instance.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="prefect-grace")
+    subparsers = parser.add_subparsers(required=True)
+
+    _register_legacy_feature_commands(subparsers)
+    _register_project_registry_commands(subparsers)
+    _register_packet_submission_commands(subparsers)
+    _register_prefect_smokes_commands(subparsers)
+    _register_worktrees_commands(subparsers)
+    _register_packet_execution_commands(subparsers)
+    _register_evidence_commands(subparsers)
+    _register_executors_commands(subparsers)
+
+    return parser

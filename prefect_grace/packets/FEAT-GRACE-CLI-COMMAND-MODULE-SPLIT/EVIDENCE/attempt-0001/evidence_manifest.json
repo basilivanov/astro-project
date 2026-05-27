@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-05-27T22:52:21+03:00",
+  "attempt": 1,
+  "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+  "packet_status": "ready_for_review",
+  "source_hash": "sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3",
+  "files_changed": [
+    "prefect_grace/cli.py",
+    "prefect_grace/cli_commands/__init__.py",
+    "prefect_grace/cli_commands/common.py",
+    "prefect_grace/cli_commands/evidence.py",
+    "prefect_grace/cli_commands/executors.py",
+    "prefect_grace/cli_commands/legacy_feature.py",
+    "prefect_grace/cli_commands/packet_execution.py",
+    "prefect_grace/cli_commands/packet_submission.py",
+    "prefect_grace/cli_commands/parser.py",
+    "prefect_grace/cli_commands/prefect_smokes.py",
+    "prefect_grace/cli_commands/project_registry.py",
+    "prefect_grace/cli_commands/worktrees.py",
+    "tests/test_prefect_grace_cli_command_module_split.py",
+    "tests/test_prefect_grace_cli_contracts.py"
+  ],
+  "reviewer_fixups": [
+    {
+      "issue": "Legacy queue and dashboard commands were omitted during extraction.",
+      "fix": "Restored _cmd_queue and _cmd_dashboard handlers, parser registration, facade re-exports, and contract coverage."
+    },
+    {
+      "issue": "Required parser inventory test file was absent.",
+      "fix": "Added tests/test_prefect_grace_cli_command_module_split.py with command inventory, facade export, and safety-flag assertions."
+    }
+  ],
+  "verification": {
+    "targeted_cli_pytest": {
+      "command": "pytest -q tests/test_prefect_grace_cli_command_module_split.py tests/test_prefect_grace_cli_contracts.py tests/test_prefect_grace_cli_submit_packets_prefect_native.py tests/test_prefect_grace_cli_prefect_e2e_real_dry_run_smoke.py tests/test_prefect_grace_cli_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_prefect_e2e_live_smoke.py tests/test_prefect_grace_cli_e2e_packet_runner.py tests/test_prefect_grace_cli_e2e_packet_flow.py tests/test_prefect_grace_cli_handoff.py tests/test_prefect_grace_cli_managed_packet_runner.py tests/test_prefect_grace_cli_worktree_manager.py tests/test_prefect_grace_cli_worktree_scope_flow.py tests/test_prefect_grace_cli_worktree_scope_lifecycle.py tests/test_prefect_grace_cli_scope_guard.py",
+      "result": "102 passed in 18.88s"
+    },
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/cli.py prefect_grace/cli_commands",
+      "result": "passed"
+    },
+    "grace_lint": {
+      "commands": [
+        "python3 scripts/grace_lint.py prefect_grace/cli.py",
+        "python3 scripts/grace_lint.py prefect_grace/cli_commands"
+      ],
+      "result": "passed"
+    },
+    "size_limits": {
+      "commands": [
+        "python3 scripts/check_size_limits.py --root prefect_grace/cli.py --strict --max-file-lines 1000 --max-function-tokens 4000",
+        "python3 scripts/check_size_limits.py --root prefect_grace/cli_commands --strict --max-file-lines 1000 --max-function-tokens 4000"
+      ],
+      "result": "passed"
+    },
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md --strict --json",
+      "ok": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "validate_project_json": {
+      "command": "python3 -m prefect_grace.cli validate-project --project prefect_grace/project.yaml --json",
+      "ok": true,
+      "project_key": "astro-project",
+      "result_eq_data": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "submit_packets_dry_run": {
+      "command": "python3 -m prefect_grace.cli submit-packets --dry-run --json",
+      "ok": true,
+      "packets_submitted": [],
+      "errors": 0,
+      "warnings": 0
+    },
+    "inventory": {
+      "top_level_commands": 44,
+      "missing_commands": [],
+      "extra_commands": [],
+      "missing_facade_exports": []
+    }
+  },
+  "post_test_observability_verdict": "clean",
+  "observability_notes": [
+    "Reviewed logs/gracectl/evidence-review-today-week.log tail after targeted verification.",
+    "Latest recorded verdict is PASS_CLEAN.",
+    "No backend, frontend, Docker, Playwright, live agents, live Prefect submissions, provider APIs, prefect_grace/state, or /var/lib/grace-orchestrator writes were started by this review."
+  ]
+}

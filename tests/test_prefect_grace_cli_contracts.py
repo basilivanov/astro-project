@@ -156,6 +156,29 @@ def test_cli_registry_apply_smoke_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_legacy_queue_dashboard_contract() -> None:
+    queue = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "queue", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert queue.returncode == 0
+    assert "--limit" in queue.stdout
+
+    dashboard = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "dashboard", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert dashboard.returncode == 0
+    assert "--json" in dashboard.stdout
+
+    import prefect_grace.cli as cli
+
+    assert hasattr(cli, "_cmd_queue")
+    assert hasattr(cli, "_cmd_dashboard")
+
+
 def test_cli_e2e_registry_seeded_smoke_contract() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "prefect_grace.cli", "run-e2e-registry-seeded-smoke", "--help"],
