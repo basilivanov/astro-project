@@ -1,0 +1,13 @@
+not_run_prefect_unavailable
+
+Reason:
+Prefect is not installed in this coder environment.
+
+Observed availability probe:
+prefect_import=failed
+ModuleNotFoundError: No module named 'prefect'
+prefect_client_import=failed
+ModuleNotFoundError: No module named 'prefect'
+
+Live-agent execution:
+not_run

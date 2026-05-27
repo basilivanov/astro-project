@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 from pathlib import Path
 import time
 from typing import Any, Callable
@@ -314,7 +315,7 @@ def _extract_payload(state: Any) -> dict[str, Any]:
 # END_FUNCTION_CONTRACT
 def _read_prefect_flow_run_status(flow_run_id: str) -> dict[str, Any]:
     try:
-        from prefect.client.orchestration import get_client
+        get_client = importlib.import_module("prefect.client.orchestration").get_client
     except ImportError as e:
         return {"error": f"Prefect client unavailable: {e}"}
 

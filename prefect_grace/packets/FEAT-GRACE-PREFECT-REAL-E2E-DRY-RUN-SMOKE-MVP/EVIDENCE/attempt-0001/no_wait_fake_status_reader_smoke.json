@@ -1,0 +1,24 @@
+{
+  "dry_run": true,
+  "execute_agent": false,
+  "packet_path": "/tmp/grace-real-e2e-nowait-evidence-5xjt28k4/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.md",
+  "result": {
+    "artifact_ids": [],
+    "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+    "domain_status": null,
+    "errors": [],
+    "flow_run_id": "flow-run-real-smoke-evidence",
+    "flow_run_name": "e2e-packet:FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE:attempt-1",
+    "flow_run_url": "http://prefect.local/flow-runs/flow-run-real-smoke-evidence",
+    "mode": "prefect_real_e2e_agent_dry_run",
+    "ok": true,
+    "packet_id": "FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE",
+    "prefect_state_name": null,
+    "prefect_state_type": null,
+    "runner_kind": "e2e",
+    "submitted": true,
+    "waited": false,
+    "work_queue_name": "test-live"
+  },
+  "submitter_calls": 1
+}

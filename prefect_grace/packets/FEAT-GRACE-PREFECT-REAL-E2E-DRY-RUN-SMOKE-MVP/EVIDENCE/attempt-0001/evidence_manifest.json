@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-05-28T00:08:20+03:00",
+  "attempt": 1,
+  "packet_id": "FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE",
+  "packet_status": "ready_for_review",
+  "implementation_note": "Existing harness and CLI were present; this attempt fixed the direct Prefect import to satisfy GRACE lint without changing runtime_adapter.py.",
+  "files_changed": [
+    "prefect_grace/platform/prefect_e2e_real_dry_run_smoke.py",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/targeted_pytest.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/focused_regression.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/compileall.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/grace_lint.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/strict_validate_packet.json",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/cli_help.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/no_wait_fake_status_reader_smoke.json",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/prefect_availability.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/real_prefect_smoke.txt",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EVIDENCE/attempt-0001/evidence_manifest.json"
+  ],
+  "verification": {
+    "targeted_pytest": {
+      "command": "pytest -q tests/test_prefect_grace_prefect_e2e_real_dry_run_smoke.py tests/test_prefect_grace_cli_prefect_e2e_real_dry_run_smoke.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "32 passed in 4.44s",
+      "output": "targeted_pytest.txt"
+    },
+    "focused_regressions": {
+      "command": "pytest -q tests/test_prefect_grace_prefect_e2e_live_smoke.py tests/test_prefect_grace_prefect_e2e_batch_smoke.py tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_e2e_packet_runner_flow.py",
+      "result": "25 passed in 0.38s",
+      "output": "focused_regression.txt"
+    },
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/platform/prefect_e2e_real_dry_run_smoke.py prefect_grace/cli.py",
+      "result": "passed",
+      "output": "compileall.txt"
+    },
+    "grace_lint": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/prefect_e2e_real_dry_run_smoke.py",
+      "result": "passed",
+      "output": "grace_lint.txt"
+    },
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.md --strict --json",
+      "ok": true,
+      "warnings": 0,
+      "errors": 0,
+      "output": "strict_validate_packet.json"
+    },
+    "cli_help": {
+      "command": "python3 -m prefect_grace.cli run-prefect-e2e-real-dry-run-smoke --help",
+      "result": "passed",
+      "output": "cli_help.txt"
+    },
+    "no_wait_fake_status_reader_smoke": {
+      "command": "python3 inline harness calling run_prefect_e2e_real_dry_run_smoke(wait=False, submitter=fake_submitter)",
+      "result": "ok=true, submitter_calls=1, dry_run=true, execute_agent=false",
+      "output": "no_wait_fake_status_reader_smoke.json"
+    },
+    "prefect_availability_probe": {
+      "command": "python3 inline Prefect import/client probe",
+      "result": "prefect_import=failed; ModuleNotFoundError: No module named 'prefect'",
+      "output": "prefect_availability.txt"
+    },
+    "real_prefect_smoke": {
+      "command": "python3 -m prefect_grace.cli run-prefect-e2e-real-dry-run-smoke --project-config prefect_grace/project.yaml --state-root /tmp/grace-real-e2e-smoke/state --worktree-root /tmp/grace-real-e2e-smoke/worktrees --packet-root /tmp/grace-real-e2e-smoke/packets --timeout-seconds 900 --json",
+      "result": "not_run_prefect_unavailable",
+      "output": "real_prefect_smoke.txt"
+    }
+  },
+  "safety_confirmation": {
+    "execute_agent_rejected_before_submission": true,
+    "offline_fake_submitter_cli_flag_present": false,
+    "generated_packet_write_scope": "scratch/grace-real-e2e-smoke/**",
+    "generated_packet_frozen_scope_includes_product_and_grace_paths": true,
+    "refuses_more_than_one_packet": true,
+    "refuses_unexpected_deployment": true,
+    "timeout_returns_failure": true,
+    "real_prefect_submitter_default_preserved": true,
+    "live_agents_started": false,
+    "prefect_flow_runs_created_in_this_environment": false,
+    "backend_changed": false,
+    "frontend_changed": false
+  },
+  "post_test_observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "Offline/unit and focused regression evidence is clean.",
+    "Real Prefect smoke was not run because Prefect is not installed in this coder environment; this was not faked.",
+    "No live agents were started. The no-wait evidence smoke used a fake submitter test hook only to prove JSON shape and dry_run/execute_agent parameters."
+  ]
+}
