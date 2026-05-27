@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-05-27T22:26:42+03:00",
+  "attempt": 2,
+  "packet_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+  "packet_status": "ready_for_review",
+  "review_addressed": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/REVIEWS/review-0001.md",
+  "blockers_fixed": [
+    {
+      "blocker": "state_root_worktree_root_too_permissive_before_destructive_cleanup",
+      "fix": "Root validation now requires state_root, worktree_root, and packet_root to be dedicated child directories under the system temp root, outside the repo and real GRACE runtime state, and mutually non-overlapping before any cleanup can run."
+    },
+    {
+      "blocker": "broad_root_inputs_not_regression_tested",
+      "fix": "Added regression coverage rejecting state_root=PROJECT_ROOT, state_root=/tmp, worktree_root=/tmp, packet_root=/tmp, and overlapping temp roots while preserving a sentinel file under /tmp."
+    }
+  ],
+  "files_changed": [
+    "prefect_grace/platform/e2e_runner_registry_seeded_smoke.py",
+    "tests/test_prefect_grace_e2e_runner_registry_seeded_smoke.py",
+    "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EVIDENCE/attempt-0002/evidence_manifest.json"
+  ],
+  "verification": {
+    "focused_rework_tests": {
+      "command": "pytest -q tests/test_prefect_grace_e2e_runner_registry_seeded_smoke.py tests/test_prefect_grace_cli_e2e_runner_registry_seeded_smoke.py",
+      "result": "12 passed in 0.90s"
+    },
+    "targeted_pytest": {
+      "command": "pytest -q tests/test_prefect_grace_e2e_runner_registry_seeded_smoke.py tests/test_prefect_grace_cli_e2e_runner_registry_seeded_smoke.py tests/test_prefect_grace_e2e_packet_runner.py tests/test_prefect_grace_cli_e2e_packet_runner.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "54 passed in 5.84s"
+    },
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/platform prefect_grace/cli.py",
+      "result": "passed"
+    },
+    "grace_lint": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/e2e_runner_registry_seeded_smoke.py prefect_grace/cli.py",
+      "result": "passed",
+      "note": "scripts/grace_lint.py consumes the first target argument; the changed platform module passed GRACE Canon Script Discipline."
+    },
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md --strict --json",
+      "ok": true,
+      "warnings": 0,
+      "errors": 0
+    }
+  },
+  "cli_smoke": {
+    "command": "python3 -m prefect_grace.cli run-e2e-registry-seeded-smoke --project prefect_grace/project.yaml --state-root /tmp/grace-e2e-registry-seeded-smoke/state --worktree-root /tmp/grace-e2e-registry-seeded-smoke/worktrees --packet-root /tmp/grace-e2e-registry-seeded-smoke/packets --json",
+    "ok": true,
+    "selected_packet_id": "SMOKE-CHILD-RUNNABLE-W01-PACKET",
+    "bootstrap_apply_count": 6,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "writes_outside_temp_roots": [],
+    "errors": []
+  },
+  "safety_regression_evidence": {
+    "state_root_project_root_rejected": true,
+    "state_root_tmp_root_rejected": true,
+    "worktree_root_tmp_root_rejected": true,
+    "packet_root_tmp_root_rejected": true,
+    "overlapping_temp_roots_rejected": true,
+    "tmp_sentinel_preserved": true,
+    "destructive_cleanup_after_validation_only": true
+  },
+  "post_test_observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "CLI smoke remained ok after the safety rework: one selected child packet, accepted E2E domain status, selected child registry transition accepted, zero Prefect runs, zero live agents, no writes outside temp roots, and no errors.",
+    "Fixture-local review/SUMMARY warnings and missing dependency warnings remain expected for the synthetic corpus."
+  ],
+  "runtime_safety": {
+    "explicit_temp_state_root_used": true,
+    "explicit_temp_worktree_root_used": true,
+    "explicit_temp_packet_root_used": true,
+    "broad_state_root_rejected_before_cleanup": true,
+    "broad_worktree_root_rejected_before_cleanup": true,
+    "broad_packet_root_rejected_before_cleanup": true,
+    "real_var_lib_state_touched": false,
+    "prefect_grace_state_touched": false,
+    "real_source_packets_mutated": false,
+    "live_prefect_runs_created": false,
+    "live_agents_started": false,
+    "docker_started": false,
+    "backend_started": false,
+    "frontend_started": false,
+    "playwright_started": false
+  }
+}

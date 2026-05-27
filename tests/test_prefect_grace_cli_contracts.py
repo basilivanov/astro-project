@@ -156,6 +156,22 @@ def test_cli_registry_apply_smoke_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_e2e_registry_seeded_smoke_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-e2e-registry-seeded-smoke", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--json" in result.stdout
+    assert "--execute-agent" not in result.stdout
+    assert "--no-dry-run" not in result.stdout
+
+
 def test_cli_submit_packets_contract() -> None:
     """Verify submit-packets CLI exposes runner selection and dry-run defaults."""
     result = subprocess.run(

@@ -599,6 +599,54 @@ def _cmd_registry_apply_smoke(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_run_e2e_registry_seeded_smoke(args: argparse.Namespace) -> None:
+    command = "run-e2e-registry-seeded-smoke"
+    try:
+        from prefect_grace.platform.e2e_runner_registry_seeded_smoke import (
+            run_e2e_runner_registry_seeded_smoke,
+        )
+
+        result = run_e2e_runner_registry_seeded_smoke(
+            project_config=Path(args.project),
+            state_root=Path(args.state_root),
+            worktree_root=Path(args.worktree_root),
+            packet_root=Path(args.packet_root),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"E2E registry-seeded smoke for {result.project_key}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  State root: {result.state_root}")
+            print(f"  Worktree root: {result.worktree_root}")
+            print(f"  Packet root: {result.packet_root}")
+            print(f"  Selected packet: {result.selected_packet_id or '-'}")
+            print(f"  Bootstrap apply count: {result.bootstrap_apply_count}")
+            print(f"  Prefect runs created: {result.prefect_runs_created}")
+            print(f"  Live agents started: {result.live_agents_started}")
+
+        if not result.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "E2E_REGISTRY_SEEDED_SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"E2E registry-seeded smoke failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _cmd_packet_status(args: argparse.Namespace) -> None:
     command = "packet-status"
     try:
@@ -2435,6 +2483,14 @@ def build_parser() -> argparse.ArgumentParser:
     registry_apply_smoke.add_argument("--packet-root")
     registry_apply_smoke.add_argument("--json", action="store_true")
     registry_apply_smoke.set_defaults(func=_cmd_registry_apply_smoke)
+
+    e2e_registry_seeded_smoke = subparsers.add_parser("run-e2e-registry-seeded-smoke")
+    e2e_registry_seeded_smoke.add_argument("--project", required=True)
+    e2e_registry_seeded_smoke.add_argument("--state-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--worktree-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--packet-root", required=True)
+    e2e_registry_seeded_smoke.add_argument("--json", action="store_true")
+    e2e_registry_seeded_smoke.set_defaults(func=_cmd_run_e2e_registry_seeded_smoke)
 
     sync_packets = subparsers.add_parser("sync-packets")
     sync_packets.add_argument("--project")
