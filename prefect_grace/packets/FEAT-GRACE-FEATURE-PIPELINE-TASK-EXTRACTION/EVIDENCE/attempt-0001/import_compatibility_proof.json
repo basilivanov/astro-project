@@ -1,0 +1,26 @@
+{
+  "checks": {
+    "bootstrap_task": true,
+    "mark_feature_in_progress_task": true,
+    "mark_packet_status_task": true,
+    "materialize_planner_contract_task": true,
+    "publish_feature_artifacts_task": true,
+    "publish_packet_review_artifacts_task": true,
+    "record_canon_digest_task": true,
+    "record_verifier_result_task": true,
+    "resolve_architect_artifact_plan_task": true,
+    "resolve_planner_contract_task": true,
+    "resolve_reviewer_decision_task": true,
+    "resolve_verifier_result_task": true,
+    "resolve_wave_decision_task": true,
+    "review_task": true,
+    "route_architect_wave_verdict_task": true,
+    "route_reviewer_verdict_task": true,
+    "run_packet_task": true,
+    "run_verifier_packet_task": true,
+    "seed_feature_packets_task": true,
+    "validate_planner_contract_task": true,
+    "write_architect_artifacts_task": true
+  },
+  "ok": true
+}

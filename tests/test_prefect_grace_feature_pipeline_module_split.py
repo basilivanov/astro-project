@@ -15,6 +15,7 @@ from prefect_grace.flows.pipeline_helpers import (
 
 FEATURE_PIPELINE_PATH = Path("prefect_grace/flows/feature_pipeline.py")
 HELPER_DIR = Path("prefect_grace/flows/pipeline_helpers")
+TASK_DIR = Path("prefect_grace/flows/pipeline_tasks")
 
 EXPECTED_DECORATED = {
     "bootstrap_task": {"decorator": "task", "task_run_name": "bootstrap:{feature_id}"},
@@ -112,12 +113,22 @@ def _decorated_inventory(path: Path) -> dict[str, dict[str, str | None]]:
 
 
 def test_feature_pipeline_decorated_inventory_preserved_in_facade() -> None:
-    inventory = _decorated_inventory(FEATURE_PIPELINE_PATH)
+    inventory: dict[str, dict[str, str | None]] = {}
+    for path in [FEATURE_PIPELINE_PATH, *sorted(TASK_DIR.glob("*.py"))]:
+        inventory.update(_decorated_inventory(path))
+
     assert set(inventory) == set(EXPECTED_DECORATED)
     for name, expected in EXPECTED_DECORATED.items():
         for key, value in expected.items():
             assert inventory[name][key] == value
         assert hasattr(feature_pipeline, name)
+
+
+def test_feature_pipeline_facade_keeps_only_flow_decorators() -> None:
+    inventory = _decorated_inventory(FEATURE_PIPELINE_PATH)
+    assert set(inventory) == {"feature_pipeline", "review_router_flow"}
+    assert inventory["feature_pipeline"]["flow_run_name"] == "feature:{feature_id}"
+    assert inventory["review_router_flow"]["flow_run_name"] == "review:{packet_id}:{verdict}"
 
 
 def test_pipeline_helper_modules_do_not_define_prefect_tasks_or_flows() -> None:

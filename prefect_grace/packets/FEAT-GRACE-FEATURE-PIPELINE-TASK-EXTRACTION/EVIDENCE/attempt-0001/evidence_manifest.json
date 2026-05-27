@@ -1,0 +1,35 @@
+{
+  "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION-W01-PIPELINE-TASKS-SPLIT",
+  "feature_id": "FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION",
+  "attempt": "attempt-0001",
+  "status": "passed",
+  "observability_verdict": "degraded-but-expected",
+  "observability_reason": "Targeted tests, platform regressions, compile, strict packet validation, and targeted lint for edited feature_pipeline/pipeline_tasks/pipeline_helpers passed. Repo-level flows lint remains degraded by existing live_dashboard.py and packet_lifecycle.py contract debt. Size check remains informational because feature_pipeline() body is still the known oversized flow body.",
+  "execution_packet_present": true,
+  "decorated_task_names_preserved": true,
+  "facade_imports_preserved": true,
+  "live_agents_started": 0,
+  "prefect_deployments_started": 0,
+  "line_counts": {
+    "feature_pipeline_before": 2437,
+    "feature_pipeline_after": 1826,
+    "pipeline_task_modules_added": 9
+  },
+  "artifacts": [
+    {"path": "targeted_feature_pipeline_tests.txt", "kind": "pytest", "summary": "44 passed"},
+    {"path": "platform_regressions.txt", "kind": "pytest", "summary": "49 passed"},
+    {"path": "compileall_flows.txt", "kind": "compile", "summary": "pass"},
+    {"path": "grace_lint_feature_pipeline.txt", "kind": "lint", "summary": "pass"},
+    {"path": "grace_lint_pipeline_tasks.txt", "kind": "lint", "summary": "pass"},
+    {"path": "grace_lint_pipeline_helpers.txt", "kind": "lint", "summary": "pass"},
+    {"path": "strict_validate_packet.json", "kind": "packet-validation", "summary": "ok=true"},
+    {"path": "grace_lint_flows_degraded.txt", "kind": "lint", "summary": "degraded by existing live_dashboard.py and packet_lifecycle.py contract debt"},
+    {"path": "size_check_flows_informational.txt", "kind": "size-check", "summary": "informational oversized feature_pipeline flow body remains"},
+    {"path": "line_counts_before.txt", "kind": "line-counts", "summary": "before task extraction"},
+    {"path": "line_counts_after.txt", "kind": "line-counts", "summary": "after task extraction"},
+    {"path": "decorated_inventory_before_after.json", "kind": "prefect-inventory", "summary": "decorated task/flow names and run-name templates preserved"},
+    {"path": "import_compatibility_proof.json", "kind": "compatibility", "summary": "feature_pipeline facade exports resolve to extracted task modules"},
+    {"path": "validate_evidence_manifest.txt", "kind": "evidence-validation", "summary": "ok=true"},
+    {"path": "git_status_short.txt", "kind": "scope", "summary": "changed files proof"}
+  ]
+}

@@ -1,0 +1,29 @@
+ M prefect_grace/flows/feature_pipeline.py
+ M tests/test_prefect_grace_feature_pipeline_module_split.py
+?? prefect_grace/flows/pipeline_tasks/__init__.py
+?? prefect_grace/flows/pipeline_tasks/architect_tasks.py
+?? prefect_grace/flows/pipeline_tasks/artifact_tasks.py
+?? prefect_grace/flows/pipeline_tasks/bootstrap_tasks.py
+?? prefect_grace/flows/pipeline_tasks/canon_tasks.py
+?? prefect_grace/flows/pipeline_tasks/execution_tasks.py
+?? prefect_grace/flows/pipeline_tasks/planner_tasks.py
+?? prefect_grace/flows/pipeline_tasks/review_tasks.py
+?? prefect_grace/flows/pipeline_tasks/wave_tasks.py
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/compileall_flows.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/decorated_inventory_before_after.json
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/evidence_manifest.json
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/git_status_short.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/grace_lint_feature_pipeline.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/grace_lint_flows_degraded.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/grace_lint_pipeline_helpers.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/grace_lint_pipeline_tasks.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/import_compatibility_proof.json
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/line_counts_after.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/line_counts_before.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/platform_regressions.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/size_check_flows_informational.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/strict_validate_packet.json
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/targeted_feature_pipeline_tests.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EVIDENCE/attempt-0001/validate_evidence_manifest.txt
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EXECUTION_PACKET.md
+?? prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/REVIEWS/review-0001.md
