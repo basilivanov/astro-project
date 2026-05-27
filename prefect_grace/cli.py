@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -163,6 +164,59 @@ def _cmd_run_prefect_real_dry_run_seeded_smoke(args: argparse.Namespace) -> None
         sys.exit(2)
 
 
+def _cmd_run_live_opt_in_single_scratch_packet(args: argparse.Namespace) -> None:
+    command = "run-live-opt-in-single-scratch-packet"
+    try:
+        from prefect_grace.platform.live_opt_in_single_scratch_packet import (
+            run_live_opt_in_single_scratch_packet,
+        )
+
+        result = run_live_opt_in_single_scratch_packet(
+            project_config=Path(args.project),
+            state_root=Path(args.state_root),
+            worktree_root=Path(args.worktree_root),
+            packet_root=Path(args.packet_root),
+            execute_agent=bool(getattr(args, "execute_agent", False)),
+            acknowledge_live_agent=bool(getattr(args, "i_understand_live_agent", False)),
+            opt_in_token=os.environ.get("GRACE_LIVE_AGENT_OPT_IN"),
+            timeout_seconds=int(args.timeout_seconds),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"Live opt-in single scratch packet for {result.project_key}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  State root: {result.state_root}")
+            print(f"  Worktree root: {result.worktree_root}")
+            print(f"  Packet root: {result.packet_root}")
+            print(f"  Selected packet: {result.selected_packet_id or '-'}")
+            print(f"  Opt-in confirmed: {result.opt_in_confirmed}")
+            print(f"  Agent launch count: {result.agent_launch_count}")
+            print(f"  Scope verdict: {result.scope_verdict or '-'}")
+            print(f"  Flow run: {result.flow_run_id or '-'}")
+            for error in result.errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "LIVE_OPT_IN_SINGLE_SCRATCH_PACKET_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Live opt-in single scratch packet failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 # START_FUNCTION_CONTRACT
 # name: build_parser
 # purpose: Build the CLI parser and register facade-level commands.
@@ -190,6 +244,20 @@ def build_parser() -> argparse.ArgumentParser:
         seeded.add_argument("--execute-agent", action="store_true", help="Rejected in seeded dry-run smoke mode")
         seeded.add_argument("--json", action="store_true", help="JSON output")
         seeded.set_defaults(func=_cmd_run_prefect_real_dry_run_seeded_smoke)
+    if "run-live-opt-in-single-scratch-packet" not in subparsers.choices:
+        live = subparsers.add_parser(
+            "run-live-opt-in-single-scratch-packet",
+            help="Run one explicitly opt-in live-agent scratch packet smoke",
+        )
+        live.add_argument("--project", required=True, help="Project config path")
+        live.add_argument("--state-root", required=True, help="Smoke state root")
+        live.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+        live.add_argument("--packet-root", required=True, help="Synthetic smoke packet root")
+        live.add_argument("--execute-agent", action="store_true", help="Required live-agent execution gate")
+        live.add_argument("--i-understand-live-agent", action="store_true", help="Required live-agent acknowledgement gate")
+        live.add_argument("--timeout-seconds", type=int, default=1800, help="Runner or submission timeout seconds")
+        live.add_argument("--json", action="store_true", help="JSON output")
+        live.set_defaults(func=_cmd_run_live_opt_in_single_scratch_packet)
     return parser
 
 
