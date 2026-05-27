@@ -119,6 +119,12 @@ def test_cli_run_e2e_packet_json_output(temp_repo, temp_packet):
     assert "result" in output
     assert output["result"]["packet_id"] == "CLI-TEST-W01-E2E"
     assert output["result"]["domain_status"] == "accepted"
+    assert output["result"]["registry_status"] == "accepted"
+    assert output["result"]["registry_reason"] == "execution_accepted"
+    assert output["result"]["registry_transition"]["registry_status"] == "accepted"
+    assert isinstance(output["result"]["registry_status"], str)
+    assert isinstance(output["result"]["registry_reason"], str)
+    assert isinstance(output["result"]["registry_transition"]["registry_status"], str)
     assert output["result"]["runtime_status"] == "completed"
     assert result.returncode == 0
 
@@ -145,6 +151,8 @@ def test_cli_run_e2e_packet_exit_codes(temp_repo, temp_packet):
 
     output = json.loads(result.stdout)
     assert output["result"]["domain_status"] == "accepted"
+    assert output["result"]["registry_status"] == "accepted"
+    assert output["result"]["registry_reason"] == "execution_accepted"
     assert result.returncode == 0
 
     # Test rework_required (exit code 1)
@@ -177,6 +185,8 @@ END_FINAL_PACKET_DECISION_JSON
 
     output = json.loads(result.stdout)
     assert output["result"]["domain_status"] == "rework_required"
+    assert output["result"]["registry_status"] == "ready_for_retry"
+    assert output["result"]["registry_reason"] == "quality_rework"
     assert result.returncode == 1
 
 
@@ -237,6 +247,8 @@ END_FINAL_PACKET_DECISION_JSON
     output = json.loads(result.stdout)
     assert output["ok"] is True
     assert output["result"]["domain_status"] == "accepted"
+    assert output["result"]["registry_status"] == "accepted"
+    assert output["result"]["registry_reason"] == "execution_accepted"
     assert result.returncode == 0
 
 
@@ -281,6 +293,8 @@ def test_cli_run_e2e_packet_human_readable_output(temp_repo, temp_packet):
 
     assert "E2E Packet Runner:" in result.stdout
     assert "accepted" in result.stdout
+    assert "Registry status:" in result.stdout
+    assert "Registry reason:" in result.stdout
     assert "Packet:" in result.stdout
     assert "CLI-TEST-W01-E2E" in result.stdout
     assert result.returncode == 0
@@ -308,4 +322,6 @@ def test_cli_run_e2e_packet_default_values(temp_repo, temp_packet):
     output = json.loads(result.stdout)
     assert output["ok"] is True
     assert output["result"]["attempt"] == 1
+    assert output["result"]["registry_status"] == "accepted"
+    assert output["result"]["registry_reason"] == "execution_accepted"
     assert result.returncode == 0

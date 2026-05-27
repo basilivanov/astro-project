@@ -32,6 +32,10 @@ from prefect_grace.platform.managed_packet_runner import (
     run_managed_packet,
     ManagedPacketRunResult,
 )
+from prefect_grace.platform.status_model import (
+    DomainStatus,
+    apply_domain_result_to_registry,
+)
 from prefect_grace.platform.verifier_reviewer_handoff import (
     run_verifier_reviewer_handoff,
     PacketHandoffResult,
@@ -64,6 +68,9 @@ class E2EPacketRunnerResult:
     - attempt: Attempt number
     - runtime_status: Execution status (started, completed, failed)
     - domain_status: Packet outcome status
+    - registry_status: Registry state implied by domain_status
+    - registry_reason: Reason for the registry transition
+    - registry_transition: Full serialized StatusTransition
     - worktree_path: Path to worktree (None if worktree creation failed)
     - branch_name: Git branch name (None if worktree creation failed)
     - executor_id: Executor identifier (None if not selected)
@@ -77,6 +84,9 @@ class E2EPacketRunnerResult:
     attempt: int
     runtime_status: str
     domain_status: str
+    registry_status: str
+    registry_reason: str
+    registry_transition: dict[str, Any]
     worktree_path: str | None
     branch_name: str | None
     executor_id: str | None
@@ -103,6 +113,9 @@ class E2EPacketRunnerResult:
             "attempt": self.attempt,
             "runtime_status": self.runtime_status,
             "domain_status": self.domain_status,
+            "registry_status": self.registry_status,
+            "registry_reason": self.registry_reason,
+            "registry_transition": dict(self.registry_transition),
             "worktree_path": self.worktree_path,
             "branch_name": self.branch_name,
             "executor_id": self.executor_id,
@@ -263,6 +276,52 @@ END_FINAL_PACKET_DECISION_JSON
 
 # END_BLOCK: fake_launchers
 
+# START_BLOCK: status_transition_helpers
+
+# START_FUNCTION_CONTRACT
+# Function: _serialize_registry_transition
+# Purpose: Convert a domain status into a JSON-safe registry transition
+# Args:
+#   - domain_status: Execution domain status string
+# Returns: Dict with registry_status, reason, terminal flag, and failure flag
+# Inputs: domain_status
+# Side_effects: None (pure function)
+# Emitted_logs: None
+# Error_behavior: Never raises; unknown values are handled by status_model
+# END_FUNCTION_CONTRACT
+def _serialize_registry_transition(domain_status: str) -> dict[str, Any]:
+    """Serialize the canonical registry transition for a domain status."""
+    transition = apply_domain_result_to_registry(domain_status)
+    return {
+        "registry_status": transition.registry_status.value,
+        "reason": transition.reason,
+        "is_terminal": transition.is_terminal,
+        "is_failure": transition.is_failure,
+    }
+
+
+# START_FUNCTION_CONTRACT
+# Function: _registry_fields
+# Purpose: Build result fields derived from the canonical registry transition
+# Args:
+#   - domain_status: Execution domain status string
+# Returns: Dict with registry_status, registry_reason, registry_transition
+# Inputs: domain_status
+# Side_effects: None (pure function)
+# Emitted_logs: None
+# Error_behavior: Never raises; unknown values are handled by status_model
+# END_FUNCTION_CONTRACT
+def _registry_fields(domain_status: str) -> dict[str, Any]:
+    """Build registry transition fields for E2E runner results."""
+    transition = _serialize_registry_transition(domain_status)
+    return {
+        "registry_status": transition["registry_status"],
+        "registry_reason": transition["reason"],
+        "registry_transition": transition,
+    }
+
+# END_BLOCK: status_transition_helpers
+
 # START_BLOCK: orchestrator
 
 # START_FUNCTION_CONTRACT
@@ -335,12 +394,14 @@ def run_e2e_packet(
         packet = parse_packet_markdown(packet_path)
         packet_id = packet.packet_id
     except Exception as e:
+        domain_status = DomainStatus.RUNNER_ERROR.value
         return E2EPacketRunnerResult(
             ok=False,
             packet_id="UNKNOWN",
             attempt=attempt,
             runtime_status="failed",
-            domain_status="runner_error",
+            domain_status=domain_status,
+            **_registry_fields(domain_status),
             worktree_path=None,
             branch_name=None,
             executor_id=None,
@@ -367,12 +428,14 @@ def run_e2e_packet(
             project=None,  # No project config for now
         )
     except Exception as e:
+        domain_status = DomainStatus.RUNNER_ERROR.value
         return E2EPacketRunnerResult(
             ok=False,
             packet_id=packet_id,
             attempt=attempt,
             runtime_status="failed",
-            domain_status="runner_error",
+            domain_status=domain_status,
+            **_registry_fields(domain_status),
             worktree_path=None,
             branch_name=None,
             executor_id=None,
@@ -382,15 +445,17 @@ def run_e2e_packet(
         )
 
     # Step 3: Check if coder passed
-    if managed_result.domain_status != "passed":
+    if managed_result.domain_status != DomainStatus.CHECK_PASSED.value:
         # Coder failed, handoff does not run
         runtime_status = "completed"
+        domain_status = managed_result.domain_status
         return E2EPacketRunnerResult(
             ok=False,
             packet_id=packet_id,
             attempt=attempt,
             runtime_status=runtime_status,
-            domain_status=managed_result.domain_status,
+            domain_status=domain_status,
+            **_registry_fields(domain_status),
             worktree_path=managed_result.worktree_path,
             branch_name=managed_result.branch_name,
             executor_id=None,
@@ -421,12 +486,14 @@ def run_e2e_packet(
         )
     except Exception as e:
         runtime_status = "failed"
+        domain_status = DomainStatus.HANDOFF_ERROR.value
         return E2EPacketRunnerResult(
             ok=False,
             packet_id=packet_id,
             attempt=attempt,
             runtime_status=runtime_status,
-            domain_status="handoff_error",
+            domain_status=domain_status,
+            **_registry_fields(domain_status),
             worktree_path=managed_result.worktree_path,
             branch_name=managed_result.branch_name,
             executor_id=None,
@@ -442,7 +509,7 @@ def run_e2e_packet(
 
     # For E2E runner, ok=True only for accepted
     # rework_required, blocked, etc. are not accepted, so ok=False
-    ok = (domain_status == "accepted")
+    ok = (domain_status == DomainStatus.ACCEPTED.value)
 
     # Collect artifact paths from both phases
     artifact_paths = list(managed_result.artifact_ids)
@@ -463,6 +530,7 @@ def run_e2e_packet(
         attempt=attempt,
         runtime_status=runtime_status,
         domain_status=domain_status,
+        **_registry_fields(domain_status),
         worktree_path=managed_result.worktree_path,
         branch_name=managed_result.branch_name,
         executor_id=None,

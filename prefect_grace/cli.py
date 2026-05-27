@@ -1705,6 +1705,8 @@ def _cmd_run_e2e_packet(args: argparse.Namespace) -> None:
             print(f"  Packet: {result.packet_id}")
             print(f"  Attempt: {result.attempt}")
             print(f"  Runtime status: {result.runtime_status}")
+            print(f"  Registry status: {result.registry_status}")
+            print(f"  Registry reason: {result.registry_reason}")
             print(f"  Worktree: {result.worktree_path}")
             print(f"  Branch: {result.branch_name}")
             if result.errors:

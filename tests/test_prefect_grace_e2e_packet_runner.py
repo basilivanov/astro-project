@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import prefect_grace.platform.e2e_packet_runner as e2e_runner
 from prefect_grace.platform.e2e_packet_runner import (
     E2EPacketRunnerResult,
     run_e2e_packet,
@@ -14,6 +15,8 @@ from prefect_grace.platform.e2e_packet_runner import (
     _default_fake_verifier_output,
     _default_fake_reviewer_output,
 )
+from prefect_grace.platform.managed_packet_runner import ManagedPacketRunResult
+from prefect_grace.platform.status_model import DomainStatus
 
 
 @pytest.fixture
@@ -105,6 +108,14 @@ def test_e2e_packet_dry_run_accepted(temp_repo, temp_packet):
     assert result.attempt == 1
     assert result.runtime_status == "completed"
     assert result.domain_status == "accepted"
+    assert result.registry_status == "accepted"
+    assert result.registry_reason == "execution_accepted"
+    assert result.registry_transition == {
+        "registry_status": "accepted",
+        "reason": "execution_accepted",
+        "is_terminal": True,
+        "is_failure": False,
+    }
     assert result.ok is True
     assert result.worktree_path is not None
     assert result.branch_name is not None
@@ -150,28 +161,68 @@ END_FINAL_PACKET_DECISION_JSON
 
     assert result.packet_id == "TEST-PACKET-W01-TEST"
     assert result.domain_status == "rework_required"
+    assert result.registry_status == "ready_for_retry"
+    assert result.registry_reason == "quality_rework"
     assert result.ok is False  # rework_required is not accepted, so ok=False
     assert result.handoff_result is not None
     assert result.handoff_result["domain_status"] == "rework_required"
 
 
-def test_e2e_packet_scope_blocked(temp_repo, temp_packet):
-    """Test e2e packet with scope violation (scope_blocked)."""
+def test_e2e_packet_scope_blocked_prevents_handoff_and_maps_registry(monkeypatch, temp_repo, temp_packet):
+    """Test managed runner scope_blocked prevents handoff and maps to registry blocked."""
     state_root = temp_repo / "state"
     worktree_root = temp_repo / "worktrees"
 
-    # Create a worktree and modify a frozen file to trigger scope_blocked
-    # This test would need to actually modify files in the worktree
-    # For now, we'll test the flow assuming managed_packet_runner returns scope_blocked
+    def fake_managed_runner(**kwargs):
+        return ManagedPacketRunResult(
+            ok=False,
+            domain_status=DomainStatus.SCOPE_BLOCKED.value,
+            packet_id=kwargs["packet_id"],
+            attempt=kwargs["attempt"],
+            worktree_path=str(worktree_root / "TEST-PACKET-W01-TEST-attempt-1"),
+            branch_name="grace/test/TEST-PACKET-W01-TEST/attempt-1",
+            changed_files=["frozen/file.txt"],
+            agent_result={"dry_run": True},
+            lifecycle_result={"status": DomainStatus.SCOPE_BLOCKED.value},
+            scope_guard={"ok": False, "frozen_violations": ["frozen/file.txt"]},
+            artifact_ids=["artifact://scope-blocked"],
+            blocker_reason="Scope violations: 1 frozen violation(s)",
+        )
 
-    # Note: This is a simplified test. In reality, we'd need to:
-    # 1. Create worktree
-    # 2. Modify a file in frozen scope
-    # 3. Run e2e_packet
-    # 4. Verify scope_blocked status
+    def fail_handoff(**kwargs):
+        raise AssertionError("handoff must not run when coder scope is blocked")
 
-    # For MVP, we'll skip this test as it requires complex worktree setup
-    pytest.skip("Scope violation test requires complex worktree setup")
+    monkeypatch.setattr(e2e_runner, "run_managed_packet", fake_managed_runner)
+    monkeypatch.setattr(e2e_runner, "run_verifier_reviewer_handoff", fail_handoff)
+
+    result = run_e2e_packet(
+        project_root=temp_repo,
+        packet_path=temp_packet,
+        state_root=state_root,
+        worktree_root=worktree_root,
+        project_key="test",
+        attempt=1,
+        base_ref="HEAD",
+        dry_run=True,
+        execute_agent=False,
+        fake_verifier_output=None,
+        fake_reviewer_output=None,
+        timeout_seconds=60,
+        keep_worktree=True,
+    )
+
+    assert result.ok is False
+    assert result.domain_status == "scope_blocked"
+    assert result.registry_status == "blocked"
+    assert result.registry_reason == "scope_violation"
+    assert result.registry_transition == {
+        "registry_status": "blocked",
+        "reason": "scope_violation",
+        "is_terminal": True,
+        "is_failure": True,
+    }
+    assert result.handoff_result is None
+    assert result.errors == ["Scope violations: 1 frozen violation(s)"]
 
 
 def test_e2e_packet_result_to_dict(temp_repo, temp_packet):
@@ -203,6 +254,12 @@ def test_e2e_packet_result_to_dict(temp_repo, temp_packet):
     assert result_dict["attempt"] == 1
     assert result_dict["runtime_status"] == "completed"
     assert result_dict["domain_status"] == "accepted"
+    assert result_dict["registry_status"] == "accepted"
+    assert result_dict["registry_reason"] == "execution_accepted"
+    assert result_dict["registry_transition"]["registry_status"] == "accepted"
+    assert isinstance(result_dict["registry_status"], str)
+    assert isinstance(result_dict["registry_reason"], str)
+    assert isinstance(result_dict["registry_transition"]["registry_status"], str)
     assert result_dict["worktree_path"] is not None
     assert result_dict["branch_name"] is not None
     assert result_dict["managed_runner_result"] is not None
@@ -300,6 +357,8 @@ def test_e2e_packet_invalid_packet_path():
         assert result.ok is False
         assert result.runtime_status == "failed"
         assert result.domain_status == "runner_error"
+        assert result.registry_status == "blocked"
+        assert result.registry_reason == "runner_error"
         assert len(result.errors) > 0
         assert "parse" in result.errors[0].lower() or "not found" in result.errors[0].lower()
 
