@@ -71,7 +71,7 @@ def _profile_config_path(project_path: str | None) -> Path | None:
 
 
 def _load_adapter_from_args(args: argparse.Namespace):
-    return load_project_adapter(getattr(args, "project", None))
+    return load_project_adapter(getattr(args, "project", None) or getattr(args, "project_config", None))
 
 
 def _packet_to_dict(parsed, *, path: Path | None = None, repo_root: Path | None = None) -> dict:
@@ -578,30 +578,29 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
     try:
         from prefect_grace.platform.backlog_controller import BacklogController
         from prefect_grace.platform.prefect_native_submission import submit_ready_packets_to_prefect
-        from prefect_grace.platform.runtime_adapter import ManagedPacketSubmitter
+        from prefect_grace.platform.runtime_adapter import E2EPacketSubmitter, ManagedPacketSubmitter
 
         adapter = _load_adapter_from_args(args)
+        runner_kind = getattr(args, "runner", "e2e")
 
         # Read registry state and plan submission
         submission_plan = BacklogController.plan_submission(adapter)
 
-        # Check if RuntimeLock/Worktree/Scope lifecycle is available
-        # For MVP-2, fail closed with safety error
         if args.execute:
-            # Execute mode: submit packets to Prefect
-            submitter = ManagedPacketSubmitter()
+            submitter = E2EPacketSubmitter() if runner_kind == "e2e" else ManagedPacketSubmitter()
 
             submission_result = submit_ready_packets_to_prefect(
                 project=adapter,
                 dry_run=False,
                 limit=getattr(args, "limit", None),
-                execute_agent=False,  # Managed packet runner controls this
+                execute_agent=False,
                 timeout_seconds=getattr(args, "timeout_seconds", 3600),
                 base_ref=getattr(args, "base_ref", "HEAD"),
-                worktree_root=None,  # Use default from runtime_state_root
+                worktree_root=None,
                 scheduled_for=None,
                 continue_on_error=getattr(args, "continue_on_error", False),
                 submitter=submitter,
+                runner_kind=runner_kind,
             )
 
             if submission_result.errors:
@@ -629,20 +628,30 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
                 ))
             else:
                 print(f"Submitted {len(submission_result.packets_submitted)} packets for {adapter.project_key}.")
+                print(f"  Runner: {runner_kind}")
                 print(f"  Planned: {len(submission_result.packets_planned)}")
                 print(f"  Submitted: {len(submission_result.packets_submitted)}")
                 print(f"  Blocked: {len(submission_result.blocked_packets)}")
                 if submission_result.warnings:
                     print(f"  Warnings: {len(submission_result.warnings)}")
         else:
-            # Dry-run mode: validate submission plan only
-            result = {
-                "dry_run": True,
-                "packets_to_submit": submission_plan.packets_to_submit,
-                "submission_order": submission_plan.submission_order,
-                "blocked_packets": submission_plan.blocked_packets,
-                "note": "Submission plan validated. Use --execute to submit to Prefect.",
-            }
+            submission_result = submit_ready_packets_to_prefect(
+                project=adapter,
+                dry_run=True,
+                limit=getattr(args, "limit", None),
+                execute_agent=False,
+                timeout_seconds=getattr(args, "timeout_seconds", 3600),
+                base_ref=getattr(args, "base_ref", "HEAD"),
+                worktree_root=None,
+                scheduled_for=None,
+                continue_on_error=getattr(args, "continue_on_error", False),
+                submitter=None,
+                runner_kind=runner_kind,
+            )
+            result = submission_result.to_dict()
+            result["packets_to_submit"] = submission_plan.packets_to_submit
+            result["submission_order"] = submission_plan.submission_order
+            result["note"] = "Submission plan validated. Use --execute to submit to Prefect."
 
             if submission_plan.errors:
                 if args.json:
@@ -669,6 +678,7 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
                 ))
             else:
                 print(f"Submission plan for {adapter.project_key}:")
+                print(f"  Runner: {runner_kind}")
                 print(f"  Packets to submit: {len(submission_plan.packets_to_submit)}")
                 print(f"  Submission order: {submission_plan.submission_order}")
                 print(f"  Blocked packets: {len(submission_plan.blocked_packets)}")
@@ -684,6 +694,66 @@ def _cmd_submit_packets(args: argparse.Namespace) -> None:
         else:
             print(f"Submit failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_run_prefect_e2e_live_smoke(args: argparse.Namespace) -> None:
+    command = "run-prefect-e2e-live-smoke"
+    try:
+        from prefect_grace.platform.prefect_e2e_live_smoke import run_prefect_e2e_live_smoke
+
+        submitter = None
+        if getattr(args, "offline_fake_submitter", False):
+            def submitter(**kwargs):
+                packet_id = str(kwargs["parameters"].get("packet_id") or "unknown")
+                return {
+                    "flow_run_id": f"fake-live-smoke-{packet_id}",
+                    "flow_run_name": f"e2e-packet:{packet_id}:attempt-1",
+                    "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+                    "work_queue_name": "grace-live",
+                    "runner_kind": "e2e",
+                    "status": "submitted",
+                    "url": "http://prefect.local/flow-runs/fake-live-smoke",
+                }
+
+        result = run_prefect_e2e_live_smoke(
+            project_config=Path(args.project_config),
+            state_root=Path(args.state_root),
+            worktree_root=Path(args.worktree_root),
+            packet_root=Path(args.packet_root),
+            dry_run=bool(args.dry_run),
+            execute_agent=bool(args.execute_agent),
+            allow_live_agent_smoke=bool(args.allow_live_agent_smoke),
+            limit=int(getattr(args, "limit", 1)),
+            submitter=submitter,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=None,
+                result=result.to_dict(),
+                errors=result.errors,
+            ))
+        else:
+            print(f"Prefect E2E live smoke: {result.status}")
+            print(f"  Packet: {result.packet_id}")
+            print(f"  Deployment: {result.deployment_name}")
+            print(f"  Runner: {result.runner_kind}")
+            print(f"  Submitted: {result.submitted}")
+            if result.flow_run_id:
+                print(f"  Flow run: {result.flow_run_id}")
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Prefect E2E live smoke failed: {e}", file=sys.stderr)
+        sys.exit(2)
 
 
 def _cmd_run_nightly(args: argparse.Namespace) -> None:
@@ -2116,10 +2186,30 @@ def build_parser() -> argparse.ArgumentParser:
     sync_packets.set_defaults(func=_cmd_sync_packets)
 
     submit_packets = subparsers.add_parser("submit-packets")
-    submit_packets.add_argument("--project")
+    submit_packets.add_argument("--project", "--project-config", dest="project")
+    submit_packets.add_argument("--runner", choices=["e2e", "managed"], default="e2e")
     submit_packets.add_argument("--execute", action="store_true")
+    submit_packets.add_argument("--dry-run", dest="execute", action="store_false")
+    submit_packets.add_argument("--limit", type=int)
+    submit_packets.add_argument("--base-ref", default="HEAD")
+    submit_packets.add_argument("--timeout-seconds", type=int, default=3600)
+    submit_packets.add_argument("--continue-on-error", action="store_true")
     submit_packets.add_argument("--json", action="store_true")
     submit_packets.set_defaults(func=_cmd_submit_packets)
+
+    run_prefect_e2e_live_smoke = subparsers.add_parser("run-prefect-e2e-live-smoke", help="Run a controlled Prefect E2E live smoke")
+    run_prefect_e2e_live_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_live_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_live_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_live_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_live_smoke.add_argument("--dry-run", dest="dry_run", action="store_true", default=True, help="Agent dry-run mode (default)")
+    run_prefect_e2e_live_smoke.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable agent dry-run")
+    run_prefect_e2e_live_smoke.add_argument("--execute-agent", action="store_true", help="Enable live agent execution")
+    run_prefect_e2e_live_smoke.add_argument("--allow-live-agent-smoke", action="store_true", help="Allow one-packet live agent smoke")
+    run_prefect_e2e_live_smoke.add_argument("--offline-fake-submitter", action="store_true", help="Use fake submitter for offline validation")
+    run_prefect_e2e_live_smoke.add_argument("--limit", type=int, default=1, help="Submission limit (must be 1)")
+    run_prefect_e2e_live_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_live_smoke.set_defaults(func=_cmd_run_prefect_e2e_live_smoke)
 
     run_nightly = subparsers.add_parser("run-nightly")
     run_nightly.add_argument("--project")

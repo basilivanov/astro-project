@@ -6,8 +6,6 @@ Verifies CLI interface for packet submission to Prefect.
 
 import json
 import subprocess
-import tempfile
-from pathlib import Path
 
 
 def _create_test_project(tmp_path):
@@ -76,6 +74,36 @@ def test_cli_submit_packets_dry_run_json_exits_0(tmp_path):
     assert output["command"] == "submit-packets"
     assert output["result"]["dry_run"] is True
     assert len(output["result"]["submission_order"]) == 1
+    assert output["result"]["records"][0]["runner_kind"] == "e2e"
+
+
+def test_cli_submit_packets_project_config_dry_run_limit_json(tmp_path):
+    """Verify packet contract smoke flags return E2E dry-run records."""
+    repo_root, runtime_state_root = _create_test_project(tmp_path)
+    state_dir = runtime_state_root / "state"
+    _create_registry_with_ready_packet(state_dir, "TEST-W01-PACKET")
+
+    result = subprocess.run(
+        [
+            "python3", "-m", "prefect_grace.cli", "submit-packets",
+            "--project-config", str(repo_root / "grace" / "project.yaml"),
+            "--dry-run",
+            "--limit", "1",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["ok"] is True
+    assert output["result"]["dry_run"] is True
+    assert len(output["result"]["records"]) == 1
+    assert output["result"]["records"][0]["runner_kind"] == "e2e"
+    assert output["result"]["records"][0]["deployment_name"] == (
+        "prefect-grace-e2e-packet-runner/live-e2e-packet-runner"
+    )
 
 
 def test_cli_submit_packets_dry_run_text_exits_0(tmp_path):
@@ -96,6 +124,7 @@ def test_cli_submit_packets_dry_run_text_exits_0(tmp_path):
 
     assert result.returncode == 0
     assert "Submission plan for test-project" in result.stdout
+    assert "Runner: e2e" in result.stdout
     assert "Packets to submit: 1" in result.stdout
 
 
@@ -138,8 +167,7 @@ Run tests.
 - Tests fail
 """)
 
-    # Execute mode without real Prefect will fail with NO_SUBMITTER_PROVIDED
-    # This is expected behavior for offline tests
+    # Execute mode without real Prefect will fail because Prefect is unavailable in tests.
     result = subprocess.run(
         [
             "python3", "-m", "prefect_grace.cli", "submit-packets",
@@ -151,11 +179,10 @@ Run tests.
         text=True,
     )
 
-    # Should exit with error code 3 (submission error)
+    # Should exit with error code 3 for submission errors.
     assert result.returncode == 3
     output = json.loads(result.stdout)
     assert output["ok"] is False
-    # Error could be NO_SUBMITTER_PROVIDED or Prefect unavailable
     assert len(output["result"]["errors"]) > 0
 
 
@@ -177,6 +204,7 @@ def test_cli_submit_packets_no_ready_packets_exits_0(tmp_path):
     output = json.loads(result.stdout)
     assert output["ok"] is True
     assert len(output["result"]["submission_order"]) == 0
+    assert output["result"]["records"] == []
 
 
 def test_cli_submit_packets_help():
@@ -190,5 +218,6 @@ def test_cli_submit_packets_help():
     assert result.returncode == 0
     assert "submit-packets" in result.stdout
     assert "--project" in result.stdout
+    assert "--runner" in result.stdout
     assert "--execute" in result.stdout
     assert "--json" in result.stdout

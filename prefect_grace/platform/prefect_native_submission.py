@@ -1,10 +1,10 @@
 # ############################################################################
 # AI_HEADER: prefect_native_submission
-# ROLE: Submit ready packets as individual Prefect flow runs.
+# ROLE: Submit ready packets as individual Prefect E2E flow runs.
 # ############################################################################
 
 # START_MODULE_CONTRACT
-# purpose: Submit ready packets to Prefect as managed packet runner flow runs.
+# purpose: Submit ready packets to Prefect as E2E packet runner flow runs by default.
 # inputs: ProjectAdapterConfig, dry_run flag, limit, execute_agent flag, submitter callable.
 # returns: NativeSubmissionResult with submission records and registry updates.
 # side_effects: Updates packet registry state on successful submission.
@@ -21,13 +21,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
 
 from prefect_grace.platform.backlog_controller import BacklogController
 from prefect_grace.platform.state_store import PacketRegistryStore
+from prefect_grace.tasks.prefect_submitter import (
+    E2E_PACKET_DEPLOYMENT_NAME,
+    MANAGED_PACKET_DEPLOYMENT_NAME,
+    e2e_packet_flow_parameters,
+    e2e_packet_flow_run_name,
+    managed_packet_flow_parameters,
+    managed_packet_flow_run_name,
+)
 
 # START_BLOCK: models
 
@@ -45,6 +53,7 @@ class PacketSubmissionRecord:
     deployment_name: str
     work_queue_name: str | None
     status: Literal["submitted", "dry_run", "skipped", "failed"]
+    runner_kind: Literal["e2e", "managed"] = "e2e"
     url: str | None = None
     error: str | None = None
 
@@ -71,6 +80,7 @@ class PacketSubmissionRecord:
             "deployment_name": self.deployment_name,
             "work_queue_name": self.work_queue_name,
             "status": self.status,
+            "runner_kind": self.runner_kind,
             "url": self.url,
             "error": self.error,
         }
@@ -137,8 +147,148 @@ def build_idempotency_key(
 
 
 # START_FUNCTION_CONTRACT
+# name: _deployment_name_for_runner
+# purpose: Return the Prefect deployment name for a packet runner kind.
+# inputs:
+#   runner_kind: Packet runner kind.
+# returns: Deployment name string.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Raises ValueError for unsupported runner kinds.
+# END_FUNCTION_CONTRACT
+def _deployment_name_for_runner(runner_kind: Literal["e2e", "managed"]) -> str:
+    if runner_kind == "e2e":
+        return E2E_PACKET_DEPLOYMENT_NAME
+    if runner_kind == "managed":
+        return MANAGED_PACKET_DEPLOYMENT_NAME
+    raise ValueError(f"Unsupported runner_kind: {runner_kind}")
+
+
+# START_FUNCTION_CONTRACT
+# name: _flow_run_name_for_runner
+# purpose: Build a local flow run name for a packet runner kind.
+# inputs:
+#   runner_kind: Packet runner kind.
+#   packet_id: Packet identifier.
+#   attempt: Attempt number.
+#   title: Optional packet title.
+# returns: Flow run name string.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Raises ValueError for unsupported runner kinds.
+# END_FUNCTION_CONTRACT
+def _flow_run_name_for_runner(
+    runner_kind: Literal["e2e", "managed"],
+    packet_id: str,
+    attempt: int,
+    title: str | None,
+) -> str:
+    if runner_kind == "e2e":
+        return e2e_packet_flow_run_name(packet_id, attempt, title)
+    if runner_kind == "managed":
+        return managed_packet_flow_run_name(packet_id, title)
+    raise ValueError(f"Unsupported runner_kind: {runner_kind}")
+
+
+# START_FUNCTION_CONTRACT
+# name: _tags_for_packet
+# purpose: Build Prefect tags for submitted packet runner flow.
+# inputs:
+#   runner_kind: Packet runner kind.
+#   packet_id: Packet identifier.
+#   feature_id: Feature identifier.
+#   wave_id: Wave identifier.
+# returns: Ordered list of tags.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def _tags_for_packet(
+    *,
+    runner_kind: Literal["e2e", "managed"],
+    packet_id: str,
+    feature_id: str,
+    wave_id: str,
+) -> list[str]:
+    runner_tag = "e2e" if runner_kind == "e2e" else "managed-runner"
+    tags = ["grace", "packet", runner_tag, f"packet:{packet_id}"]
+    if feature_id:
+        tags.append(f"feature:{feature_id}")
+    if wave_id:
+        tags.append(f"wave:{wave_id}")
+    return tags
+
+
+# START_FUNCTION_CONTRACT
+# name: _parameters_for_packet
+# purpose: Build Prefect flow parameters for the selected packet runner kind.
+# inputs:
+#   runner_kind: Packet runner kind.
+#   repo_root: Project repository root.
+#   runtime_state_root: Project runtime state root.
+#   packet_path: Packet file path.
+#   worktree_root: Worktree root.
+#   project_key: Project key.
+#   packet_id: Packet identifier.
+#   attempt: Attempt number.
+#   base_ref: Git base reference.
+#   dry_run: Flow dry-run flag.
+#   execute_agent: Flow live-agent flag.
+#   timeout_seconds: Timeout seconds.
+# returns: Flow parameter dict for the selected runner.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Raises ValueError for unsupported runner kinds.
+# END_FUNCTION_CONTRACT
+def _parameters_for_packet(
+    *,
+    runner_kind: Literal["e2e", "managed"],
+    repo_root: Path,
+    runtime_state_root: Path,
+    packet_path: Path,
+    worktree_root: Path,
+    project_key: str,
+    packet_id: str,
+    attempt: int,
+    base_ref: str,
+    dry_run: bool,
+    execute_agent: bool,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    if runner_kind == "e2e":
+        return e2e_packet_flow_parameters(
+            project_root=str(repo_root),
+            packet_path=str(packet_path),
+            state_root=str(runtime_state_root),
+            worktree_root=str(worktree_root),
+            project_key=project_key,
+            packet_id=packet_id,
+            attempt=attempt,
+            base_ref=base_ref,
+            dry_run=dry_run,
+            execute_agent=execute_agent,
+            timeout_seconds=timeout_seconds,
+            keep_worktree=True,
+        )
+    if runner_kind == "managed":
+        return managed_packet_flow_parameters(
+            packet_file=str(packet_path),
+            repo_root=str(repo_root),
+            worktree_root=str(worktree_root),
+            project_key=project_key,
+            packet_id=packet_id,
+            attempt=attempt,
+            base_ref=base_ref,
+            dry_run=dry_run,
+            execute_agent=execute_agent,
+            timeout_seconds=timeout_seconds,
+        )
+    raise ValueError(f"Unsupported runner_kind: {runner_kind}")
+
+
+# START_FUNCTION_CONTRACT
 # name: submit_ready_packets_to_prefect
-# purpose: Submit ready packets as individual Prefect managed packet runner flow runs.
+# purpose: Submit ready packets as individual Prefect packet runner flow runs.
 # inputs:
 #   project: ProjectAdapterConfig with project_key, repo_root, runtime_state_root.
 #   dry_run: If True, plan only without calling submitter.
@@ -150,6 +300,7 @@ def build_idempotency_key(
 #   scheduled_for: Optional ISO8601 scheduled time.
 #   continue_on_error: If True, continue submitting after failures.
 #   submitter: Optional callable for submission (for testing).
+#   runner_kind: Runner kind to submit, defaults to e2e.
 # returns: NativeSubmissionResult with submission records.
 # side_effects: Updates packet registry on successful submission.
 # emitted_logs: None.
@@ -167,10 +318,15 @@ def submit_ready_packets_to_prefect(
     scheduled_for: str | None = None,
     continue_on_error: bool = False,
     submitter: Callable[..., dict[str, Any]] | None = None,
+    runner_kind: Literal["e2e", "managed"] = "e2e",
 ) -> NativeSubmissionResult:
+    if runner_kind not in {"e2e", "managed"}:
+        raise ValueError(f"Unsupported runner_kind: {runner_kind}")
+
     project_key = project.project_key
     repo_root = Path(project.repo_root)
     runtime_state_root = Path(project.runtime_state_root)
+    registry = PacketRegistryStore(runtime_state_root / "state")
 
     # Use BacklogController to get submission plan
     plan = BacklogController.plan_submission(project)
@@ -187,19 +343,27 @@ def submit_ready_packets_to_prefect(
     # If dry-run, return plan without submission
     if dry_run:
         for packet_id in packets_planned:
+            packet_record = registry.load_packet(packet_id) or {}
+            feature_id = str(packet_record.get("feature_id", "") or "")
+            wave_id = str(packet_record.get("wave_id", "") or "")
+            title = str(packet_record.get("title", "") or "")
+            source_hash = str(packet_record.get("source_hash", "") or "")
             records.append(
                 PacketSubmissionRecord(
                     packet_id=packet_id,
-                    feature_id="",
-                    wave_id="",
+                    feature_id=feature_id,
+                    wave_id=wave_id,
                     attempt=1,
-                    source_hash="",
-                    idempotency_key="",
+                    source_hash=source_hash,
+                    idempotency_key=build_idempotency_key(project_key, packet_id, 1, source_hash)
+                    if source_hash
+                    else "",
                     flow_run_id=None,
-                    flow_run_name=f"packet:{packet_id}",
-                    deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+                    flow_run_name=_flow_run_name_for_runner(runner_kind, packet_id, 1, title),
+                    deployment_name=_deployment_name_for_runner(runner_kind),
                     work_queue_name=None,
                     status="dry_run",
+                    runner_kind=runner_kind,
                 )
             )
 
@@ -216,7 +380,6 @@ def submit_ready_packets_to_prefect(
         )
 
     # Execute mode: submit packets
-    registry = PacketRegistryStore(runtime_state_root / "state")
 
     for packet_id in packets_planned:
         packet_record = registry.load_packet(packet_id)
@@ -236,10 +399,11 @@ def submit_ready_packets_to_prefect(
                     source_hash="",
                     idempotency_key="",
                     flow_run_id=None,
-                    flow_run_name=f"packet:{packet_id}",
-                    deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+                    flow_run_name=_flow_run_name_for_runner(runner_kind, packet_id, 1, None),
+                    deployment_name=_deployment_name_for_runner(runner_kind),
                     work_queue_name=None,
                     status="failed",
+                    runner_kind=runner_kind,
                     error=error["message"],
                 )
             )
@@ -264,10 +428,13 @@ def submit_ready_packets_to_prefect(
                     source_hash="",
                     idempotency_key="",
                     flow_run_id=None,
-                    flow_run_name=f"packet:{packet_id}",
-                    deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+                    flow_run_name=_flow_run_name_for_runner(
+                        runner_kind, packet_id, 1, packet_record.get("title", "")
+                    ),
+                    deployment_name=_deployment_name_for_runner(runner_kind),
                     work_queue_name=None,
                     status="failed",
+                    runner_kind=runner_kind,
                     error=error["message"],
                 )
             )
@@ -284,32 +451,29 @@ def submit_ready_packets_to_prefect(
             project_key, packet_id, attempt, source_hash
         )
 
-        # Build managed packet flow parameters
         packet_path = repo_root / packet_record.get("path", "")
         wt_root = worktree_root or (runtime_state_root / "worktrees")
+        parameters = _parameters_for_packet(
+            runner_kind=runner_kind,
+            repo_root=repo_root,
+            runtime_state_root=runtime_state_root,
+            packet_path=packet_path,
+            worktree_root=wt_root,
+            project_key=project_key,
+            packet_id=packet_id,
+            attempt=attempt,
+            base_ref=base_ref,
+            dry_run=not execute_agent,
+            execute_agent=execute_agent,
+            timeout_seconds=timeout_seconds,
+        )
 
-        parameters = {
-            "packet_file": str(packet_path),
-            "repo_root": str(repo_root),
-            "worktree_root": str(wt_root),
-            "project_key": project_key,
-            "packet_id": packet_id,
-            "attempt": attempt,
-            "base_ref": base_ref,
-            "dry_run": not execute_agent,
-            "execute_agent": execute_agent,
-            "timeout_seconds": timeout_seconds,
-        }
-
-        tags = [
-            "grace",
-            "packet",
-            "managed-runner",
-            f"packet:{packet_id}",
-            f"feature:{feature_id}",
-        ]
-        if wave_id:
-            tags.append(f"wave:{wave_id}")
+        tags = _tags_for_packet(
+            runner_kind=runner_kind,
+            packet_id=packet_id,
+            feature_id=feature_id,
+            wave_id=wave_id,
+        )
 
         # Call submitter
         if submitter is None:
@@ -328,10 +492,11 @@ def submit_ready_packets_to_prefect(
                     source_hash=source_hash,
                     idempotency_key=idempotency_key,
                     flow_run_id=None,
-                    flow_run_name=f"packet:{packet_id}:{title}" if title else f"packet:{packet_id}",
-                    deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+                    flow_run_name=_flow_run_name_for_runner(runner_kind, packet_id, attempt, title),
+                    deployment_name=_deployment_name_for_runner(runner_kind),
                     work_queue_name=None,
                     status="failed",
+                    runner_kind=runner_kind,
                     error=error["message"],
                 )
             )
@@ -348,8 +513,11 @@ def submit_ready_packets_to_prefect(
             )
 
             flow_run_id = submit_result.get("flow_run_id")
-            flow_run_name = submit_result.get("flow_run_name", f"packet:{packet_id}")
-            deployment_name = submit_result.get("deployment_name", "prefect-grace-managed-packet-runner/live-managed-packet-runner")
+            flow_run_name = submit_result.get(
+                "flow_run_name",
+                _flow_run_name_for_runner(runner_kind, packet_id, attempt, title),
+            )
+            deployment_name = submit_result.get("deployment_name", _deployment_name_for_runner(runner_kind))
             work_queue_name = submit_result.get("work_queue_name")
             url = submit_result.get("url")
 
@@ -358,10 +526,13 @@ def submit_ready_packets_to_prefect(
             registry.upsert_packet({
                 **packet_record,
                 "registry_status": "submitted",
-                "registry_reason": "prefect_flow_run_submitted",
+                "registry_reason": "prefect_e2e_flow_run_submitted"
+                if runner_kind == "e2e"
+                else "prefect_flow_run_submitted",
                 "prefect_flow_run_id": flow_run_id,
                 "prefect_flow_run_name": flow_run_name,
                 "prefect_deployment_name": deployment_name,
+                "submission_runner_kind": runner_kind,
                 "submission_idempotency_key": idempotency_key,
                 "submitted_at": now,
             })
@@ -379,6 +550,7 @@ def submit_ready_packets_to_prefect(
                     deployment_name=deployment_name,
                     work_queue_name=work_queue_name,
                     status="submitted",
+                    runner_kind=runner_kind,
                     url=url,
                 )
             )
@@ -400,10 +572,11 @@ def submit_ready_packets_to_prefect(
                     source_hash=source_hash,
                     idempotency_key=idempotency_key,
                     flow_run_id=None,
-                    flow_run_name=f"packet:{packet_id}:{title}" if title else f"packet:{packet_id}",
-                    deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+                    flow_run_name=_flow_run_name_for_runner(runner_kind, packet_id, attempt, title),
+                    deployment_name=_deployment_name_for_runner(runner_kind),
                     work_queue_name=None,
                     status="failed",
+                    runner_kind=runner_kind,
                     error=str(e),
                 )
             )

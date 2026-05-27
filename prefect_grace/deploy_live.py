@@ -102,6 +102,17 @@ def deploy_flows() -> dict[str, str]:
             tags=["grace", "live"],
             description="Strict GRACE feature pipeline backed by Codex packets and an LLM verifier.",
         ),
+        "e2e_packet_runner": _apply_deployment(
+            entrypoint="prefect_grace/flows/e2e_packet_runner_flow.py:e2e_packet_runner_flow",
+            deployment_name="live-e2e-packet-runner",
+            api_url=runtime.api_url,
+            work_pool_name=runtime.work_pool_name,
+            working_directory=runtime.working_directory,
+            work_queue_name=runtime.live_queue_name,
+            concurrency_limit=runtime.live_queue_limit,
+            tags=["grace", "packet", "e2e", "live"],
+            description="Portable GRACE single-packet E2E runner with dry-run agent smoke support.",
+        ),
         "packet_transition": _apply_deployment(
             entrypoint="prefect_grace/flows/packet_lifecycle.py:packet_transition_flow",
             deployment_name="live-packet-transition",

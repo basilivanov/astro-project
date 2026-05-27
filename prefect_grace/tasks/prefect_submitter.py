@@ -1,6 +1,6 @@
 # AI_HEADER
 # module: prefect_grace.tasks.prefect_submitter
-# purpose: Submit Prefect flow runs for features and managed packets.
+# purpose: Submit Prefect flow runs for features and packet runners.
 # canon: GRACE Canon Script Discipline
 # status: active
 # owner: prefect-grace
@@ -10,9 +10,9 @@
 
 # START_MODULE_CONTRACT
 # module_name: prefect_submitter
-# purpose: Provide Prefect flow run submission helpers for feature pipeline and managed packet runner deployments.
+# purpose: Provide Prefect flow run submission helpers for feature pipeline and packet runner deployments.
 # responsibilities:
-#   - Build flow parameters for feature and managed packet runs.
+#   - Build flow parameters for feature, managed packet, and E2E packet runs.
 #   - Submit flow runs to Prefect deployments with idempotency keys.
 #   - Return JSON-safe run references.
 # dependencies:
@@ -27,15 +27,20 @@
 # Public API:
 #   - FEATURE_DEPLOYMENT_NAME: str
 #   - MANAGED_PACKET_DEPLOYMENT_NAME: str
+#   - E2E_PACKET_DEPLOYMENT_NAME: str
 #   - parse_scheduled_time(value: str | None) -> datetime | None
 #   - feature_flow_parameters(...) -> dict[str, Any]
 #   - feature_flow_run_name(feature_id: str, title: str | None) -> str
 #   - managed_packet_flow_run_name(packet_id: str, title: str | None) -> str
 #   - managed_packet_flow_parameters(...) -> dict[str, Any]
+#   - e2e_packet_flow_run_name(packet_id: str, attempt: int, title: str | None) -> str
+#   - e2e_packet_flow_parameters(...) -> dict[str, Any]
 #   - build_feature_submission_request(...) -> dict[str, Any]
 #   - build_managed_packet_submission_request(...) -> dict[str, Any]
+#   - build_e2e_packet_submission_request(...) -> dict[str, Any]
 #   - submit_feature_flow_run(...) -> dict[str, Any]
 #   - submit_managed_packet_flow_run(...) -> dict[str, Any]
+#   - submit_e2e_packet_flow_run(...) -> dict[str, Any]
 # Internal:
 #   None
 # END_MODULE_MAP
@@ -50,6 +55,7 @@ from prefect_grace.runtime_config import load_runtime_config
 
 FEATURE_DEPLOYMENT_NAME = "prefect-grace-feature-pipeline/live-feature-pipeline"
 MANAGED_PACKET_DEPLOYMENT_NAME = "prefect-grace-managed-packet-runner/live-managed-packet-runner"
+E2E_PACKET_DEPLOYMENT_NAME = "prefect-grace-e2e-packet-runner/live-e2e-packet-runner"
 
 
 # START_FUNCTION_CONTRACT
@@ -196,6 +202,27 @@ def managed_packet_flow_run_name(packet_id: str, title: str | None = None) -> st
 
 
 # START_FUNCTION_CONTRACT
+# name: e2e_packet_flow_run_name
+# purpose: Generate Prefect flow run name for E2E packet runner.
+# inputs:
+#   packet_id: Packet identifier.
+#   attempt: Packet execution attempt number.
+#   title: Optional packet title.
+# returns: Flow run name string with packet and attempt.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def e2e_packet_flow_run_name(packet_id: str, attempt: int, title: str | None = None) -> str:
+    clean_packet_id = str(packet_id or "unknown-packet")
+    clean_title = str(title or "").strip()
+    base = f"e2e-packet:{clean_packet_id}:attempt-{int(attempt)}"
+    if clean_title:
+        return f"{base}:{clean_title}"
+    return base
+
+
+# START_FUNCTION_CONTRACT
 # name: managed_packet_flow_parameters
 # purpose: Build flow parameters dict for managed packet runner deployment.
 # inputs:
@@ -239,6 +266,79 @@ def managed_packet_flow_parameters(
         "execute_agent": bool(execute_agent),
         "timeout_seconds": int(timeout_seconds),
     }
+
+
+# START_FUNCTION_CONTRACT
+# name: e2e_packet_flow_parameters
+# purpose: Build flow parameters dict for E2E packet runner deployment.
+# inputs:
+#   project_root: Project repository root directory.
+#   packet_path: Path to packet execution file.
+#   state_root: Runtime state root directory.
+#   worktree_root: Worktree root directory for isolated execution.
+#   project_key: Project identifier.
+#   packet_id: Packet identifier.
+#   attempt: Packet execution attempt number.
+#   base_ref: Git base reference.
+#   dry_run: Whether the E2E runner should use dry-run agent behavior.
+#   execute_agent: Whether to allow live agent execution inside the E2E runner.
+#   timeout_seconds: Flow timeout in seconds.
+#   keep_worktree: Whether the E2E runner keeps the worktree after execution.
+# returns: dict[str, Any] with e2e_packet_runner_flow-compatible parameters.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def e2e_packet_flow_parameters(
+    *,
+    project_root: str,
+    packet_path: str,
+    state_root: str,
+    worktree_root: str,
+    project_key: str,
+    packet_id: str,
+    attempt: int,
+    base_ref: str = "HEAD",
+    dry_run: bool = True,
+    execute_agent: bool = False,
+    timeout_seconds: int = 3600,
+    keep_worktree: bool = True,
+) -> dict[str, Any]:
+    return {
+        "project_root": str(project_root),
+        "packet_path": str(packet_path),
+        "state_root": str(state_root),
+        "worktree_root": str(worktree_root),
+        "project_key": str(project_key),
+        "packet_id": str(packet_id),
+        "attempt": int(attempt),
+        "base_ref": str(base_ref),
+        "dry_run": bool(dry_run),
+        "execute_agent": bool(execute_agent),
+        "timeout_seconds": int(timeout_seconds),
+        "keep_worktree": bool(keep_worktree),
+    }
+
+
+# START_FUNCTION_CONTRACT
+# name: _dedupe_tags
+# purpose: Preserve tag order while removing duplicates and empty values.
+# inputs:
+#   tags: Candidate tag list.
+# returns: List of unique non-empty tags.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def _dedupe_tags(tags: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for tag in tags:
+        clean_tag = str(tag or "").strip()
+        if clean_tag and clean_tag not in seen:
+            result.append(clean_tag)
+            seen.add(clean_tag)
+    return result
 
 
 # START_FUNCTION_CONTRACT
@@ -324,6 +424,62 @@ def build_managed_packet_submission_request(
 
 
 # START_FUNCTION_CONTRACT
+# name: build_e2e_packet_submission_request
+# purpose: Build submission request dict for E2E packet flow run (no Prefect calls).
+# inputs:
+#   parameters: Flow parameters dict from e2e_packet_flow_parameters().
+#   scheduled_for: Optional ISO8601 scheduled time string.
+#   tags: Optional additional tags for flow run.
+#   idempotency_key: Optional idempotency key.
+#   deployment_name: Prefect deployment name to submit.
+# returns: dict[str, Any] with deployment_name, parameters, scheduled_time, flow_run_name, idempotency_key, tags, work_queue_name.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def build_e2e_packet_submission_request(
+    *,
+    parameters: dict[str, Any],
+    scheduled_for: str | None = None,
+    tags: list[str] | None = None,
+    idempotency_key: str | None = None,
+    deployment_name: str = E2E_PACKET_DEPLOYMENT_NAME,
+) -> dict[str, Any]:
+    runtime = load_runtime_config()
+    scheduled_time = parse_scheduled_time(scheduled_for) or datetime.now(timezone.utc)
+    packet_id = str(parameters.get("packet_id") or "")
+    project_key = str(parameters.get("project_key") or "")
+    attempt = int(parameters.get("attempt") or 1)
+    flow_tags = _dedupe_tags(
+        [
+            "grace",
+            "packet",
+            "e2e",
+            f"packet:{packet_id}",
+            f"project:{project_key}",
+            *(tags or []),
+        ]
+    )
+
+    return {
+        "deployment_name": deployment_name,
+        "parameters": parameters,
+        "scheduled_time": scheduled_time,
+        "flow_run_name": e2e_packet_flow_run_name(packet_id, attempt),
+        "idempotency_key": idempotency_key
+        or f"grace-packet:{project_key}:{packet_id}:attempt-{attempt:04d}:{scheduled_time.isoformat()}",
+        "labels": {"grace.packet_id": packet_id, "grace.project_key": project_key},
+        "tags": flow_tags,
+        "work_pool_name": runtime.work_pool_name,
+        "work_queue_name": runtime.live_queue_name,
+        "api_url": runtime.api_url,
+        "packet_id": packet_id,
+        "project_key": project_key,
+        "attempt": attempt,
+    }
+
+
+# START_FUNCTION_CONTRACT
 # name: submit_feature_flow_run
 # purpose: Submit a Prefect flow run for feature pipeline deployment (delegates to runtime adapter).
 # inputs:
@@ -377,6 +533,39 @@ def submit_managed_packet_flow_run(
     """Wrapper for backward compatibility - delegates to runtime adapter for Prefect calls."""
     from prefect_grace.platform.runtime_adapter import ManagedPacketSubmitter
     submitter = ManagedPacketSubmitter()
+    return submitter(
+        parameters=parameters,
+        scheduled_for=scheduled_for,
+        tags=tags,
+        idempotency_key=idempotency_key,
+    )
+
+
+# START_FUNCTION_CONTRACT
+# name: submit_e2e_packet_flow_run
+# purpose: Submit a Prefect flow run for E2E packet runner deployment.
+# inputs:
+#   parameters: Flow parameters dict from e2e_packet_flow_parameters().
+#   scheduled_for: Optional ISO8601 scheduled time string.
+#   tags: Optional additional tags for flow run.
+#   idempotency_key: Optional idempotency key.
+#   deployment_name: Prefect deployment name to submit.
+# returns: dict[str, Any] with flow_run_id, flow_run_name, deployment_name, packet_id, project_key, status, scheduled_for, work queue/pool metadata, url, tags.
+# side_effects: Creates Prefect flow run via runtime adapter.
+# emitted_logs: None.
+# error_behavior: Raises RuntimeError if Prefect unavailable, propagates Prefect client errors.
+# END_FUNCTION_CONTRACT
+def submit_e2e_packet_flow_run(
+    *,
+    parameters: dict[str, Any],
+    scheduled_for: str | None = None,
+    tags: list[str] | None = None,
+    idempotency_key: str | None = None,
+    deployment_name: str = E2E_PACKET_DEPLOYMENT_NAME,
+) -> dict[str, Any]:
+    """Wrapper for backward compatibility - delegates to runtime adapter for Prefect calls."""
+    from prefect_grace.platform.runtime_adapter import E2EPacketSubmitter
+    submitter = E2EPacketSubmitter(deployment_name=deployment_name)
     return submitter(
         parameters=parameters,
         scheduled_for=scheduled_for,

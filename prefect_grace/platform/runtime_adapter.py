@@ -17,6 +17,7 @@
 #   - class: WorkflowRuntime
 #   - class: DryRunRuntime
 #   - class: PrefectRuntimeAdapter
+#   - class: E2EPacketSubmitter
 #   - class: ManagedPacketSubmitter
 #   - function: create_runtime
 # END_MODULE_MAP
@@ -128,7 +129,11 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
 
     def submit_packet_run(self, packet: dict[str, Any], parameters: dict[str, Any]) -> dict[str, Any]:
         try:
-            from prefect_grace.tasks.prefect_submitter import submit_feature_flow_run, feature_flow_parameters
+            from prefect_grace.tasks.prefect_submitter import (
+                E2E_PACKET_DEPLOYMENT_NAME,
+                e2e_packet_flow_parameters,
+                submit_e2e_packet_flow_run,
+            )
         except ImportError as e:
             raise RuntimeError(f"Prefect runtime unavailable: {e}")
 
@@ -138,43 +143,38 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
         if not packet_id or not feature_id:
             raise ValueError("packet_id and feature_id are required")
 
-        # Extract known fields from parameters with defaults
-        title = parameters.get("title", "Untitled Feature")
-        summary = parameters.get("summary", "No summary provided")
+        attempt = int(parameters.get("attempt") or packet.get("attempt") or 1)
+        project_key = str(parameters.get("project_key") or packet.get("project_key") or "project")
+        source_hash = str(parameters.get("source_hash") or packet.get("source_hash") or "").strip()
+        idempotency_key = parameters.get("idempotency_key")
+        if not idempotency_key and source_hash:
+            idempotency_key = f"grace-packet:{project_key}:{packet_id}:attempt-{attempt:04d}:{source_hash}"
 
-        # Build feature flow parameters using the new API with known fields only
-        flow_params = feature_flow_parameters(
-            feature_id=feature_id,
-            title=title,
-            summary=summary,
-            implementation_title=parameters.get("implementation_title"),
-            implementation_summary=parameters.get("implementation_summary"),
-            execute=parameters.get("execute", False),
+        flow_params = e2e_packet_flow_parameters(
+            project_root=str(parameters.get("project_root") or parameters.get("repo_root") or packet.get("repo_root") or "."),
+            packet_path=str(parameters.get("packet_path") or parameters.get("packet_file") or packet.get("packet_path") or packet.get("path") or ""),
+            state_root=str(parameters.get("state_root") or parameters.get("runtime_state_root") or packet.get("runtime_state_root") or ".grace/state"),
+            worktree_root=str(parameters.get("worktree_root") or packet.get("worktree_root") or ".grace/worktrees"),
+            project_key=project_key,
+            packet_id=str(packet_id),
+            attempt=attempt,
+            base_ref=str(parameters.get("base_ref") or "HEAD"),
+            dry_run=bool(parameters.get("dry_run", not bool(parameters.get("execute_agent", False)))),
+            execute_agent=bool(parameters.get("execute_agent", False)),
             timeout_seconds=parameters.get("timeout_seconds", 3600),
-            verifier_backend_profile=parameters.get("verifier_backend_profile", "backend_quick"),
-            verifier_frontend_profile=parameters.get("verifier_frontend_profile"),
-            verifier_frontend_commands=parameters.get("verifier_frontend_commands"),
-            verifier_observability_profile=parameters.get("verifier_observability_profile"),
-            verifier_observability_commands=parameters.get("verifier_observability_commands"),
-            verifier_artifact_globs=parameters.get("verifier_artifact_globs"),
-            verifier_touches_frontend=parameters.get("verifier_touches_frontend", False),
-            verifier_requires_frontend_visual=parameters.get("verifier_requires_frontend_visual", False),
-            verifier_include_day_live_canary=parameters.get("verifier_include_day_live_canary", False),
-            prefer_agent_output=parameters.get("prefer_agent_output", True),
-            run_planner=parameters.get("run_planner"),
-            agent_workdir=parameters.get("agent_workdir"),
-            agent_sandbox=parameters.get("agent_sandbox"),
-            business_context=parameters.get("business_context"),
-            planner_contract=parameters.get("planner_contract"),
-            commit_hash=parameters.get("commit_hash"),
+            keep_worktree=parameters.get("keep_worktree", True),
         )
 
-        # Submit using new signature
-        result = submit_feature_flow_run(
+        tags = ["grace", "packet", "e2e", f"packet:{packet_id}", f"feature:{feature_id}"]
+        wave_id = str(packet.get("wave_id") or parameters.get("wave_id") or "").strip()
+        if wave_id:
+            tags.append(f"wave:{wave_id}")
+
+        result = submit_e2e_packet_flow_run(
             parameters=flow_params,
-            scheduled_for=None,
-            tags=None,
-            idempotency_key=None,
+            scheduled_for=parameters.get("scheduled_for"),
+            tags=tags,
+            idempotency_key=idempotency_key,
         )
 
         return {
@@ -182,7 +182,9 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
             "runtime": "prefect",
             "packet_id": packet_id,
             "feature_id": feature_id,
-            "url": f"/flow-runs/flow-run/{result['flow_run_id']}",
+            "runner_kind": "e2e",
+            "deployment_name": result.get("deployment_name", E2E_PACKET_DEPLOYMENT_NAME),
+            "url": result.get("url") or f"/flow-runs/flow-run/{result['flow_run_id']}",
             "state": result.get("status", "UNKNOWN"),
         }
 
@@ -305,6 +307,87 @@ class FeatureSubmitter:
         }
 
 # END_BLOCK: feature_submitter
+
+# START_BLOCK: e2e_packet_submitter
+
+class E2EPacketSubmitter:
+    """Submitter for E2E packet flow runs via Prefect native submission."""
+
+    def __init__(self, deployment_name: str | None = None):
+        self.deployment_name = deployment_name
+
+    # START_FUNCTION_CONTRACT
+    # name: __call__
+    # purpose: Submit E2E packet flow run to Prefect.
+    # inputs:
+    #   parameters: dict with project_root, packet_path, state_root, worktree_root, project_key, packet_id, attempt, base_ref, dry_run, execute_agent, timeout_seconds, keep_worktree.
+    #   scheduled_for: optional ISO8601 scheduled time.
+    #   tags: optional list of additional tags.
+    #   idempotency_key: optional idempotency key.
+    # returns: dict with flow_run_id, flow_run_name, deployment_name, work_queue_name, work_pool_name, url.
+    # side_effects: Creates Prefect flow run.
+    # emitted_logs: None.
+    # error_behavior: Raises RuntimeError on submission failure.
+    # END_FUNCTION_CONTRACT
+    def __call__(
+        self,
+        *,
+        parameters: dict[str, Any],
+        scheduled_for: str | None = None,
+        tags: list[str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        import os
+        try:
+            from prefect_grace.tasks.prefect_submitter import (
+                E2E_PACKET_DEPLOYMENT_NAME,
+                build_e2e_packet_submission_request,
+            )
+            from prefect.client.orchestration import get_client
+            from prefect.states import Scheduled
+        except ImportError as e:
+            raise RuntimeError(f"Prefect unavailable: {e}")
+
+        request = build_e2e_packet_submission_request(
+            parameters=parameters,
+            scheduled_for=scheduled_for,
+            tags=tags,
+            idempotency_key=idempotency_key,
+            deployment_name=self.deployment_name or E2E_PACKET_DEPLOYMENT_NAME,
+        )
+
+        os.environ["PREFECT_API_URL"] = request["api_url"]
+
+        with get_client(sync_client=True) as client:
+            deployment = client.read_deployment_by_name(request["deployment_name"])
+            flow_run = client.create_flow_run_from_deployment(
+                deployment_id=deployment.id,
+                parameters=request["parameters"],
+                state=Scheduled(scheduled_time=request["scheduled_time"]),
+                name=request["flow_run_name"],
+                work_queue_name=request["work_queue_name"],
+                idempotency_key=request["idempotency_key"],
+                labels=request["labels"],
+                tags=request["tags"],
+            )
+
+        return {
+            "flow_run_id": str(flow_run.id),
+            "flow_run_name": request["flow_run_name"],
+            "deployment_id": str(deployment.id),
+            "deployment_name": request["deployment_name"],
+            "packet_id": request["packet_id"],
+            "project_key": request["project_key"],
+            "runner_kind": "e2e",
+            "status": str(getattr(flow_run.state, "name", None) or getattr(flow_run, "state_name", "") or "Scheduled"),
+            "scheduled_for": request["scheduled_time"].isoformat(),
+            "work_pool_name": request["work_pool_name"],
+            "work_queue_name": request["work_queue_name"],
+            "url": f"{request['api_url'].rstrip('/')}/flow-runs/flow-run/{flow_run.id}",
+            "tags": request["tags"],
+        }
+
+# END_BLOCK: e2e_packet_submitter
 
 # START_BLOCK: managed_packet_submitter
 

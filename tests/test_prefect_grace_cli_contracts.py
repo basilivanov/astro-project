@@ -107,6 +107,45 @@ def test_cli_sync_packets_dry_run() -> None:
     assert "blocked" in data["data"]
 
 
+def test_cli_submit_packets_contract() -> None:
+    """Verify submit-packets CLI exposes runner selection and dry-run defaults."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "submit-packets", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--project-config" in result.stdout
+    assert "--runner" in result.stdout
+    assert "--execute" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--limit" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--timeout-seconds" in result.stdout
+    assert "--continue-on-error" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_cli_prefect_e2e_live_smoke_contract() -> None:
+    """Verify run-prefect-e2e-live-smoke CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-prefect-e2e-live-smoke", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project-config" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--no-dry-run" in result.stdout
+    assert "--execute-agent" in result.stdout
+    assert "--allow-live-agent-smoke" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_check_scope_cli_contract() -> None:
     """Verify check-scope CLI follows contract."""
     # Test that command exists and has required args

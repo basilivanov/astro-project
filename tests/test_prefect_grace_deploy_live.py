@@ -60,7 +60,7 @@ def _import_deploy_live_with_prefect_stubs(monkeypatch):
     return deploy_live, created, updated
 
 
-def test_deploy_flows_excludes_extra_packet_deployment(monkeypatch):
+def test_deploy_flows_includes_e2e_packet_deployment(monkeypatch):
     deploy_live, created, updated = _import_deploy_live_with_prefect_stubs(monkeypatch)
     monkeypatch.setattr(
         deploy_live,
@@ -80,19 +80,23 @@ def test_deploy_flows_excludes_extra_packet_deployment(monkeypatch):
 
     assert set(deployments) == {
         "feature_pipeline",
+        "e2e_packet_runner",
         "packet_transition",
         "review_router",
         "live_dashboard",
     }
     assert [item["name"] for item in created] == [
         "live-feature-pipeline",
+        "live-e2e-packet-runner",
         "live-packet-transition",
         "live-review-router",
         "live-state-dashboard",
     ]
     assert created[0]["concurrency_limit"] == 1
+    assert created[1]["entrypoint"] == "prefect_grace/flows/e2e_packet_runner_flow.py:e2e_packet_runner_flow"
+    assert created[1]["tags"] == ["grace", "packet", "e2e", "live"]
     assert all("codex" not in str(item["name"]) for item in created)
-    assert len(updated) == 4
+    assert len(updated) == 5
 
 
 def test_ensure_work_pool_and_queues_updates_existing_limits(monkeypatch):
@@ -143,6 +147,7 @@ def test_main_prints_only_canonical_deployments(monkeypatch, capsys):
         "deploy_flows",
         lambda: {
             "feature_pipeline": "dep-feature",
+            "e2e_packet_runner": "dep-e2e",
             "packet_transition": "dep-transition",
             "review_router": "dep-review",
             "live_dashboard": "dep-dashboard",
@@ -160,6 +165,7 @@ def test_main_prints_only_canonical_deployments(monkeypatch, capsys):
     ]
     assert capsys.readouterr().out.strip().splitlines() == [
         "feature_pipeline=dep-feature",
+        "e2e_packet_runner=dep-e2e",
         "packet_transition=dep-transition",
         "review_router=dep-review",
         "live_dashboard=dep-dashboard",
