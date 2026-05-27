@@ -1,0 +1,159 @@
+{
+  "dry_run": true,
+  "execute_agent": false,
+  "result": {
+    "artifact_ids": [],
+    "bootstrap_apply_count": 7,
+    "cases": [
+      {
+        "name": "bounded_parent_seeded_accepted",
+        "ok": true,
+        "packet_id": "PARENT-ACCEPTED",
+        "registry_status": "accepted",
+        "selected": false
+      },
+      {
+        "name": "only_runnable_child_selected",
+        "ok": true,
+        "packet_id": "CHILD-RUNNABLE",
+        "registry_status": "ready",
+        "selected": true
+      },
+      {
+        "name": "missing_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-MISSING-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "blocked_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-BLOCKED-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "source_status_only_not_accepted",
+        "ok": true,
+        "packet_id": "PARENT-SOURCE-STATUS-ONLY",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "command_status_passed_not_accepted",
+        "ok": true,
+        "packet_id": "COMMAND-STATUS-PASSED",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "sync_dry_run_no_registry_write",
+        "ok": true,
+        "packet_id": "sync-packets",
+        "registry_status": "unchanged"
+      },
+      {
+        "name": "submit_dry_run_no_prefect_runs",
+        "ok": true,
+        "packet_id": "submit-packets",
+        "prefect_runs_created": 0
+      }
+    ],
+    "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+    "domain_status": null,
+    "errors": [],
+    "flow_run_id": "flow-run-seeded-smoke-evidence",
+    "flow_run_name": "e2e-packet:CHILD-RUNNABLE:attempt-1",
+    "flow_run_url": "http://prefect.local/flow-runs/flow-run-seeded-smoke-evidence",
+    "live_agents_started": 0,
+    "mode": "prefect_real_dry_run_seeded_smoke",
+    "ok": true,
+    "packet_root": "/tmp/grace-seeded-evidence-odt1of78/packets",
+    "prefect_runs_created": 1,
+    "prefect_state_name": null,
+    "prefect_state_type": null,
+    "project_key": "evidence-project",
+    "selected_packet_id": "CHILD-RUNNABLE",
+    "state_root": "/tmp/grace-seeded-evidence-odt1of78/state",
+    "submit_plan": {
+      "blocked_packets": [
+        "PARENT-BLOCKED"
+      ],
+      "dry_run": true,
+      "errors": [],
+      "ok": true,
+      "packets_planned": [
+        "CHILD-RUNNABLE"
+      ],
+      "packets_submitted": [],
+      "packets_to_submit": [
+        "CHILD-RUNNABLE"
+      ],
+      "project_key": "evidence-project",
+      "records": [
+        {
+          "attempt": 1,
+          "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+          "error": null,
+          "feature_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+          "flow_run_id": null,
+          "flow_run_name": "e2e-packet:CHILD-RUNNABLE:attempt-1:CHILD-RUNNABLE",
+          "idempotency_key": "grace-packet:evidence-project:CHILD-RUNNABLE:attempt-0001:sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "packet_id": "CHILD-RUNNABLE",
+          "runner_kind": "e2e",
+          "source_hash": "sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "status": "dry_run",
+          "url": null,
+          "wave_id": "W01",
+          "work_queue_name": null
+        }
+      ],
+      "warnings": [
+        "1 packet(s) have missing dependencies",
+        "3 packet(s) have missing dependencies"
+      ]
+    },
+    "submitted": true,
+    "sync_plan": {
+      "accepted": [
+        "PARENT-ACCEPTED"
+      ],
+      "blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-BLOCKED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "cascading_blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "changed_after_acceptance": [],
+      "cycles": [],
+      "errors": [],
+      "packets_total": 7,
+      "ready": [
+        "CHILD-RUNNABLE"
+      ],
+      "ready_for_retry": [],
+      "registry_updates": 0,
+      "warnings": [
+        "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "3 packet(s) have missing dependencies"
+      ]
+    },
+    "waited": false,
+    "warnings": [
+      "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+      "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False"
+    ],
+    "work_queue_name": "test-live",
+    "worktree_root": "/tmp/grace-seeded-evidence-odt1of78/worktrees",
+    "writes_outside_temp_roots": []
+  },
+  "submitted_packet_id": "CHILD-RUNNABLE",
+  "submitter_calls": 1
+}

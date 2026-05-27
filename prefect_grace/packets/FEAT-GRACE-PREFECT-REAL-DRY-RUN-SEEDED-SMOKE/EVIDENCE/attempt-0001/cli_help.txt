@@ -1,0 +1,30 @@
+usage: prefect-grace run-prefect-real-dry-run-seeded-smoke [-h] --project
+                                                           PROJECT
+                                                           --state-root
+                                                           STATE_ROOT
+                                                           --worktree-root
+                                                           WORKTREE_ROOT
+                                                           --packet-root
+                                                           PACKET_ROOT
+                                                           [--timeout-seconds TIMEOUT_SECONDS]
+                                                           [--poll-interval-seconds POLL_INTERVAL_SECONDS]
+                                                           [--no-wait]
+                                                           [--execute-agent]
+                                                           [--json]
+
+options:
+  -h, --help            show this help message and exit
+  --project PROJECT     Project config path
+  --state-root STATE_ROOT
+                        Smoke state root
+  --worktree-root WORKTREE_ROOT
+                        Smoke worktree root
+  --packet-root PACKET_ROOT
+                        Synthetic smoke packet root
+  --timeout-seconds TIMEOUT_SECONDS
+                        Wait timeout seconds
+  --poll-interval-seconds POLL_INTERVAL_SECONDS
+                        Wait poll interval seconds
+  --no-wait             Only verify Prefect flow run creation
+  --execute-agent       Rejected in seeded dry-run smoke mode
+  --json                JSON output

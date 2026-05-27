@@ -1,0 +1,334 @@
+{
+  "ok": false,
+  "project_key": "astro-project",
+  "command": "run-prefect-real-dry-run-seeded-smoke",
+  "result": {
+    "ok": false,
+    "project_key": "astro-project",
+    "mode": "prefect_real_dry_run_seeded_smoke",
+    "state_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/state",
+    "worktree_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/worktrees",
+    "packet_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/packets",
+    "selected_packet_id": "CHILD-RUNNABLE",
+    "bootstrap_apply_count": 7,
+    "sync_plan": {
+      "packets_total": 7,
+      "registry_updates": 0,
+      "ready": [
+        "CHILD-RUNNABLE"
+      ],
+      "accepted": [
+        "PARENT-ACCEPTED"
+      ],
+      "blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-BLOCKED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "changed_after_acceptance": [],
+      "ready_for_retry": [],
+      "cascading_blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "cycles": [],
+      "warnings": [
+        "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "3 packet(s) have missing dependencies"
+      ],
+      "errors": []
+    },
+    "submit_plan": {
+      "ok": true,
+      "project_key": "astro-project",
+      "dry_run": true,
+      "packets_planned": [
+        "CHILD-RUNNABLE"
+      ],
+      "packets_submitted": [],
+      "records": [
+        {
+          "packet_id": "CHILD-RUNNABLE",
+          "feature_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+          "wave_id": "W01",
+          "attempt": 1,
+          "source_hash": "sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "idempotency_key": "grace-packet:astro-project:CHILD-RUNNABLE:attempt-0001:sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "flow_run_id": null,
+          "flow_run_name": "e2e-packet:CHILD-RUNNABLE:attempt-1:CHILD-RUNNABLE",
+          "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+          "work_queue_name": null,
+          "status": "dry_run",
+          "runner_kind": "e2e",
+          "url": null,
+          "error": null
+        }
+      ],
+      "blocked_packets": [
+        "PARENT-BLOCKED"
+      ],
+      "warnings": [
+        "1 packet(s) have missing dependencies",
+        "3 packet(s) have missing dependencies"
+      ],
+      "errors": [],
+      "packets_to_submit": [
+        "CHILD-RUNNABLE"
+      ]
+    },
+    "deployment_name": null,
+    "work_queue_name": null,
+    "flow_run_id": null,
+    "flow_run_name": null,
+    "flow_run_url": null,
+    "submitted": false,
+    "waited": false,
+    "prefect_state_type": null,
+    "prefect_state_name": null,
+    "domain_status": null,
+    "artifact_ids": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "writes_outside_temp_roots": [],
+    "warnings": [
+      "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+      "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False"
+    ],
+    "errors": [
+      {
+        "code": "SUBMISSION_FAILED",
+        "packet_id": "CHILD-RUNNABLE",
+        "message": "Prefect unavailable: No module named 'prefect'"
+      }
+    ],
+    "cases": [
+      {
+        "name": "bounded_parent_seeded_accepted",
+        "ok": true,
+        "packet_id": "PARENT-ACCEPTED",
+        "registry_status": "accepted",
+        "selected": false
+      },
+      {
+        "name": "only_runnable_child_selected",
+        "ok": true,
+        "packet_id": "CHILD-RUNNABLE",
+        "registry_status": "ready",
+        "selected": true
+      },
+      {
+        "name": "missing_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-MISSING-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "blocked_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-BLOCKED-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "source_status_only_not_accepted",
+        "ok": true,
+        "packet_id": "PARENT-SOURCE-STATUS-ONLY",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "command_status_passed_not_accepted",
+        "ok": true,
+        "packet_id": "COMMAND-STATUS-PASSED",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "sync_dry_run_no_registry_write",
+        "ok": true,
+        "packet_id": "sync-packets",
+        "registry_status": "unchanged"
+      },
+      {
+        "name": "submit_dry_run_no_prefect_runs",
+        "ok": true,
+        "packet_id": "submit-packets",
+        "prefect_runs_created": 0
+      }
+    ]
+  },
+  "data": {
+    "ok": false,
+    "project_key": "astro-project",
+    "mode": "prefect_real_dry_run_seeded_smoke",
+    "state_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/state",
+    "worktree_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/worktrees",
+    "packet_root": "/tmp/grace-prefect-real-dry-run-seeded-smoke/packets",
+    "selected_packet_id": "CHILD-RUNNABLE",
+    "bootstrap_apply_count": 7,
+    "sync_plan": {
+      "packets_total": 7,
+      "registry_updates": 0,
+      "ready": [
+        "CHILD-RUNNABLE"
+      ],
+      "accepted": [
+        "PARENT-ACCEPTED"
+      ],
+      "blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-BLOCKED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "changed_after_acceptance": [],
+      "ready_for_retry": [],
+      "cascading_blocked": [
+        "CHILD-MISSING-DEP",
+        "COMMAND-STATUS-PASSED",
+        "PARENT-SOURCE-STATUS-ONLY"
+      ],
+      "cycles": [],
+      "warnings": [
+        "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False",
+        "3 packet(s) have missing dependencies"
+      ],
+      "errors": []
+    },
+    "submit_plan": {
+      "ok": true,
+      "project_key": "astro-project",
+      "dry_run": true,
+      "packets_planned": [
+        "CHILD-RUNNABLE"
+      ],
+      "packets_submitted": [],
+      "records": [
+        {
+          "packet_id": "CHILD-RUNNABLE",
+          "feature_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+          "wave_id": "W01",
+          "attempt": 1,
+          "source_hash": "sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "idempotency_key": "grace-packet:astro-project:CHILD-RUNNABLE:attempt-0001:sha256:3835d3fad7461ed2cbe57547485cd825c34693268176cfb0710ef343b7a0e7d6",
+          "flow_run_id": null,
+          "flow_run_name": "e2e-packet:CHILD-RUNNABLE:attempt-1:CHILD-RUNNABLE",
+          "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+          "work_queue_name": null,
+          "status": "dry_run",
+          "runner_kind": "e2e",
+          "url": null,
+          "error": null
+        }
+      ],
+      "blocked_packets": [
+        "PARENT-BLOCKED"
+      ],
+      "warnings": [
+        "1 packet(s) have missing dependencies",
+        "3 packet(s) have missing dependencies"
+      ],
+      "errors": [],
+      "packets_to_submit": [
+        "CHILD-RUNNABLE"
+      ]
+    },
+    "deployment_name": null,
+    "work_queue_name": null,
+    "flow_run_id": null,
+    "flow_run_name": null,
+    "flow_run_url": null,
+    "submitted": false,
+    "waited": false,
+    "prefect_state_type": null,
+    "prefect_state_name": null,
+    "domain_status": null,
+    "artifact_ids": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "writes_outside_temp_roots": [],
+    "warnings": [
+      "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+      "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False"
+    ],
+    "errors": [
+      {
+        "code": "SUBMISSION_FAILED",
+        "packet_id": "CHILD-RUNNABLE",
+        "message": "Prefect unavailable: No module named 'prefect'"
+      }
+    ],
+    "cases": [
+      {
+        "name": "bounded_parent_seeded_accepted",
+        "ok": true,
+        "packet_id": "PARENT-ACCEPTED",
+        "registry_status": "accepted",
+        "selected": false
+      },
+      {
+        "name": "only_runnable_child_selected",
+        "ok": true,
+        "packet_id": "CHILD-RUNNABLE",
+        "registry_status": "ready",
+        "selected": true
+      },
+      {
+        "name": "missing_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-MISSING-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "blocked_dependency_unsubmitted",
+        "ok": true,
+        "packet_id": "CHILD-BLOCKED-DEP",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "source_status_only_not_accepted",
+        "ok": true,
+        "packet_id": "PARENT-SOURCE-STATUS-ONLY",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "command_status_passed_not_accepted",
+        "ok": true,
+        "packet_id": "COMMAND-STATUS-PASSED",
+        "registry_status": "waiting_for_dependencies",
+        "selected": false
+      },
+      {
+        "name": "sync_dry_run_no_registry_write",
+        "ok": true,
+        "packet_id": "sync-packets",
+        "registry_status": "unchanged"
+      },
+      {
+        "name": "submit_dry_run_no_prefect_runs",
+        "ok": true,
+        "packet_id": "submit-packets",
+        "prefect_runs_created": 0
+      }
+    ]
+  },
+  "warnings": [
+    "Skipping non-runnable packet review-0001.md: missing packet_id=False, feature_id=False, wave_id=False",
+    "Skipping non-runnable packet SUMMARY.md: missing packet_id=False, feature_id=False, wave_id=False"
+  ],
+  "errors": [
+    {
+      "code": "SUBMISSION_FAILED",
+      "packet_id": "CHILD-RUNNABLE",
+      "message": "Prefect unavailable: No module named 'prefect'"
+    }
+  ]
+}

@@ -18,7 +18,9 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
+from pathlib import Path
 
 # Re-exporting models and all command functions for backward compatibility
 from prefect_grace.models import (
@@ -105,7 +107,90 @@ from prefect_grace.cli_commands.executors import (
 )
 
 # Parser constructor
-from prefect_grace.cli_commands.parser import build_parser
+from prefect_grace.cli_commands.parser import build_parser as _base_build_parser
+
+
+def _cmd_run_prefect_real_dry_run_seeded_smoke(args: argparse.Namespace) -> None:
+    command = "run-prefect-real-dry-run-seeded-smoke"
+    try:
+        from prefect_grace.platform.prefect_real_dry_run_seeded_smoke import (
+            run_prefect_real_dry_run_seeded_smoke,
+        )
+
+        result = run_prefect_real_dry_run_seeded_smoke(
+            project_config=Path(args.project),
+            state_root=Path(args.state_root),
+            worktree_root=Path(args.worktree_root),
+            packet_root=Path(args.packet_root),
+            timeout_seconds=int(args.timeout_seconds),
+            poll_interval_seconds=int(args.poll_interval_seconds),
+            wait=not bool(args.no_wait),
+            execute_agent=bool(getattr(args, "execute_agent", False)),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"Prefect real dry-run seeded smoke for {result.project_key}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  State root: {result.state_root}")
+            print(f"  Worktree root: {result.worktree_root}")
+            print(f"  Packet root: {result.packet_root}")
+            print(f"  Selected packet: {result.selected_packet_id or '-'}")
+            print(f"  Bootstrap apply count: {result.bootstrap_apply_count}")
+            print(f"  Prefect runs created: {result.prefect_runs_created}")
+            print(f"  Live agents started: {result.live_agents_started}")
+            print(f"  Flow run: {result.flow_run_id or '-'}")
+            for error in result.errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PREFECT_REAL_DRY_RUN_SEEDED_SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Prefect real dry-run seeded smoke failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+# START_FUNCTION_CONTRACT
+# name: build_parser
+# purpose: Build the CLI parser and register facade-level commands.
+# inputs: None.
+# returns: argparse.ArgumentParser with all supported subcommands.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Propagates parser construction errors.
+# END_FUNCTION_CONTRACT
+def build_parser() -> argparse.ArgumentParser:
+    parser = _base_build_parser()
+    subparsers = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
+    if "run-prefect-real-dry-run-seeded-smoke" not in subparsers.choices:
+        seeded = subparsers.add_parser(
+            "run-prefect-real-dry-run-seeded-smoke",
+            help="Run one registry-seeded real Prefect E2E dry-run smoke",
+        )
+        seeded.add_argument("--project", required=True, help="Project config path")
+        seeded.add_argument("--state-root", required=True, help="Smoke state root")
+        seeded.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+        seeded.add_argument("--packet-root", required=True, help="Synthetic smoke packet root")
+        seeded.add_argument("--timeout-seconds", type=int, default=900, help="Wait timeout seconds")
+        seeded.add_argument("--poll-interval-seconds", type=int, default=5, help="Wait poll interval seconds")
+        seeded.add_argument("--no-wait", action="store_true", help="Only verify Prefect flow run creation")
+        seeded.add_argument("--execute-agent", action="store_true", help="Rejected in seeded dry-run smoke mode")
+        seeded.add_argument("--json", action="store_true", help="JSON output")
+        seeded.set_defaults(func=_cmd_run_prefect_real_dry_run_seeded_smoke)
+    return parser
 
 
 def main() -> None:

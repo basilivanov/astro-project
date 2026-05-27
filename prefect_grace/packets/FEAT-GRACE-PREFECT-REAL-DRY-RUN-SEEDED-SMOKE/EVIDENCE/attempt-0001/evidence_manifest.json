@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-05-28T00:40:43+03:00",
+  "attempt": 1,
+  "packet_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE-W01-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+  "packet_status": "ready_for_review",
+  "files_changed": [
+    "prefect_grace/platform/prefect_real_dry_run_seeded_smoke.py",
+    "prefect_grace/cli.py",
+    "tests/test_prefect_grace_prefect_real_dry_run_seeded_smoke.py",
+    "tests/test_prefect_grace_cli_prefect_real_dry_run_seeded_smoke.py",
+    "tests/test_prefect_grace_cli_command_module_split.py",
+    "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EVIDENCE/attempt-0001/*"
+  ],
+  "implementation_notes": [
+    "Added registry-seeded real Prefect dry-run smoke harness using existing backlog bootstrap, sync planning, native submission, and Prefect status reader contracts.",
+    "The smoke creates deterministic synthetic packets only under explicit temp packet roots and rejects broad/real roots before cleanup.",
+    "CLI registration is added in prefect_grace/cli.py facade because the packet allowed cli.py; tests/test_prefect_grace_cli_command_module_split.py was updated only to include the new command in the existing CLI inventory regression."
+  ],
+  "verification": {
+    "targeted_pytest": {
+      "command": "pytest -q tests/test_prefect_grace_prefect_real_dry_run_seeded_smoke.py tests/test_prefect_grace_cli_prefect_real_dry_run_seeded_smoke.py tests/test_prefect_grace_prefect_e2e_real_dry_run_smoke.py tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "50 passed in 4.60s",
+      "output": "targeted_pytest.txt"
+    },
+    "cli_command_module_split_regression": {
+      "command": "pytest -q tests/test_prefect_grace_cli_command_module_split.py",
+      "result": "5 passed in 0.12s",
+      "output": "cli_command_module_split_regression.txt"
+    },
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/platform prefect_grace/cli.py",
+      "result": "passed",
+      "output": "compileall.txt"
+    },
+    "grace_lint_packet_command": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/prefect_real_dry_run_seeded_smoke.py prefect_grace/platform/prefect_e2e_real_dry_run_smoke.py prefect_grace/cli.py",
+      "result": "passed",
+      "output": "grace_lint_packet_command.txt",
+      "note": "scripts/grace_lint.py consumes the first target argument; additional individual lint outputs are included for changed/related modules."
+    },
+    "grace_lint_cli": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/cli.py",
+      "result": "passed",
+      "output": "grace_lint_cli.txt"
+    },
+    "grace_lint_prefect_e2e_real": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/prefect_e2e_real_dry_run_smoke.py",
+      "result": "passed",
+      "output": "grace_lint_prefect_e2e_real.txt"
+    },
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EXECUTION_PACKET.md --strict --json",
+      "ok": true,
+      "warnings": 0,
+      "errors": 0,
+      "output": "strict_validate_packet.json"
+    },
+    "cli_help": {
+      "command": "python3 -m prefect_grace.cli run-prefect-real-dry-run-seeded-smoke --help",
+      "result": "passed",
+      "output": "cli_help.txt"
+    },
+    "unit_injected_seeded_smoke": {
+      "command": "python3 inline harness with fake submitter and wait=False",
+      "result": "ok=true, selected_packet_id=CHILD-RUNNABLE, submitter_calls=1, dry_run=true, execute_agent=false",
+      "output": "unit_injected_seeded_smoke.json"
+    },
+    "cli_real_prefect_unavailable_smoke": {
+      "command": "python3 -m prefect_grace.cli run-prefect-real-dry-run-seeded-smoke --project prefect_grace/project.yaml --state-root /tmp/grace-prefect-real-dry-run-seeded-smoke/state --worktree-root /tmp/grace-prefect-real-dry-run-seeded-smoke/worktrees --packet-root /tmp/grace-prefect-real-dry-run-seeded-smoke/packets --no-wait --json",
+      "result": "ok=false, selected_packet_id=CHILD-RUNNABLE, error=Prefect unavailable: No module named 'prefect'",
+      "output": "cli_real_prefect_unavailable_smoke.json"
+    },
+    "prefect_availability_probe": {
+      "command": "python3 inline Prefect import/client probe",
+      "result": "prefect_import=failed; ModuleNotFoundError: No module named 'prefect'",
+      "output": "prefect_availability.txt"
+    }
+  },
+  "scenario_evidence": {
+    "accepted_parent_seeded_and_skipped": true,
+    "selected_packet_id": "CHILD-RUNNABLE",
+    "missing_dependency_unsubmitted": true,
+    "blocked_dependency_unsubmitted": true,
+    "source_status_only_not_accepted": true,
+    "command_status_passed_not_accepted": true,
+    "submit_dry_run_prefect_runs_created": 0,
+    "unit_injected_prefect_runs_created": 1,
+    "live_agents_started": 0,
+    "writes_outside_temp_roots": []
+  },
+  "real_prefect_verification": {
+    "status": "not_run_prefect_unavailable",
+    "reason": "Prefect is not installed in this coder environment. The CLI smoke was run once with real submitter path and failed closed with a structured Prefect unavailable error; no fake real pass was recorded."
+  },
+  "safety_confirmation": {
+    "execute_agent_rejected_before_submission": true,
+    "generated_packets_under_temp_packet_root": true,
+    "state_root_rejects_var_lib_grace_orchestrator": true,
+    "state_root_rejects_prefect_grace_state": true,
+    "worktree_root_rejects_repository_paths": true,
+    "packet_root_requires_temp_root": true,
+    "real_var_lib_grace_orchestrator_touched": false,
+    "prefect_grace_state_yaml_touched": false,
+    "source_packets_mutated": false,
+    "backend_changed": false,
+    "frontend_changed": false,
+    "docker_started": false,
+    "playwright_started": false,
+    "live_agents_started": false,
+    "provider_apis_called": false
+  },
+  "post_test_observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "Offline/unit and CLI regression checks are clean.",
+    "Real Prefect verification is explicitly degraded because Prefect is unavailable in this Python environment; this is recorded as not_run_prefect_unavailable.",
+    "The real CLI no-wait smoke still produced useful registry evidence before failing closed at Prefect submission: one selected CHILD-RUNNABLE, accepted parent skipped, missing/blocked/source-only/command-passed fixtures unsubmitted, zero live agents, and no writes outside temp roots."
+  ]
+}
