@@ -262,3 +262,22 @@ def test_validate_evidence_manifest_cli_contract() -> None:
     assert "--packet" in result.stdout
     assert "--artifact-root" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_run_e2e_packet_flow_cli_contract() -> None:
+    """Verify run-e2e-packet-flow CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-e2e-packet-flow", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project-root" in result.stdout
+    assert "--packet" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--fake-verifier-output" in result.stdout
+    assert "--fake-reviewer-output" in result.stdout
+    assert "--json" in result.stdout

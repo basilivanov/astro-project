@@ -1726,6 +1726,70 @@ def _cmd_run_e2e_packet(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_run_e2e_packet_flow(args: argparse.Namespace) -> None:
+    """Run end-to-end packet execution through the Prefect flow wrapper."""
+    command = "run-e2e-packet-flow"
+
+    if args.execute_agent and not hasattr(args, '_no_dry_run_explicit'):
+        error_msg = "Live agent execution requires explicit --no-dry-run flag. Use: --execute-agent --no-dry-run"
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "MISSING_EXPLICIT_NO_DRY_RUN", "message": error_msg}],
+            ))
+        else:
+            print(f"Error: {error_msg}", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        from prefect_grace.flows.e2e_packet_runner_flow import e2e_packet_runner_flow
+
+        result = e2e_packet_runner_flow(
+            project_root=str(args.project_root),
+            packet_path=str(args.packet),
+            state_root=str(args.state_root),
+            worktree_root=str(args.worktree_root),
+            project_key=args.project_key,
+            packet_id=args.packet_id,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            dry_run=args.dry_run,
+            execute_agent=args.execute_agent,
+            fake_verifier_output=str(args.fake_verifier_output) if args.fake_verifier_output else None,
+            fake_reviewer_output=str(args.fake_reviewer_output) if args.fake_reviewer_output else None,
+            timeout_seconds=args.timeout_seconds,
+            keep_worktree=args.keep_worktree,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result["ok"],
+                command=command,
+                result=result,
+            ))
+        else:
+            print(f"E2E packet flow: {result['domain_status']}")
+            print(f"  Packet: {result['packet_id']}")
+            print(f"  Attempt: {result['attempt']}")
+            print(f"  Registry status: {result['registry_status']}")
+            print(f"  Registry reason: {result['registry_reason']}")
+            print(f"  Artifacts: {len(result.get('artifact_ids') or [])}")
+
+        sys.exit(0 if result["domain_status"] == "accepted" else 1)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_E2E_PACKET_FLOW_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run E2E packet flow failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def _cmd_run_handoff(args: argparse.Namespace) -> None:
     """Run verifier-reviewer handoff."""
     command = "run-handoff"
@@ -2241,6 +2305,26 @@ def build_parser() -> argparse.ArgumentParser:
     run_e2e_packet.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
     run_e2e_packet.add_argument("--json", action="store_true", help="JSON output")
     run_e2e_packet.set_defaults(func=_cmd_run_e2e_packet)
+
+    # run-e2e-packet-flow
+    run_e2e_packet_flow = subparsers.add_parser("run-e2e-packet-flow", help="Run end-to-end packet execution through Prefect flow")
+    run_e2e_packet_flow.add_argument("--project-root", type=Path, required=True, help="Project root directory")
+    run_e2e_packet_flow.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_e2e_packet_flow.add_argument("--state-root", type=Path, required=True, help="State root directory")
+    run_e2e_packet_flow.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_e2e_packet_flow.add_argument("--project-key", required=True, help="Project key")
+    run_e2e_packet_flow.add_argument("--packet-id", required=True, help="Packet ID")
+    run_e2e_packet_flow.add_argument("--attempt", type=int, default=1, help="Attempt number (default: 1)")
+    run_e2e_packet_flow.add_argument("--base-ref", default="HEAD", help="Git base ref (default: HEAD)")
+    run_e2e_packet_flow.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default: true)")
+    run_e2e_packet_flow.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run")
+    run_e2e_packet_flow.add_argument("--execute-agent", action="store_true", help="Execute live agent (requires --no-dry-run)")
+    run_e2e_packet_flow.add_argument("--fake-verifier-output", type=Path, help="Path to fake verifier output file")
+    run_e2e_packet_flow.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file")
+    run_e2e_packet_flow.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds (default: 3600)")
+    run_e2e_packet_flow.add_argument("--keep-worktree", action="store_true", default=True, help="Keep worktree after execution (default: true)")
+    run_e2e_packet_flow.add_argument("--json", action="store_true", help="JSON output")
+    run_e2e_packet_flow.set_defaults(func=_cmd_run_e2e_packet_flow)
 
     return parser
 
