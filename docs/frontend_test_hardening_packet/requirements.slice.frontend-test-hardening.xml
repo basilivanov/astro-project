@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements_slice id="frontend-test-hardening" title="Frontend Test Hardening" version="2026-03-31">
+  <context>
+    <project_root>/opt/astro-project</project_root>
+    <packet_root>/opt/astro-project/docs/frontend_test_hardening_packet</packet_root>
+    <baseline_inputs>
+      <file>/opt/astro-project/AGENTS.md</file>
+      <file>/opt/astro-project/GRACE.md</file>
+      <file>/opt/astro-project/requirements.xml</file>
+      <file>/opt/astro-project/development-plan.xml</file>
+      <file>/opt/astro-project/verification-matrix.md</file>
+    </baseline_inputs>
+    <current_state>
+      <fact>Frontend currently has Playwright E2E coverage via <code>frontend/playwright.config.cjs</code> and <code>./scripts/run_e2e.sh</code>.</fact>
+      <fact>No frontend unit/integration coverage tool is currently defined in <code>frontend/package.json</code>; this packet declares <code>Jest</code>/<code>Next</code> as the canonical runner family for that gap.</fact>
+      <fact>The explicit target of this packet is line coverage for source files under <code>frontend/app</code>, <code>frontend/components</code>, and <code>frontend/lib</code>.</fact>
+    </current_state>
+  </context>
+  <local_adaptation>
+    <rule>For this project, Playwright is the canonical frontend E2E/live-interaction verifier.</rule>
+    <rule>For this project, Jest with Next-compatible setup is the canonical frontend unit/integration and coverage runner for <code>frontend/app</code>, <code>frontend/components</code>, and <code>frontend/lib</code>.</rule>
+    <rule>This adaptation is controller-owned; workers MUST NOT substitute another unit/integration runner unless the controller updates this packet.</rule>
+  </local_adaptation>
+  <objective>
+    <goal>Establish execution-ready frontend test hardening work that reaches and enforces 95% line coverage for the scoped frontend source while preserving the current Playwright E2E path.</goal>
+    <business_value>Reduce frontend regression risk in high-traffic user and admin flows, make coverage measurable and enforceable, and give coder workers a bounded implementation path.</business_value>
+  </objective>
+  <coverage_metric>
+    <metric_name>frontend_scoped_line_coverage</metric_name>
+    <definition>Line coverage must be at least 95.00% for the union of instrumented source files under <code>frontend/app</code>, <code>frontend/components</code>, and <code>frontend/lib</code>.</definition>
+    <formula>(covered executable lines in included scoped source files) / (all executable lines in included scoped source files) * 100</formula>
+    <threshold operator=">=">95.00</threshold>
+    <numerator_rule>E2E files do not contribute covered lines to the numerator because E2E specs are excluded from the instrumented source set.</numerator_rule>
+    <denominator_rule>Only executable lines in included source files inside the three scoped directories count in the denominator.</denominator_rule>
+    <reporting_requirements>
+      <requirement>Coverage output MUST report a combined scoped line percentage.</requirement>
+      <requirement>Coverage output SHOULD also report per-file line coverage to guide remediation waves.</requirement>
+      <requirement>Coverage evidence MUST be reproducible from committed config and documented commands.</requirement>
+    </reporting_requirements>
+  </coverage_metric>
+  <inclusion_exclusion_policy>
+    <included_paths>
+      <path>frontend/app/**</path>
+      <path>frontend/components/**</path>
+      <path>frontend/lib/**</path>
+    </included_paths>
+    <excluded_paths>
+      <path>frontend/e2e/**</path>
+      <path>**/*.spec.*</path>
+      <path>**/*.test.*</path>
+      <path>**/__tests__/**</path>
+      <path>**/__mocks__/**</path>
+      <path>**/__snapshots__/**</path>
+      <path>**/*.snap</path>
+      <path>frontend/test-results/**</path>
+      <path>frontend/playwright-report/**</path>
+      <path>frontend/.next/**</path>
+      <path>frontend/node_modules/**</path>
+    </excluded_paths>
+    <policy_decisions>
+      <decision subject="generated_files">Generated files MUST be excluded from the scoped coverage denominator and numerator.</decision>
+      <decision subject="test_files">All unit, integration, harness, fixture, and helper test files MUST be excluded from the scoped coverage denominator and numerator.</decision>
+      <decision subject="e2e_files">All Playwright E2E specs and support files under <code>frontend/e2e</code> MUST be excluded from the scoped coverage denominator and numerator.</decision>
+      <decision subject="snapshots">All snapshots and snapshot baselines MUST be excluded from the scoped coverage denominator and numerator.</decision>
+    </policy_decisions>
+    <generated_file_rule>
+      <requirement>If the chosen coverage tool surfaces framework-generated artifacts, workers MUST explicitly exclude them in config.</requirement>
+      <requirement>If a file’s generated/manual status is ambiguous, treat it as excluded until the controller explicitly marks it in-scope.</requirement>
+    </generated_file_rule>
+  </inclusion_exclusion_policy>
+  <delivery_waves>
+    <wave id="wave-1-audit-baseline" name="audit-baseline"><purpose>Establish the current source inventory, the current coverage baseline, and the largest uncovered areas.</purpose></wave>
+    <wave id="wave-2-tool-stabilization" name="tool-stabilization"><purpose>Add and stabilize a Jest/Next unit/integration coverage runner that works alongside existing Playwright E2E tooling.</purpose></wave>
+    <wave id="wave-3-high-value-tests" name="high-value-tests"><purpose>Add high-value unit/integration tests that cover behavior-rich files first and lift scoped line coverage toward target.</purpose></wave>
+    <wave id="wave-4-threshold-enforcement" name="threshold-enforcement"><purpose>Make the 95% scoped line threshold enforceable in CI/local verification and fail closed on regressions.</purpose></wave>
+    <wave id="wave-5-docs-handoff" name="docs-handoff"><purpose>Document commands, scope, exclusions, and worker handoff rules so future coder workers can continue without rediscovery.</purpose></wave>
+  </delivery_waves>
+  <write_scope>
+    <allowed>
+      <path>frontend/package.json</path><path>frontend/package-lock.json</path><path>frontend/*coverage*</path><path>frontend/*vitest*</path><path>frontend/*jest*</path><path>frontend/test/**</path><path>frontend/tests/**</path><path>frontend/__tests__/**</path><path>frontend/app/**</path><path>frontend/components/**</path><path>frontend/lib/**</path><path>docs/frontend_test_hardening_packet/**</path>
+    </allowed>
+    <rule>Workers MAY add tests, lightweight testing utilities, and minimal source refactors needed to make critical logic testable.</rule>
+    <rule>Workers MUST keep implementation changes tightly coupled to testability or defect fixes exposed by the new tests.</rule>
+  </write_scope>
+  <frozen_scope>
+    <frozen><path>backend/**</path><path>frontend/e2e/**</path><path>docker-compose*.yml</path><path>scripts/run_e2e.sh</path><path>requirements.xml</path><path>development-plan.xml</path><path>verification-matrix.md</path></frozen>
+    <rule>Do not broaden this slice into backend behavior, billing runtime changes, or unrelated UI redesign.</rule>
+    <rule>E2E updates are allowed only if required to keep existing quick verification green after harmless frontend refactors; they do not count toward the 95% metric.</rule>
+  </frozen_scope>
+  <verification_commands>
+    <command profile="backend:quick">docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+    <command profile="frontend:e2e-quick">./scripts/run_e2e.sh --last-failed</command>
+    <command profile="frontend:e2e-targeted">./scripts/run_e2e.sh e2e/&lt;file&gt;.spec.ts -g "&lt;case&gt;"</command>
+    <command profile="frontend:coverage-baseline">cd frontend &amp;&amp; npm run test:coverage</command>
+    <command profile="frontend:coverage-threshold">cd frontend &amp;&amp; npm run test:coverage:threshold</command>
+    <verification_note><code>./scripts/run_e2e.sh*</code> remains the canonical Playwright E2E/live-interaction verifier for frontend behavior.</verification_note>
+    <verification_note><code>npm run test:coverage*</code> is the canonical Jest/Next unit/integration and coverage verifier for scoped frontend source.</verification_note>
+    <verification_note>The last two commands are packet-defined targets that implementation workers MUST create if they do not already exist.</verification_note>
+  </verification_commands>
+  <acceptance_criteria>
+    <criterion id="ac-1">A committed Jest/Next frontend coverage tool exists and can run from <code>/opt/astro-project/frontend</code> without relying on Playwright browsers.</criterion>
+    <criterion id="ac-2">The tool reports scoped line coverage for <code>frontend/app</code> + <code>frontend/components</code> + <code>frontend/lib</code> with explicit exclusions for generated files, test files, E2E files, and snapshots.</criterion>
+    <criterion id="ac-3">Measured scoped line coverage is at least 95.00%.</criterion>
+    <criterion id="ac-4">The threshold command fails non-zero when scoped line coverage falls below 95.00%.</criterion>
+    <criterion id="ac-5">Existing required quick verification remains documented: backend quick plus frontend E2E quick.</criterion>
+    <criterion id="ac-6">Packet docs are sufficient for a coder worker to execute the work without rediscovering scope, commands, or acceptance boundaries.</criterion>
+  </acceptance_criteria>
+</requirements_slice>

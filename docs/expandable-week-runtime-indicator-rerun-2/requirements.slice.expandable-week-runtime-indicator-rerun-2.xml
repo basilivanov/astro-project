@@ -1,0 +1,55 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-RERUN-2">
+  <system_goal>Rerun the already-canonical Week runtime indicator slice through the live GRACE pipeline after pipeline and reviewer-routing fixes, without widening product scope.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Reuse the existing shell DEV/PROD chip on /week as the only runtime-disclosure entry point.</item>
+      <item>Keep the collapsed Week chip visually compact and local to the chip area.</item>
+      <item>In non-production on /week, tapping the chip expands and collapses a small local disclosure showing Week render path, Telegram bootstrap result, and current runtime mode from existing frontend state.</item>
+      <item>Collect targeted unit, Playwright, visual, reviewer, and observability evidence for the rerun.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Backend changes.</item>
+      <item>New payload fields, WeekBrief contract changes, scoring changes, explainability changes, or business-logic changes.</item>
+      <item>Day screen changes or multi-surface redesign.</item>
+      <item>New top-level debug banners, separate diagnostics screens, or user-visible correlation, trace, or payload diagnostics.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-WEEK-RUNTIME-INDICATOR-RERUN-2" actor="developer_or_reviewer">
+      <summary>Re-validate the Week runtime diagnostics helper from the existing compact chip after live pipeline and reviewer-routing fixes</summary>
+      <scenario id="SCN-SLICE-WEEK-RERUN-2-DEV-EXPAND">On /week in non-production, tapping the compact chip expands a local disclosure with Week render path, bootstrap result, and runtime mode.</scenario>
+      <scenario id="SCN-SLICE-WEEK-RERUN-2-DEV-COLLAPSE">Tapping the compact chip again collapses the local disclosure without changing the Week product surface.</scenario>
+      <scenario id="SCN-SLICE-WEEK-RERUN-2-PROD-INERT">In production, and on non-Week routes, the chip remains visually unchanged and inert and no Week diagnostics block appears.</scenario>
+      <scenario id="SCN-SLICE-WEEK-RERUN-2-VISUAL-PROOF">Visual evidence shows dev-collapsed, dev-expanded, and prod-unchanged states with the Week top area remaining clean and not banner-like.</scenario>
+      <scenario id="SCN-SLICE-WEEK-RERUN-2-OBS-CLOSEOUT">Post-test evidence records an explicit Week verdict for FLOW-TODAY-WEEK-WEEK after the targeted Week verification run.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>The disclosure is client-local helper UI only and must not add backend requests, backend payload fields, or proxy routes.</invariant>
+    <invariant>Only render path, bootstrap result, and current mode may appear in the visible disclosure body.</invariant>
+    <invariant>Interactive behavior is limited to non-production on /week; production and non-Week routes remain inert.</invariant>
+    <invariant>Week render-path labels are derived from existing Week page states rather than new backend DTO fields or diagnostics endpoints.</invariant>
+    <invariant>Week hero, day strip, day drawer, domain, actions, explainability, deep sections, CTA, and WeekBrief contracts remain unchanged.</invariant>
+    <invariant>Rerun-2 validates pipeline execution and evidence routing; it must not silently expand the product scope of the already-approved Week runtime indicator slice.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If any diagnostics source is absent, render a stable unknown or unavailable value instead of blocking /week.</item>
+    <item>If the page is between Week states, the disclosure may show loading or unknown, but it must not crash, leak raw objects, or call backend fallback endpoints.</item>
+    <item>If the shell-owned badge cannot remain route-gated to /week without altering Day or other routes, stop and escalate before widening the feature.</item>
+    <item>If no dedicated production Playwright host is available, deterministic unit proof is the minimum acceptable production-inert lane, but any existing prod-host proof should still be preserved.</item>
+    <item>If post-test review shows no-evidence-blocker or unexpected-degradation for FLOW-TODAY-WEEK-WEEK, the wave remains blocked until logs or trace evidence is explained or fixed.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">This rerun exists because prior pipeline and reviewer-routing fixes needed live validation; no new Week helper-state architecture defect was found in W00.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">The Week chip stays compact in collapsed state.</criterion>
+    <criterion id="SC-SLICE-2">In non-production on /week, tapping the chip expands and collapses a local disclosure.</criterion>
+    <criterion id="SC-SLICE-3">The disclosure shows render path, bootstrap result, and current mode only.</criterion>
+    <criterion id="SC-SLICE-4">Week render-path labels stay stable for canonical, in_progress, empty, error, auth_gate, and loading branches.</criterion>
+    <criterion id="SC-SLICE-5">Production and non-Week routes stay visually and behaviorally unchanged.</criterion>
+    <criterion id="SC-SLICE-6">Verifier evidence includes dev-collapsed, dev-expanded, and prod-unchanged Week proof.</criterion>
+    <criterion id="SC-SLICE-7">Reviewer evidence includes frontend visual proof for local containment and prod unchanged behavior.</criterion>
+    <criterion id="SC-SLICE-8">Week observability verdict is explicit and is not no-evidence-blocker or unexpected-degradation.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -1,0 +1,52 @@
+{
+  "attempt": 1,
+  "timestamp": "2026-05-26T12:00:00Z",
+  "packet_id": "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+  "verification_commands": [
+    "pytest -q tests/test_prefect_grace_executor_registry.py tests/test_prefect_grace_executor_registry_cli.py tests/test_prefect_grace_project_adapter_executors.py tests/test_prefect_grace_cli_contracts.py tests/test_prefect_grace_managed_packet_runner_executor_registry.py",
+    "pytest -q tests/test_prefect_grace_managed_packet_runner.py tests/test_prefect_grace_codex_launcher_resume_gate.py tests/test_prefect_grace_yaml_state.py tests/test_prefect_grace_backlog_controller.py",
+    "python3 -m compileall -q prefect_grace",
+    "python3 scripts/grace_lint.py prefect_grace/platform/executor_registry.py",
+    "python3 scripts/grace_lint.py prefect_grace/platform/project_adapter.py",
+    "python3 scripts/grace_lint.py prefect_grace/platform/managed_packet_runner.py"
+  ],
+  "test_results": {
+    "targeted_tests": "43 passed in 3.84s",
+    "regression_tests": "23 passed in 0.47s",
+    "grace_lint": "passed",
+    "compileall": "passed"
+  },
+  "backward_compatibility": {
+    "legacy_config_synthesized": true,
+    "existing_tests_pass": true,
+    "no_config_migration_required": true
+  },
+  "fail_closed_behavior": {
+    "unsupported_executor_kind_tested": true,
+    "no_executor_available_tested": true,
+    "invalid_executor_spec_validation": true
+  },
+  "rotation_logic": {
+    "consecutive_failures_tested": true,
+    "scope_blocked_not_failure_tested": true,
+    "source_hash_filtering_tested": true
+  },
+  "no_live_agents_confirmation": "All tests use offline data or injected fake launchers. No live Codex, Claude, or agy agents were started.",
+  "scope_compliance": {
+    "allowed_write_scope_only": true,
+    "frozen_scope_violations": [],
+    "modified_files": [
+      "prefect_grace/cli.py",
+      "prefect_grace/platform/executor_registry.py",
+      "prefect_grace/platform/managed_packet_runner.py",
+      "prefect_grace/platform/project_adapter.py",
+      "tests/test_prefect_grace_cli_contracts.py",
+      "tests/test_prefect_grace_executor_registry_cli.py",
+      "tests/test_prefect_grace_executor_registry.py",
+      "tests/test_prefect_grace_managed_packet_runner_executor_registry.py",
+      "tests/test_prefect_grace_project_adapter_executors.py"
+    ],
+    "codex_launcher_unchanged": true,
+    "state_store_unchanged": true
+  }
+}

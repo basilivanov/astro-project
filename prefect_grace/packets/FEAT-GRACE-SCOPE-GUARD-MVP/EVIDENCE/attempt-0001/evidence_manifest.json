@@ -1,0 +1,96 @@
+{
+  "attempt": 1,
+  "timestamp": "2026-05-26T16:00:00Z",
+  "packet_id": "FEAT-GRACE-SCOPE-GUARD-MVP-W01-SCOPE-GUARD",
+  "verification_commands": [
+    {
+      "command": "pytest -q tests/test_prefect_grace_scope_guard.py tests/test_prefect_grace_cli_scope_guard.py tests/test_prefect_grace_cli_contracts.py::test_check_scope_cli_contract",
+      "status": "passed",
+      "output_file": "pytest_targeted.txt",
+      "summary": "32 passed in 1.56s"
+    },
+    {
+      "command": "pytest -q tests/test_prefect_grace_synthetic_edge_matrix.py tests/test_prefect_grace_rework_resume_policy.py tests/test_prefect_grace_state_store_resume.py tests/test_prefect_grace_backlog_controller_resume_integration.py tests/test_prefect_grace_codex_launcher_resume_gate.py",
+      "status": "passed",
+      "output_file": "pytest_regression.txt",
+      "summary": "34 passed in 2.81s"
+    },
+    {
+      "command": "python3 -m compileall -q prefect_grace",
+      "status": "passed",
+      "summary": "No compilation errors"
+    },
+    {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/scope_guard.py",
+      "status": "passed",
+      "output_file": "grace_lint_output.txt",
+      "summary": "All modules comply with GRACE Canon Script Discipline"
+    },
+    {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md --strict --json",
+      "status": "passed",
+      "summary": "Packet validation passed"
+    },
+    {
+      "command": "python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md --changed-file prefect_grace/platform/scope_guard.py --json",
+      "status": "passed",
+      "output_file": "cli_smoke_positive.json",
+      "summary": "Exit 0, ok=true"
+    },
+    {
+      "command": "python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md --changed-file backend/app/main.py --json",
+      "status": "passed",
+      "output_file": "cli_smoke_negative.json",
+      "summary": "Exit 1, frozen_violations populated"
+    },
+    {
+      "command": "python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md --changed-file backend/app/main.py",
+      "status": "passed",
+      "output_file": "cli_text_mode_example.txt",
+      "summary": "Exit 1, text mode violation displayed"
+    }
+  ],
+  "test_results": {
+    "targeted_tests": "32 passed",
+    "regression_tests": "34 passed",
+    "grace_lint": "passed",
+    "compile_check": "passed"
+  },
+  "cli_smoke": {
+    "positive": "exit 0, ok=true",
+    "negative": "exit 1, frozen_violations=1"
+  },
+  "implementation_summary": {
+    "scope_guard_module": "Created prefect_grace/platform/scope_guard.py with ScopeGuardResult, ScopeGuardViolation dataclasses and validate_scope function",
+    "cli_command": "Added check-scope command to prefect_grace/cli.py with JSON and text modes",
+    "tests": "Created 32 unit and integration tests covering all requirements",
+    "pattern_matching": "Implemented regex-based glob matching with ** support for zero or more path segments",
+    "path_normalization": "Handles absolute paths, relative paths, path traversal detection, fail-closed on invalid paths",
+    "frozen_scope_priority": "Frozen scope always wins over allowed scope as required"
+  },
+  "no_live_agents_confirmation": "All tests executed without starting Codex, Claude, agy, Prefect deployments, Docker containers, or product services",
+  "scope_compliance": {
+    "allowed_write_scope_only": true,
+    "frozen_scope_violations": [],
+    "files_modified": [
+      "prefect_grace/platform/scope_guard.py",
+      "prefect_grace/cli.py",
+      "tests/test_prefect_grace_scope_guard.py",
+      "tests/test_prefect_grace_cli_scope_guard.py",
+      "tests/test_prefect_grace_cli_contracts.py"
+    ]
+  },
+  "notes": [
+    "All 32 targeted tests passed",
+    "All 34 regression tests passed",
+    "grace_lint passes on scope_guard.py",
+    "CLI positive smoke exits 0 with ok=true",
+    "CLI negative smoke exits 1 with frozen_violations populated",
+    "Text mode prints readable violation summary",
+    "Pattern matching supports exact paths, *, and ** globs",
+    "Path normalization handles absolute and relative paths",
+    "Frozen scope always wins over allowed scope",
+    "Invalid paths are blocked (fail-closed)",
+    "No live agents or services started during tests"
+  ]
+}

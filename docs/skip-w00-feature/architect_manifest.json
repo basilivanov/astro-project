@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-SKIP-W00",
+  "title": "Skip W00 feature",
+  "slice_id": "SLICE-FEAT-SKIP-W00",
+  "slice_slug": "skip-w00-feature",
+  "slice_dir": "/opt/astro-project/docs/skip-w00-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/skip-w00-feature/requirements.slice.skip-w00-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/skip-w00-feature/development-plan.slice.skip-w00-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/skip-w00-feature/verification-matrix.slice.skip-w00-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/skip-w00-feature/knowledge-graph.slice.skip-w00-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/skip-w00-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/skip-w00-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/skip-w00-feature/requirements.slice.skip-w00-feature.xml",
+    "/opt/astro-project/docs/skip-w00-feature/development-plan.slice.skip-w00-feature.xml",
+    "/opt/astro-project/docs/skip-w00-feature/verification-matrix.slice.skip-w00-feature.md",
+    "/opt/astro-project/docs/skip-w00-feature/knowledge-graph.slice.skip-w00-feature.xml",
+    "/opt/astro-project/docs/skip-w00-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:39:56.453866+00:00"
+}

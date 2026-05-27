@@ -557,6 +557,48 @@ def _cmd_bootstrap_backlog(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_registry_apply_smoke(args: argparse.Namespace) -> None:
+    command = "registry-apply-smoke"
+    try:
+        from prefect_grace.platform.registry_apply_smoke import run_registry_apply_smoke
+
+        result = run_registry_apply_smoke(
+            project_config=Path(args.project),
+            state_root=Path(args.state_root),
+            packet_root=Path(args.packet_root) if args.packet_root else None,
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"Registry apply smoke for {result.project_key}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  State root: {result.state_root}")
+            print(f"  Bootstrap apply count: {result.bootstrap_apply_count}")
+            print(f"  Cases: {sum(1 for case in result.cases if case.ok)}/{len(result.cases)}")
+            print(f"  Prefect runs created: {result.prefect_runs_created}")
+
+        if not result.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "REGISTRY_APPLY_SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Registry apply smoke failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _cmd_packet_status(args: argparse.Namespace) -> None:
     command = "packet-status"
     try:
@@ -797,6 +839,164 @@ def _cmd_run_prefect_e2e_live_smoke(args: argparse.Namespace) -> None:
             ))
         else:
             print(f"Prefect E2E live smoke failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_run_prefect_e2e_batch_smoke(args: argparse.Namespace) -> None:
+    command = "run-prefect-e2e-batch-smoke"
+    try:
+        from prefect_grace.platform.prefect_e2e_batch_smoke import (
+            PrefectE2EBatchSmokeResult,
+            run_prefect_e2e_batch_smoke,
+        )
+        from prefect_grace.tasks.prefect_submitter import E2E_PACKET_DEPLOYMENT_NAME
+
+        batch_size = int(args.batch_size)
+        if bool(getattr(args, "execute_agent", False)):
+            result = PrefectE2EBatchSmokeResult(
+                ok=False,
+                mode="prefect_agent_dry_run",
+                batch_size=batch_size,
+                runner_kind="e2e",
+                deployment_name=E2E_PACKET_DEPLOYMENT_NAME,
+                work_queue_name=None,
+                packets_planned=[],
+                packets_submitted=[],
+                records=[],
+                errors=[{
+                    "code": "BATCH_LIVE_AGENT_UNSUPPORTED",
+                    "message": "Batch live-agent smoke is out of scope; omit --execute-agent.",
+                }],
+            )
+        else:
+            submitter = None
+            if getattr(args, "offline_fake_submitter", False):
+                def submitter(**kwargs):
+                    packet_id = str(kwargs["parameters"].get("packet_id") or "unknown")
+                    return {
+                        "flow_run_id": f"fake-batch-smoke-{packet_id}",
+                        "flow_run_name": f"e2e-packet:{packet_id}:attempt-1",
+                        "deployment_name": E2E_PACKET_DEPLOYMENT_NAME,
+                        "work_queue_name": "grace-live",
+                        "runner_kind": "e2e",
+                        "status": "submitted",
+                        "url": f"http://prefect.local/flow-runs/fake-batch-smoke-{packet_id}",
+                    }
+
+            result = run_prefect_e2e_batch_smoke(
+                project_config=Path(args.project_config),
+                state_root=Path(args.state_root),
+                worktree_root=Path(args.worktree_root),
+                packet_root=Path(args.packet_root),
+                batch_size=batch_size,
+                submitter=submitter,
+            )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=None,
+                result=result.to_dict(),
+                errors=result.errors,
+            ))
+        else:
+            print("Prefect E2E batch smoke:")
+            print(f"  Batch size: {result.batch_size}")
+            print(f"  Submitted: {len(result.packets_submitted)}")
+            print(f"  Deployment: {result.deployment_name}")
+            print(f"  Queue: {result.work_queue_name or '-'}")
+            for record in result.records:
+                print(f"  Packet: {record.get('packet_id')} -> {record.get('flow_run_id')}")
+            for error in result.errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "BATCH_SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Prefect E2E batch smoke failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_run_prefect_e2e_real_dry_run_smoke(args: argparse.Namespace) -> None:
+    command = "run-prefect-e2e-real-dry-run-smoke"
+    try:
+        from prefect_grace.platform.prefect_e2e_real_dry_run_smoke import (
+            PrefectE2ERealDryRunSmokeResult,
+            run_prefect_e2e_real_dry_run_smoke,
+        )
+        from prefect_grace.tasks.prefect_submitter import E2E_PACKET_DEPLOYMENT_NAME
+
+        if bool(getattr(args, "execute_agent", False)):
+            result = PrefectE2ERealDryRunSmokeResult(
+                ok=False,
+                mode="prefect_real_e2e_agent_dry_run",
+                packet_id="FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE",
+                runner_kind="e2e",
+                deployment_name=E2E_PACKET_DEPLOYMENT_NAME,
+                work_queue_name=None,
+                flow_run_id=None,
+                flow_run_name=None,
+                flow_run_url=None,
+                submitted=False,
+                waited=False,
+                prefect_state_type=None,
+                prefect_state_name=None,
+                domain_status=None,
+                artifact_ids=[],
+                errors=[{
+                    "code": "REAL_DRY_RUN_EXECUTE_AGENT_REJECTED",
+                    "message": "Real E2E dry-run smoke forbids live agent execution.",
+                }],
+            )
+        else:
+            result = run_prefect_e2e_real_dry_run_smoke(
+                project_config=Path(args.project_config),
+                state_root=Path(args.state_root),
+                worktree_root=Path(args.worktree_root),
+                packet_root=Path(args.packet_root),
+                timeout_seconds=int(args.timeout_seconds),
+                poll_interval_seconds=int(args.poll_interval_seconds),
+                wait=not bool(args.no_wait),
+                execute_agent=False,
+            )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=None,
+                result=result.to_dict(),
+                errors=result.errors,
+            ))
+        else:
+            print("Prefect real E2E dry-run smoke:")
+            print(f"  Submitted: {result.submitted}")
+            print(f"  Packet: {result.packet_id}")
+            print(f"  Deployment: {result.deployment_name}")
+            print(f"  Queue: {result.work_queue_name or '-'}")
+            print(f"  Flow run: {result.flow_run_id or '-'}")
+            print(f"  URL: {result.flow_run_url or '-'}")
+            print(f"  Waited: {result.waited}")
+            print(f"  Prefect state: {result.prefect_state_name or '-'} ({result.prefect_state_type or '-'})")
+            print(f"  Domain status: {result.domain_status or '-'}")
+            for error in result.errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "REAL_DRY_RUN_SMOKE_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Prefect real E2E dry-run smoke failed: {e}", file=sys.stderr)
         sys.exit(2)
 
 
@@ -2229,6 +2429,13 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_backlog.add_argument("--json", action="store_true")
     bootstrap_backlog.set_defaults(func=_cmd_bootstrap_backlog)
 
+    registry_apply_smoke = subparsers.add_parser("registry-apply-smoke")
+    registry_apply_smoke.add_argument("--project", required=True)
+    registry_apply_smoke.add_argument("--state-root", required=True)
+    registry_apply_smoke.add_argument("--packet-root")
+    registry_apply_smoke.add_argument("--json", action="store_true")
+    registry_apply_smoke.set_defaults(func=_cmd_registry_apply_smoke)
+
     sync_packets = subparsers.add_parser("sync-packets")
     sync_packets.add_argument("--project")
     sync_packets.add_argument("--dry-run", action="store_true")
@@ -2262,6 +2469,32 @@ def build_parser() -> argparse.ArgumentParser:
     run_prefect_e2e_live_smoke.add_argument("--limit", type=int, default=1, help="Submission limit (must be 1)")
     run_prefect_e2e_live_smoke.add_argument("--json", action="store_true", help="JSON output")
     run_prefect_e2e_live_smoke.set_defaults(func=_cmd_run_prefect_e2e_live_smoke)
+
+    run_prefect_e2e_batch_smoke = subparsers.add_parser("run-prefect-e2e-batch-smoke", help="Run a bounded Prefect E2E batch queue smoke")
+    run_prefect_e2e_batch_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_batch_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_batch_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_batch_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_batch_smoke.add_argument("--batch-size", type=int, default=2, help="Batch size, must be 2 or 3")
+    run_prefect_e2e_batch_smoke.add_argument("--execute-agent", action="store_true", help="Rejected in batch smoke mode")
+    run_prefect_e2e_batch_smoke.add_argument("--offline-fake-submitter", action="store_true", help="Use fake submitter for offline validation")
+    run_prefect_e2e_batch_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_batch_smoke.set_defaults(func=_cmd_run_prefect_e2e_batch_smoke)
+
+    run_prefect_e2e_real_dry_run_smoke = subparsers.add_parser(
+        "run-prefect-e2e-real-dry-run-smoke",
+        help="Run one real Prefect E2E dry-run smoke",
+    )
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--project-config", required=True, help="Project config path")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--state-root", required=True, help="Smoke state root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--worktree-root", required=True, help="Smoke worktree root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--packet-root", required=True, help="Smoke packet root")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--timeout-seconds", type=int, default=900, help="Wait timeout seconds")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--poll-interval-seconds", type=int, default=5, help="Wait poll interval seconds")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--no-wait", action="store_true", help="Only verify Prefect flow run creation")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--execute-agent", action="store_true", help="Rejected in real dry-run smoke mode")
+    run_prefect_e2e_real_dry_run_smoke.add_argument("--json", action="store_true", help="JSON output")
+    run_prefect_e2e_real_dry_run_smoke.set_defaults(func=_cmd_run_prefect_e2e_real_dry_run_smoke)
 
     run_nightly = subparsers.add_parser("run-nightly")
     run_nightly.add_argument("--project")

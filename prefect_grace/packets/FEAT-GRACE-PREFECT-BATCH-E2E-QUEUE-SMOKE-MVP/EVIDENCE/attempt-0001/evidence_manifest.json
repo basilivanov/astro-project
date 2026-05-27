@@ -1,0 +1,93 @@
+{
+  "packet_id": "FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP-W01-BATCH-E2E-QUEUE-SMOKE",
+  "source_hash": "sha256:5d7434b65d9f5b4b96bdae3472d645db06b9df50ce37d1caad84fe0b83673f16",
+  "verdict": "clean",
+  "observability_verdict": "clean",
+  "summary": [
+    "Added a bounded Prefect E2E batch smoke harness for exactly two or three scratch-only packets.",
+    "Added run-prefect-e2e-batch-smoke CLI output with per-packet run metadata and offline fake submission.",
+    "Batch live-agent mode fails closed and native E2E submission remains the only submission path."
+  ],
+  "checks": [
+    {
+      "name": "dependency_acceptance",
+      "result": "prefect_grace/packets/FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP/REVIEWS/review-0001.md status: accepted"
+    },
+    {
+      "name": "targeted_pytest",
+      "command": "pytest -q tests/test_prefect_grace_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "27 passed in 4.79s"
+    },
+    {
+      "name": "focused_regressions",
+      "command": "pytest -q tests/test_prefect_grace_prefect_e2e_live_smoke.py tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_cli_submit_packets_prefect_native.py tests/test_prefect_grace_e2e_packet_runner_flow.py",
+      "result": "26 passed in 1.25s"
+    },
+    {
+      "name": "compileall",
+      "command": "python3 -m compileall -q prefect_grace/platform/prefect_e2e_batch_smoke.py prefect_grace/cli.py tests/test_prefect_grace_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "pass"
+    },
+    {
+      "name": "grace_lint",
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/prefect_e2e_batch_smoke.py",
+      "result": "pass"
+    },
+    {
+      "name": "packet_validation",
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP/EXECUTION_PACKET.md --strict --json",
+      "result": "ok:true"
+    },
+    {
+      "name": "offline_cli_smoke",
+      "command": "python3 -m prefect_grace.cli run-prefect-e2e-batch-smoke --project-config <tmp>/project.yaml --state-root <tmp>/state --worktree-root <tmp>/worktrees --packet-root <tmp>/packets --batch-size 2 --offline-fake-submitter --json",
+      "result": {
+        "ok": true,
+        "mode": "prefect_agent_dry_run",
+        "batch_size": 2,
+        "runner_kind": "e2e",
+        "deployment_name": "prefect-grace-e2e-packet-runner/live-e2e-packet-runner",
+        "work_queue_name": "grace-live",
+        "packets_submitted": [
+          "FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP-W01-BATCH-E2E-QUEUE-SMOKE-01",
+          "FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP-W01-BATCH-E2E-QUEUE-SMOKE-02"
+        ],
+        "record_count": 2,
+        "statuses": [
+          "submitted",
+          "submitted"
+        ],
+        "errors": []
+      }
+    },
+    {
+      "name": "operator_guards",
+      "result": {
+        "batch_size_1": "BATCH_SMOKE_TOO_SMALL",
+        "batch_size_4": "BATCH_SMOKE_TOO_LARGE",
+        "execute_agent": "BATCH_LIVE_AGENT_UNSUPPORTED"
+      }
+    },
+    {
+      "name": "diff_check",
+      "command": "git diff --check -- prefect_grace/platform/prefect_e2e_batch_smoke.py prefect_grace/cli.py tests/test_prefect_grace_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_prefect_e2e_batch_smoke.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "pass"
+    }
+  ],
+  "changed_files": [
+    "prefect_grace/platform/prefect_e2e_batch_smoke.py",
+    "prefect_grace/cli.py",
+    "tests/test_prefect_grace_prefect_e2e_batch_smoke.py",
+    "tests/test_prefect_grace_cli_prefect_e2e_batch_smoke.py",
+    "tests/test_prefect_grace_cli_contracts.py"
+  ],
+  "frozen_scope": {
+    "result": "clean",
+    "note": "Scoped git diff reported no changes in frozen paths for this packet."
+  },
+  "notes": [
+    "Tests and offline CLI smoke used fake submitters only.",
+    "No live Prefect server, live agents, provider APIs, Docker, product backend/frontend services, merge, squash, or push were invoked.",
+    "The optional operator live Prefect smoke was not run."
+  ]
+}

@@ -1,0 +1,640 @@
+{
+  "feature_id": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417",
+  "title": "Finish backend GRACE canon and observability wave",
+  "slice_id": "SLICE-BACKEND-GRACE-WAVE-FINISH-20260417",
+  "slice_slug": "backend-grace-wave-finish-20260417",
+  "slice_dir": "/opt/astro-project/docs/backend-grace-wave-finish-20260417",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/backend-grace-wave-finish-20260417/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-API-GATEWAY",
+    "M-TRACE-LOGGING",
+    "M-DAY-BRIEF-SERVICE",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-OPS-AUTOMATION",
+    "M-ANALYTICS-EVENTS"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Core Today/Week Evidence",
+      "goal": "Close bounded core-flow attribution gaps for gateway, logging, and DayBrief evidence without claiming final canonical closeout.",
+      "objective": "Close bounded core-flow attribution gaps for gateway, logging, and DayBrief evidence without claiming final canonical closeout.",
+      "required": true,
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/tests/test_backend_grace_wave_finish.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tools/post_test_review.py",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/frontend/**"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"today or week or core\"",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Core Today and Week evidence is current-run and attributable.",
+        "No frontend, scheduler, analytics, report_workflow, or WeekBrief service code is changed.",
+        "W01 explicitly remains packet_local."
+      ],
+      "deferred_work": [
+        "Scheduler and analytics hub closeout.",
+        "Final canonical today-week closeout."
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "Scheduler and Analytics Hubs",
+      "goal": "Close bounded scheduler and analytics hub evidence gaps without claiming final canonical closeout.",
+      "objective": "Close bounded scheduler and analytics hub evidence gaps without claiming final canonical closeout.",
+      "required": true,
+      "module_refs": [
+        "M-OPS-AUTOMATION",
+        "M-ANALYTICS-EVENTS",
+        "M-TRACE-LOGGING"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/tests/test_backend_grace_wave_finish.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_post_test_review.py",
+        "/opt/astro-project/tools/post_test_review.py",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/frontend/**"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"scheduler or analytics or hub\"",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_billing_scheduler.py tests/test_catalog_logging.py tests/test_post_test_review.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Scheduler and analytics hub evidence is fresh and attributable when exercised.",
+        "Non-emission is explicit and degraded-but-expected only when not owned by the exercised command.",
+        "Scheduler cadence, analytics schema, and business behavior do not change.",
+        "W02 explicitly remains packet_local."
+      ],
+      "deferred_work": [
+        "Final canonical today-week closeout."
+      ]
+    },
+    {
+      "wave_id": "W03",
+      "title": "Final Canonical Closeout",
+      "goal": "Run the final canonical backend evidence lane and decide whether the backend GRACE wave is complete.",
+      "objective": "Run the final canonical backend evidence lane and decide whether the backend GRACE wave is complete.",
+      "required": true,
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-OPS-AUTOMATION",
+        "M-ANALYTICS-EVENTS"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/evidence/**",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/reviews/**",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/decisions/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/**"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py"
+      ],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "The canonical emitter command runs before post-test review.",
+        "today-week verdict is clean or degraded-but-expected with explicit rationale.",
+        "read-only hub review is explicit for scheduler and analytics visibility.",
+        "unexpected-degradation and no-evidence-blocker block acceptance."
+      ],
+      "deferred_work": [
+        "Any broader backend decomposition or logging redesign."
+      ]
+    }
+  ],
+  "packet_candidates": [
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE",
+      "wave_id": "W01",
+      "title": "Core Today Week Evidence Slice",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Repair only bounded core Today/Week attribution gaps and add/update the targeted current-run evidence test.",
+      "write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/tests/test_backend_grace_wave_finish.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tools/post_test_review.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W00-ARCHITECT-FORMALIZATION",
+        "feature brief",
+        "prefect_grace/briefs/backend_grace_wave_finish_20260417.yaml"
+      ],
+      "acceptance_criteria": [
+        "Today/Week evidence can be emitted by a targeted backend test with current-run ids.",
+        "DayBrief evidence uses declared stable block naming or the declared block map is updated locally.",
+        "No business behavior changes are introduced."
+      ],
+      "verification_profile": {
+        "backend": "Run backend:quick and targeted core evidence pytest.",
+        "frontend": "not applicable",
+        "observability": "Run read-only packet-local review after tests."
+      },
+      "reviewer_gate": [
+        "No scope drift into scheduler, analytics, frontend, report_workflow, or WeekBrief service code.",
+        "No canonical today-week closeout claim from W01."
+      ],
+      "dependencies": [
+        "architect formalization"
+      ],
+      "notes": [
+        "Use week_brief_service.py only as a style reference.",
+        "If current code already satisfies a marker, do not churn it."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFY-CORE-TODAY-WEEK-EVIDENCE",
+      "wave_id": "W01",
+      "title": "Verify Core Today Week Evidence",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run W01 backend and read-only evidence checks and record current-run ids.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/evidence/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE"
+      ],
+      "acceptance_criteria": [
+        "backend:quick passes.",
+        "Targeted core evidence pytest passes.",
+        "read-only verdict is clean or degraded-but-expected with explicit reason."
+      ],
+      "verification_profile": {
+        "backend": "docker exec astro-project-backend-1 python3 scripts/pipeline.py; docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"today or week or core\"",
+        "frontend": "not applicable",
+        "observability": "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "execution": {
+          "backend_commands": [
+            "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+            "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"today or week or core\""
+          ],
+          "frontend_commands": [],
+          "observability_commands": [
+            "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+          ],
+          "observability_profile": "read-only",
+          "observability_scope": "packet_local",
+          "canonical_flow_commands": [],
+          "touches_frontend": false,
+          "requires_frontend_visual": false
+        }
+      },
+      "reviewer_gate": [
+        "Reject stale or missing current-run core evidence.",
+        "Reject no-evidence-blocker for an intentionally exercised core path."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE"
+      ],
+      "notes": [
+        "W01 is packet_local only."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEW-CORE-TODAY-WEEK-EVIDENCE",
+      "wave_id": "W01",
+      "title": "Review Core Today Week Evidence",
+      "role": "reviewer",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Review W01 scope containment and packet-local evidence completeness.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/reviews/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE",
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFY-CORE-TODAY-WEEK-EVIDENCE"
+      ],
+      "acceptance_criteria": [
+        "Diff stays inside W01 scope.",
+        "Core evidence is current-run and attributable.",
+        "W01 does not claim final canonical closeout."
+      ],
+      "verification_profile": {
+        "backend": "Consume verifier evidence.",
+        "frontend": "not applicable",
+        "observability": "Consume read-only packet-local verdict."
+      },
+      "reviewer_gate": [
+        "Reject silent scope expansion.",
+        "Reject missing evidence attribution."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE",
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFY-CORE-TODAY-WEEK-EVIDENCE"
+      ],
+      "notes": [
+        "If the blocker is local, route bounded direct rework."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-ARCHITECT-GATE-CORE-EVIDENCE",
+      "wave_id": "W01",
+      "title": "Architect Gate Core Evidence",
+      "role": "architect",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Accept or rework W01 from reviewer and verifier packet-local evidence.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/decisions/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEW-CORE-TODAY-WEEK-EVIDENCE"
+      ],
+      "acceptance_criteria": [
+        "Accept only if W01 evidence is attributable and bounded.",
+        "If accepted, W02 starts next."
+      ],
+      "verification_profile": {
+        "backend": "Review packet-local evidence.",
+        "frontend": "not applicable",
+        "observability": "Review packet-local verdict."
+      },
+      "reviewer_gate": [
+        "Do not accept hidden W01 blockers."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEW-CORE-TODAY-WEEK-EVIDENCE"
+      ],
+      "notes": [
+        "W01 acceptance does not close the feature."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE",
+      "wave_id": "W02",
+      "title": "Scheduler Analytics Hub Evidence Slice",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Repair only bounded scheduler/analytics hub attribution or read-only review gaps and extend targeted evidence tests.",
+      "write_scope": [
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/tests/test_backend_grace_wave_finish.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_post_test_review.py",
+        "/opt/astro-project/tools/post_test_review.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-ARCHITECT-GATE-CORE-EVIDENCE",
+        "feature brief"
+      ],
+      "acceptance_criteria": [
+        "Scheduler and analytics hub evidence is fresh and attributable when exercised.",
+        "Non-emission is explicitly classified when expected.",
+        "No scheduler cadence or analytics schema behavior changes."
+      ],
+      "verification_profile": {
+        "backend": "Run backend:quick and targeted hub pytest.",
+        "frontend": "not applicable",
+        "observability": "Run read-only packet-local review after tests."
+      },
+      "reviewer_gate": [
+        "No drift into main.py, DayBrief, WeekBrief, report_workflow, or frontend.",
+        "No final canonical closeout claim from W02."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-ARCHITECT-GATE-CORE-EVIDENCE"
+      ],
+      "notes": [
+        "Prefer fixing the local emitter/test freshness over widening tooling."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-VERIFY-SCHEDULER-ANALYTICS-HUBS",
+      "wave_id": "W02",
+      "title": "Verify Scheduler Analytics Hubs",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run W02 backend and read-only hub evidence checks and record explicit hub verdicts.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/evidence/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE"
+      ],
+      "acceptance_criteria": [
+        "backend:quick passes.",
+        "Targeted hub evidence pytest passes.",
+        "read-only hub verdict is clean or degraded-but-expected with explicit reason."
+      ],
+      "verification_profile": {
+        "backend": "docker exec astro-project-backend-1 python3 scripts/pipeline.py; docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"scheduler or analytics or hub\"",
+        "frontend": "not applicable",
+        "observability": "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+        "execution": {
+          "backend_commands": [
+            "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+            "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py -k \"scheduler or analytics or hub\""
+          ],
+          "frontend_commands": [],
+          "observability_commands": [
+            "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+          ],
+          "observability_profile": "read-only",
+          "observability_scope": "packet_local",
+          "canonical_flow_commands": [],
+          "touches_frontend": false,
+          "requires_frontend_visual": false
+        }
+      },
+      "reviewer_gate": [
+        "Reject missing hub interpretation.",
+        "Reject no-evidence-blocker for an intentionally exercised hub path."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE"
+      ],
+      "notes": [
+        "W02 is packet_local only."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-REVIEW-SCHEDULER-ANALYTICS-HUBS",
+      "wave_id": "W02",
+      "title": "Review Scheduler Analytics Hubs",
+      "role": "reviewer",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Review W02 scope containment and packet-local hub evidence completeness.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/reviews/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE",
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-VERIFY-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "acceptance_criteria": [
+        "Diff stays inside W02 scope.",
+        "Scheduler and analytics hub evidence is explicit.",
+        "W02 does not claim final canonical closeout."
+      ],
+      "verification_profile": {
+        "backend": "Consume verifier evidence.",
+        "frontend": "not applicable",
+        "observability": "Consume read-only packet-local verdict."
+      },
+      "reviewer_gate": [
+        "Reject silent hub ambiguity.",
+        "Reject scope expansion."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE",
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-VERIFY-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "notes": [
+        "If the blocker is local, route bounded direct rework."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-SCHEDULER-ANALYTICS-HUB-EVIDENCE-SLICE"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-ARCHITECT-GATE-SCHEDULER-ANALYTICS-HUBS",
+      "wave_id": "W02",
+      "title": "Architect Gate Scheduler Analytics Hubs",
+      "role": "architect",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Accept or rework W02 from reviewer and verifier packet-local hub evidence.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/decisions/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-REVIEW-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "acceptance_criteria": [
+        "Accept only if W02 hub evidence is explicit and bounded.",
+        "If accepted, W03 starts next."
+      ],
+      "verification_profile": {
+        "backend": "Review packet-local evidence.",
+        "frontend": "not applicable",
+        "observability": "Review packet-local verdict."
+      },
+      "reviewer_gate": [
+        "Do not accept hidden hub blockers."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-REVIEW-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "notes": [
+        "W02 acceptance does not close the feature."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-FINAL-CANONICAL-BACKEND-CLOSEOUT",
+      "wave_id": "W03",
+      "title": "Final Canonical Backend Closeout",
+      "role": "verifier",
+      "reasoning": "medium",
+      "packet_type": "execution",
+      "summary": "Run backend quick, the architect-authorized canonical emitter command, read-only hub review, and today-week canonical review.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/evidence/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-ARCHITECT-GATE-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "acceptance_criteria": [
+        "backend:quick passes.",
+        "Canonical emitter command passes.",
+        "today-week verdict is clean or degraded-but-expected.",
+        "read-only hub review is explicit."
+      ],
+      "verification_profile": {
+        "backend": "docker exec astro-project-backend-1 python3 scripts/pipeline.py; docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py",
+        "frontend": "not applicable",
+        "observability": "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md; python3 tools/post_test_review.py --profile today-week --since 30m --report-format md",
+        "execution": {
+          "backend_commands": [
+            "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+            "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py"
+          ],
+          "frontend_commands": [],
+          "observability_commands": [
+            "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md",
+            "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+          ],
+          "observability_profile": "today-week",
+          "observability_scope": "wave_final",
+          "canonical_flow_commands": [
+            "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_backend_grace_wave_finish.py"
+          ],
+          "touches_frontend": false,
+          "requires_frontend_visual": false
+        }
+      },
+      "reviewer_gate": [
+        "Reject missing canonical today-week evidence.",
+        "Reject unexpected-degradation or no-evidence-blocker.",
+        "Reject missing read-only hub interpretation."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W02-ARCHITECT-GATE-SCHEDULER-ANALYTICS-HUBS"
+      ],
+      "notes": [
+        "This is the only packet that owns wave_final today-week closeout."
+      ],
+      "review_target_key": ""
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-REVIEW-FINAL-CANONICAL-CLOSEOUT",
+      "wave_id": "W03",
+      "title": "Review Final Canonical Closeout",
+      "role": "reviewer",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Review final canonical evidence and decide whether architect acceptance is unblocked.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/reviews/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-FINAL-CANONICAL-BACKEND-CLOSEOUT"
+      ],
+      "acceptance_criteria": [
+        "Canonical today-week verdict is non-blocking.",
+        "Hub review is explicit.",
+        "Frozen scope remained frozen."
+      ],
+      "verification_profile": {
+        "backend": "Consume final verifier evidence.",
+        "frontend": "not applicable",
+        "observability": "Consume today-week and read-only final verdicts."
+      },
+      "reviewer_gate": [
+        "Reject missing canonical evidence.",
+        "Reject hidden hub ambiguity."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-FINAL-CANONICAL-BACKEND-CLOSEOUT"
+      ],
+      "notes": [
+        "If blocked, route bounded rework to the local failing wave."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-FINAL-CANONICAL-BACKEND-CLOSEOUT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-ARCHITECT-GATE-FINAL-BACKEND-CLOSEOUT",
+      "wave_id": "W03",
+      "title": "Architect Gate Final Backend Closeout",
+      "role": "architect",
+      "reasoning": "xhigh",
+      "packet_type": "gate_decision",
+      "summary": "Accept or block the feature from final canonical evidence, business fit, and architecture fit.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-WAVE-FINISH-20260417/decisions/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-REVIEW-FINAL-CANONICAL-CLOSEOUT"
+      ],
+      "acceptance_criteria": [
+        "Accept only if final canonical evidence is non-blocking.",
+        "Accept only if W01-W03 ownership boundaries were preserved."
+      ],
+      "verification_profile": {
+        "backend": "Review final evidence only.",
+        "frontend": "not applicable",
+        "observability": "Review final canonical and hub verdicts."
+      },
+      "reviewer_gate": [
+        "Do not accept no-evidence-blocker or unexpected-degradation."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W03-REVIEW-FINAL-CANONICAL-CLOSEOUT"
+      ],
+      "notes": [
+        "This gate closes the feature only if all required waves are accepted."
+      ],
+      "review_target_key": ""
+    }
+  ],
+  "next_action": "materialize_packets",
+  "planner_inputs": [
+    "/opt/astro-project/docs/backend-grace-wave-finish-20260417/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-17T12:03:30.458908+00:00"
+}

@@ -1,0 +1,16 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-RERUN-2">
+  <modules>
+    <module id="M-FRONTEND-WEBAPP" />
+    <module id="M-FRONTEND-WEEK" />
+    <module id="M-USE-TELEGRAM" />
+  </modules>
+  <flow_links>
+    <edge from="frontend runtime environment variables" to="M-FRONTEND-WEBAPP" type="reads" />
+    <edge from="M-FRONTEND-WEBAPP" to="runtime-environment-badge" type="renders" />
+    <edge from="M-FRONTEND-WEBAPP" to="astro:week-dev-indicator-toggle-request" type="writes" />
+    <edge from="existing Week page states" to="M-FRONTEND-WEEK" type="reads" />
+    <edge from="M-USE-TELEGRAM" to="M-FRONTEND-WEEK" type="depends_on" />
+    <edge from="astro:week-dev-indicator-toggle-request" to="M-FRONTEND-WEEK" type="depends_on" />
+    <edge from="M-FRONTEND-WEEK" to="week-runtime-diagnostics-disclosure" type="renders" />
+  </flow_links>
+</knowledge_graph_slice>

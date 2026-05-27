@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements_slice id="frontend-functional-reliability" title="Frontend Functional Reliability" version="2026-04-01">
+  <context>
+    <project_root>/opt/astro-project</project_root>
+    <packet_root>/opt/astro-project/docs/frontend_functional_reliability_packet</packet_root>
+    <baseline_inputs>
+      <file>/opt/astro-project/AGENTS.md</file>
+      <file>/opt/astro-project/GRACE.md</file>
+      <file>/opt/astro-project/requirements.xml</file>
+      <file>/opt/astro-project/development-plan.xml</file>
+      <file>/opt/astro-project/verification-matrix.md</file>
+    </baseline_inputs>
+    <current_state>
+      <fact>Frontend functional verification already runs through Playwright using <code>frontend/playwright.config.cjs</code> with <code>testDir=./e2e</code>, serial execution (<code>workers: 1</code>), retained traces on failure, and failure screenshots.</fact>
+      <fact>The canonical frontend execution wrapper is <code>./scripts/run_e2e.sh</code>; it validates backend health, backend API health, frontend container health, and frontend API proxy health before invoking Playwright in the dedicated Docker E2E container.</fact>
+      <fact>The repository already contains targeted frontend E2E specs covering smoke, create/read, billing bridges, week/today surfaces, admin screens, localization, console hygiene, and failure paths.</fact>
+      <fact>The existing repo-level smoke bundle named in <code>verification-matrix.md</code> is <code>./scripts/run_e2e.sh e2e/admin.smoke.spec.ts e2e/core-ux.spec.ts e2e/report-create.spec.ts e2e/quality.spec.ts</code>.</fact>
+      <fact>User intent for this slice prioritizes functional reliability gates: pages must load without crashes, primary navigation and tap/click/open interactions must work, and core business flows must behave correctly; coverage growth remains secondary and ongoing.</fact>
+    </current_state>
+  </context>
+  <local_adaptation>
+    <rule>For this slice, Playwright E2E is the canonical frontend functional reliability verifier.</rule>
+    <rule>For this slice, functional reliability gates take precedence over line-coverage expansion.</rule>
+    <rule>For this slice, key tests MUST assert product outcomes and semantic correctness, not merely node existence, visibility, or open-state transitions.</rule>
+    <rule>Fallback copy MAY be accepted only when fallback is the product-contractually correct result for the scenario under test; fallback copy MUST NOT be used as passing evidence when real data is the required product outcome.</rule>
+    <rule>Coverage growth SHOULD continue opportunistically, but workers MUST NOT substitute coverage metrics for broken page loads, broken interactions, or broken business-path behavior.</rule>
+    <rule>All execution guidance in this packet MUST preserve the project-level AGENTS protocol: frontend work requires frontend quick verification after every significant change, and crash/500 regressions require a reproduction test before fix completion.</rule>
+  </local_adaptation>
+  <objective>
+    <goal>Define an execution-ready frontend reliability gate focused on whether critical user and admin surfaces load cleanly, support primary interactions, and complete core business paths without functional regressions.</goal>
+    <business_value>Reduce the probability that users or operators encounter blank screens, 500s, blocked taps/clicks, broken navigation, or stalled create-to-read/report-management flows even when line coverage is still expanding incrementally.</business_value>
+  </objective>
+  <reliability_gate>
+    <gate_name>frontend_functional_reliability_gate</gate_name>
+    <definition>A frontend slice is reliable when the scoped pages render without crash or server error, the primary user-visible interactions complete successfully, and the target business flow reaches the expected semantic outcome under Playwright verification.</definition>
+    <required_dimensions>
+      <dimension id="page-load-health">Route loads with no fatal render failure, no 500-visible state, and no broken proxy dependency for the tested scenario.</dimension>
+      <dimension id="interaction-health">Primary interactions such as tap, click, open, submit, dismiss, and navigation succeed on realistic device-sized paths.</dimension>
+      <dimension id="business-path-health">The tested flow reaches the correct business result such as report creation, read continuation, fallback rendering, admin access, or entitlement-visible state.</dimension>
+      <dimension id="semantic-correctness">The asserted UI state reflects the correct product meaning: the right content, status, and data mode are shown for that scenario, including correct distinction between valid fallback and expected real data.</dimension>
+      <dimension id="signal-hygiene">Critical console/runtime failures are surfaced by dedicated checks so a visually loaded page with hidden JS errors does not count as reliable.</dimension>
+    </required_dimensions>
+    <non_goals>
+      <item>This gate does not require exhaustive route-by-route coverage parity before execution can start.</item>
+      <item>This gate does not replace broader UX refinement, visual polish, or coverage-threshold initiatives.</item>
+      <item>This gate does not require full-regression on every small change; it requires a minimally sufficient targeted profile that keeps the touched functional slice green.</item>
+    </non_goals>
+  </reliability_gate>
+  <scope>
+    <included_surface_groups>
+      <surface_group id="core-entry-and-shell">
+        <surface>/</surface>
+        <surface>/start</surface>
+        <surface>/home and bottom-nav shell behaviors represented by core UX coverage</surface>
+        <surface>/history</surface>
+        <surface>/profile</surface>
+      </surface_group>
+      <surface_group id="report-create-and-read">
+        <surface>/create</surface>
+        <surface>report creation workflow and resulting read/open continuation</surface>
+        <surface>today/week/read surfaces already covered by targeted E2E suites</surface>
+      </surface_group>
+      <surface_group id="forecast-and-bridge-flows">
+        <surface>month forecast storefront/read bridge</surface>
+        <surface>year forecast storefront/read bridge</surface>
+        <surface>solar return storefront/read bridge</surface>
+        <surface>synastry storefront/read bridge</surface>
+        <surface>ten-year/year read surfaces and week fallback/live variants where applicable</surface>
+      </surface_group>
+      <surface_group id="admin-operator-critical-pages">
+        <surface>/admin dashboard and smoke routes</surface>
+        <surface>admin users, clients, entitlements, diagnostics, operations, and RBAC where already present in E2E inventory</surface>
+      </surface_group>
+      <surface_group id="signal-and-failure-guards">
+        <surface>console/runtime route hygiene</surface>
+        <surface>explicit failure-path handling such as report failure states and fallback rendering</surface>
+      </surface_group>
+    </included_surface_groups>
+    <excluded_from_primary_gate>
+      <item>Pure visual-baseline expansion and screenshot breadth beyond what is needed to prove functional readiness.</item>
+      <item>Coverage-percentage targets not directly tied to crash/interaction/business-path reliability.</item>
+      <item>Non-critical exploratory specs with no direct relation to the active reliability risk.</item>
+    </excluded_from_primary_gate>
+  </scope>
+  <use_cases>
+    <use_case id="UC-CORE-PAGES-LOAD" actor="end_user">
+      <summary>User can open the core frontend surfaces without blank screens, crash loops, or obvious broken server states.</summary>
+      <scenario id="SCN-HOME-LOADS">Landing/home shell loads and exposes primary anchors/navigation affordances.</scenario>
+      <scenario id="SCN-HISTORY-PROFILE-LOAD">History and profile-related routes load into actionable states instead of error shells.</scenario>
+      <scenario id="SCN-ADMIN-LOADS">Admin smoke pages load for authorized operator flows without fatal render breakage.</scenario>
+    </use_case>
+    <use_case id="UC-PRIMARY-INTERACTIONS" actor="end_user">
+      <summary>User can complete the first-order interactions that prove the screen is operational, not merely rendered.</summary>
+      <scenario id="SCN-TAP-CLICK-NAVIGATE">Buttons, links, tabs, disclosures, toggles, and bottom-nav/open actions respond correctly on realistic paths.</scenario>
+      <scenario id="SCN-MOBILE-INTERACTION">Mobile-sized tap paths continue to work for key surfaces such as day/week disclosure and navigation-heavy screens.</scenario>
+      <scenario id="SCN-FORM-SUBMIT">Create/profile/edit flows accept user input and move to the next valid state.</scenario>
+    </use_case>
+    <use_case id="UC-BUSINESS-FLOWS" actor="paying_user_or_operator">
+      <summary>Critical GRACE business flows complete end-to-end through the frontend semantics that matter most.</summary>
+      <scenario id="SCN-CREATE-TO-READ">User can start from create/storefront, submit the primary flow, and reach read/result semantics or the correct follow-up state.</scenario>
+      <scenario id="SCN-BILLING-BRIDGE">Checkout/return bridge flows preserve the expected open/read continuation for supported one-off/report paths.</scenario>
+      <scenario id="SCN-ADMIN-OPERATIONS">Operator can access core admin views and complete the key health/management interactions already represented by smoke and targeted specs.</scenario>
+    </use_case>
+    <use_case id="UC-GUARDED-FAILURE-STATES" actor="end_user">
+      <summary>User sees controlled fallback/failure states where intended instead of uncontrolled crashes.</summary>
+      <scenario id="SCN-WEEK-FALLBACK">Week fallback/read surfaces render bounded fallback content rather than empty/error output.</scenario>
+      <scenario id="SCN-REPORT-FAILURE">Known failure-path screens surface stable error handling semantics.</scenario>
+      <scenario id="SCN-CONSOLE-HYGIENE">Critical runtime/console issues are caught by explicit route-console or equivalent guard coverage.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>Frontend reliability is judged first by functional behavior at user-visible surfaces, not by test count or coverage percentage.</invariant>
+    <invariant>A passing gate must prove the route both renders and supports the primary user action expected from that route.</invariant>
+    <invariant>Business-path suites remain required whenever a surface depends on backend or billing semantics; a page that loads but cannot complete the flow is not reliable.</invariant>
+    <invariant>Health checks in <code>./scripts/run_e2e.sh</code> are part of the reliability contract and MUST remain in the execution path.</invariant>
+    <invariant>When a page has a known fallback contract, the reliable state is the correct bounded fallback, not necessarily the fully enriched happy-path payload.</invariant>
+    <invariant>Coverage expansion work remains welcome, but reliability gates MUST stay executable even if coverage tasks are deferred.</invariant>
+  </business_invariants>
+  <existing_test_assets>
+    <asset type="runner">`./scripts/run_e2e.sh` canonical Docker Playwright wrapper with backend/frontend/proxy health checks.</asset>
+    <asset type="config">`frontend/playwright.config.cjs` with serial worker model, traces on failure, screenshots on failure, `testDir` set to `frontend/e2e`.</asset>
+    <asset type="bundle">`frontend/e2e/admin.smoke.spec.ts` for core admin smoke reliability.</asset>
+    <asset type="bundle">`frontend/e2e/core-ux.spec.ts` for core shell/navigation/UX reliability.</asset>
+    <asset type="bundle">`frontend/e2e/report-create.spec.ts` and `frontend/e2e/report-workflow.spec.ts` for create/read behavior.</asset>
+    <asset type="bundle">`frontend/e2e/quality.spec.ts` and `frontend/e2e/route-console.spec.ts` for quality and runtime-signal guardrails.</asset>
+    <asset type="bundle">`frontend/e2e/today-daybrief.spec.ts`, `frontend/e2e/week-page-fallback.spec.ts`, `frontend/e2e/week-home-refresh.regression.spec.ts`, and `frontend/e2e/week-live.spec.ts` for key read/fallback/week reliability slices.</asset>
+    <asset type="bundle">`frontend/e2e/billing-mock.spec.ts`, `frontend/e2e/month-forecast-bridge-storefront.spec.ts`, `frontend/e2e/year-forecast-bridge-storefront.spec.ts`, `frontend/e2e/solar-return-bridge-storefront.spec.ts`, and `frontend/e2e/synastry-bridge-storefront.spec.ts` for bridge/storefront business paths.</asset>
+    <asset type="bundle">`frontend/e2e/admin.users.spec.ts`, `frontend/e2e/admin.clients.spec.ts`, `frontend/e2e/admin.entitlements.spec.ts`, `frontend/e2e/admin.operations.spec.ts`, `frontend/e2e/admin.diagnostics.spec.ts`, and `frontend/e2e/admin.rbac.spec.ts` for operator-critical routes.</asset>
+  </existing_test_assets>
+  <expected_failure_handling>
+    <item>If a targeted page returns a crash, blank shell, or 500, workers MUST add or update the reproduction Playwright test before declaring the fix complete.</item>
+    <item>If a route loads but a primary interaction fails, the slice remains red until the interaction path is reproduced and passes.</item>
+    <item>If a business flow depends on backend state or billing bridge behavior, workers MUST verify the exact path with the relevant targeted E2E suite rather than relying on page-load smoke alone.</item>
+    <item>If no existing spec cleanly captures the regression, workers MUST add the minimally scoped Playwright case near the closest existing bundle.</item>
+    <item>If last-failed is empty or insufficient, workers MUST run the specific impacted spec file or grep-selected test title that proves the fix.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-FRONTEND-RELIABILITY-GATE-IMPLICIT">Frontend functional reliability expectations exist across AGENTS, verification matrix, and scattered E2E suites, but they are not yet assembled into one execution packet centered on reliability-first gates.</defect>
+    <defect id="DEFECT-SMOKE-VS-BUSINESS-PATH-BOUNDARY">Current smoke guidance exists, but the explicit distinction between page-load smoke and business-path reliability is not frozen in one worker-facing slice.</defect>
+    <defect id="DEFECT-COVERAGE-PRIORITY-AMBIGUITY">Recent frontend hardening work can be misread as coverage-first; this packet resolves the priority in favor of operational functional confidence.</defect>
+    <defect id="DEFECT-TARGETED-BUNDLE-SELECTION-NOT-CANONICAL">The repo has many useful Playwright specs, but the minimal reliability bundles per route class are not yet documented as a canonical execution ladder.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-FFR-1">Packet defines frontend functional reliability as a gate over load health, interaction health, business-path health, and signal hygiene.</criterion>
+    <criterion id="SC-FFR-2">Packet maps the existing Playwright inventory into an execution ladder from quick smoke to targeted business-path verification.</criterion>
+    <criterion id="SC-FFR-3">Packet gives workers a reliability-first rule set that keeps coverage growth secondary instead of substituting for functional proof.</criterion>
+    <criterion id="SC-FFR-4">Packet preserves AGENTS testing discipline, including frontend quick verification after significant changes and reproduction-first fixes for crashes/500s.</criterion>
+    <criterion id="SC-FFR-5">Packet is execution-ready: a worker can choose the touched surface, run the corresponding targeted commands, and know when the slice is green.</criterion>
+  </success_criteria>
+</requirements_slice>

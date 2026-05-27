@@ -1,0 +1,92 @@
+{
+  "attempt": 1,
+  "timestamp": "2026-05-26T12:00:00Z",
+  "packet_id": "FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP-W01-LIFECYCLE-GATE",
+  "feature_id": "FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP",
+  "wave_id": "W01",
+  "verification_commands": [
+    "pytest -xvs tests/test_prefect_grace_worktree_scope_lifecycle.py tests/test_prefect_grace_cli_worktree_scope_lifecycle.py tests/test_prefect_grace_cli_contracts.py::test_worktree_scope_check_cli_contract",
+    "pytest -q tests/test_prefect_grace_scope_guard.py tests/test_prefect_grace_worktree_manager.py tests/test_prefect_grace_packet_parser.py tests/test_prefect_grace_cli_contracts.py",
+    "python3 -m compileall -q prefect_grace",
+    "python3 scripts/grace_lint.py prefect_grace/platform/worktree_scope_lifecycle.py",
+    "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.md --strict --json",
+    "python3 -m prefect_grace.cli worktree-scope-check --packet prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.md --repo-root /opt/astro-project --worktree-root /tmp/test-worktrees --project-key astro-project --packet-id TEST-PACKET-W01-TEST --attempt 1 --base-ref HEAD --json"
+  ],
+  "test_results": {
+    "targeted_tests": {
+      "command": "pytest -xvs tests/test_prefect_grace_worktree_scope_lifecycle.py tests/test_prefect_grace_cli_worktree_scope_lifecycle.py tests/test_prefect_grace_cli_contracts.py::test_worktree_scope_check_cli_contract",
+      "result": "14 passed in 2.31s",
+      "breakdown": {
+        "lifecycle_unit_tests": 7,
+        "cli_integration_tests": 6,
+        "cli_contract_tests": 1
+      }
+    },
+    "regression_tests": {
+      "command": "pytest -q tests/test_prefect_grace_scope_guard.py tests/test_prefect_grace_worktree_manager.py tests/test_prefect_grace_packet_parser.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "72 passed in 7.24s",
+      "modules_verified": [
+        "scope_guard",
+        "worktree_manager",
+        "packet_parser",
+        "cli_contracts"
+      ]
+    },
+    "static_checks": {
+      "compilation": "PASS",
+      "grace_lint": "PASS",
+      "packet_validation": "PASS"
+    }
+  },
+  "cli_smoke": {
+    "positive": {
+      "command": "worktree-scope-check with no changed files",
+      "exit_code": 0,
+      "status": "passed",
+      "ok": true
+    }
+  },
+  "implementation_artifacts": [
+    "prefect_grace/platform/worktree_scope_lifecycle.py",
+    "tests/test_prefect_grace_worktree_scope_lifecycle.py",
+    "tests/test_prefect_grace_cli_worktree_scope_lifecycle.py"
+  ],
+  "modified_artifacts": [
+    "prefect_grace/cli.py",
+    "tests/test_prefect_grace_cli_contracts.py"
+  ],
+  "frozen_scope_compliance": {
+    "frozen_files_modified": false,
+    "frozen_files_checked": [
+      "prefect_grace/platform/scope_guard.py",
+      "prefect_grace/platform/worktree_manager.py",
+      "prefect_grace/flows/feature_pipeline.py",
+      "prefect_grace/tasks/codex_launcher.py"
+    ]
+  },
+  "scope_compliance": {
+    "allowed_write_scope_only": true,
+    "all_changes_within_allowed": true,
+    "frozen_scope_violations": []
+  },
+  "lifecycle_gate_behavior": {
+    "fail_closed": true,
+    "preserves_worktree_on_block": true,
+    "exit_codes": {
+      "passed": 0,
+      "scope_blocked": 1,
+      "worktree_error": 2
+    }
+  },
+  "no_live_agents_confirmation": "Implementation is pure Python with no LLM calls, no live agents, no state mutation beyond worktree creation",
+  "no_merge_push_squash_confirmation": "Implementation does NOT perform merge, push, squash, or registry acceptance operations",
+  "evidence_files": [
+    "pytest_targeted.txt",
+    "pytest_regression.txt",
+    "grace_lint_output.txt",
+    "packet_validation.json",
+    "cli_smoke_positive.json",
+    "evidence_manifest.json",
+    "IMPLEMENTATION_SUMMARY.md"
+  ]
+}

@@ -143,6 +143,19 @@ def test_cli_bootstrap_backlog_dry_run_contract() -> None:
     assert "warnings" in candidate
 
 
+def test_cli_registry_apply_smoke_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "registry-apply-smoke", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_submit_packets_contract() -> None:
     """Verify submit-packets CLI exposes runner selection and dry-run defaults."""
     result = subprocess.run(
@@ -180,6 +193,43 @@ def test_cli_prefect_e2e_live_smoke_contract() -> None:
     assert "--execute-agent" in result.stdout
     assert "--allow-live-agent-smoke" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_cli_prefect_e2e_batch_smoke_contract() -> None:
+    """Verify run-prefect-e2e-batch-smoke CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-prefect-e2e-batch-smoke", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project-config" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--batch-size" in result.stdout
+    assert "--execute-agent" in result.stdout
+    assert "--json" in result.stdout
+
+
+def test_cli_prefect_e2e_real_dry_run_smoke_contract() -> None:
+    """Verify run-prefect-e2e-real-dry-run-smoke CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-prefect-e2e-real-dry-run-smoke", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project-config" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--no-wait" in result.stdout
+    assert "--execute-agent" in result.stdout
+    assert "--json" in result.stdout
+    assert "--offline-fake-submitter" not in result.stdout
 
 
 def test_check_scope_cli_contract() -> None:

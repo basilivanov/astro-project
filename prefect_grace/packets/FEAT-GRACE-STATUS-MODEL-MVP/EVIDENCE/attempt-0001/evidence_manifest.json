@@ -1,0 +1,100 @@
+{
+  "packet_id": "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL",
+  "attempt": 1,
+  "generated_at": "2026-05-27T00:00:00Z",
+  "executor": "coder",
+  "evidence_items": [
+    {
+      "id": "EV-001",
+      "requirement": "Status transition table",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "implementation",
+      "artifact_paths": [
+        "prefect_grace/platform/status_model.py"
+      ],
+      "summary": "Implemented apply_domain_result_to_registry() with complete transition table: accepted→accepted, passed→accepted, rework_required→ready_for_retry, blocked→blocked, scope_blocked→blocked(scope_violation), agent_failed→blocked, verifier_failed→blocked, reviewer_failed→blocked, runner_error→blocked, handoff_error→blocked, unknown→blocked(unknown_domain_status)"
+    },
+    {
+      "id": "EV-002",
+      "requirement": "Normalization table for legacy strings",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "implementation",
+      "artifact_paths": [
+        "prefect_grace/platform/status_model.py"
+      ],
+      "summary": "Implemented normalize_source_status(), normalize_registry_status(), normalize_domain_status() with fail-closed defaults: unknown source→READY, unknown registry→BLOCKED, unknown domain→RUNNER_ERROR"
+    },
+    {
+      "id": "EV-003",
+      "requirement": "Targeted test output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_status_model.py"
+      ],
+      "summary": "104 passed in 3.22s - All targeted tests pass: status_model (36 tests), backlog_controller, managed_packet_runner, worktree_scope_lifecycle, verifier_reviewer_handoff, executor_registry, cli_contracts"
+    },
+    {
+      "id": "EV-004",
+      "requirement": "Static check output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "compileall+grace_lint+validate-packet",
+      "artifact_paths": [],
+      "summary": "All static checks pass: compileall (no errors), grace_lint (GRACE Canon Script Discipline compliant for status_model.py), validate-packet (strict mode ok=true)"
+    },
+    {
+      "id": "EV-005",
+      "requirement": "Frozen-scope check output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git diff",
+      "artifact_paths": [],
+      "summary": "Frozen scope clean: no changes to backend, frontend, feature_pipeline.py, codex_launcher.py, or other frozen files"
+    },
+    {
+      "id": "EV-006",
+      "requirement": "Confirmation that public JSON statuses remain strings",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "implementation",
+      "artifact_paths": [
+        "prefect_grace/platform/status_model.py",
+        "tests/test_prefect_grace_status_model.py"
+      ],
+      "summary": "All enums inherit from str (class Status(str, Enum)) for JSON serialization. Tests verify .value returns strings and StatusTransition can be serialized to dict with string values. Integration uses .value for backward compatibility."
+    },
+    {
+      "id": "EV-007",
+      "requirement": "Confirmation that feature_pipeline.py and codex_launcher.py were not touched",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git diff",
+      "artifact_paths": [],
+      "summary": "Confirmed: feature_pipeline.py and codex_launcher.py have no modifications (frozen scope check passed)"
+    },
+    {
+      "id": "EV-008",
+      "requirement": "Runtime module integration",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "implementation",
+      "artifact_paths": [
+        "prefect_grace/platform/managed_packet_runner.py",
+        "prefect_grace/platform/verifier_reviewer_handoff.py",
+        "prefect_grace/platform/backlog_controller.py",
+        "prefect_grace/platform/executor_registry.py"
+      ],
+      "summary": "Integrated status_model into 4 runtime modules within allowed scope: managed_packet_runner (7 DomainStatus usages), verifier_reviewer_handoff (9 DomainStatus usages), backlog_controller (24 RegistryStatus/SourcePacketStatus usages), executor_registry (2 DomainStatus usages). Total 42 enum usages. e2e_packet_runner excluded (not in allowed scope)."
+    }
+  ],
+  "summary": "FEAT-GRACE-STATUS-MODEL-MVP implementation complete with full runtime integration. Created status_model.py with three-layer status enums (SourcePacketStatus, RegistryStatus, DomainStatus), fail-closed normalization functions, deterministic domain-to-registry transitions, and predicate helpers. Integrated into managed_packet_runner, verifier_reviewer_handoff, backlog_controller, and executor_registry (all within allowed scope). All 36 status model tests pass, all 104 targeted tests pass, GRACE lint compliant, frozen scope clean. e2e_packet_runner not modified (outside allowed scope).",
+  "blockers": [],
+  "next_steps": [
+    "Use status_model transitions in future registry state management",
+    "Consider adding status_model to e2e_packet_runner in a future packet"
+  ]
+}

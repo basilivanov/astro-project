@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-OBS-REWORK-STOP",
+  "title": "Repeated observability rework stop",
+  "slice_id": "SLICE-FEAT-OBS-REWORK-STOP",
+  "slice_slug": "repeated-observability-rework-stop",
+  "slice_dir": "/opt/astro-project/docs/repeated-observability-rework-stop",
+  "requirements_slice_path": "/opt/astro-project/docs/repeated-observability-rework-stop/requirements.slice.repeated-observability-rework-stop.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/repeated-observability-rework-stop/development-plan.slice.repeated-observability-rework-stop.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/repeated-observability-rework-stop/verification-matrix.slice.repeated-observability-rework-stop.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/repeated-observability-rework-stop/knowledge-graph.slice.repeated-observability-rework-stop.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/repeated-observability-rework-stop/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/repeated-observability-rework-stop/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/repeated-observability-rework-stop/requirements.slice.repeated-observability-rework-stop.xml",
+    "/opt/astro-project/docs/repeated-observability-rework-stop/development-plan.slice.repeated-observability-rework-stop.xml",
+    "/opt/astro-project/docs/repeated-observability-rework-stop/verification-matrix.slice.repeated-observability-rework-stop.md",
+    "/opt/astro-project/docs/repeated-observability-rework-stop/knowledge-graph.slice.repeated-observability-rework-stop.xml",
+    "/opt/astro-project/docs/repeated-observability-rework-stop/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:58.970254+00:00"
+}

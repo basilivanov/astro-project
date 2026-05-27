@@ -1,0 +1,21 @@
+{
+  "feature_id": "FEAT-PREFECT-NATIVE-QUEUE-SMOKE",
+  "title": "Prefect Native Queue Smoke",
+  "slice_id": "SLICE-FEAT-PREFECT-NATIVE-QUEUE-SMOKE",
+  "slice_slug": "prefect-native-queue-smoke",
+  "slice_dir": "/opt/astro-project/docs/prefect-native-queue-smoke",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/prefect-native-queue-smoke/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/prefect-native-queue-smoke/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T18:53:45.899156+00:00"
+}

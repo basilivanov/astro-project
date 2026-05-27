@@ -1,0 +1,4109 @@
+{
+  "ok": true,
+  "profile": "smoke",
+  "seed": 1,
+  "generated": 1024,
+  "pruned": 256,
+  "passed": 768,
+  "failed": 0,
+  "elapsed_seconds": 0.97,
+  "pruned_scenarios": [
+    {
+      "scenario_id": "scenario-0197",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0242",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0503",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0419",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0704",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0676",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0928",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0454",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0757",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0243",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0455",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0246",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0930",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0722",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0900",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0673",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0487",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0407",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0899",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0146",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0131",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0737",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0915",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0241",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0244",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0647",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0934",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0919",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0417",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0896",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0992",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0147",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0966",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0918",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0999",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0726",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0950",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0641",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0135",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0484",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0180",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0176",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0481",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0706",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0964",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0437",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0386",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0659",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0996",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0452",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0723",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0208",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0931",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0438",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0199",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0935",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0231",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0467",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0482",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0740",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0965",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0497",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0725",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0148",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0134",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1009",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0677",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0976",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0962",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0705",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0401",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0945",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0643",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0498",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0179",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0226",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0385",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0901",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0709",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0946",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0215",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0182",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0739",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0145",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0384",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0933",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0451",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0433",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0997",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0151",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0209",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0166",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0418",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0195",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1011",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0421",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0982",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0130",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0196",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0178",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0422",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0983",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0661",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0434",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0193",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0756",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0391",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0947",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0453",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0405",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0656",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0977",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0759",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0486",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0692",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0978",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0502",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0450",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0753",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0742",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0980",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0213",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0916",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0658",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0435",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0960",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0949",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0963",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1012",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0464",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0420",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0161",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0674",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0211",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0129",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0144",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0183",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0710",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0951",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0660",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0640",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0688",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0929",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0695",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0912",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0981",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0466",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0400",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1013",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0212",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0998",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0724",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0247",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0165",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0245",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0642",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0898",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0468",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0229",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0727",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0708",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0150",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0389",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0416",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0500",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0754",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0678",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0240",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0897",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1010",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0994",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0439",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0707",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0160",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0198",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0387",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0471",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0133",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0162",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0128",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0752",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0646",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0691",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0404",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0228",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0711",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0645",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0225",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0694",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0721",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0995",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0164",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0736",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0149",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0406",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0230",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1008",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0192",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0485",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0465",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0663",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0672",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0163",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0689",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0181",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0469",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0913",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0496",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0423",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0436",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0210",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0132",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0758",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0675",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0662",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0403",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0720",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0480",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0501",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0167",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0679",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0449",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0755",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0690",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0177",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0402",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0903",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0194",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0932",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0993",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0917",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0741",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0644",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0657",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0944",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0948",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0470",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1014",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0224",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0693",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-1015",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0979",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0448",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0227",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0743",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0432",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0390",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0902",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0961",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0967",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0738",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0914",
+      "dimensions": {
+        "artifact_layout": "corrupt_evidence_json",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0499",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0214",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0388",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "frozen_only",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0483",
+      "dimensions": {
+        "artifact_layout": "complete",
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "scope": "allowed_only",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,2 @@
+[GRACE-LINT] All modules in prefect_grace/platform/scope_guard.py comply with GRACE Canon Script Discipline.
+Exit code: 0

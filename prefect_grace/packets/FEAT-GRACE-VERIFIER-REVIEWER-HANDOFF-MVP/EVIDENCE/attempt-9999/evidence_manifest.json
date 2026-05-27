@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-05-26T21:28:11.169038+00:00",
+  "attempt": 9999,
+  "packet_id": "FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP-W01-HANDOFF",
+  "generated_by": "verifier",
+  "requirement_results": [
+    {
+      "id": "EV-HANDOFF-001",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_verifier_reviewer_handoff.py"
+      ],
+      "summary": "Handoff controller tests passed"
+    },
+    {
+      "id": "EV-HANDOFF-002",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_cli_handoff.py"
+      ],
+      "summary": "CLI handoff tests passed"
+    }
+  ]
+}

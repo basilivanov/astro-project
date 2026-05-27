@@ -1,0 +1,56 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-RERUN-2">
+  <phase id="PHASE-SLICE">
+    <goal>Rerun the already-canonical Week runtime indicator slice through the live GRACE pipeline after pipeline and reviewer-routing fixes, without widening product scope.</goal>
+
+    <wave id="W01">
+      <goal>Re-run the bounded Week runtime indicator implementation and evidence lane without widening the approved Week helper-state slice.</goal>
+      <module_ref id="M-FRONTEND-WEBAPP" />
+      <module_ref id="M-FRONTEND-WEEK" />
+      <module_ref id="M-USE-TELEGRAM" />
+      <allowed_write_scope>
+        <file>/opt/astro-project/frontend/app/layout.tsx</file>
+        <file>/opt/astro-project/frontend/app/week/page.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-runtime-diagnostics-disclosure.tsx</file>
+        <file>/opt/astro-project/frontend/test/app/week-page.test.tsx</file>
+        <file>/opt/astro-project/frontend/e2e/week-runtime-indicator.spec.ts</file>
+        <file>/opt/astro-project/frontend/e2e/week-runtime-indicator-visual.spec.ts</file>
+        <file>/opt/astro-project/frontend/docs/review_evidence/front/day-week/2026-04-15-week-runtime-indicator/**</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>/opt/astro-project/backend/**</file>
+        <file>/opt/astro-project/frontend/app/page.tsx</file>
+        <file>/opt/astro-project/frontend/components/today/**</file>
+        <file>/opt/astro-project/frontend/hooks/useTelegram.ts</file>
+        <file>/opt/astro-project/frontend/lib/telegram-runtime.ts</file>
+        <file>/opt/astro-project/frontend/lib/week-brief.ts</file>
+        <file>/opt/astro-project/frontend/components/week/week-hero-map.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-day-strip.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-day-drawer.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-domain-panel.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-actions-panel.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-explainability-panel.tsx</file>
+        <file>/opt/astro-project/frontend/components/week/week-deep-sections.tsx</file>
+      </frozen_scope>
+      <verification>
+        <command>corepack pnpm --dir frontend exec jest --runInBand test/app/week-page.test.tsx</command>
+        <command>./scripts/run_e2e.sh e2e/week-runtime-indicator.spec.ts</command>
+        <command>./scripts/run_e2e.sh e2e/week-runtime-indicator-visual.spec.ts</command>
+        <command>python3 tools/post_test_review.py --profile today-week --since 30m --report-format md</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>The Week DEV chip remains compact in collapsed state.</criterion>
+        <criterion>On /week in non-production, tapping the chip expands and collapses a local disclosure with render path, bootstrap result, and current mode only.</criterion>
+        <criterion>Week render-path labels are derived from existing page states and remain stable for canonical, in_progress, empty, error, auth_gate, and loading branches.</criterion>
+        <criterion>Production and non-Week routes remain inert and visually unchanged.</criterion>
+        <criterion>Verifier evidence includes dev-collapsed, dev-expanded, and prod-unchanged Week proof plus an explicit FLOW-TODAY-WEEK-WEEK observability verdict.</criterion>
+        <criterion>Reviewer evidence explicitly checks that the Week top area remains local and not banner-like.</criterion>
+      </acceptance_criteria>
+      <deferred_work>
+        <item>Any additional diagnostics fields beyond render path, bootstrap result, and current mode.</item>
+        <item>Any Day or multi-route redesign of the shell badge beyond the bounded / and /week helper entry points.</item>
+        <item>Any backend observability or payload diagnostics exposure in user-facing UI.</item>
+      </deferred_work>
+    </wave>
+
+  </phase>
+</development_plan_slice>

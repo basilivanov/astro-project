@@ -1,0 +1,126 @@
+{
+  "feature_id": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417",
+  "title": "Backend GRACE contracts and observability hubs",
+  "slice_id": "SLICE-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417",
+  "slice_slug": "backend-grace-contracts-observability-hubs-20260417",
+  "materialization_mode": "packet_first",
+  "system_goal": "Bring the current backend hub slice to stable strict-GRACE addressability and reviewer-readable development observability without changing product business semantics.",
+  "impacted_modules": [
+    "M-API-GATEWAY",
+    "M-TRACE-LOGGING",
+    "M-DAY-BRIEF-SERVICE",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-ANALYTICS-EVENTS",
+    "M-OPS-AUTOMATION"
+  ],
+  "allowed_write_scope": [
+    "/opt/astro-project/backend/app/main.py",
+    "/opt/astro-project/backend/app/logging_utils.py",
+    "/opt/astro-project/backend/app/middleware/correlation.py",
+    "/opt/astro-project/backend/app/services/day_brief.py",
+    "/opt/astro-project/backend/app/services/day_brief_validators.py",
+    "/opt/astro-project/backend/app/services/scheduler.py",
+    "/opt/astro-project/backend/app/services/analytics.py",
+    "/opt/astro-project/tools/post_test_review.py",
+    "/opt/astro-project/tools/log_watch/common.py",
+    "/opt/astro-project/tools/log_watch/scheduler_watch.py",
+    "/opt/astro-project/tests/test_day_brief.py",
+    "/opt/astro-project/tests/test_day_brief_schema.py",
+    "/opt/astro-project/tests/test_week_brief_api.py",
+    "/opt/astro-project/tests/test_logging_utils_grace.py",
+    "/opt/astro-project/tests/test_catalog_logging.py",
+    "/opt/astro-project/tests/test_billing_scheduler.py",
+    "/opt/astro-project/tests/test_post_test_review.py",
+    "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/**"
+  ],
+  "frozen_scope": [
+    "/opt/astro-project/frontend/**",
+    "/opt/astro-project/backend/app/services/report_workflow.py",
+    "/opt/astro-project/backend/app/services/feed_service.py",
+    "/opt/astro-project/backend/app/services/personalized_daily.py",
+    "/opt/astro-project/backend/app/services/access_control.py",
+    "/opt/astro-project/backend/app/services/billing.py",
+    "/opt/astro-project/backend/app/services/referral_service.py",
+    "/opt/astro-project/backend/app/models.py",
+    "/opt/astro-project/backend/app/db.py",
+    "/opt/astro-project/backend/app/catalog_logging.py",
+    "/opt/astro-project/backend/app/diagnostics.py",
+    "/opt/astro-project/requirements.xml",
+    "/opt/astro-project/technology.xml",
+    "/opt/astro-project/development-plan.xml",
+    "/opt/astro-project/knowledge-graph.xml",
+    "/opt/astro-project/verification-matrix.md"
+  ],
+  "business_invariants": [
+    "No DayBrief, WeekBrief, report-read, scheduler, analytics, auth, billing, or scoring business semantics change in this slice.",
+    "Existing GRACE logging envelope, correlation model, and transport remain the only allowed observability backbone.",
+    "Packet-local evidence in W01 and W02 cannot close the feature; W03 owns the final canonical today-week verdict.",
+    "Scheduler or analytics non-emission must be called out explicitly instead of being silently treated as clean coverage."
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Backend hub contract alignment",
+      "goal": "Close or confirm residual strict-GRACE addressability gaps on the current backend hub files and lock them with targeted tests.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "observability_scope": "packet_local",
+      "allow_degraded_but_expected": false
+    },
+    {
+      "wave_id": "W02",
+      "title": "Backend hub observability alignment",
+      "goal": "Make hub observability and verdict tooling reviewer-readable by stable module, function, block, and correlation landmarks.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "observability_scope": "packet_local",
+      "allow_degraded_but_expected": false
+    },
+    {
+      "wave_id": "W03",
+      "title": "Backend hub canonical closeout",
+      "goal": "Own the final canonical today-week backend observability verdict for the completed hub slice.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "observability_scope": "wave_final",
+      "allow_degraded_but_expected": true
+    }
+  ],
+  "packet_ids": [
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-EVIDENCE",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-VERDICT",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-ARCHITECT-WAVE-GATE",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-EVIDENCE",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-VERDICT",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-ARCHITECT-WAVE-GATE",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-VERDICT",
+    "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-ARCHITECT-WAVE-GATE"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-17T00:00:00+03:00"
+}

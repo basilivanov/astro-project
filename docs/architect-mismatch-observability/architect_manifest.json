@@ -1,0 +1,45 @@
+{
+  "feature_id": "FEAT-ARCH-MISMATCH-OBS",
+  "title": "Architect mismatch observability",
+  "slice_id": "SLICE-FEAT-ARCH-MISMATCH-OBS",
+  "slice_slug": "architect-mismatch-observability",
+  "slice_dir": "/opt/astro-project/docs/architect-mismatch-observability",
+  "requirements_slice_path": "/opt/astro-project/docs/architect-mismatch-observability/requirements.slice.architect-mismatch-observability.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/architect-mismatch-observability/development-plan.slice.architect-mismatch-observability.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/architect-mismatch-observability/verification-matrix.slice.architect-mismatch-observability.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/architect-mismatch-observability/knowledge-graph.slice.architect-mismatch-observability.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/architect-mismatch-observability/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/architect-mismatch-observability/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-FRONTEND-WEEK"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Frontend helper wave",
+      "goal": "Frontend-only helper change",
+      "module_refs": [],
+      "allowed_write_scope": [
+        "/opt/astro-project/frontend/app/week/page.tsx"
+      ],
+      "frozen_scope": [],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "corepack pnpm --dir frontend exec jest --runInBand test/app/week-page.test.tsx"
+      ],
+      "acceptance_criteria": [],
+      "deferred_work": []
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/architect-mismatch-observability/requirements.slice.architect-mismatch-observability.xml",
+    "/opt/astro-project/docs/architect-mismatch-observability/development-plan.slice.architect-mismatch-observability.xml",
+    "/opt/astro-project/docs/architect-mismatch-observability/verification-matrix.slice.architect-mismatch-observability.md",
+    "/opt/astro-project/docs/architect-mismatch-observability/knowledge-graph.slice.architect-mismatch-observability.xml",
+    "/opt/astro-project/docs/architect-mismatch-observability/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:58.496691+00:00"
+}

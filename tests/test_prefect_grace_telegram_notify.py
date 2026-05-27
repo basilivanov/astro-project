@@ -210,3 +210,25 @@ def test_notify_wave_event_includes_progression_state(monkeypatch) -> None:
     assert ok is True
     assert sent
     assert "Статус в sequence: accepted (обязательная)." in sent[0]
+
+
+def test_notify_agent_work_event_renders_completion_message(monkeypatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(telegram_notify, "_send_html_message", lambda text: sent.append(text) or True)
+
+    ok = telegram_notify.notify_agent_work_event(
+        status="done",
+        title="CLI module split packet",
+        summary="Packet authored and strict validation passed.",
+        packet_id="FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+        next_action="Start extraction-only implementation.",
+        link="https://prefect.example/runs/one",
+    )
+
+    assert ok is True
+    assert sent
+    assert "GRACE agent: закончил работу" in sent[0]
+    assert "CLI module split packet" in sent[0]
+    assert "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT" in sent[0]
+    assert "Start extraction-only implementation." in sent[0]
+    assert "https://prefect.example/runs/one" in sent[0]

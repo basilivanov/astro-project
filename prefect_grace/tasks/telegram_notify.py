@@ -592,3 +592,46 @@ def notify_submission_event(
     if url:
         lines.append(f"<a href=\"{escape(url)}\">Открыть запуск в Prefect</a>")
     return _send_html_message(_lines_to_html(lines))
+
+
+def notify_agent_work_event(
+    *,
+    status: str,
+    title: str,
+    summary: str | None = None,
+    packet_id: str | None = None,
+    next_action: str | None = None,
+    link: str | None = None,
+) -> bool:
+    normalized_status = str(status or "info").strip().lower()
+    label = {
+        "started": "стартовал",
+        "done": "закончил работу",
+        "blocked": "остановился с блокером",
+        "failed": "завершился с ошибкой",
+        "info": "обновление",
+    }.get(normalized_status, normalized_status or "обновление")
+    icon = {
+        "started": "▶️",
+        "done": "✅",
+        "blocked": "⛔",
+        "failed": "❌",
+        "info": "ℹ️",
+    }.get(normalized_status, "ℹ️")
+
+    lines = [
+        f"{icon} <b>GRACE agent: {escape(label)}</b>",
+        f"Задача: {escape(_short_reason(title or 'без названия'))}",
+    ]
+    if packet_id:
+        lines.append(f"Пакет: <code>{escape(packet_id)}</code>")
+    if summary:
+        for line in str(summary).splitlines()[:6]:
+            compact = _short_reason(line)
+            if compact:
+                lines.append(escape(compact))
+    if next_action:
+        lines.append(f"Дальше: {escape(_short_reason(next_action))}")
+    if link:
+        lines.append(f"<a href=\"{escape(link)}\">Открыть ссылку</a>")
+    return _send_html_message(_lines_to_html(lines))

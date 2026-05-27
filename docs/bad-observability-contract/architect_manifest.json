@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-BAD-OBS-CONTRACT",
+  "title": "Bad observability contract",
+  "slice_id": "SLICE-FEAT-BAD-OBS-CONTRACT",
+  "slice_slug": "bad-observability-contract",
+  "slice_dir": "/opt/astro-project/docs/bad-observability-contract",
+  "requirements_slice_path": "/opt/astro-project/docs/bad-observability-contract/requirements.slice.bad-observability-contract.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/bad-observability-contract/development-plan.slice.bad-observability-contract.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/bad-observability-contract/verification-matrix.slice.bad-observability-contract.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/bad-observability-contract/knowledge-graph.slice.bad-observability-contract.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/bad-observability-contract/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/bad-observability-contract/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/bad-observability-contract/requirements.slice.bad-observability-contract.xml",
+    "/opt/astro-project/docs/bad-observability-contract/development-plan.slice.bad-observability-contract.xml",
+    "/opt/astro-project/docs/bad-observability-contract/verification-matrix.slice.bad-observability-contract.md",
+    "/opt/astro-project/docs/bad-observability-contract/knowledge-graph.slice.bad-observability-contract.xml",
+    "/opt/astro-project/docs/bad-observability-contract/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:58.148796+00:00"
+}

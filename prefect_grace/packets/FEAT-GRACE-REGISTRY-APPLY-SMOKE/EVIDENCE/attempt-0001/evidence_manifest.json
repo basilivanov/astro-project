@@ -1,0 +1,101 @@
+{
+  "timestamp": "2026-05-27T21:24:23+03:00",
+  "attempt": 1,
+  "packet_id": "FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE",
+  "packet_status": "ready_for_review",
+  "files_changed": [
+    "prefect_grace/platform/registry_apply_smoke.py",
+    "prefect_grace/cli.py",
+    "tests/test_prefect_grace_registry_apply_smoke.py",
+    "tests/test_prefect_grace_cli_contracts.py",
+    "prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EVIDENCE/attempt-0001/evidence_manifest.json"
+  ],
+  "verification": {
+    "targeted_pytest": {
+      "command": "pytest -q tests/test_prefect_grace_registry_apply_smoke.py tests/test_prefect_grace_backlog_controller.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "34 passed in 4.02s"
+    },
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/platform prefect_grace/cli.py",
+      "result": "passed"
+    },
+    "grace_lint": {
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/registry_apply_smoke.py prefect_grace/cli.py",
+      "result": "passed",
+      "note": "scripts/grace_lint.py consumes the first target argument; the changed platform module passed GRACE Canon Script Discipline."
+    },
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EXECUTION_PACKET.md --strict --json",
+      "ok": true,
+      "warnings": 0,
+      "errors": 0
+    }
+  },
+  "cli_smoke": {
+    "command": "python3 -m prefect_grace.cli registry-apply-smoke --project prefect_grace/project.yaml --state-root /tmp/grace-registry-apply-smoke/state --json",
+    "ok": true,
+    "project_key": "astro-project",
+    "state_root": "/tmp/grace-registry-apply-smoke/state",
+    "packet_root": "/tmp/grace-registry-apply-smoke/state/synthetic_repo/packets",
+    "dry_run": false,
+    "bootstrap_apply_count": 7,
+    "prefect_runs_created": 0,
+    "writes_outside_state_root": [],
+    "sync_plan": {
+      "registry_updates": 0,
+      "accepted": [
+        "SMOKE-PARENT-ACCEPTED-W01-PACKET"
+      ],
+      "ready": [
+        "SMOKE-COMMAND-PASSED-W01-PACKET",
+        "SMOKE-DEPENDENT-READY-W01-PACKET",
+        "SMOKE-SOURCE-ONLY-W01-PACKET"
+      ],
+      "blocked": [
+        "SMOKE-BLOCKED-PARENT-W01-PACKET",
+        "SMOKE-MISSING-DEPENDENCY-W01-PACKET"
+      ],
+      "cascading_blocked": [
+        "SMOKE-MISSING-DEPENDENCY-W01-PACKET"
+      ],
+      "errors": []
+    },
+    "submit_plan": {
+      "dry_run": true,
+      "packets_planned": [
+        "SMOKE-COMMAND-PASSED-W01-PACKET",
+        "SMOKE-DEPENDENT-READY-W01-PACKET",
+        "SMOKE-SOURCE-ONLY-W01-PACKET"
+      ],
+      "packets_submitted": [],
+      "execute_fail_closed": {
+        "ok": true,
+        "error_code": "NO_SUBMITTER_PROVIDED",
+        "packets_submitted": []
+      }
+    },
+    "cases": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0
+    }
+  },
+  "post_test_observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "Structured CLI smoke output included registry-aware sync and submit plans, zero Prefect runs, no write paths outside the temp state root, and no errors.",
+    "Scanner warnings for fixture-local SUMMARY.md and review-0001.md are expected because the synthetic packet tree intentionally includes terminal evidence/support files under packet directories."
+  ],
+  "runtime_safety": {
+    "explicit_temp_state_root_used": true,
+    "real_var_lib_state_touched": false,
+    "prefect_grace_state_touched": false,
+    "source_packets_mutated_by_smoke": false,
+    "live_prefect_runs_created": false,
+    "live_agents_started": false,
+    "docker_started": false,
+    "backend_started": false,
+    "frontend_started": false,
+    "playwright_started": false,
+    "frozen_bootstrap_module_modified": false
+  }
+}

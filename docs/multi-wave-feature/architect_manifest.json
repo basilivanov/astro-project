@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-MULTI-WAVE",
+  "title": "Multi wave feature",
+  "slice_id": "SLICE-FEAT-MULTI-WAVE",
+  "slice_slug": "multi-wave-feature",
+  "slice_dir": "/opt/astro-project/docs/multi-wave-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/multi-wave-feature/requirements.slice.multi-wave-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/multi-wave-feature/development-plan.slice.multi-wave-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/multi-wave-feature/verification-matrix.slice.multi-wave-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/multi-wave-feature/knowledge-graph.slice.multi-wave-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/multi-wave-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/multi-wave-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/multi-wave-feature/requirements.slice.multi-wave-feature.xml",
+    "/opt/astro-project/docs/multi-wave-feature/development-plan.slice.multi-wave-feature.xml",
+    "/opt/astro-project/docs/multi-wave-feature/verification-matrix.slice.multi-wave-feature.md",
+    "/opt/astro-project/docs/multi-wave-feature/knowledge-graph.slice.multi-wave-feature.xml",
+    "/opt/astro-project/docs/multi-wave-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:35.049683+00:00"
+}

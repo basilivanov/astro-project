@@ -1,0 +1,28 @@
+<development_plan_slice project="astro-project" parent_plan="/opt/astro-project/development-plan.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-PLANNER-REWORK">
+  <phase id="PHASE-SLICE">
+    <goal>Reviewer rework should escalate to architect/planner only when decomposition must change</goal>
+
+    <wave id="W01">
+      <goal>None</goal>
+      <module_ref id="M-SLICE" />
+      <allowed_write_scope>
+        <file>-</file>
+      </allowed_write_scope>
+      <frozen_scope>
+        <file>-</file>
+      </frozen_scope>
+      <observability_scope>none</observability_scope>
+      <allow_degraded_but_expected>false</allow_degraded_but_expected>
+      <canonical_flow_commands>
+        <command>-</command>
+      </canonical_flow_commands>
+      <verification>
+        <command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command>
+      </verification>
+      <acceptance_criteria>
+        <criterion>-</criterion>
+      </acceptance_criteria>
+    </wave>
+
+  </phase>
+</development_plan_slice>

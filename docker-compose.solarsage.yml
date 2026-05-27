@@ -1,0 +1,18 @@
+services:
+  solarsage-api:
+    build:
+      context: ${SOLARSAGE_DIR:-/opt/solarsage}
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint:
+      - solarsage-api
+    environment:
+      SE_EPHE_PATH: /usr/local/share/swisseph/ephe
+      SWISSEPH_EPHE_PATH: /usr/local/share/swisseph/ephe
+    command:
+      - --port
+      - "8091"
+      - --api-key
+      - ${SOLARSAGE_API_KEY:-}
+    ports:
+      - "127.0.0.1:${SOLARSAGE_HOST_PORT:-18091}:8091"

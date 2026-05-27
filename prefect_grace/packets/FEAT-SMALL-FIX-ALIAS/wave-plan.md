@@ -1,0 +1,22 @@
+# Wave Plan: FEAT-SMALL-FIX-ALIAS
+
+## Objective
+Small fix alias feature
+
+## Waves
+1. W01 — Wave 1: Single slice
+
+## Packet Registry
+- `FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE` — role `coder` — Main Slice
+- `FEAT-SMALL-FIX-ALIAS-W01-VERIFY-SLICE` — role `verifier` — Verify Slice
+- `FEAT-SMALL-FIX-ALIAS-W01-REVIEW-SLICE` — role `reviewer` — Review Slice
+- `FEAT-SMALL-FIX-ALIAS-W01-ARCHITECT-GATE` — role `architect` — Architect Gate
+
+## Dependency Rules
+- `FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE` depends on FEAT-SMALL-FIX-ALIAS-W00-PLANNER-SLICING
+- `FEAT-SMALL-FIX-ALIAS-W01-VERIFY-SLICE` depends on FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE
+- `FEAT-SMALL-FIX-ALIAS-W01-REVIEW-SLICE` depends on FEAT-SMALL-FIX-ALIAS-W01-MAIN-SLICE, FEAT-SMALL-FIX-ALIAS-W01-VERIFY-SLICE
+- `FEAT-SMALL-FIX-ALIAS-W01-ARCHITECT-GATE` depends on FEAT-SMALL-FIX-ALIAS-W01-REVIEW-SLICE
+
+## Exit Conditions
+- accepted

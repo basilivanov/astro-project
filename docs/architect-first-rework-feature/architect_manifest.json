@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-ARCH-FIRST-REWORK",
+  "title": "Architect-first rework feature",
+  "slice_id": "SLICE-FEAT-ARCH-FIRST-REWORK",
+  "slice_slug": "architect-first-rework-feature",
+  "slice_dir": "/opt/astro-project/docs/architect-first-rework-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/architect-first-rework-feature/requirements.slice.architect-first-rework-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/architect-first-rework-feature/development-plan.slice.architect-first-rework-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/architect-first-rework-feature/verification-matrix.slice.architect-first-rework-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/architect-first-rework-feature/knowledge-graph.slice.architect-first-rework-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/architect-first-rework-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/architect-first-rework-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/architect-first-rework-feature/requirements.slice.architect-first-rework-feature.xml",
+    "/opt/astro-project/docs/architect-first-rework-feature/development-plan.slice.architect-first-rework-feature.xml",
+    "/opt/astro-project/docs/architect-first-rework-feature/verification-matrix.slice.architect-first-rework-feature.md",
+    "/opt/astro-project/docs/architect-first-rework-feature/knowledge-graph.slice.architect-first-rework-feature.xml",
+    "/opt/astro-project/docs/architect-first-rework-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:40.879508+00:00"
+}

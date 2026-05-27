@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<development_plan_slice id="frontend-test-hardening" version="2026-03-31">
+  <objective>Reach and enforce 95% scoped line coverage for frontend/app + frontend/components + frontend/lib, excluding E2E from the coverage numerator and denominator.</objective>
+  <assumptions>
+    <assumption>Playwright E2E remains the canonical frontend user-flow verifier and is not replaced by this slice.</assumption>
+    <assumption>Jest with Next-compatible frontend setup is the canonical unit/integration and coverage runner for <code>frontend/app</code>, <code>frontend/components</code>, and <code>frontend/lib</code>.</assumption>
+    <assumption>Minimal extraction of pure helpers from large page components is allowed where required for deterministic testing.</assumption>
+  </assumptions>
+  <local_adaptation>
+    <rule>For this project, Playwright owns frontend E2E and live-interaction verification.</rule>
+    <rule>For this project, Jest/Next owns frontend unit, integration, and coverage verification for the scoped frontend source.</rule>
+    <rule>This packet is controller-owned and does not authorize replacing Jest/Next with Vitest or another frontend coverage runner without explicit controller approval.</rule>
+  </local_adaptation>
+  <waves>
+    <wave id="1" name="audit-baseline"><goal>Measure current state and produce a prioritized remediation map.</goal></wave>
+    <wave id="2" name="tool-stabilization"><goal>Introduce deterministic unit/integration testing and coverage commands.</goal></wave>
+    <wave id="3" name="high-value-tests"><goal>Raise coverage efficiently through behavior-centric tests.</goal></wave>
+    <wave id="4" name="threshold-enforcement"><goal>Make regressions fail closed.</goal></wave>
+    <wave id="5" name="docs-handoff"><goal>Leave a low-ambiguity handoff for future workers.</goal></wave>
+  </waves>
+  <implementation_guidance>
+    <recommendation>Use <code>Jest</code> with Next-compatible setup plus <code>@testing-library/react</code> for unit/integration coverage work in this slice.</recommendation>
+    <recommendation>Keep coverage and transform configuration aligned with the existing Next.js frontend runtime instead of introducing an alternate unit runner.</recommendation>
+    <recommendation>Keep test helpers centralized to avoid duplicated mock setup across files.</recommendation>
+    <recommendation>Favor testing pure decision logic in extracted helpers over brittle assertions against deep DOM details.</recommendation>
+  </implementation_guidance>
+  <write_scope>
+    <allowed><path>frontend/package.json</path><path>frontend/package-lock.json</path><path>frontend/vitest.config.*</path><path>frontend/jest.config.*</path><path>frontend/test/**</path><path>frontend/tests/**</path><path>frontend/__tests__/**</path><path>frontend/app/**</path><path>frontend/components/**</path><path>frontend/lib/**</path><path>docs/frontend_test_hardening_packet/**</path></allowed>
+    <frozen><path>backend/**</path><path>frontend/e2e/**</path><path>scripts/run_e2e.sh</path></frozen>
+  </write_scope>
+  <verification_profile>
+    <required_after_each_significant_change><command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command><command>cd frontend &amp;&amp; npm run test:coverage</command></required_after_each_significant_change>
+    <required_before_handoff><command>docker exec astro-project-backend-1 python3 scripts/pipeline.py</command><command>cd frontend &amp;&amp; npm run test:coverage:threshold</command><command>./scripts/run_e2e.sh --last-failed</command></required_before_handoff>
+  </verification_profile>
+  <acceptance_gate>
+    <must>95% or higher scoped line coverage for <code>frontend/app</code> + <code>frontend/components</code> + <code>frontend/lib</code>.</must>
+    <must>Explicit exclusion rules for generated files, test files, E2E files, and snapshots.</must>
+    <must>Threshold enforcement is committed and executable.</must>
+    <must>Packet documentation is updated to reflect the final command set and scope.</must>
+  </acceptance_gate>
+</development_plan_slice>

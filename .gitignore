@@ -242,3 +242,15 @@ frontend/docs/review_evidence/**/*.webm
 
 # Local task memory
 TASKMEMORY.md
+
+# Local runtime dumps / agent scratch
+.antigravitycli/
+*.bak
+artifacts/day_live_canary/
+frontend/debug-read-whole-sign.mjs
+frontend/artifacts/
+prefect_grace/state/*.yaml
+prefect_grace/state/runs/
+scratch/
+task_artifacts/
+output_to_user/

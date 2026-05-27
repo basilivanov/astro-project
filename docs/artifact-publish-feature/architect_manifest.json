@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-ARTIFACT-PUBLISH",
+  "title": "Artifact publish feature",
+  "slice_id": "SLICE-FEAT-ARTIFACT-PUBLISH",
+  "slice_slug": "artifact-publish-feature",
+  "slice_dir": "/opt/astro-project/docs/artifact-publish-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/artifact-publish-feature/requirements.slice.artifact-publish-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/artifact-publish-feature/development-plan.slice.artifact-publish-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/artifact-publish-feature/verification-matrix.slice.artifact-publish-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/artifact-publish-feature/knowledge-graph.slice.artifact-publish-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/artifact-publish-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/artifact-publish-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/artifact-publish-feature/requirements.slice.artifact-publish-feature.xml",
+    "/opt/astro-project/docs/artifact-publish-feature/development-plan.slice.artifact-publish-feature.xml",
+    "/opt/astro-project/docs/artifact-publish-feature/verification-matrix.slice.artifact-publish-feature.md",
+    "/opt/astro-project/docs/artifact-publish-feature/knowledge-graph.slice.artifact-publish-feature.xml",
+    "/opt/astro-project/docs/artifact-publish-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:39:55.064999+00:00"
+}

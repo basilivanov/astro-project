@@ -1,0 +1,28 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-LIGHT-RESUME-DOWNGRADE">
+  <system_goal>Broad blockers should not resume the existing packet in place</system_goal>
+  <scope>
+    <in_scope>
+      <item>Broad blockers should not resume the existing packet in place</item>
+    </in_scope>
+    <out_of_scope>
+      <item>-</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE" actor="user">
+      <summary>Light resume downgrade feature</summary>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>-</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>-</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-0">-</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-0">-</criterion>
+  </success_criteria>
+</requirements_slice>

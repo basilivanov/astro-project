@@ -1,0 +1,101 @@
+{
+  "feature_id": "FEAT-WEEK-RUNTIME-INDICATOR-CLEAN",
+  "title": "Expandable dev indicator on Week screen clean",
+  "slice_id": "SLICE-FEAT-WEEK-RUNTIME-INDICATOR-CLEAN",
+  "slice_slug": "expandable-dev-indicator-on-week-screen-clean",
+  "slice_dir": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean",
+  "requirements_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/requirements.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/development-plan.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/verification-matrix.slice.expandable-dev-indicator-on-week-screen-clean.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/knowledge-graph.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-FRONTEND-WEBAPP",
+    "M-FRONTEND-WEEK",
+    "M-USE-TELEGRAM"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Week helper alignment and packet-local evidence",
+      "goal": "Align the existing Week runtime disclosure only where current code or tests drift from the approved helper behavior, then close targeted frontend and packet-local read-only evidence without claiming canonical Today/Week ownership.",
+      "module_refs": [
+        "M-FRONTEND-WEBAPP",
+        "M-FRONTEND-WEEK",
+        "M-USE-TELEGRAM"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/frontend/app/layout.tsx",
+        "/opt/astro-project/frontend/app/week/page.tsx",
+        "/opt/astro-project/frontend/components/week/week-runtime-diagnostics-disclosure.tsx",
+        "/opt/astro-project/frontend/test/app/week-page.test.tsx",
+        "/opt/astro-project/frontend/e2e/week-runtime-indicator.spec.ts",
+        "/opt/astro-project/frontend/e2e/week-runtime-indicator-visual.spec.ts",
+        "/opt/astro-project/docs/review_evidence/front/day-week/2026-04-15-week-runtime-indicator/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/app/page.tsx",
+        "/opt/astro-project/frontend/components/today/**",
+        "/opt/astro-project/frontend/hooks/useTelegram.ts",
+        "/opt/astro-project/frontend/lib/telegram-runtime.ts",
+        "/opt/astro-project/frontend/lib/week-brief.ts",
+        "/opt/astro-project/frontend/components/week/week-hero-map.tsx",
+        "/opt/astro-project/frontend/components/week/week-day-strip.tsx",
+        "/opt/astro-project/frontend/components/week/week-day-drawer.tsx",
+        "/opt/astro-project/frontend/components/week/week-domain-panel.tsx",
+        "/opt/astro-project/frontend/components/week/week-actions-panel.tsx",
+        "/opt/astro-project/frontend/components/week/week-explainability-panel.tsx",
+        "/opt/astro-project/frontend/components/week/week-deep-sections.tsx"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "corepack pnpm --dir frontend exec jest --runInBand test/app/week-page.test.tsx",
+        "./scripts/run_e2e.sh e2e/week-runtime-indicator.spec.ts",
+        "./scripts/run_e2e.sh e2e/week-runtime-indicator-visual.spec.ts",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Existing Week DEV chip remains compact in collapsed state.",
+        "On /week in non-production, tapping the chip expands and collapses a local disclosure with render path, bootstrap result, and current mode only.",
+        "Week render-path labels are derived from existing page states and remain stable for canonical, in_progress, empty, error, auth_gate, and loading branches.",
+        "Production and non-Week routes remain inert and visually unchanged.",
+        "Verifier evidence includes dev-collapsed, dev-expanded, and prod-unchanged Week proof plus a packet-local read-only observability verdict classified as clean or degraded-but-expected.",
+        "No backend payload, scoring, explainability, WeekBrief, Day screen, or business-logic changes are introduced."
+      ],
+      "deferred_work": [
+        "Any additional diagnostics fields beyond render path, bootstrap result, and current mode.",
+        "Any Day or multi-route redesign of the shell badge beyond the bounded / and /week helper entry points.",
+        "Any separate wave that intentionally owns canonical Today/Week closeout."
+      ]
+    }
+  ],
+  "planner_inputs": [
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/requirements.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/development-plan.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/verification-matrix.slice.expandable-dev-indicator-on-week-screen-clean.md",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/knowledge-graph.slice.expandable-dev-indicator-on-week-screen-clean.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-clean/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [
+      "No delta required in this repair packet; existing SCN-WEEK-DEV-RUNTIME-INDICATOR covers the bounded Week helper behavior."
+    ],
+    "technology.xml": [
+      "No delta required in this repair packet; current targeted Week frontend commands and read-only observability profile are sufficient."
+    ],
+    "development-plan.xml": [
+      "No root edit in this repair packet; the feature-local development-plan slice now defines exact Week frontend write scope and packet-local evidence ownership."
+    ],
+    "knowledge-graph.xml": [
+      "No root edit in this repair packet; the feature-local knowledge graph now records M-FRONTEND-WEBAPP, M-FRONTEND-WEEK, M-USE-TELEGRAM, and packet-local evidence links."
+    ],
+    "verification-matrix.md": [
+      "No root edit in this repair packet; the feature-local verification matrix now defines the required Week unit, E2E, visual, and read-only packet-local evidence lanes."
+    ]
+  },
+  "updated_at": "2026-04-15T19:50:00+00:00"
+}

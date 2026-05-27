@@ -1,0 +1,33 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-DEV-RUNTIME-INDICATOR-PIPELINE-CHECK">
+  <system_goal>Control run for the existing Day dev runtime indicator slice after pipeline unblock fixes.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Validate that the existing Day dev runtime indicator feature does not get terminally blocked by Prefect reviewer routing.</item>
+      <item>Validate that architect, planner, verifier, reviewer, wave, and feature artifacts appear in the Prefect run.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>No new product behavior.</item>
+      <item>No backend changes.</item>
+      <item>No live W00 Codex architect/planner execution in this control run.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE" actor="user">
+      <summary>Expandable dev indicator pipeline check</summary>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>-</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>-</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-0">-</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">Flow completes successfully.</criterion>
+    <criterion id="SC-SLICE-2">Reviewer path does not produce terminal blocked state for this control run.</criterion>
+    <criterion id="SC-SLICE-3">Prefect run contains feature, architect, planner, agent outputs, verification, review, and wave artifacts.</criterion>
+  </success_criteria>
+</requirements_slice>

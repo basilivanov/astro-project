@@ -1,0 +1,8 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-PLANNER-REWORK">
+  <modules>
+    <module id="M-SLICE" />
+  </modules>
+  <flow_links>
+    <edge from="feature" to="slice" type="implemented_by" />
+  </flow_links>
+</knowledge_graph_slice>

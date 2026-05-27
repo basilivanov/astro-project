@@ -1,0 +1,93 @@
+{
+  "packet_id": "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION",
+  "attempt": 1,
+  "generated_at": "2026-05-27T00:00:00Z",
+  "executor": "coder",
+  "evidence_items": [
+    {
+      "id": "EV-001",
+      "requirement": "Transition table for accepted/rework/scope/runner error cases",
+      "status": "collected",
+      "producer": "implementation",
+      "artifact_paths": [
+        "prefect_grace/platform/e2e_packet_runner.py",
+        "prefect_grace/platform/status_model.py"
+      ],
+      "summary": "E2E runner now derives registry transition via apply_domain_result_to_registry() for accepted, rework_required, scope_blocked, and runner_error/handoff_error paths."
+    },
+    {
+      "id": "EV-002",
+      "requirement": "Targeted test output",
+      "status": "collected",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_e2e_packet_runner.py",
+        "tests/test_prefect_grace_cli_e2e_packet_runner.py",
+        "tests/test_prefect_grace_status_model.py",
+        "tests/test_prefect_grace_cli_contracts.py"
+      ],
+      "summary": "70 passed in 4.01s"
+    },
+    {
+      "id": "EV-003",
+      "requirement": "Focused regression output",
+      "status": "collected",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_managed_packet_runner.py",
+        "tests/test_prefect_grace_worktree_scope_lifecycle.py",
+        "tests/test_prefect_grace_verifier_reviewer_handoff.py"
+      ],
+      "summary": "31 passed in 0.66s"
+    },
+    {
+      "id": "EV-004",
+      "requirement": "Static check output",
+      "status": "collected",
+      "producer": "compileall+grace_lint+validate-packet",
+      "artifact_paths": [
+        "prefect_grace/platform/e2e_packet_runner.py",
+        "prefect_grace/cli.py",
+        "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP/EXECUTION_PACKET.md"
+      ],
+      "summary": "compileall passed, grace_lint passed, and validate-packet returned ok=true"
+    },
+    {
+      "id": "EV-005",
+      "requirement": "CLI JSON smoke showing registry fields",
+      "status": "collected",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_cli_e2e_packet_runner.py"
+      ],
+      "summary": "CLI JSON assertions now cover registry_status, registry_reason, and registry_transition alongside domain_status and ok."
+    },
+    {
+      "id": "EV-006",
+      "requirement": "Proof that skipped scope-blocked coverage was closed",
+      "status": "collected",
+      "producer": "pytest",
+      "artifact_paths": [
+        "tests/test_prefect_grace_e2e_packet_runner.py"
+      ],
+      "summary": "The prior skipped scope-blocked case was replaced by a deterministic monkeypatched test that asserts handoff is not called and registry maps to blocked/scope_violation."
+    },
+    {
+      "id": "EV-007",
+      "requirement": "Proof that frozen scope was untouched",
+      "status": "collected",
+      "producer": "git diff",
+      "artifact_paths": [],
+      "summary": "Frozen-scope diff check returned empty."
+    },
+    {
+      "id": "EV-008",
+      "requirement": "Confirmation that no live agents/providers were called",
+      "status": "collected",
+      "producer": "test design",
+      "artifact_paths": [],
+      "summary": "Runner remains dry-run by default; tests use fake launchers and deterministic monkeypatching only."
+    }
+  ],
+  "summary": "Implemented canonical registry transition exposure in the dry-run E2E packet runner. The runner now returns registry_status, registry_reason, and registry_transition derived from status_model for all terminal paths, while ok remains true only for accepted. CLI JSON and text output expose the new registry fields. The skipped scope-blocked test was replaced with deterministic coverage. Verification passed with targeted tests, focused regressions, static checks, packet validation, and frozen-scope guard clean."
+}

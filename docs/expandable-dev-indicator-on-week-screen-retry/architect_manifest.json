@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-WEEK-RUNTIME-INDICATOR-RETRY",
+  "title": "Expandable dev indicator on Week screen retry",
+  "slice_id": "SLICE-FEAT-WEEK-RUNTIME-INDICATOR-RETRY",
+  "slice_slug": "expandable-dev-indicator-on-week-screen-retry",
+  "slice_dir": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry",
+  "requirements_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/requirements.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/development-plan.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/verification-matrix.slice.expandable-dev-indicator-on-week-screen-retry.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/knowledge-graph.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/requirements.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/development-plan.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/verification-matrix.slice.expandable-dev-indicator-on-week-screen-retry.md",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/knowledge-graph.slice.expandable-dev-indicator-on-week-screen-retry.xml",
+    "/opt/astro-project/docs/expandable-dev-indicator-on-week-screen-retry/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-15T12:49:05.079261+00:00"
+}

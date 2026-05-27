@@ -1,0 +1,1 @@
+[GRACE-LINT] All modules in prefect_grace/platform/project_adapter.py comply with GRACE Canon Script Discipline.

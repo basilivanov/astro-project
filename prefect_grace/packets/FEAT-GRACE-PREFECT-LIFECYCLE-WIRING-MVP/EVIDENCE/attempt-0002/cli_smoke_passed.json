@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "run-worktree-scope-flow",
+  "result": {
+    "ok": true,
+    "domain_status": "passed",
+    "packet_id": "FEAT-TEST-W01-PACKET",
+    "attempt": 1,
+    "worktree_path": "/tmp/tmp.0AnwWJyXSY.worktrees/FEAT-TEST-W01-PACKET-attempt-0001",
+    "branch_name": "agent/test-project/FEAT-TEST-W01-PACKET/attempt-0001",
+    "changed_files": [],
+    "scope_guard": {
+      "ok": true,
+      "changed_files": [],
+      "allowed_files": [],
+      "outside_allowed": [],
+      "frozen_violations": [],
+      "invalid_paths": []
+    },
+    "artifact_ids": [],
+    "artifact_error": "Artifact publication unavailable or failed"
+  },
+  "data": {
+    "ok": true,
+    "domain_status": "passed",
+    "packet_id": "FEAT-TEST-W01-PACKET",
+    "attempt": 1,
+    "worktree_path": "/tmp/tmp.0AnwWJyXSY.worktrees/FEAT-TEST-W01-PACKET-attempt-0001",
+    "branch_name": "agent/test-project/FEAT-TEST-W01-PACKET/attempt-0001",
+    "changed_files": [],
+    "scope_guard": {
+      "ok": true,
+      "changed_files": [],
+      "allowed_files": [],
+      "outside_allowed": [],
+      "frozen_violations": [],
+      "invalid_paths": []
+    },
+    "artifact_ids": [],
+    "artifact_error": "Artifact publication unavailable or failed"
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,12 @@
+{
+  "packet_id": "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-REWORK-WEEK-BOUNDARY-FRESH-VISUAL-EVIDENCE-ATTRIBUTION",
+  "scenario": "canonical-week-surface",
+  "generated_at": "2026-04-16T22:27:54.698Z",
+  "test_title": "protects canonical Ava Meridian Today-to-Week continuity without brittle copy coupling",
+  "test_file": "/app/e2e/canonical-week-continuity.spec.ts",
+  "retry": 0,
+  "worker_index": 0,
+  "current_url": "http://astro-project-frontend_dev-1:3000/week?mock=1",
+  "screenshot_path": "/app/docs/review_evidence/front/week-boundary-rerun-20260417/current/canonical-week-surface.png",
+  "playwright_output_path": "/tmp/playwright-results/canonical-week-continuity--57de0-thout-brittle-copy-coupling/canonical-week-surface.png"
+}

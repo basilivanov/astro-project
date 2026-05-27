@@ -1,0 +1,21 @@
+{
+  "feature_id": "FEAT-PREFECT-BATCH-DEMO",
+  "title": "Prefect Batch Demo",
+  "slice_id": "SLICE-FEAT-PREFECT-BATCH-DEMO",
+  "slice_slug": "prefect-batch-demo",
+  "slice_dir": "/opt/astro-project/docs/prefect-batch-demo",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/prefect-batch-demo/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/prefect-batch-demo/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T19:06:57.922620+00:00"
+}

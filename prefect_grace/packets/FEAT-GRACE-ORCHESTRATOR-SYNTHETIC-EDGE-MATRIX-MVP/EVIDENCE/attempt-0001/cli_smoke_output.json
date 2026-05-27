@@ -1,0 +1,909 @@
+{
+  "ok": true,
+  "profile": "smoke",
+  "seed": 1,
+  "generated": 256,
+  "pruned": 64,
+  "passed": 192,
+  "failed": 0,
+  "elapsed_seconds": 0.22,
+  "pruned_scenarios": [
+    {
+      "scenario_id": "scenario-0233",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0066",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0211",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0234",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0193",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0225",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0080",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0073",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0203",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0202",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0227",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0089",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0121",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0249",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0091",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0235",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0217",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0250",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0123",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0082",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0105",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0107",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0083",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0067",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0113",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0096",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0232",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0240",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0104",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0064",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0098",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0226",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0224",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0090",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0200",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0208",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0192",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0122",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0072",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0210",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0248",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0075",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0209",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0106",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0218",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0074",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0241",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0088",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0112",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0219",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0242",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0243",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0081",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0114",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0251",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0099",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0201",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0097",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0120",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0115",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "blocked",
+        "resume_allowed": "false",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0194",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0065",
+      "dimensions": {
+        "dependencies": "accepted",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0195",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "true",
+        "resume_block_reason": "none",
+        "resume_strategy": "none",
+        "session": "missing",
+        "source_hash": "changed"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    },
+    {
+      "scenario_id": "scenario-0216",
+      "dimensions": {
+        "dependencies": "blocked",
+        "registry_error": "load_failed",
+        "registry_status": "ready",
+        "resume_allowed": "false",
+        "resume_block_reason": "contract_changed",
+        "resume_strategy": "none",
+        "session": "exists",
+        "source_hash": "same"
+      },
+      "reason": "resume_strategy_none_no_registry_check"
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,18 @@
+<knowledge_graph_slice project="astro-project" parent_graph="/opt/astro-project/knowledge-graph.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-CLEAN">
+  <modules>
+    <module id="M-FRONTEND-WEBAPP" responsibility="Owns the shell DEV/PROD runtime badge, route eligibility, and week toggle event dispatch." />
+    <module id="M-FRONTEND-WEEK" responsibility="Owns the /week render path, local diagnostics disclosure, and visual containment of the Week helper UI." />
+    <module id="M-USE-TELEGRAM" responsibility="Provides existing mode and bootstrap outcome fields consumed by the Week disclosure." />
+  </modules>
+  <flow_links>
+    <edge from="frontend runtime environment variables" to="M-FRONTEND-WEBAPP" type="reads" />
+    <edge from="M-FRONTEND-WEBAPP" to="runtime-environment-badge" type="renders" />
+    <edge from="M-FRONTEND-WEBAPP" to="astro:week-dev-indicator-toggle-request" type="writes" />
+    <edge from="week render-path state" to="M-FRONTEND-WEEK" type="reads" />
+    <edge from="M-USE-TELEGRAM" to="M-FRONTEND-WEEK" type="depends_on" />
+    <edge from="astro:week-dev-indicator-toggle-request" to="M-FRONTEND-WEEK" type="depends_on" />
+    <edge from="M-FRONTEND-WEEK" to="week-runtime-diagnostics-disclosure" type="renders" />
+    <edge from="week-runtime-indicator-visual.spec.ts" to="week-runtime-indicator-observability.json" type="writes" />
+    <edge from="week-runtime-indicator-observability.json" to="packet-local verifier evidence" type="depends_on" />
+  </flow_links>
+</knowledge_graph_slice>

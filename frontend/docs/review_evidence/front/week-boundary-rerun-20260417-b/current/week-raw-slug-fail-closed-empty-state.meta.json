@@ -1,0 +1,12 @@
+{
+  "packet_id": "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-B-W01-WEEK-BOUNDARY-RERUN",
+  "scenario": "fail-closed-week-raw-slug-empty-state",
+  "generated_at": "2026-05-21T10:28:58.745Z",
+  "test_title": "should keep legacy raw slug fallback data out of the canonical week route",
+  "test_file": "/app/e2e/week-page-fallback.spec.ts",
+  "retry": 0,
+  "worker_index": 44,
+  "current_url": "http://astro-project-frontend_dev-1:3000/week",
+  "screenshot_path": "/app/docs/review_evidence/front/week-boundary-rerun-20260417-b/current/week-raw-slug-fail-closed-empty-state.png",
+  "playwright_output_path": "/tmp/playwright-results/week-page-fallback-Week-Pa-5d708-of-the-canonical-week-route/week-raw-slug-fail-closed-empty-state.png"
+}

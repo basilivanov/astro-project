@@ -1,0 +1,54 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-16" slice_id="SLICE-FEAT-BACKEND-GRACE-OBSERVABILITY-WAVE-TZ">
+  <system_goal>Prepare the existing backend active slice for safe deep refactor and stable multi-agent execution by reusing the current strict-GRACE boundary and delivering dense development-phase structured observability without business-semantic drift.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Reuse the existing backend active-slice module cluster for gateway, trace logging, DayBrief, WeekBrief, analytics, and scheduler boundaries.</item>
+      <item>Close remaining module-contract, module-map, function-contract, and semantic-block gaps on the bounded backend file set.</item>
+      <item>Add dense development-phase structured observability on exported, orchestration, and side-effect boundaries in the same bounded backend file set.</item>
+      <item>Keep packet-local read-only evidence separate from the final canonical today-week observability lane.</item>
+      <item>Materialize feature-local slice docs and a direct-execution wave graph without forcing planner decomposition.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>Changing DayBrief, WeekBrief, report-read, scheduler, analytics, scoring, auth, billing, referral, or frontend business semantics.</item>
+      <item>Frontend or visual work.</item>
+      <item>Deep decomposition of backend/app/services/report_workflow.py.</item>
+      <item>Repo-wide logging cleanup or a new logging transport or envelope.</item>
+      <item>Retroactive full decomposition of backend/app/main.py beyond the approved active-slice blocks.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-BACKEND-GRACE-OBSERVABILITY-WAVE-TZ" actor="architect_or_backend_engineer">
+      <summary>Reslice the existing backend active-slice canon-sync plus dev-observability program into bounded direct-execution waves without changing business behavior.</summary>
+      <scenario id="SCN-SLICE-BACKEND-CANON-ADDRESSABILITY">Targeted backend active-slice files expose stable module contracts, module maps, function contracts where required, and semantic START and END blocks.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-DEV-OBS-DENSITY">Day, Week, gateway, scheduler, analytics, and correlation paths emit dense structured markers on entry, major steps, branches, fallbacks, validation boundaries, exception conversion, and closeout when exercised.</scenario>
+      <scenario id="SCN-SLICE-BACKEND-FINAL-CANONICAL-REVIEW">Verifier and reviewer can reconstruct the relevant scenario history from module, function, block, event, correlation_id, and trace_id without guesswork, and the final today-week verdict is explicit.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>No DayBrief, WeekBrief, report-read, scheduler, analytics, auth, billing, referral, or scoring business semantics change in this slice.</invariant>
+    <invariant>The slice reuses the existing backend active-slice module cluster: M-API-GATEWAY, M-TRACE-LOGGING, M-DAY-BRIEF-SERVICE, M-WEEK-BRIEF-SERVICE, M-ANALYTICS-EVENTS, and M-OPS-AUTOMATION.</invariant>
+    <invariant>Within backend/app/main.py only API_GATEWAY_APP_INIT, API_GATEWAY_REPORT_ORCHESTRATION, API_REPORT_DETAIL_ROUTE, API_TODAY_ROUTE, API_DAY_BRIEF_ROUTE, and API_B2C_REPORT_ROUTE are in scope.</invariant>
+    <invariant>Structured observability must reuse log_grace_event(...) and build_grace_log_payload(...) with the current correlation and header model; no new transport or envelope is allowed.</invariant>
+    <invariant>Dense logging is required on exported, orchestration, and side-effect boundaries, not as blanket noise in every pure helper.</invariant>
+    <invariant>backend/app/services/day_brief_validators.py remains a pure validation and repair helper; caller boundaries own observability for validation entry and failure.</invariant>
+    <invariant>Packet-local read-only evidence cannot close the slice; the final canonical today-week lane owns the wave-final observability verdict.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>Logging emission or JSONL routing failure must not block API, service, or scheduler completion.</item>
+    <item>Validation, fallback, retry, persistence-boundary, exception-conversion, and closeout branches must emit explicit markers without changing response semantics.</item>
+    <item>If packet-local runs do not naturally emit scheduler or analytics paths, the packet must record the evidence gap explicitly instead of claiming clean coverage.</item>
+    <item>W03 is blocked on no-evidence-blocker or unexpected-degradation from the canonical today-week observability review.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">DEFECT-BACKEND-ACTIVE-CANON-GAPS</defect>
+    <defect id="DEFECT-SLICE-2">DEFECT-BACKEND-ACTIVE-DEV-OBS-GAPS</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">Remaining contract, map, function-contract, and semantic-block gaps are closed across the targeted backend active-slice files without widening scope.</criterion>
+    <criterion id="SC-SLICE-2">Development-critical entry, major-step, branch, fallback, retry, persistence, exception-conversion, and closeout markers exist on the targeted runtime boundaries.</criterion>
+    <criterion id="SC-SLICE-3">backend:quick and the targeted active-slice pytest bundle remain green.</criterion>
+    <criterion id="SC-SLICE-4">Packet-local read-only review can follow emitted Day, Week, report-read, scheduler, and analytics traces by module, function, block, event, correlation_id, and trace_id where those paths are exercised.</criterion>
+    <criterion id="SC-SLICE-5">The final canonical today-week review returns clean or degraded-but-expected with explicit rationale; unexpected-degradation or no-evidence-blocker blocks acceptance.</criterion>
+    <criterion id="SC-SLICE-6">Scheduler or analytics non-emission, when a canonical run does not exercise those paths, is explicit and reviewer-visible rather than silent.</criterion>
+  </success_criteria>
+</requirements_slice>

@@ -1,0 +1,113 @@
+# Packet: FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEWER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE
+
+## Title
+Reviewer Rework Trim W01 Back To Core Today Week Scope
+
+## GRACE IDs
+- feature_ref: `feature:FEAT-BACKEND-GRACE-WAVE-FINISH-20260417`
+- wave_ref: `feature:FEAT-BACKEND-GRACE-WAVE-FINISH-20260417:wave:W01`
+- packet_ref: `feature:FEAT-BACKEND-GRACE-WAVE-FINISH-20260417:wave:W01:packet:FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEWER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE`
+
+## Packet Type
+gate_decision
+
+## Summary
+Review whether the architect-bounded direct rework for `FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE` addressed the reviewer blockers.
+
+## Wave
+W01
+
+## Role
+reviewer
+
+## Reasoning
+xhigh
+
+## Parent Packet
+`FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE`
+
+## Review Target
+`FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE`
+
+## Write Scope
+- Review verdict and blocker notes only.
+
+## Inputs
+- FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE
+- FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFIER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE
+
+## Acceptance Criteria
+- Exactly one verdict is returned.
+- The original blockers are either resolved or explicitly remain.
+- No unrelated scope expansion is accepted.
+
+## Verification Profile
+- backend: consume verifier evidence
+- frontend: consume verifier evidence
+- observability: consume verifier evidence
+
+## Execution Hints
+- workdir: /opt/astro-project
+- rework_mode: bounded_fresh
+
+## Reviewer Gate
+- Assess only the original blocker scope.
+- Escalate only if blockers imply decomposition or business changes.
+
+## Dependencies
+- FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE
+- FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFIER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE
+
+## Notes
+- This reviewer packet was created for architect-bounded direct rework.
+
+## Contract JSON
+FINAL_PACKET_CONTRACT_JSON
+{
+  "packet_id": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-REVIEWER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE",
+  "feature_id": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417",
+  "wave_id": "W01",
+  "packet_type": "gate_decision",
+  "role": "reviewer",
+  "reasoning": "xhigh",
+  "title": "Reviewer Rework Trim W01 Back To Core Today Week Scope",
+  "summary": "Review whether the architect-bounded direct rework for `FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE` addressed the reviewer blockers.",
+  "write_scope": [
+    "Review verdict and blocker notes only."
+  ],
+  "inputs": [
+    "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE",
+    "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFIER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE"
+  ],
+  "acceptance_criteria": [
+    "Exactly one verdict is returned.",
+    "The original blockers are either resolved or explicitly remain.",
+    "No unrelated scope expansion is accepted."
+  ],
+  "verification_profile": {
+    "backend": "consume verifier evidence",
+    "frontend": "consume verifier evidence",
+    "observability": "consume verifier evidence"
+  },
+  "execution_hints": {
+    "workdir": "/opt/astro-project",
+    "rework_mode": "bounded_fresh"
+  },
+  "reviewer_gate": [
+    "Assess only the original blocker scope.",
+    "Escalate only if blockers imply decomposition or business changes."
+  ],
+  "dependencies": [
+    "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE",
+    "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-VERIFIER-REWORK-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE"
+  ],
+  "notes": [
+    "This reviewer packet was created for architect-bounded direct rework."
+  ],
+  "parent_packet_id": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-CORE-TODAY-WEEK-EVIDENCE-SLICE",
+  "review_target_packet_id": "FEAT-BACKEND-GRACE-WAVE-FINISH-20260417-W01-TRIM-W01-BACK-TO-CORE-TODAY-WEEK-SCOPE",
+  "route_classification": null,
+  "requested_rework_mode": null,
+  "rework_mode": null
+}
+END_FINAL_PACKET_CONTRACT_JSON

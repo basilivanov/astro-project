@@ -1,0 +1,631 @@
+{
+  "feature_id": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417",
+  "title": "Backend GRACE contracts and observability hubs",
+  "slice_id": "SLICE-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417",
+  "slice_slug": "backend-grace-contracts-observability-hubs-20260417",
+  "slice_dir": "/opt/astro-project/docs/backend-grace-contracts-observability-hubs-20260417",
+  "materialization_mode": "packet_first",
+  "requirements_slice_path": "",
+  "development_plan_slice_path": "",
+  "verification_matrix_slice_path": "",
+  "knowledge_graph_slice_path": "",
+  "architect_handoff_path": "",
+  "execution_packet_path": "/opt/astro-project/docs/backend-grace-contracts-observability-hubs-20260417/EXECUTION_PACKET.md",
+  "impacted_modules": [
+    "M-API-GATEWAY",
+    "M-TRACE-LOGGING",
+    "M-DAY-BRIEF-SERVICE",
+    "M-WEEK-BRIEF-SERVICE",
+    "M-ANALYTICS-EVENTS",
+    "M-OPS-AUTOMATION"
+  ],
+  "waves": [
+    {
+      "wave_id": "W01",
+      "title": "Backend Hub Contract Alignment",
+      "goal": "Close or confirm residual strict-GRACE addressability gaps on the current backend hub files and lock them with targeted tests.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/middleware/correlation.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/day_brief_validators.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_day_brief_schema.py",
+        "/opt/astro-project/tests/test_week_brief_api.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/frontend/**",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/tools/post_test_review.py",
+        "/opt/astro-project/tools/log_watch/**",
+        "/opt/astro-project/requirements.xml",
+        "/opt/astro-project/technology.xml",
+        "/opt/astro-project/development-plan.xml",
+        "/opt/astro-project/knowledge-graph.xml",
+        "/opt/astro-project/verification-matrix.md"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_billing_scheduler.py tests/test_catalog_logging.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Residual hub addressability gaps are closed or explicitly proven already satisfied.",
+        "Targeted tests lock the scoped hub markers and contract shape.",
+        "No business semantics or frozen-scope files change.",
+        "Packet-local evidence is reviewer-readable enough to unblock W02."
+      ],
+      "deferred_work": [
+        "Dense observability and verdict tooling alignment.",
+        "Canonical today-week closeout.",
+        "Any root GRACE canon edits."
+      ]
+    },
+    {
+      "wave_id": "W02",
+      "title": "Backend Hub Observability Alignment",
+      "goal": "Align dense backend hub observability and verdict tooling so affected flow history is readable by stable module, function, block, event, and correlation landmarks.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tools/post_test_review.py",
+        "/opt/astro-project/tools/log_watch/common.py",
+        "/opt/astro-project/tools/log_watch/scheduler_watch.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_post_test_review.py",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/frontend/**",
+        "/opt/astro-project/backend/app/services/report_workflow.py",
+        "/opt/astro-project/backend/app/services/week_brief_service.py",
+        "/opt/astro-project/backend/app/services/feed_service.py",
+        "/opt/astro-project/backend/app/services/personalized_daily.py",
+        "/opt/astro-project/requirements.xml",
+        "/opt/astro-project/technology.xml",
+        "/opt/astro-project/development-plan.xml",
+        "/opt/astro-project/knowledge-graph.xml",
+        "/opt/astro-project/verification-matrix.md"
+      ],
+      "observability_scope": "packet_local",
+      "canonical_flow_commands": [],
+      "allow_degraded_but_expected": false,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py tests/test_post_test_review.py",
+        "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Development-critical hub transitions emit or preserve stable module, fn, block, and correlation fields.",
+        "Packet-local verdict tooling surfaces hub landmarks needed for reviewer-readable evidence.",
+        "Scheduler or analytics non-emission is explicit rather than silently clean.",
+        "No new logging transport, envelope, or business-semantic drift is introduced."
+      ],
+      "deferred_work": [
+        "Final canonical today-week closeout.",
+        "Repo-wide watcher redesign.",
+        "Any frontend or UI evidence."
+      ]
+    },
+    {
+      "wave_id": "W03",
+      "title": "Backend Hub Canonical Closeout",
+      "goal": "Own the final canonical today-week backend observability verdict for the completed hub slice.",
+      "module_refs": [
+        "M-API-GATEWAY",
+        "M-TRACE-LOGGING",
+        "M-DAY-BRIEF-SERVICE",
+        "M-WEEK-BRIEF-SERVICE",
+        "M-ANALYTICS-EVENTS",
+        "M-OPS-AUTOMATION"
+      ],
+      "allowed_write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/evidence/**",
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/**"
+      ],
+      "frozen_scope": [
+        "/opt/astro-project/backend/**",
+        "/opt/astro-project/frontend/**",
+        "/opt/astro-project/tools/**",
+        "/opt/astro-project/requirements.xml",
+        "/opt/astro-project/technology.xml",
+        "/opt/astro-project/development-plan.xml",
+        "/opt/astro-project/knowledge-graph.xml",
+        "/opt/astro-project/verification-matrix.md"
+      ],
+      "observability_scope": "wave_final",
+      "canonical_flow_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py tests/test_post_test_review.py"
+      ],
+      "allow_degraded_but_expected": true,
+      "verification_commands": [
+        "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+        "docker exec astro-project-backend-1 python3 -m pytest -q tests/test_day_brief.py tests/test_day_brief_schema.py tests/test_week_brief_api.py tests/test_logging_utils_grace.py tests/test_catalog_logging.py tests/test_billing_scheduler.py tests/test_post_test_review.py",
+        "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md"
+      ],
+      "acceptance_criteria": [
+        "Final verifier records backend quick, targeted pytest, and canonical today-week observability outcomes.",
+        "Final verdict is clean or degraded-but-expected with explicit rationale.",
+        "Unexpected-degradation or no-evidence-blocker blocks acceptance.",
+        "Reviewer confirms frozen implementation scope stayed frozen."
+      ],
+      "deferred_work": [
+        "Frontend/UI work.",
+        "Deep report_workflow decomposition.",
+        "Repo-wide logging redesign."
+      ]
+    }
+  ],
+  "packet_candidates": [
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT",
+      "wave_id": "W01",
+      "title": "Backend Hub Contract Alignment",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Close or confirm residual strict-GRACE addressability gaps on scoped backend hub files and tests.",
+      "write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/middleware/correlation.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/day_brief_validators.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tests/test_day_brief.py",
+        "/opt/astro-project/tests/test_day_brief_schema.py",
+        "/opt/astro-project/tests/test_week_brief_api.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_catalog_logging.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W00-ARCHITECT-FORMALIZATION",
+        "feature brief",
+        "current backend hub baseline"
+      ],
+      "acceptance_criteria": [
+        "Residual hub addressability gaps are closed or explicitly proven already satisfied.",
+        "Targeted tests lock the scoped hub markers and contract shape.",
+        "No business semantic drift."
+      ],
+      "verification_profile": {
+        "backend": "backend:quick plus targeted hub pytest bundle",
+        "frontend": "not required",
+        "observability": "packet_local read-only review"
+      },
+      "reviewer_gate": [
+        "No frozen-scope drift.",
+        "No root canon edits.",
+        "No rewrite for symmetry when tests can prove current compliance."
+      ],
+      "dependencies": [],
+      "notes": [
+        "Planner remains off."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-EVIDENCE",
+      "wave_id": "W01",
+      "title": "Backend Hub Contract Evidence",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Run W01 backend and packet-local observability evidence.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/evidence/**"
+      ],
+      "inputs": [
+        "coder_contracts output",
+        "execution packet",
+        "architect manifest"
+      ],
+      "acceptance_criteria": [
+        "All required commands are recorded with PASS or FAIL.",
+        "Packet-local evidence is clean or degraded-but-expected.",
+        "Unexpected-degradation and no-evidence-blocker block the wave."
+      ],
+      "verification_profile": {
+        "backend": "backend:quick plus targeted hub pytest bundle",
+        "frontend": "not required",
+        "observability": "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      },
+      "reviewer_gate": [
+        "No skipped command without blocker.",
+        "Evidence includes relevant trace_id or correlation_id when present."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT"
+      ],
+      "notes": [
+        "Does not own canonical today-week closeout."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-VERDICT",
+      "wave_id": "W01",
+      "title": "Backend Hub Contract Verdict",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review W01 contract alignment and verifier evidence for scope and evidence quality.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/**"
+      ],
+      "inputs": [
+        "coder_contracts output",
+        "verifier_contracts evidence"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms no frozen-scope drift.",
+        "Reviewer confirms packet-local evidence is fresh and readable.",
+        "Any blocker is routed as bounded rework."
+      ],
+      "verification_profile": {
+        "backend": "diff and verifier evidence review",
+        "frontend": "not required",
+        "observability": "review packet-local verdict"
+      },
+      "reviewer_gate": [
+        "Reject silent scope expansion.",
+        "Reject missing evidence."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT",
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-EVIDENCE"
+      ],
+      "notes": [
+        "Keep review local to W01."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-ARCHITECT-W01-GATE",
+      "wave_id": "W01",
+      "title": "Architect W01 Gate",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Issue W01 wave verdict from reviewer and verifier artifacts.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/W01.architect-review.md"
+      ],
+      "inputs": [
+        "reviewer_contracts verdict",
+        "verifier_contracts evidence"
+      ],
+      "acceptance_criteria": [
+        "Verdict is accepted, rework_required, or blocked.",
+        "W01 evidence is sufficient to unblock W02."
+      ],
+      "verification_profile": {
+        "backend": "consume verifier evidence",
+        "frontend": "not required",
+        "observability": "consume packet-local verdict"
+      },
+      "reviewer_gate": [
+        "Do not accept without reviewer verdict and verifier evidence."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-VERDICT"
+      ],
+      "notes": [
+        "No new formalization."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-BACKEND-HUB-CONTRACT-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT",
+      "wave_id": "W02",
+      "title": "Backend Hub Observability Alignment",
+      "role": "coder",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Align dense backend hub observability and verdict tooling around module/fn/block/event and correlation landmarks.",
+      "write_scope": [
+        "/opt/astro-project/backend/app/main.py",
+        "/opt/astro-project/backend/app/logging_utils.py",
+        "/opt/astro-project/backend/app/services/day_brief.py",
+        "/opt/astro-project/backend/app/services/scheduler.py",
+        "/opt/astro-project/backend/app/services/analytics.py",
+        "/opt/astro-project/tools/post_test_review.py",
+        "/opt/astro-project/tools/log_watch/common.py",
+        "/opt/astro-project/tools/log_watch/scheduler_watch.py",
+        "/opt/astro-project/tests/test_logging_utils_grace.py",
+        "/opt/astro-project/tests/test_catalog_logging.py",
+        "/opt/astro-project/tests/test_billing_scheduler.py",
+        "/opt/astro-project/tests/test_post_test_review.py"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-ARCHITECT-W01-GATE",
+        "feature brief",
+        "current hub logs and tooling baseline"
+      ],
+      "acceptance_criteria": [
+        "Hub transitions emit or preserve stable module, fn, block, and correlation fields.",
+        "Packet-local verdict tooling surfaces reviewer-readable hub landmarks.",
+        "No new logging transport or business-semantic drift."
+      ],
+      "verification_profile": {
+        "backend": "backend:quick plus logging/tooling pytest bundle",
+        "frontend": "not required",
+        "observability": "packet_local read-only review"
+      },
+      "reviewer_gate": [
+        "Tooling changes stay bounded to evidence readability.",
+        "Do not alter today-week ownership rules."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W01-ARCHITECT-W01-GATE"
+      ],
+      "notes": [
+        "Scheduler or analytics non-emission must be explicit."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-EVIDENCE",
+      "wave_id": "W02",
+      "title": "Backend Hub Observability Evidence",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Run W02 backend/tooling verification and packet-local observability evidence.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/evidence/**"
+      ],
+      "inputs": [
+        "coder_observability output",
+        "execution packet",
+        "architect manifest"
+      ],
+      "acceptance_criteria": [
+        "Required backend and tooling tests are recorded.",
+        "Packet-local review is clean or degraded-but-expected.",
+        "Evidence names surfaced hub landmarks or exact remaining gap."
+      ],
+      "verification_profile": {
+        "backend": "backend:quick plus logging/tooling pytest bundle",
+        "frontend": "not required",
+        "observability": "python3 tools/post_test_review.py --profile read-only --since 30m --report-format md"
+      },
+      "reviewer_gate": [
+        "Reject if module/fn/block readability is still absent."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT"
+      ],
+      "notes": [
+        "Does not own canonical today-week closeout."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-VERDICT",
+      "wave_id": "W02",
+      "title": "Backend Hub Observability Verdict",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review W02 observability alignment and verifier evidence.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/**"
+      ],
+      "inputs": [
+        "coder_observability output",
+        "verifier_observability evidence"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms tooling changes stay inside scope.",
+        "Reviewer confirms no frozen backend or root canon drift.",
+        "Reviewer accepts only if evidence is attributable."
+      ],
+      "verification_profile": {
+        "backend": "diff and verifier evidence review",
+        "frontend": "not required",
+        "observability": "review packet-local verdict"
+      },
+      "reviewer_gate": [
+        "Route local blockers as bounded direct rework."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT",
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-EVIDENCE"
+      ],
+      "notes": [
+        "Keep review local to W02."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-ARCHITECT-W02-GATE",
+      "wave_id": "W02",
+      "title": "Architect W02 Gate",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Issue W02 wave verdict from reviewer and verifier artifacts.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/W02.architect-review.md"
+      ],
+      "inputs": [
+        "reviewer_observability verdict",
+        "verifier_observability evidence"
+      ],
+      "acceptance_criteria": [
+        "Verdict is accepted, rework_required, or blocked.",
+        "W02 evidence is sufficient to unblock W03."
+      ],
+      "verification_profile": {
+        "backend": "consume verifier evidence",
+        "frontend": "not required",
+        "observability": "consume packet-local verdict"
+      },
+      "reviewer_gate": [
+        "Do not accept without reviewer verdict and verifier evidence."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-VERDICT"
+      ],
+      "notes": [
+        "No new formalization."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-BACKEND-HUB-OBSERVABILITY-ALIGNMENT"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE",
+      "wave_id": "W03",
+      "title": "Backend Hub Wave Final Evidence",
+      "role": "verifier",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Run final backend verification and canonical today-week observability closeout.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/evidence/**"
+      ],
+      "inputs": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-ARCHITECT-W02-GATE",
+        "execution packet",
+        "architect manifest"
+      ],
+      "acceptance_criteria": [
+        "Canonical flow commands run before today-week review.",
+        "Backend quick and targeted pytest results are recorded.",
+        "Final observability verdict is clean or degraded-but-expected, or blocks with explicit reason."
+      ],
+      "verification_profile": {
+        "backend": "backend:quick plus full targeted hub pytest bundle",
+        "frontend": "not required",
+        "observability": "python3 tools/post_test_review.py --profile today-week --since 30m --report-format md; observability_scope=wave_final"
+      },
+      "reviewer_gate": [
+        "Do not treat green tests alone as acceptance.",
+        "Block unexpected-degradation and no-evidence-blocker."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W02-ARCHITECT-W02-GATE"
+      ],
+      "notes": [
+        "degraded-but-expected requires explicit rationale."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-VERDICT",
+      "wave_id": "W03",
+      "title": "Backend Hub Wave Final Verdict",
+      "role": "reviewer",
+      "reasoning": "high",
+      "packet_type": "execution",
+      "summary": "Review final canonical evidence for scope containment and observability acceptability.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/**"
+      ],
+      "inputs": [
+        "verifier_wave_final evidence"
+      ],
+      "acceptance_criteria": [
+        "Reviewer confirms final evidence stayed inside frozen implementation scope.",
+        "Reviewer confirms final observability verdict is acceptable for architect gate.",
+        "Any blocker is narrowed to bounded rework or blockage reason."
+      ],
+      "verification_profile": {
+        "backend": "inspect final verifier outputs",
+        "frontend": "not required",
+        "observability": "review canonical today-week verdict"
+      },
+      "reviewer_gate": [
+        "Do not accept unexpected-degradation or no-evidence-blocker."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE"
+      ],
+      "notes": [
+        "Final reviewer lane."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE"
+    },
+    {
+      "key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-ARCHITECT-W03-GATE",
+      "wave_id": "W03",
+      "title": "Architect W03 Gate",
+      "role": "architect",
+      "reasoning": "high",
+      "packet_type": "gate_decision",
+      "summary": "Issue final feature verdict from W03 reviewer and verifier artifacts.",
+      "write_scope": [
+        "/opt/astro-project/prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/reviews/W03.architect-review.md"
+      ],
+      "inputs": [
+        "reviewer_wave_final verdict",
+        "verifier_wave_final evidence"
+      ],
+      "acceptance_criteria": [
+        "Verdict is accepted, rework_required, or blocked.",
+        "Architect accepts only on clean or degraded-but-expected final evidence.",
+        "Final business fit, scope fit, and observability fit are all assessed."
+      ],
+      "verification_profile": {
+        "backend": "consume final verifier evidence",
+        "frontend": "not required",
+        "observability": "consume canonical today-week verdict"
+      },
+      "reviewer_gate": [
+        "Do not accept without reviewer verdict and final verifier evidence."
+      ],
+      "dependencies": [
+        "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-VERDICT"
+      ],
+      "notes": [
+        "Final architect gate."
+      ],
+      "review_target_key": "FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417-W03-BACKEND-HUB-WAVE-FINAL-EVIDENCE"
+    }
+  ],
+  "next_action": "materialize_packets",
+  "planner_inputs": [
+    "/opt/astro-project/docs/backend-grace-contracts-observability-hubs-20260417/EXECUTION_PACKET.md"
+  ],
+  "root_deltas": {
+    "requirements.xml": [],
+    "technology.xml": [],
+    "development-plan.xml": [],
+    "knowledge-graph.xml": [],
+    "verification-matrix.md": []
+  },
+  "updated_at": "2026-04-17T07:03:09.910924+00:00"
+}

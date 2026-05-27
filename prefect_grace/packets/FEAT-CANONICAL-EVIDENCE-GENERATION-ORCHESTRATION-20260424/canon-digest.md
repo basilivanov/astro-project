@@ -1,0 +1,95 @@
+## Project Canon Snapshot
+- strict-GRACE is artifact-first: define requirements, technology, development plan, knowledge graph, and verification matrix before code changes. See [`/opt/astro-project/GRACE.md`](file:///opt/astro-project/GRACE.md) §4-10 and §13-15.
+- Shared truth is controller-owned; workers must stay inside explicit write scope and cannot silently widen scope or mutate shared GRACE artifacts. See [`/opt/astro-project/GRACE.md`](file:///opt/astro-project/GRACE.md) §10.
+- Verification is evidence-driven, not test-only: deterministic asserts, trace assertions, module/wave/phase gates, and compact failure packets are required. See [`/opt/astro-project/GRACE.md`](file:///opt/astro-project/GRACE.md) §8-9.
+- Structured logs are first-class evidence. Critical-path logs should expose module, function, block, event, result, trace/scenario IDs, and timestamp. See [`/opt/astro-project/GRACE.md`](file:///opt/astro-project/GRACE.md) §8.1-8.4.
+- The project-local GRACE home says durable global docs should stay short and role-clear; packet-specific detail belongs near the packet, not in global indices. See [`/opt/astro-project/docs/GRACE_HOME.md`](file:///opt/astro-project/docs/GRACE_HOME.md).
+- The repo snapshot boundary in [`/opt/astro-project/technology.xml`](file:///opt/astro-project/technology.xml) is still pinned to commit `0cba3cf07ea563306bdd6e887d7b9256c3edc190` with `worktree_state="dirty"` and `strict_grace_status="in_progress"`. That is a live boundary constraint, not a clean-baseline guarantee.
+- Backend/runtime assumptions remain stable: Python 3.12 FastAPI/Uvicorn backend, Python 3.12 Aiogram bot, Next.js 14.2.5 frontend, PostgreSQL 16, Telegram WebApp as identity source, and Playwright runs only via the Playwright container wrapper. See [`/opt/astro-project/technology.xml`](file:///opt/astro-project/technology.xml) runtime and constraints.
+- The main product canon is Telegram-first astrology: auth/profile bootstrap, B2C report creation, async report generation, billing/access, referrals, daily feed, admin operations, and bot delivery. See [`/opt/astro-project/requirements.xml`](file:///opt/astro-project/requirements.xml) `system_goal`, `scope`, and `use_cases`.
+- Canonical semantic IDs are stable and must be preserved: `UC-*`, `SCN-*`, `DEFECT-*`, `PHASE-*`, `M-*`, `VM-*`. See [`/opt/astro-project/GRACE.md`](file:///opt/astro-project/GRACE.md) §6 and [`/opt/astro-project/requirements.xml`](file:///opt/astro-project/requirements.xml).
+- Important live defects already recorded in canon must be treated as defects, not scope cuts. Current high-value examples: `DEFECT-DIAGNOSTICS-MARKDOWN`, `DEFECT-ADMIN-SERVER-AUTH`, `DEFECT-FEED-LLM-TUPLE`, `DEFECT-REFERRAL-POLICY-DRIFT`. See [`/opt/astro-project/requirements.xml`](file:///opt/astro-project/requirements.xml) `known_defects`.
+- Knowledge-graph and development-plan canon already encode the product’s stable module boundaries and flow ordering. See [`/opt/astro-project/development-plan.xml`](file:///opt/astro-project/development-plan.xml) `modules`, `data_flows`, `sequencing_rules`, and [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) `FLOW-*`, `M-*`, `VM-*` edges.
+
+## Feature-Relevant Canon
+- The feature is about canonical evidence generation orchestration for W03 closeout, not product UX or business logic changes. Source: [`/opt/astro-project/prefect_grace/packets/FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424/feature-brief.md`](file:///opt/astro-project/prefect_grace/packets/FEAT-CANONICAL-EVIDENCE-GENERATION-ORCHESTRATION-20260424/feature-brief.md).
+- The brief’s in-scope surfaces are the evidence-generation command path plus lightweight verifier wiring: Today/Week canonical logs, Admin success evidence, Catalog success evidence, and optional small adapters in `tools/post_test_review.py` and `tools/log_watch/*`. Source: same feature brief.
+- The brief explicitly excludes weakening reviewer rules, fabricating evidence, UI redesign, billing/auth/report schema changes, and resuming large backend refactors. Source: same feature brief.
+- The brief’s acceptance criteria and wave proposal make the core contract explicit: generate fresh Today/Week/Admin/Catalog evidence within the 30-minute window, then run review/watchers. Source: same feature brief.
+- Relevant verification canon is already present in [`/opt/astro-project/technology.xml`](file:///opt/astro-project/technology.xml) under `toolchain` and `business_verification_mechanism`: `backend:quick`, `frontend:quick`, `smoke`, `ops`, and structured trace evidence keyed by `report_id`, `client_id`, `section_id`, `telegram_id`, `block_id`.
+- Relevant review gates are defined by the observability pact in [`/opt/astro-project/docs/prefect_grace/BLUEPRINT.md`](file:///opt/astro-project/docs/prefect_grace/BLUEPRINT.md): verifier verdicts are `clean`, `degraded-but-expected`, `unexpected-degradation`, or `no-evidence-blocker`.
+- The repo’s project-local evidence homes matter for operator workflow:
+  - [`/opt/astro-project/docs/GRACE_HOME.md`](file:///opt/astro-project/docs/GRACE_HOME.md)
+  - [`/opt/astro-project/docs/GRACE_ARTIFACTS.md`](file:///opt/astro-project/docs/GRACE_ARTIFACTS.md)
+  - [`/opt/astro-project/docs/REGRESSION_MAP.md`](file:///opt/astro-project/docs/REGRESSION_MAP.md) is referenced as the durable regression map in GRACE home.
+- Existing day/week canon artifacts are relevant because the feature targets evidence freshness for those surfaces:
+  - [`/opt/astro-project/development-plan.xml`](file:///opt/astro-project/development-plan.xml) `PHASE-DAY-BRIEF`, `PHASE-WEEK-BRIEF`, `PHASE-READOUT`
+  - [`/opt/astro-project/development-plan.xml`](file:///opt/astro-project/development-plan.xml) modules `M-DAY-BRIEF-SERVICE`, `M-WEEK-BRIEF-SERVICE`, `M-OPS-AUTOMATION`
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) flows `FLOW-DAY-DEV-RUNTIME-INDICATOR`, `FLOW-WEEK-BRIEF`, `FLOW-FORECAST-CATALOG`, `FLOW-ADMIN-OPS`
+- Verification IDs that are likely adjacent to this feature’s closeout path:
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) `VM-FEED-ROBUSTNESS`
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) `VM-ADMIN-OPS`
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) `VM-BILLING-ACCESS`
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) `VM-POST-TEST-OBSERVABILITY`
+- Recent manifests show adjacent canon work already exists around observability repair and backend refactor limits, but those are not this feature. They are only useful as precedent for packet structure and evidence handling:
+  - [`/opt/astro-project/docs/canonical-observability-evidence-repair/architect_manifest.json`](file:///opt/astro-project/docs/canonical-observability-evidence-repair/architect_manifest.json)
+  - [`/opt/astro-project/docs/backend-refactor-limits-grace-contracts/architect_manifest.json`](file:///opt/astro-project/docs/backend-refactor-limits-grace-contracts/architect_manifest.json)
+
+## Known Boundaries
+- Frozen scope from the feature brief:
+  - no UI redesign
+  - no pricing/auth/billing semantics changes
+  - no report schema redesign
+  - no weakening of post-test review or watcher verdict rules
+  - no fabricated canonical evidence
+- The feature brief’s “out of scope” is explicit that rendered-only evidence must not be treated as canonical.
+- The current repo-wide snapshot is dirty and pinned to `prod-release-20260327`; any slice that depends on a fresh clean baseline should call that out explicitly. See [`/opt/astro-project/technology.xml`](file:///opt/astro-project/technology.xml).
+- The current canon is slightly stale on cross-slice references:
+  - [`/opt/astro-project/knowledge-graph.xml`](file:///opt/astro-project/knowledge-graph.xml) still contains legacy and duplicate slice-era nodes and some older names, while [`/opt/astro-project/development-plan.xml`](file:///opt/astro-project/development-plan.xml) is more current for the product phases.
+  - [`/opt/astro-project/verification-matrix.md`](file:///opt/astro-project/verification-matrix.md) explicitly says the file is legacy and prefers [`/opt/astro-project/docs/REGRESSION_MAP.md`](file:///opt/astro-project/docs/REGRESSION_MAP.md) for durable regression mapping.
+- The feature brief says parsing was repaired in a prior feature and this feature must distinguish runtime evidence generation from post-test review parsing. That means parser work should not be re-opened unless a regression is proven.
+- Admin/Catalog evidence freshness is tied to watcher CLIs, not to visual success alone:
+  - `tools/log_watch/feed_admin_watch.py`
+  - `tools/log_watch/forecast_catalog_watch.py`
+- The feature brief does not authorize changes to the broader backend refactor, even though recent manifests mention backend size limits and WeekBrief decomposition. Treat that as adjacent canon, not green light.
+- High-risk neighboring defects remain unresolved in root canon and must stay intact unless explicitly in scope:
+  - `DEFECT-ADMIN-SERVER-AUTH`
+  - `DEFECT-DIAGNOSTICS-MARKDOWN`
+  - `DEFECT-FEED-LLM-TUPLE`
+  - `DEFECT-REFERRAL-POLICY-DRIFT`
+- The project’s evidence model remains log-first and trace-first. “Fresh canonical evidence” means actual produced records with timestamps and provenance fields inside the review window, not replay text or markdown summaries alone.
+
+## Verification And Evidence Map
+- Mandatory feature-side checks from the brief:
+  - `python3 tools/post_test_review.py --profile today-week --since 30m --report-format md`
+  - `python3 tools/post_test_review.py --profile read-only --since 30m --report-format md`
+  - `python3 tools/log_watch/feed_admin_watch.py --feed-log logs/feed.jsonl --admin-log logs/admin.jsonl --window-minutes 30 --limit 200`
+  - `python3 tools/log_watch/forecast_catalog_watch.py --catalog-log logs/catalog.jsonl --window-minutes 30 --limit 200`
+- The acceptance contract requires evidence generation to happen before review, not after. The generated evidence must land inside the 30-minute review window.
+- Review output must be truthful:
+  - `clean`
+  - `degraded-but-expected`
+  - `unexpected-degradation`
+  - `no-evidence-blocker`
+- The feature brief requires a single documented command or command sequence that generates fresh canonical evidence for Today, Week, Admin, and Catalog. The exact command is still an open decision.
+- The post-test observability gate remains mandatory for any targeted scenario touching Today, Week, Admin, or Catalog. See [`/opt/astro-project/docs/prefect_grace/BLUEPRINT.md`](file:///opt/astro-project/docs/prefect_grace/BLUEPRINT.md) and the feature brief.
+- `technology.xml` provides the canonical log correlation fields for evidence stitching: `report_id`, `client_id`, `section_id`, `telegram_id`, `block_id`.
+- Existing monitoring contracts already define the log-watcher posture:
+  - [`/opt/astro-project/docs/GRACE_ARTIFACTS.md`](file:///opt/astro-project/docs/GRACE_ARTIFACTS.md) documents `feed_admin_watch` and `replay_last` helpers for feed/admin flows.
+  - [`/opt/astro-project/docs/GRACE_ARTIFACTS.md`](file:///opt/astro-project/docs/GRACE_ARTIFACTS.md) and [`/opt/astro-project/docs/GRACE_SLICE_AUTOMATION_MAP.md`](file:///opt/astro-project/docs/GRACE_SLICE_AUTOMATION_MAP.md) document catalog watchers and billing/watch correlation for adjacent flows.
+- For this feature, the evidence chain should be read as:
+  - generation command runs first
+  - structured logs are emitted
+  - watcher/review commands read the generated artifacts
+  - verdict is only clean if evidence is fresh and uncontaminated
+- If evidence is absent, fragmented, or stale, the reviewer gate should not be treated as passed. That is consistent with the strict observability rules in [`/opt/astro-project/docs/prefect_grace/BLUEPRINT.md`](file:///opt/astro-project/docs/prefect_grace/BLUEPRINT.md) and the feature brief.
+
+## Architect Handoff Notes
+- Slice around the one missing thing: a bounded, deterministic evidence-generation command or command sequence for Today, Week, Admin, and Catalog freshness.
+- Keep parser/reviewer logic separate from runtime evidence production; the brief says parsing is already repaired.
+- Preserve strict reviewer behavior: no canonical pass from rendered-only evidence, replay-only evidence, or missing evidence.
+- Reuse existing observability contracts and trace fields from `technology.xml`; do not invent a new evidence model if the existing one is enough.
+- Treat Admin and Catalog watcher CLIs as required closeout consumers, not optional diagnostics.
+- If the generation path cannot be made fully local and deterministic, the correct architect response is to block on the missing live dependency rather than relax evidence standards.
+- Do not let adjacent backend refactor or Day/Week canon cleanup creep into this feature unless a real dependency is proven.
+- Use the existing product canon IDs and module names when slicing: `M-DAY-BRIEF-SERVICE`, `M-WEEK-BRIEF-SERVICE`, `M-OPS-AUTOMATION`, `M-API-GATEWAY`, `FLOW-FORECAST-CATALOG`, `FLOW-ADMIN-OPS`, `VM-POST-TEST-OBSERVABILITY`.

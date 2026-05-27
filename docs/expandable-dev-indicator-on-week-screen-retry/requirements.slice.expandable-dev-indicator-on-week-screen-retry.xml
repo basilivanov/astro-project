@@ -1,0 +1,41 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-RETRY">
+  <system_goal>Retry the Week runtime indicator live pipeline with rework-loop guard and pipeline-resume safety.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Keep the existing Week-screen dev/prod chip visually compact.</item>
+      <item>In dev mode only, tapping the chip expands a lightweight local diagnostics block.</item>
+      <item>Show only render path, bootstrap result, and current mode from existing runtime/debug state.</item>
+      <item>Keep the diagnostics block local to the chip area with minimal layout shift.</item>
+      <item>Add targeted frontend verification and visual evidence for dev-expanded and prod-unchanged states on Week.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>No backend changes.</item>
+      <item>No new payload fields.</item>
+      <item>No new top-level debug banner or separate diagnostics screen.</item>
+      <item>No correlation, trace, or payload diagnostics in user-facing UI.</item>
+      <item>No changes to Day screen or other product surfaces.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE" actor="user">
+      <summary>Expandable dev indicator on Week screen retry</summary>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>-</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>-</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-0">-</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">In dev mode on Week, tapping the current dev indicator expands a compact diagnostics block.</criterion>
+    <criterion id="SC-SLICE-2">The diagnostics block shows render path, bootstrap result, and current mode.</criterion>
+    <criterion id="SC-SLICE-3">Tapping the dev indicator again collapses the diagnostics block.</criterion>
+    <criterion id="SC-SLICE-4">In prod mode, the indicator remains inert and the visible UI stays unchanged.</criterion>
+    <criterion id="SC-SLICE-5">No backend payload, scoring, explainability, or business-logic changes are introduced.</criterion>
+    <criterion id="SC-SLICE-6">Visual evidence shows the Week top area remains clean and not banner-like.</criterion>
+  </success_criteria>
+</requirements_slice>

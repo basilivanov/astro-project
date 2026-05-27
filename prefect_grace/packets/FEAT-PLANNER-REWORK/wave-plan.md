@@ -1,0 +1,22 @@
+# Wave Plan: FEAT-PLANNER-REWORK
+
+## Objective
+Planner rework feature
+
+## Waves
+1. W01 — Wave 1: Single slice
+
+## Packet Registry
+- `FEAT-PLANNER-REWORK-W01-MAIN-SLICE` — role `coder` — Main Slice
+- `FEAT-PLANNER-REWORK-W01-VERIFY-SLICE` — role `verifier` — Verify Slice
+- `FEAT-PLANNER-REWORK-W01-REVIEW-SLICE` — role `reviewer` — Review Slice
+- `FEAT-PLANNER-REWORK-W01-ARCHITECT-GATE` — role `architect` — Architect Gate
+
+## Dependency Rules
+- `FEAT-PLANNER-REWORK-W01-MAIN-SLICE` depends on FEAT-PLANNER-REWORK-W00-PLANNER-SLICING
+- `FEAT-PLANNER-REWORK-W01-VERIFY-SLICE` depends on FEAT-PLANNER-REWORK-W01-MAIN-SLICE
+- `FEAT-PLANNER-REWORK-W01-REVIEW-SLICE` depends on FEAT-PLANNER-REWORK-W01-MAIN-SLICE, FEAT-PLANNER-REWORK-W01-VERIFY-SLICE
+- `FEAT-PLANNER-REWORK-W01-ARCHITECT-GATE` depends on FEAT-PLANNER-REWORK-W01-REVIEW-SLICE
+
+## Exit Conditions
+- accepted

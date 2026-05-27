@@ -1,0 +1,58 @@
+<requirements_slice project="astro-project" parent_requirements="/opt/astro-project/requirements.xml" updated_at="2026-04-15" slice_id="SLICE-FEAT-WEEK-RUNTIME-INDICATOR-CLEAN-RERUN">
+  <system_goal>Rerun the already-approved Week dev indicator helper slice as a local dev-only runtime diagnostics disclosure without widening scope and without forcing invalid canonical observability ownership.</system_goal>
+  <scope>
+    <in_scope>
+      <item>Keep the existing Week dev/prod chip visually compact.</item>
+      <item>In dev mode only, tapping the chip expands a lightweight local diagnostics block.</item>
+      <item>Show only render path, bootstrap result, and current mode from existing runtime/debug state.</item>
+      <item>Keep the diagnostics block local to the chip area with minimal layout shift.</item>
+      <item>Use packet-local frontend verification and visual evidence for dev-expanded and prod-unchanged Week states.</item>
+    </in_scope>
+    <out_of_scope>
+      <item>No backend changes.</item>
+      <item>No new payload fields.</item>
+      <item>No new top-level debug banner or separate diagnostics screen.</item>
+      <item>No correlation, trace, or payload diagnostics in user-facing UI.</item>
+      <item>No changes to Day screen or other product surfaces.</item>
+      <item>No canonical today-week closeout ownership in this rerun wave.</item>
+    </out_of_scope>
+  </scope>
+  <use_cases>
+    <use_case id="UC-SLICE-WEEK-RUNTIME-INDICATOR-CLEAN-RERUN" actor="developer_or_reviewer">
+      <summary>Re-run the bounded Week helper disclosure from the existing compact chip and close it with packet-local evidence only.</summary>
+      <scenario id="SCN-SLICE-WEEK-CLEAN-RERUN-DEV-EXPAND">On /week in non-production, tapping the compact chip expands a local disclosure with Week render path, bootstrap result, and runtime mode.</scenario>
+      <scenario id="SCN-SLICE-WEEK-CLEAN-RERUN-DEV-COLLAPSE">Tapping the compact chip again collapses the local disclosure without changing the Week product surface.</scenario>
+      <scenario id="SCN-SLICE-WEEK-CLEAN-RERUN-PROD-INERT">In production, and on non-Week routes, the chip remains visually unchanged and inert and no Week diagnostics block appears.</scenario>
+      <scenario id="SCN-SLICE-WEEK-CLEAN-RERUN-VISUAL-PROOF">Visual evidence shows dev-collapsed, dev-expanded, and prod-unchanged Week states with the Week top area staying local and not banner-like.</scenario>
+      <scenario id="SCN-SLICE-WEEK-CLEAN-RERUN-PACKET-LOCAL-EVIDENCE">Post-test review records a packet-local read-only verdict for the rerun and may be classified as clean or degraded-but-expected without claiming canonical Today/Week ownership.</scenario>
+    </use_case>
+  </use_cases>
+  <business_invariants>
+    <invariant>This rerun extends the existing Week helper slice; it does not introduce a new product slice boundary or any backend contract.</invariant>
+    <invariant>The disclosure is client-local helper UI only and must not add backend requests, backend payload fields, or proxy routes.</invariant>
+    <invariant>Only render path, bootstrap result, and current mode may appear in the visible disclosure body.</invariant>
+    <invariant>Interactive behavior is limited to non-production on /week; production and non-Week routes remain inert.</invariant>
+    <invariant>Week render-path labels are derived from existing Week page states rather than new backend DTO fields or diagnostics endpoints.</invariant>
+    <invariant>Evidence ownership for this rerun is packet_local only; no canonical_flow_commands are owned here.</invariant>
+    <invariant>Visual proof for this rerun is stored under frontend/docs/review_evidence/front/day-week/2026-04-15-week-runtime-indicator.</invariant>
+  </business_invariants>
+  <expected_failure_handling>
+    <item>If any diagnostics source is absent, render a stable unknown or unavailable value instead of blocking /week.</item>
+    <item>If the page is between Week states, the disclosure may show loading or unknown, but it must not crash, leak raw objects, or call backend fallback endpoints.</item>
+    <item>If the shell-owned badge cannot remain route-gated to /week without altering Day or other routes, stop and escalate before widening the feature.</item>
+    <item>If packet-local post-test review lacks canonical Today/Week emission, the verdict may be degraded-but-expected only when Week-local request and visual identifiers remain attributable and no unexpected Week degradation appears.</item>
+    <item>If packet-local evidence is missing entirely or shows unexpected Week degradation, the wave remains blocked.</item>
+  </expected_failure_handling>
+  <known_defects>
+    <defect id="DEFECT-SLICE-1">This rerun exists because earlier clean-slice artifacts left evidence ownership and review-evidence pathing too loose; the rerun corrects the architect contract without changing the approved Week helper behavior.</defect>
+  </known_defects>
+  <success_criteria>
+    <criterion id="SC-SLICE-1">In dev mode on Week, tapping the current dev indicator expands a compact diagnostics block.</criterion>
+    <criterion id="SC-SLICE-2">The diagnostics block shows render path, bootstrap result, and current mode only.</criterion>
+    <criterion id="SC-SLICE-3">Tapping the dev indicator again collapses the diagnostics block.</criterion>
+    <criterion id="SC-SLICE-4">In prod mode, the indicator remains inert and the visible UI stays unchanged.</criterion>
+    <criterion id="SC-SLICE-5">No backend payload, scoring, explainability, WeekBrief, or business-logic changes are introduced.</criterion>
+    <criterion id="SC-SLICE-6">Visual evidence shows the Week top area remains clean, local, and not banner-like.</criterion>
+    <criterion id="SC-SLICE-7">Packet-local observability verdict is explicit and is not unexpected-degradation or no-evidence-blocker.</criterion>
+  </success_criteria>
+</requirements_slice>

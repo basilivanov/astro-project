@@ -1,0 +1,5 @@
+01_generate_canonical_evidence	0	python3 scripts/generate_canonical_evidence.py --flows today,week,admin,catalog --window-minutes 30
+02_post_test_review_today_week	0	python3 tools/post_test_review.py --profile today-week --since 30m --report-format md
+03_post_test_review_read_only	0	python3 tools/post_test_review.py --profile read-only --since 30m --report-format md
+04_feed_admin_watch	0	python3 tools/log_watch/feed_admin_watch.py --feed-log logs/feed.jsonl --admin-log logs/admin.jsonl --window-minutes 30 --limit 200
+05_forecast_catalog_watch	0	python3 tools/log_watch/forecast_catalog_watch.py --catalog-log logs/catalog.jsonl --window-minutes 30 --limit 200

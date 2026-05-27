@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GRACE §13.C — Development Plan
+  Source docs: 07 (phase list), 09 (transfer), 10 (project guide), 11 (sidecar TZ),
+               13 (evening checkin), GRACE_CANON.md §12 (pilot slice rules)
+
+  Format:
+    PHASE = a thematic milestone (vertical slice family)
+    WAVE  = a controller-packet-sized unit, one PR
+    Each wave declares:
+      goal · write-scope · freeze-scope · entry-criteria · exit-criteria · deliverables
+-->
+<development-plan project="astro-today" canon="GRACE_CANON.md">
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-1-MOCKED-PIPELINE" priority="P0" pilot="true">
+    <goal>Real backend serves fixture-backed TodayPayload over real auth + real profile + real access. Frontend leaves NEXT_PUBLIC_USE_FIXTURES=true mode.</goal>
+    <pilot-slice>UC-DAY-VIEW with fixture-backed M-DAY-SERVICE.</pilot-slice>
+
+    <wave id="W-1.1">
+      <title>Project skeleton: alembic, db sessions, FastAPI app shell</title>
+      <write-scope>apps/api/app/core/config.py · apps/api/app/db/session.py · apps/api/alembic.ini · apps/api/alembic/env.py · apps/api/app/main.py · apps/api/pyproject.toml</write-scope>
+      <freeze-scope>frontend/* · apps/solarsage/* · packages/contracts/* · all docs/</freeze-scope>
+      <entry-criteria>artifact pack approved.</entry-criteria>
+      <exit-criteria>
+        <criterion>uvicorn app.main:app starts and /api/health returns 200 with version/git_sha.</criterion>
+        <criterion>alembic upgrade head succeeds against empty DB.</criterion>
+      </exit-criteria>
+      <deliverables>healthcheck route · settings via pydantic-settings · DB session helpers</deliverables>
+    </wave>
+
+    <wave id="W-1.2">
+      <title>Telegram auth + users + user_profiles</title>
+      <modules>M-AUTH-TG · M-PROFILE</modules>
+      <write-scope>apps/api/app/api/auth.py · apps/api/app/services/telegram_auth.py · apps/api/app/api/profile.py · apps/api/app/db/models.py (users, user_profiles) · alembic/versions/0001_users.py</write-scope>
+      <freeze-scope>day/calendar/access services · packages/contracts/* · frontend/*</freeze-scope>
+      <exit-criteria>
+        <criterion>POST /api/auth/telegram validates HMAC and upserts users.</criterion>
+        <criterion>GET/PUT /api/profile reads and writes user_profiles.</criterion>
+        <criterion>UC-PROFILE-EDIT invalidation logic stubbed (no caches yet, just marker function).</criterion>
+        <criterion>Tampered initData yields 401 with no DB write.</criterion>
+      </exit-criteria>
+      <deliverables>session cookie helper · profile schemas · 4 unit tests for HMAC</deliverables>
+    </wave>
+
+    <wave id="W-1.3" pilot="true">
+      <title>Pilot: GET /api/day/:date returns fixture-backed TodayPayload</title>
+      <modules>M-DAY-SERVICE · M-ACCESS-STUB</modules>
+      <write-scope>apps/api/app/api/day.py · apps/api/app/services/today_service.py · apps/api/app/services/access_service.py (stub returning state=full) · apps/api/app/schemas/today.py · apps/api/app/fixtures/day_*.json</write-scope>
+      <freeze-scope>auth · profile · packages/contracts/today.ts (READ-ONLY reference) · all calendar/checkin/llm code</freeze-scope>
+      <entry-criteria>W-1.2 merged · TodayPayload contract reviewed against docs/05.</entry-criteria>
+      <exit-criteria>
+        <criterion>GET /api/day/2026-05-24 returns valid TodayPayload (fixture mapped to date).</criterion>
+        <criterion>Response validates against packages/contracts/today.ts via JSON Schema test.</criterion>
+        <criterion>meta.contract_version, meta.cached, meta.generatedAt are present.</criterion>
+        <criterion>p95 latency under 500ms over 100 sequential calls in tests.</criterion>
+      </exit-criteria>
+      <deliverables>day endpoint · fixture loader · contract validator · 6 tests including invalid date and not-onboarded.</deliverables>
+    </wave>
+
+    <wave id="W-1.4">
+      <title>GET /api/calendar?month=YYYY-MM with neutral statuses</title>
+      <modules>M-CALENDAR</modules>
+      <write-scope>apps/api/app/api/calendar.py · apps/api/app/services/calendar_service.py · apps/api/app/schemas/calendar.py</write-scope>
+      <exit-criteria>
+        <criterion>Returns CalendarPayload for prev/current/next month grid.</criterion>
+        <criterion>days[].access matches access_service stub.</criterion>
+        <criterion>Out-of-range months yield INVALID_DATE error.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-1.5">
+      <title>Frontend leaves fixtures mode and points at real API</title>
+      <modules>M-WEB-API-CLIENT</modules>
+      <write-scope>lib/api/* · app/(app)/day/[date]/page.tsx (data source switch) · app/(app)/calendar/page.tsx · .env.example</write-scope>
+      <freeze-scope>UI components · packages/contracts/*</freeze-scope>
+      <exit-criteria>
+        <criterion>Setting NEXT_PUBLIC_USE_FIXTURES=false routes traffic to API_BASE.</criterion>
+        <criterion>e2e: open /day/today → renders headline, top flags, reading paragraphs, week strip.</criterion>
+        <criterion>e2e: open /calendar → renders 3-month grid; tap on a day navigates to /day/:date.</criterion>
+      </exit-criteria>
+      <demo>End of PHASE-1: clickable product on real backend with fixture content. Pilot acceptance for UC-DAY-VIEW met.</demo>
+    </wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-2-ACCESS" priority="P0">
+    <goal>Real access state replaces stub; referral grants 14 days to both; locked days show preview + soft lock.</goal>
+
+    <wave id="W-2.1">
+      <title>access_ledger, access_service.can_access_day</title>
+      <modules>M-ACCESS</modules>
+      <write-scope>apps/api/app/db/models.py (access_ledger) · alembic/versions/0002_access.py · apps/api/app/services/access_service.py (real)</write-scope>
+      <exit-criteria>
+        <criterion>For 14d referral_bonus → days 0..13 full, day 14 preview.</criterion>
+        <criterion>Subscription consumed only after bonus.</criterion>
+        <criterion>10 unit tests covering boundary days.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-2.2">
+      <title>Referral codes + signup hook</title>
+      <modules>M-REFERRAL</modules>
+      <write-scope>apps/api/app/api/referrals.py · apps/api/app/services/referral_service.py · alembic/versions/0003_referrals.py</write-scope>
+      <exit-criteria>
+        <criterion>New invitee signup writes 2 ledger rows of 14 days.</criterion>
+        <criterion>Repeat invite same user → idempotent.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-2.3">
+      <title>Preview/locked TodayPayload + soft lock UI</title>
+      <modules>M-DAY-SERVICE · M-WEB-DAY</modules>
+      <write-scope>apps/api/app/services/today_service.py (preview branch) · components/locked-day/* · app/(app)/day/[date]/page.tsx (state switch)</write-scope>
+      <exit-criteria>
+        <criterion>Locked day route renders preview payload with subscribe and invite CTAs.</criterion>
+        <criterion>Calendar shows locked badges per access state.</criterion>
+      </exit-criteria>
+    </wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-3-SIDECAR" priority="P0">
+    <goal>Rewrite SolarSage CLI as HTTP sidecar per docs/11. Backend becomes its only client.</goal>
+
+    <wave id="W-3.1">
+      <title>Sidecar scaffolding (FastAPI app, /v1/health, settings, ephemerides path)</title>
+      <modules>M-SIDECAR</modules>
+      <write-scope>apps/solarsage/solarsage/app.py · apps/solarsage/solarsage/core/* · apps/solarsage/solarsage/schemas/* · apps/solarsage/pyproject.toml · infra/systemd/solarsage.service</write-scope>
+      <freeze-scope>backend services that don't yet call sidecar</freeze-scope>
+      <exit-criteria>
+        <criterion>uvicorn solarsage.app:app on 127.0.0.1:18091 returns /v1/health 200.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-3.2">
+      <title>/v1/natal endpoint + parity test against legacy CLI on sample_params.json</title>
+      <write-scope>apps/solarsage/solarsage/services/natal.py · apps/solarsage/solarsage/api/natal.py · apps/solarsage/tests/test_parity.py</write-scope>
+      <exit-criteria>
+        <criterion>For sample_params.json (Vasiliy), planets longitudes match legacy within 1e-6 deg.</criterion>
+        <criterion>calculation_version is bumped and recorded in response meta.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-3.3">
+      <title>/v1/transits and /v1/range</title>
+      <exit-criteria>
+        <criterion>Range endpoint computes daily transits over a window without timeouts (p95 &lt; 3s for 31-day range).</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-3.4">
+      <title>solarsage_client + natal/period/daily snapshot caches</title>
+      <modules>M-SOLARSAGE-CLIENT · M-NATAL-CACHE · M-PERIOD-CACHE · M-DAILY-CACHE</modules>
+      <write-scope>apps/api/app/services/solarsage_client.py · apps/api/app/services/calculation_service.py · alembic/versions/0004_snapshots.py</write-scope>
+      <exit-criteria>
+        <criterion>Repeated /api/day/:date hits use natal cache; cold→warm latency drops &gt; 80%.</criterion>
+        <criterion>Birth-data edit invalidates all snapshots for the user.</criterion>
+      </exit-criteria>
+    </wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-4-NORMALIZATION-SCORING" priority="P0">
+    <goal>Real AstroSignal[] + SemanticLayer; dayStatus computed by backend.</goal>
+
+    <wave id="W-4.1">
+      <title>Normalization to AstroSignal[]</title>
+      <modules>M-NORMALIZATION</modules>
+      <exit-criteria>For sample_params.json on 2026-05-24, AstroSignal output matches snapshot fixture committed by the team lead.</exit-criteria>
+    </wave>
+
+    <wave id="W-4.2">
+      <title>Scoring, dayQuality, dayStatus, top flags</title>
+      <modules>M-SCORING · M-FLAGS</modules>
+      <exit-criteria>
+        <criterion>Status mapping matches docs/04 §11 table.</criterion>
+        <criterion>flags count constraint (2..4) enforced.</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-4.3">
+      <title>SemanticLayer assembly + cache</title>
+      <modules>M-SEMANTIC</modules>
+      <exit-criteria>semantic_layers row written; today_service builds payload from semantic + microcopy stub.</exit-criteria>
+    </wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-5-LLM" priority="P0">
+    <goal>Real "why for me" text via LLM, strict JSON, prompt_version recorded.</goal>
+
+    <wave id="W-5.1">
+      <title>Prompt v1 + curated context builder + strict JSON validator</title>
+      <modules>M-LLM</modules>
+      <exit-criteria>
+        <criterion>LLM output validates against C-LLM-RESPONSE.</criterion>
+        <criterion>Output never references internal scoring fields (regex check on banned tokens).</criterion>
+      </exit-criteria>
+    </wave>
+
+    <wave id="W-5.2">
+      <title>today_payloads cache + meta.cached</title>
+      <exit-criteria>Repeat call to /api/day/:date returns cached payload without LLM call.</exit-criteria>
+    </wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-6-PAYMENTS" priority="P1">
+    <goal>Telegram payments, subscription state, enforcement of consumption order.</goal>
+    <wave id="W-6.1"><title>Provider integration + webhook</title></wave>
+    <wave id="W-6.2"><title>Subscription ledger entries + enforcement</title></wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-7-NATAL-READING" priority="P2">
+    <goal>Natal reading rendered via versioned blocks.</goal>
+    <wave id="W-7.1"><title>Backend: NatalReadingPayload (sections × blocks)</title></wave>
+    <wave id="W-7.2"><title>Frontend: block renderer + overview/section routes</title></wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-8-EVENING" priority="P2">
+    <goal>Evening checkin and morning yesterdayEcho closure (docs/13).</goal>
+    <wave id="W-8.1"><title>evening_checkins table + POST/GET endpoints</title></wave>
+    <wave id="W-8.2"><title>yesterday_service.build_closure + composer integration</title></wave>
+    <wave id="W-8.3"><title>Worker: 20:00 push notifications by user TZ</title></wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <phase id="PHASE-9-MICROCOPY" priority="P1" parallel-with="PHASE-4">
+    <goal>microcopy.v1.json with ≥70 entries, validation in CI, miss tracking.</goal>
+    <wave id="W-9.1"><title>Schema, dictionary v1, services/microcopy.py</title></wave>
+    <wave id="W-9.2"><title>microcopy_misses table + weekly report</title></wave>
+  </phase>
+
+  <!-- =================================================================== -->
+  <!-- DEPENDENCY GRAPH BETWEEN PHASES                                      -->
+  <!-- =================================================================== -->
+  <phase-deps>
+    <dep from="PHASE-2-ACCESS" requires="PHASE-1-MOCKED-PIPELINE" />
+    <dep from="PHASE-3-SIDECAR" requires="PHASE-1-MOCKED-PIPELINE" parallel-allowed="true" />
+    <dep from="PHASE-4-NORMALIZATION-SCORING" requires="PHASE-3-SIDECAR" />
+    <dep from="PHASE-5-LLM" requires="PHASE-4-NORMALIZATION-SCORING" />
+    <dep from="PHASE-6-PAYMENTS" requires="PHASE-2-ACCESS" />
+    <dep from="PHASE-7-NATAL-READING" requires="PHASE-3-SIDECAR" />
+    <dep from="PHASE-8-EVENING" requires="PHASE-5-LLM" />
+    <dep from="PHASE-9-MICROCOPY" requires="PHASE-4-NORMALIZATION-SCORING" parallel-allowed="true" />
+  </phase-deps>
+
+  <!-- =================================================================== -->
+  <!-- DRIFT PROTECTION (canon §10)                                         -->
+  <!-- =================================================================== -->
+  <drift-protection>
+    <rule>Each wave merges as one PR with the wave id in the title.</rule>
+    <rule>PR checklist must mention which artifact-pack file changed (if any).</rule>
+    <rule>If implementation requires changing requirements.xml or technology.xml, the change is a separate prior PR.</rule>
+    <rule>Never edit two waves in the same PR.</rule>
+    <rule>If a wave's exit criteria cannot be met, raise a question, do not silently expand scope.</rule>
+  </drift-protection>
+
+</development-plan>

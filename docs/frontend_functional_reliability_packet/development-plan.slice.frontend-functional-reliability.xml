@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<development_plan_slice id="frontend-functional-reliability" title="Frontend Functional Reliability" version="2026-04-01">
+  <context>
+    <project_root>/opt/astro-project</project_root>
+    <packet_root>/opt/astro-project/docs/frontend_functional_reliability_packet</packet_root>
+    <depends_on>
+      <file>/opt/astro-project/docs/frontend_functional_reliability_packet/requirements.slice.frontend-functional-reliability.xml</file>
+      <file>/opt/astro-project/verification-matrix.md</file>
+      <file>/opt/astro-project/scripts/run_e2e.sh</file>
+      <file>/opt/astro-project/frontend/playwright.config.cjs</file>
+    </depends_on>
+  </context>
+  <objective>
+    <summary>Turn the existing frontend Playwright estate into an explicit reliability-first execution program that gates release confidence on page-load health, primary interactions, and core business behavior.</summary>
+  </objective>
+  <execution_principles>
+    <principle>Prefer the smallest targeted E2E bundle that proves the touched functionality is operational.</principle>
+    <principle>Escalate from smoke to business-path suites when the surface under change affects create/read, billing bridge, forecast storefront, admin operations, or fallback semantics.</principle>
+    <principle>Keep the canonical Docker wrapper in the loop so environment health checks remain part of every reliability proof.</principle>
+    <principle>When a regression is a crash/500/runtime break, first land a failing reproduction in Playwright, then fix, then rerun the targeted profile until green.</principle>
+    <principle>Preserve coverage expansion as follow-on work, but do not block reliability execution on broader coverage initiatives.</principle>
+  </execution_principles>
+  <workstreams>
+    <workstream id="WS-RELIABILITY-LADDER" priority="P0">
+      <goal>Freeze the reliability execution ladder and bundle selection strategy for frontend work.</goal>
+      <tasks>
+        <task id="TASK-QUICK-GATE">Use `./scripts/run_e2e.sh --last-failed` as the fastest rerun path when relevant failures already exist.</task>
+        <task id="TASK-SMOKE-GATE">Use the smoke bundle `e2e/admin.smoke.spec.ts e2e/core-ux.spec.ts e2e/report-create.spec.ts e2e/quality.spec.ts` before declaring broad frontend reliability regained for shared shell/create/admin changes.</task>
+        <task id="TASK-TARGETED-GATE">For route-specific work, select the minimal impacted spec file or `-g` case that proves the fixed interaction/business path.</task>
+        <task id="TASK-SIGNAL-GATE">Include `e2e/route-console.spec.ts` or equivalent signal guard whenever the change could hide runtime errors behind a loaded page.</task>
+      </tasks>
+    </workstream>
+    <workstream id="WS-CORE-SURFACES" priority="P0">
+      <goal>Keep the highest-traffic user-facing surfaces functionally reliable.</goal>
+      <tasks>
+        <task id="TASK-ENTRY-SHELL">Maintain landing/start/home/history/profile navigation reliability through `e2e/core-ux.spec.ts`, `e2e/landing.spec.ts`, `e2e/history-cta.spec.ts`, and profile-related specs as applicable.</task>
+        <task id="TASK-CREATE-READ">Maintain create/report submission and read continuation through `e2e/report-create.spec.ts`, `e2e/report-workflow.spec.ts`, and read-surface suites such as `e2e/today-daybrief.spec.ts` or year/ten-year read specs as applicable.</task>
+        <task id="TASK-WEEK-TODAY-FALLBACK">Maintain week/today functional reliability and fallback semantics through `e2e/today-daybrief.spec.ts`, `e2e/week-page-fallback.spec.ts`, `e2e/week-home-refresh.regression.spec.ts`, `e2e/week-live.spec.ts`, and `e2e/week-fallback.regression.spec.ts` as applicable.</task>
+      </tasks>
+    </workstream>
+    <workstream id="WS-BUSINESS-PATHS" priority="P0">
+      <goal>Ensure revenue-critical and entitlement-sensitive flows are verified as business paths, not just page loads.</goal>
+      <tasks>
+        <task id="TASK-BILLING-BRIDGES">Use storefront/bridge suites such as `e2e/billing-mock.spec.ts`, `e2e/billing-catalog-alignment.spec.ts`, `e2e/month-forecast-bridge-storefront.spec.ts`, `e2e/year-forecast-bridge-storefront.spec.ts`, `e2e/solar-return-bridge-storefront.spec.ts`, and `e2e/synastry-bridge-storefront.spec.ts` when checkout/continuation semantics can change.</task>
+        <task id="TASK-FAILURE-STATES">Use `e2e/report-failure.spec.ts` and route-specific fallback suites whenever a change touches guarded error states or graceful-degradation behavior.</task>
+        <task id="TASK-LOCALE-REALDATA">Use `e2e/localization.spec.ts` or `e2e/forecast-realdata.spec.ts` only when the touched slice changes those semantics directly.</task>
+      </tasks>
+    </workstream>
+    <workstream id="WS-ADMIN-RELIABILITY" priority="P1">
+      <goal>Keep operator-critical surfaces ready for smoke and targeted admin checks.</goal>
+      <tasks>
+        <task id="TASK-ADMIN-SMOKE">Use `e2e/admin.smoke.spec.ts` as the minimum admin gate.</task>
+        <task id="TASK-ADMIN-TARGETED">Escalate to `e2e/admin.users.spec.ts`, `e2e/admin.clients.spec.ts`, `e2e/admin.entitlements.spec.ts`, `e2e/admin.operations.spec.ts`, `e2e/admin.diagnostics.spec.ts`, `e2e/admin.rbac.spec.ts`, and natal-master admin specs when those domains are touched.</task>
+      </tasks>
+    </workstream>
+    <workstream id="WS-GAP-CLOSURE" priority="P2">
+      <goal>Continue growing functional confidence where reliability-critical paths lack an explicit, minimal Playwright proof.</goal>
+      <tasks>
+        <task id="TASK-ADD-MISSING-REPRO">Add narrowly scoped E2E coverage for any newly discovered crash, broken interaction, or broken continuation path not already captured by existing files.</task>
+        <task id="TASK-RATIONALIZE-BUNDLES">As suites evolve, keep bundle ownership clear so smoke, route, and business-path responsibilities do not blur.</task>
+        <task id="TASK-COVERAGE-FOLLOWON">Feed uncovered-but-critical paths into later coverage/hardening work without changing the reliability-first gate definition in this slice.</task>
+      </tasks>
+    </workstream>
+  </workstreams>
+  <wave_plan>
+    <wave id="WAVE-FFR-1" order="1" title="Freeze Reliability Gate">
+      <scope>Document and adopt the canonical frontend reliability ladder and bundle selection rules.</scope>
+      <exit_criteria>
+        <item>Worker can map a touched page/flow to a specific targeted Playwright command set.</item>
+        <item>Smoke versus business-path escalation rules are explicit and reusable.</item>
+      </exit_criteria>
+    </wave>
+    <wave id="WAVE-FFR-2" order="2" title="Harden Core Page Loads and Interactions">
+      <scope>Use targeted fixes and E2E proofs to keep high-traffic routes loading cleanly and responding to primary interactions.</scope>
+      <exit_criteria>
+        <item>Changed surfaces have passing targeted E2E verification showing load plus primary interaction success.</item>
+        <item>Any crash/500 regression has a reproduction test that now passes.</item>
+      </exit_criteria>
+    </wave>
+    <wave id="WAVE-FFR-3" order="3" title="Harden Business Paths and Admin Operations">
+      <scope>Verify create/read, billing bridge, fallback, and admin operator flows with targeted business-path suites.</scope>
+      <exit_criteria>
+        <item>Revenue-critical or operator-critical changes are proven by business-path suites, not just generic smoke.</item>
+        <item>Signal-hygiene checks remain green for slices where runtime failure masking is plausible.</item>
+      </exit_criteria>
+    </wave>
+  </wave_plan>
+  <worker_handoff>
+    <write_scope>
+      <path>frontend/e2e/**</path>
+      <path>frontend/app/**</path>
+      <path>frontend/components/**</path>
+      <path>frontend/lib/**</path>
+      <path>scripts/run_e2e.sh</path>
+      <path>docs/frontend_functional_reliability_packet/**</path>
+    </write_scope>
+    <do_not_expand_into>
+      <path>Unrelated backend business logic unless the frontend failure cannot be reproduced or fixed without it.</path>
+      <path>Broad coverage-tool migrations or threshold programs that belong to separate hardening initiatives.</path>
+      <path>Unscoped visual-polish work without direct reliability impact.</path>
+    </do_not_expand_into>
+    <required_report_back>
+      <item>Files changed.</item>
+      <item>Exact E2E commands run.</item>
+      <item>Which reliability dimension was proven: load, interaction, business path, signal hygiene.</item>
+      <item>Any remaining gaps or deferred follow-on tests.</item>
+    </required_report_back>
+  </worker_handoff>
+</development_plan_slice>

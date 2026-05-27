@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-USER-DECISION-REWORK",
+  "title": "User decision rework feature",
+  "slice_id": "SLICE-FEAT-USER-DECISION-REWORK",
+  "slice_slug": "user-decision-rework-feature",
+  "slice_dir": "/opt/astro-project/docs/user-decision-rework-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/user-decision-rework-feature/requirements.slice.user-decision-rework-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/user-decision-rework-feature/development-plan.slice.user-decision-rework-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/user-decision-rework-feature/verification-matrix.slice.user-decision-rework-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/user-decision-rework-feature/knowledge-graph.slice.user-decision-rework-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/user-decision-rework-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/user-decision-rework-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/user-decision-rework-feature/requirements.slice.user-decision-rework-feature.xml",
+    "/opt/astro-project/docs/user-decision-rework-feature/development-plan.slice.user-decision-rework-feature.xml",
+    "/opt/astro-project/docs/user-decision-rework-feature/verification-matrix.slice.user-decision-rework-feature.md",
+    "/opt/astro-project/docs/user-decision-rework-feature/knowledge-graph.slice.user-decision-rework-feature.xml",
+    "/opt/astro-project/docs/user-decision-rework-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:57.264121+00:00"
+}

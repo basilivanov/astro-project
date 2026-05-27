@@ -1,0 +1,95 @@
+{
+  "attempt": 1,
+  "timestamp": "2026-05-26T12:00:00Z",
+  "packet_id": "FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP-W01-SYNTHETIC-EDGE-MATRIX",
+  "verification_commands": [
+    {
+      "command": "pytest -q tests/test_prefect_grace_synthetic_edge_matrix.py -k 'not performance and not full_profile'",
+      "status": "passed",
+      "output_file": "pytest_output.txt",
+      "summary": "10 passed, 2 deselected in 0.04s"
+    },
+    {
+      "command": "python3 -m prefect_grace.cli synthetic-edge-matrix --profile smoke --json",
+      "status": "passed",
+      "output_file": "cli_smoke_output.json",
+      "summary": "Generated 256 scenarios, pruned 64, executed 192, all passed in 0.21s"
+    },
+    {
+      "command": "python3 -m compileall prefect_grace/platform/synthetic_*.py",
+      "status": "passed",
+      "output_file": null,
+      "summary": "All modules compiled successfully"
+    }
+  ],
+  "scenario_counts": {
+    "smoke_profile": {
+      "generated": 256,
+      "pruned": 64,
+      "executed": 192,
+      "passed": 192,
+      "failed": 0,
+      "elapsed_seconds": 0.21
+    }
+  },
+  "invariants_tested": [
+    "INV-NO-RESUME-ON-SOURCE-HASH-CHANGE",
+    "INV-NO-RESUME-WHEN-REGISTRY-BLOCKS",
+    "INV-NO-RESUME-ON-MISSING-SESSION",
+    "INV-REGISTRY-ERROR-FAIL-CLOSED",
+    "INV-DEPENDENCY-BLOCK-STOPS-DOWNSTREAM",
+    "INV-SCOPE-FROZEN-BLOCKS-MERGE",
+    "INV-CORRUPT-ARTIFACT-DOES-NOT-ACCEPT",
+    "INV-CLI-JSON-STABLE",
+    "INV-NO-LIVE-AGENTS"
+  ],
+  "no_live_agents_confirmation": "All tests executed without starting Codex, Claude, agy, or Prefect deployments. Only mock commands were generated.",
+  "performance_budget_compliance": {
+    "smoke_profile": {
+      "target_time_seconds": 30,
+      "actual_time_seconds": 0.21,
+      "target_scenarios": 50,
+      "actual_scenarios": 192,
+      "per_scenario_avg_ms": 1.09,
+      "budget_met": true
+    }
+  },
+  "diff_scope_check": {
+    "allowed_write_scope": [
+      "prefect_grace/platform/synthetic_edge_matrix.py",
+      "prefect_grace/platform/scenario_fixtures.py",
+      "prefect_grace/platform/synthetic_invariants.py",
+      "prefect_grace/platform/synthetic_runner.py",
+      "prefect_grace/cli.py",
+      "tests/test_prefect_grace_synthetic_edge_matrix.py"
+    ],
+    "frozen_scope_violations": [],
+    "scope_compliant": true
+  },
+  "example_failure_payload": {
+    "note": "No failures in current run. Example structure for documentation:",
+    "scenario_id": "scenario-0042",
+    "dimensions": {
+      "source_hash": "changed",
+      "resume_strategy": "packet_parent",
+      "registry_error": "none"
+    },
+    "failed_invariant": "INV-NO-RESUME-ON-SOURCE-HASH-CHANGE",
+    "assertion": "Expected exec mode, got resume",
+    "actual_command": ["mock-codex", "exec", "resume", "thread-123", "-"],
+    "expected_command_pattern": ["mock-codex", "exec", "-C", "...", "-"]
+  },
+  "regression_tests_status": {
+    "existing_platform_tests": "not_run_in_this_packet",
+    "cli_json_envelope": "stable",
+    "packet_parser": "not_modified"
+  },
+  "notes": [
+    "All 192 executed scenarios passed invariant checks",
+    "No live agents or Prefect deployments were started",
+    "Synthetic fixtures write only under tmp_path",
+    "Performance budget met: 0.21s for 192 scenarios (target: 30s for >=50)",
+    "Deterministic generation confirmed with seed=1",
+    "Pruning rules correctly identified 64 impossible combinations"
+  ]
+}

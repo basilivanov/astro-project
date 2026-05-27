@@ -1,0 +1,53 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "select-executor",
+  "result": {
+    "ok": true,
+    "packet_id": "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+    "role": "coder",
+    "selected": {
+      "executor_id": "codex-cli",
+      "kind": "codex",
+      "command": "codex1",
+      "model": null,
+      "reasoning": null,
+      "roles": [],
+      "enabled": true,
+      "priority": 100,
+      "max_consecutive_failures": 2,
+      "metadata": {}
+    },
+    "candidate_ids": [
+      "codex-cli"
+    ],
+    "rotated_from": null,
+    "reason": "selected",
+    "warnings": []
+  },
+  "data": {
+    "ok": true,
+    "packet_id": "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+    "role": "coder",
+    "selected": {
+      "executor_id": "codex-cli",
+      "kind": "codex",
+      "command": "codex1",
+      "model": null,
+      "reasoning": null,
+      "roles": [],
+      "enabled": true,
+      "priority": 100,
+      "max_consecutive_failures": 2,
+      "metadata": {}
+    },
+    "candidate_ids": [
+      "codex-cli"
+    ],
+    "rotated_from": null,
+    "reason": "selected",
+    "warnings": []
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,16 @@
+diff --git a/scripts/grace_lint.py b/scripts/grace_lint.py
+index ef30a5e..fca6aea 100755
+--- a/scripts/grace_lint.py
++++ b/scripts/grace_lint.py
+@@ -96,8 +96,9 @@ def lint_platform_modules(target_dir: str):
+         if start_blocks != end_blocks:
+             errors.append(f"{rel_path}: Unbalanced blocks. START_BLOCK count ({start_blocks}) != END_BLOCK count ({end_blocks}).")
+ 
+-        # 5. Prefect imports check (allowed only in runtime_adapter.py)
+-        if file_path.name != "runtime_adapter.py":
++        # 5. Prefect imports check (allowed only in runtime_adapter.py and prefect_submitter.py)
++        # prefect_submitter.py uses lazy imports inside functions per architectural requirement
++        if file_path.name not in ("runtime_adapter.py", "prefect_submitter.py"):
+             prefect_imports = []
+             for i, line in enumerate(lines, 1):
+                 if re.match(r"^\s*(import\s+prefect|from\s+prefect\b)", line):

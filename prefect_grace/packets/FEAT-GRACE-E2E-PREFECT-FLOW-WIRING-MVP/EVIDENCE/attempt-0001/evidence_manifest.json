@@ -1,0 +1,70 @@
+{
+  "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+  "attempt": 1,
+  "source_hash": "sha256:da80f844b235fe9541905d760e042e37c893e380196602b10813b0c8eeed01bb",
+  "verdict": "degraded-but-expected",
+  "verdict_reason": "Backend quick passed, but the backend container emitted an expected external notification delivery failure to http://bot:8001/notify with BOT_DELIVERY_RETRY/BOT_DELIVERY_FAILED noise. No E2E flow-specific runner degradation appeared in the evidence.",
+  "checks": [
+    {
+      "name": "targeted pytest",
+      "command": "pytest -q tests/test_prefect_grace_e2e_packet_runner_flow.py tests/test_prefect_grace_e2e_packet_artifacts.py tests/test_prefect_grace_cli_e2e_packet_flow.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "29 passed in 3.91s"
+    },
+    {
+      "name": "focused regressions",
+      "command": "pytest -q tests/test_prefect_grace_e2e_packet_runner.py tests/test_prefect_grace_status_model.py tests/test_prefect_grace_managed_packet_runner.py tests/test_prefect_grace_verifier_reviewer_handoff.py",
+      "result": "73 passed in 0.76s"
+    },
+    {
+      "name": "compile",
+      "command": "python3 -m compileall -q prefect_grace/flows/e2e_packet_runner_flow.py prefect_grace/tasks/e2e_packet_artifacts.py prefect_grace/cli.py",
+      "result": "pass"
+    },
+    {
+      "name": "grace lint",
+      "command": "python3 scripts/grace_lint.py prefect_grace/flows/e2e_packet_runner_flow.py prefect_grace/tasks/e2e_packet_artifacts.py",
+      "result": "pass"
+    },
+    {
+      "name": "packet validation",
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md --strict --json",
+      "result": "ok: true"
+    },
+    {
+      "name": "CLI smoke",
+      "command": "python3 -m prefect_grace.cli run-e2e-packet-flow --project-root <tmp-repo> --packet <tmp-packet> --state-root <tmp-state> --worktree-root <tmp-worktrees> --project-key smoke --packet-id TEST-E2E-FLOW-W01-SMOKE --dry-run --json",
+      "result": "accepted / accepted / artifact_ids=[]"
+    },
+    {
+      "name": "backend quick",
+      "command": "docker exec astro-project-backend-1 python3 scripts/pipeline.py",
+      "result": "pass"
+    }
+  ],
+  "observability": {
+    "trace_id": "85f0fbb8-29a3-4916-9e6b-1fdc8bbe401a",
+    "report_id": "190c5b83-f5b2-4e90-8f19-5585bbac5626",
+    "request_id": "85f0fbb8-29a3-4916-9e6b-1fdc8bbe401a",
+    "signals": [
+      "report.workflow.generation_stats success=13 fallback=0 total=13 usable=13",
+      "report.workflow.generation_complete success=13 fallback=0 usable=13 pending=0 running=0 error=0",
+      "report.notify.delivery_failed",
+      "BOT_DELIVERY_RETRY",
+      "No E2E packet runner runtime errors or scope boundary regressions in the observed window."
+    ]
+  },
+  "diff_summary": {
+    "tracked_stat": [
+      "automation/cli_health.yaml | 2 +-",
+      "prefect_grace/cli.py | 84 +++++++++++++++++++++++++++++++",
+      "tests/test_prefect_grace_cli_contracts.py | 19 +++++++"
+    ],
+    "tracked_new_files": [
+      "prefect_grace/flows/e2e_packet_runner_flow.py",
+      "prefect_grace/tasks/e2e_packet_artifacts.py",
+      "tests/test_prefect_grace_cli_e2e_packet_flow.py",
+      "tests/test_prefect_grace_e2e_packet_artifacts.py",
+      "tests/test_prefect_grace_e2e_packet_runner_flow.py"
+    ]
+  }
+}

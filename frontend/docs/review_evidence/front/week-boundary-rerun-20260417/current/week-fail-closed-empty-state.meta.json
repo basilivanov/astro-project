@@ -1,0 +1,12 @@
+{
+  "packet_id": "FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417-W01-REWORK-WEEK-BOUNDARY-FRESH-VISUAL-EVIDENCE-ATTRIBUTION",
+  "scenario": "fail-closed-week-empty-state",
+  "generated_at": "2026-04-16T22:27:57.608Z",
+  "test_title": "should stay fail-closed when only legacy week chunks are available",
+  "test_file": "/app/e2e/week-page-fallback.spec.ts",
+  "retry": 0,
+  "worker_index": 0,
+  "current_url": "http://astro-project-frontend_dev-1:3000/week",
+  "screenshot_path": "/app/docs/review_evidence/front/week-boundary-rerun-20260417/current/week-fail-closed-empty-state.png",
+  "playwright_output_path": "/tmp/playwright-results/week-page-fallback-Week-Pa-22ebc-y-week-chunks-are-available/week-fail-closed-empty-state.png"
+}

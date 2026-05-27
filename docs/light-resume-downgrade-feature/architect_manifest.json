@@ -1,0 +1,24 @@
+{
+  "feature_id": "FEAT-LIGHT-RESUME-DOWNGRADE",
+  "title": "Light resume downgrade feature",
+  "slice_id": "SLICE-FEAT-LIGHT-RESUME-DOWNGRADE",
+  "slice_slug": "light-resume-downgrade-feature",
+  "slice_dir": "/opt/astro-project/docs/light-resume-downgrade-feature",
+  "requirements_slice_path": "/opt/astro-project/docs/light-resume-downgrade-feature/requirements.slice.light-resume-downgrade-feature.xml",
+  "development_plan_slice_path": "/opt/astro-project/docs/light-resume-downgrade-feature/development-plan.slice.light-resume-downgrade-feature.xml",
+  "verification_matrix_slice_path": "/opt/astro-project/docs/light-resume-downgrade-feature/verification-matrix.slice.light-resume-downgrade-feature.md",
+  "knowledge_graph_slice_path": "/opt/astro-project/docs/light-resume-downgrade-feature/knowledge-graph.slice.light-resume-downgrade-feature.xml",
+  "architect_handoff_path": "/opt/astro-project/docs/light-resume-downgrade-feature/ARCHITECT_HANDOFF.md",
+  "execution_packet_path": "/opt/astro-project/docs/light-resume-downgrade-feature/EXECUTION_PACKET.md",
+  "impacted_modules": [],
+  "waves": [],
+  "planner_inputs": [
+    "/opt/astro-project/docs/light-resume-downgrade-feature/requirements.slice.light-resume-downgrade-feature.xml",
+    "/opt/astro-project/docs/light-resume-downgrade-feature/development-plan.slice.light-resume-downgrade-feature.xml",
+    "/opt/astro-project/docs/light-resume-downgrade-feature/verification-matrix.slice.light-resume-downgrade-feature.md",
+    "/opt/astro-project/docs/light-resume-downgrade-feature/knowledge-graph.slice.light-resume-downgrade-feature.xml",
+    "/opt/astro-project/docs/light-resume-downgrade-feature/ARCHITECT_HANDOFF.md"
+  ],
+  "root_deltas": {},
+  "updated_at": "2026-04-16T16:04:44.627812+00:00"
+}

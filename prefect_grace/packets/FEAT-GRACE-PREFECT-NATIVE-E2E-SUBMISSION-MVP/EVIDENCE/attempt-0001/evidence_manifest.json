@@ -1,0 +1,62 @@
+{
+  "packet_id": "FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP-W01-NATIVE-E2E-SUBMISSION",
+  "attempt": 1,
+  "source_hash": "sha256:7adf1cc9258b0a7e8ca4bfe2e700fc8cf4d8dd1acec826b70e7dda3b1a17edb1",
+  "verdict": "clean",
+  "checks": [
+    {
+      "name": "targeted pytest",
+      "command": "pytest -q tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_cli_submit_packets_prefect_native.py tests/test_prefect_grace_runtime_adapter_submit_packet_run.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "40 passed in 3.89s"
+    },
+    {
+      "name": "focused regressions",
+      "command": "pytest -q tests/test_prefect_grace_e2e_packet_runner_flow.py tests/test_prefect_grace_e2e_packet_runner.py tests/test_prefect_grace_status_model.py tests/test_prefect_grace_managed_packet_runner.py tests/test_prefect_grace_runtime_adapter.py",
+      "result": "70 passed in 0.99s"
+    },
+    {
+      "name": "compile",
+      "command": "python3 -m compileall -q prefect_grace/platform/prefect_native_submission.py prefect_grace/platform/runtime_adapter.py prefect_grace/tasks/prefect_submitter.py prefect_grace/cli.py tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_cli_submit_packets_prefect_native.py tests/test_prefect_grace_runtime_adapter_submit_packet_run.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "pass"
+    },
+    {
+      "name": "grace lint",
+      "command": "python3 scripts/grace_lint.py prefect_grace/platform/prefect_native_submission.py prefect_grace/platform/runtime_adapter.py prefect_grace/tasks/prefect_submitter.py",
+      "result": "pass"
+    },
+    {
+      "name": "packet validation",
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP/EXECUTION_PACKET.md --strict --json",
+      "result": "ok: true"
+    },
+    {
+      "name": "CLI dry-run smoke",
+      "command": "python3 -m prefect_grace.cli submit-packets --project-config <tmp>/grace-project.yaml --dry-run --limit 1 --json",
+      "result": "runner_kind=e2e, deployment_name=prefect-grace-e2e-packet-runner/live-e2e-packet-runner"
+    },
+    {
+      "name": "diff summary",
+      "command": "git diff --stat -- prefect_grace/platform/prefect_native_submission.py prefect_grace/platform/runtime_adapter.py prefect_grace/tasks/prefect_submitter.py prefect_grace/cli.py tests/test_prefect_grace_prefect_native_submission.py tests/test_prefect_grace_cli_submit_packets_prefect_native.py tests/test_prefect_grace_runtime_adapter_submit_packet_run.py tests/test_prefect_grace_cli_contracts.py",
+      "result": "8 tracked files changed; 837 insertions, 201 deletions"
+    }
+  ],
+  "observability": {
+    "verdict": "clean",
+    "notes": [
+      "This packet did not require backend quick or frontend quick runs.",
+      "The targeted runtime evidence is the CLI dry-run JSON smoke showing runner_kind=e2e and the E2E deployment name.",
+      "No live Prefect server, deployment registration, Docker container start, provider API call, merge, push, or squash was used by the tests.",
+      "Frozen scope diff check returned empty."
+    ]
+  },
+  "changed_files": [
+    "prefect_grace/cli.py",
+    "prefect_grace/platform/prefect_native_submission.py",
+    "prefect_grace/platform/runtime_adapter.py",
+    "prefect_grace/tasks/prefect_submitter.py",
+    "tests/test_prefect_grace_cli_contracts.py",
+    "tests/test_prefect_grace_cli_submit_packets_prefect_native.py",
+    "tests/test_prefect_grace_prefect_native_submission.py",
+    "tests/test_prefect_grace_runtime_adapter_submit_packet_run.py"
+  ]
+}
