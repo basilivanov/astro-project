@@ -1,0 +1,43 @@
+baseline_line_count=1826
+baseline_feature_pipeline_ast_span=1132
+baseline_feature_pipeline_tokens=6255
+after_line_count=853
+after_feature_pipeline_ast_span=95
+after_feature_pipeline_tokens=586
+decorated_inventory_after=
+  bootstrap_task: {'decorator': 'task', 'name': None, 'task_run_name': 'bootstrap:{feature_id}', 'flow_run_name': None}
+  feature_pipeline: {'decorator': 'flow', 'name': 'prefect-grace-feature-pipeline', 'task_run_name': None, 'flow_run_name': 'feature:{feature_id}'}
+  mark_feature_in_progress_task: {'decorator': 'task', 'name': None, 'task_run_name': 'feature-status:{feature_id}:in-progress', 'flow_run_name': None}
+  mark_packet_status_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet-status:{packet_id}:{status}', 'flow_run_name': None}
+  materialize_planner_contract_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet-graph:materialize:{feature_id}', 'flow_run_name': None}
+  publish_feature_artifacts_task: {'decorator': 'task', 'name': None, 'task_run_name': 'feature-artifacts:{feature[feature_id]}', 'flow_run_name': None}
+  publish_packet_review_artifacts_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet-review-artifacts:{review_route[review][packet_id]}', 'flow_run_name': None}
+  record_canon_digest_task: {'decorator': 'task', 'name': None, 'task_run_name': 'canon-digest:record:{feature_id}', 'flow_run_name': None}
+  record_verifier_result_task: {'decorator': 'task', 'name': None, 'task_run_name': 'record-verifier:{verifier_packet_id}', 'flow_run_name': None}
+  resolve_architect_artifact_plan_task: {'decorator': 'task', 'name': None, 'task_run_name': 'architect-artifacts:resolve:{feature_id}', 'flow_run_name': None}
+  resolve_planner_contract_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet-graph:resolve', 'flow_run_name': None}
+  resolve_reviewer_decision_task: {'decorator': 'task', 'name': None, 'task_run_name': 'review-decision:resolve', 'flow_run_name': None}
+  resolve_verifier_result_task: {'decorator': 'task', 'name': None, 'task_run_name': 'verifier-result:resolve', 'flow_run_name': None}
+  resolve_wave_decision_task: {'decorator': 'task', 'name': None, 'task_run_name': 'wave-decision:resolve', 'flow_run_name': None}
+  review_router_flow: {'decorator': 'flow', 'name': 'prefect-grace-review-router', 'task_run_name': None, 'flow_run_name': 'review:{packet_id}:{verdict}'}
+  review_task: {'decorator': 'task', 'name': None, 'task_run_name': 'review-record:{packet_id}:{verdict}', 'flow_run_name': None}
+  route_architect_wave_verdict_task: {'decorator': 'task', 'name': None, 'task_run_name': 'wave-route:{feature_id}:{wave_id}', 'flow_run_name': None}
+  route_reviewer_verdict_task: {'decorator': 'task', 'name': None, 'task_run_name': 'review-route:{coder_packet_id}', 'flow_run_name': None}
+  run_packet_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet:{packet_id}', 'flow_run_name': None}
+  run_verifier_packet_task: {'decorator': 'task', 'name': None, 'task_run_name': 'verifier:{packet_id}', 'flow_run_name': None}
+  seed_feature_packets_task: {'decorator': 'task', 'name': None, 'task_run_name': 'seed-packets:{feature_id}', 'flow_run_name': None}
+  validate_planner_contract_task: {'decorator': 'task', 'name': None, 'task_run_name': 'packet-graph:validate:{feature_id}', 'flow_run_name': None}
+  write_architect_artifacts_task: {'decorator': 'task', 'name': None, 'task_run_name': 'architect-artifacts:write:{feature_id}', 'flow_run_name': None}
+phase_modules_import_feature_pipeline=[]
+phase_module_decorators=[]
+import_compatibility_exports=
+  feature_pipeline: True
+  review_router_flow: True
+  launch_codex_for_packet: True
+  publish_feature_artifacts: True
+  record_review: True
+  mark_packet_status_task: True
+  notify_packet_event: True
+  find_record: True
+  get_run_logger: True
+monkeypatch_mark_packet_status_task_preserved=True

@@ -1,0 +1,46 @@
+{
+  "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT-W01-FLOW-PHASE-RUNNERS",
+  "status": "implemented",
+  "summary": "feature_pipeline facade split into bounded plain-Python pipeline_phases modules; task/flow decorators remain in the facade and pipeline_tasks.",
+  "evidence": {
+    "targeted_pytest": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/targeted_pytest.txt",
+    "platform_regression_pytest": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/platform_regression_pytest.txt",
+    "static_checks": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/static_checks.txt",
+    "strict_packet_validation": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/validate_packet_strict.json",
+    "bootstrap_backlog_dry_run": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/bootstrap_backlog_dry_run.json",
+    "sync_packets_dry_run": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/sync_packets_dry_run.json",
+    "metrics_inventory_proof": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/metrics_inventory_proof.txt",
+    "whole_flows_lint": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EVIDENCE/whole_flows_lint.txt"
+  },
+  "metrics": {
+    "feature_pipeline_py_before_lines": 1826,
+    "feature_pipeline_py_after_lines": 853,
+    "feature_pipeline_before_ast_span": 1132,
+    "feature_pipeline_after_ast_span": 95,
+    "feature_pipeline_before_tokens": 6255,
+    "feature_pipeline_after_tokens": 586
+  },
+  "checks": {
+    "targeted_pytest": "48 passed",
+    "platform_regression_pytest": "49 passed",
+    "compileall": "pass",
+    "targeted_lint": "pass",
+    "size_check": "PASS no violations",
+    "strict_validate_packet": "ok=true",
+    "bootstrap_backlog_dry_run": "ok=true",
+    "sync_packets_dry_run": "ok=true"
+  },
+  "compatibility": {
+    "decorated_inventory_preserved": true,
+    "phase_modules_define_prefect_decorators": false,
+    "phase_modules_import_feature_pipeline": false,
+    "facade_import_exports_preserved": true,
+    "facade_monkeypatch_dependency_binding_preserved": true
+  },
+  "observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "No live agents, Prefect deployments, Docker, backend, frontend, or Playwright were started by this packet.",
+    "Evidence is limited to deterministic pytest, static checks, and controller dry-run JSON by packet design.",
+    "Whole flows lint remains degraded only for pre-existing live_dashboard.py and packet_lifecycle.py contract debt."
+  ]
+}

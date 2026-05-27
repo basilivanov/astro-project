@@ -1,0 +1,12 @@
+$ python3 -m compileall -q prefect_grace/flows
+compileall: PASS
+$ python3 scripts/grace_lint.py prefect_grace/flows/feature_pipeline.py
+[GRACE-LINT] All modules in prefect_grace/flows/feature_pipeline.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/flows/pipeline_phases
+[GRACE-LINT] All modules in prefect_grace/flows/pipeline_phases comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/flows/pipeline_tasks
+[GRACE-LINT] All modules in prefect_grace/flows/pipeline_tasks comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/flows/pipeline_helpers
+[GRACE-LINT] All modules in prefect_grace/flows/pipeline_helpers comply with GRACE Canon Script Discipline.
+$ python3 scripts/check_size_limits.py --root prefect_grace/flows
+size-check: PASS no violations

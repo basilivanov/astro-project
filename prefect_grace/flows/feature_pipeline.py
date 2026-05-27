@@ -74,6 +74,11 @@ from prefect_grace.flows.pipeline_tasks.wave_tasks import (
     resolve_wave_decision_task,
     route_architect_wave_verdict_task,
 )
+from prefect_grace.flows.pipeline_phases.bootstrap_phase import run_bootstrap_phase
+from prefect_grace.flows.pipeline_phases.context import PipelineDeps, PipelineRuntime
+from prefect_grace.flows.pipeline_phases.finalization_phase import run_finalization_phase
+from prefect_grace.flows.pipeline_phases.planning_phase import run_planning_phase
+from prefect_grace.flows.pipeline_phases.wave_execution_phase import run_wave_execution_phase
 from prefect_grace.flows.pipeline_helpers.evidence_collector import (
     append_evidence_path as _append_evidence_path,
     artifact_glob_matches as _artifact_glob_matches,
@@ -649,6 +654,65 @@ def _build_light_resume_followup(
     }
 
 
+def _build_pipeline_deps() -> PipelineDeps:
+    return PipelineDeps(
+        tags=tags,
+        seed_feature_packets_task=seed_feature_packets_task,
+        mark_feature_in_progress_task=mark_feature_in_progress_task,
+        record_canon_digest_task=record_canon_digest_task,
+        run_packet_task=run_packet_task,
+        run_verifier_packet_task=run_verifier_packet_task,
+        mark_packet_status_task=mark_packet_status_task,
+        resolve_architect_artifact_plan_task=resolve_architect_artifact_plan_task,
+        write_architect_artifacts_task=write_architect_artifacts_task,
+        publish_feature_artifacts_task=publish_feature_artifacts_task,
+        resolve_planner_contract_task=resolve_planner_contract_task,
+        materialize_planner_contract_task=materialize_planner_contract_task,
+        validate_planner_contract_task=validate_planner_contract_task,
+        resolve_verifier_result_task=resolve_verifier_result_task,
+        record_verifier_result_task=record_verifier_result_task,
+        resolve_reviewer_decision_task=resolve_reviewer_decision_task,
+        route_reviewer_verdict_task=route_reviewer_verdict_task,
+        publish_packet_review_artifacts_task=publish_packet_review_artifacts_task,
+        resolve_wave_decision_task=resolve_wave_decision_task,
+        route_architect_wave_verdict_task=route_architect_wave_verdict_task,
+        final_failure=_final_failure,
+        post_acceptance_final_status=_post_acceptance_final_status,
+        final_user_summary=_final_user_summary,
+        should_run_planner=_should_run_planner,
+        architect_plan_next_action=_architect_plan_next_action,
+        architect_packet_candidates_to_contract=_architect_packet_candidates_to_contract,
+        sync_architect_manifest_packets=_sync_architect_manifest_packets,
+        load_architect_manifest=_load_architect_manifest,
+        build_wave_progression=_build_wave_progression,
+        persist_wave_progression=_persist_wave_progression,
+        set_wave_progression_status=_set_wave_progression_status,
+        required_wave_progression_issues=_required_wave_progression_issues,
+        wave_id_from_issue=_wave_id_from_issue,
+        next_required_wave_id=_next_required_wave_id,
+        all_required_waves_accepted=_all_required_waves_accepted,
+        wave_packets_by_wave_id=_wave_packets_by_wave_id,
+        packet_map=packet_map,
+        order_packets_for_wave=order_packets_for_wave,
+        missing_internal_dependencies=missing_internal_dependencies,
+        append_unique_packet=append_unique_packet,
+        packet_result_key=packet_result_key,
+        packet_has_downstream_reviewer=packet_has_downstream_reviewer,
+        reviewer_target_packet_id=reviewer_target_packet_id,
+        normalize_reviewer_decision_for_pipeline=_normalize_reviewer_decision_for_pipeline,
+        escalate_repeated_observability_rework_for_pipeline=_escalate_repeated_observability_rework_for_pipeline,
+        classify_rework_route=_classify_rework_route,
+        classify_rework_mode=_classify_rework_mode,
+        create_architect_rework_packet_from_review=create_architect_rework_packet_from_review,
+        build_architect_direct_rework=_build_architect_direct_rework,
+        build_light_resume_followup=_build_light_resume_followup,
+        build_direct_rework_followup_packets=_build_direct_rework_followup_packets,
+        update_record=update_record,
+        mark_feature_status=mark_feature_status,
+        notify_feature_event=notify_feature_event,
+    )
+
+
 # START_FUNCTION_CONTRACT
 # name: feature_pipeline
 # purpose: Run the GRACE feature orchestration pipeline across bootstrap, planning, execution, verification, review, wave gates, and final status.
@@ -701,1096 +765,59 @@ def feature_pipeline(
     wave_verdict_script: list[str] | None = None,
     wave_reasons_script: list[list[str]] | None = None,
 ):
-    with tags(f"feature:{feature_id}", "flow:feature-pipeline"):
-        seeded = seed_feature_packets_task(
-            feature_id=feature_id,
-            title=title,
-            summary=summary,
-            implementation_title=implementation_title,
-            implementation_summary=implementation_summary,
-            verifier_backend_profile=verifier_backend_profile,
-            verifier_frontend_profile=verifier_frontend_profile,
-            verifier_frontend_commands=verifier_frontend_commands,
-            verifier_observability_profile=verifier_observability_profile,
-            verifier_observability_commands=verifier_observability_commands,
-            verifier_artifact_globs=verifier_artifact_globs,
-            verifier_touches_frontend=verifier_touches_frontend,
-            verifier_requires_frontend_visual=verifier_requires_frontend_visual,
-            verifier_include_day_live_canary=verifier_include_day_live_canary,
-            agent_workdir=agent_workdir,
-            agent_sandbox=agent_sandbox,
-            business_context=business_context,
-            planner_contract=planner_contract,
-            include_planner_packet=bool(run_planner),
-            materialize_execution_packets=False,
-        )
-        mark_feature_in_progress_task(feature_id)
-
-        packet_results: dict[str, dict] = {}
-        review_route = None
-
-        canon_digest_packet_id = str((seeded["packets"].get("canon_digest") or {}).get("packet_id") or "")
-        architect_packet_id = seeded["packets"]["architect"]["packet_id"]
-        should_run_planner = _should_run_planner(run_planner=run_planner, planner_contract=planner_contract)
-        planner_packet = seeded["packets"].get("planner")
-        planner_packet_id = str((planner_packet or {}).get("packet_id") or "")
-
-        if canon_digest_packet_id:
-            with tags("wave:W00", "role:canon_digest"):
-                canon_digest_run = run_packet_task(canon_digest_packet_id, dry_run, timeout_seconds)
-            packet_results["canon_digest"] = canon_digest_run
-            if canon_digest_run.get("returncode") == 0:
-                record_canon_digest_task(feature_id, canon_digest_run)
-                mark_packet_status_task(canon_digest_packet_id, PacketStatus.ACCEPTED.value)
-            else:
-                mark_packet_status_task(canon_digest_packet_id, PacketStatus.BLOCKED.value)
-                final_status = _final_failure(
-                    feature_id=feature_id,
-                    category="environment_blocked",
-                    next_action="inspect-failed-canon-digest",
-                    reasons=["canon_digest preflight failed before architect formalization"],
-                )
-                publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-                return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-
-        if run_architect:
-            with tags("wave:W00", "role:architect"):
-                architect_run = run_packet_task(architect_packet_id, dry_run, timeout_seconds)
-        else:
-            architect_run = {
-                "packet_id": architect_packet_id,
-                "returncode": 0,
-                "launcher": "skipped",
-                "stdout_path": "",
-                "stderr_path": "",
-                "last_message_path": "",
-            }
-        packet_results["architect"] = architect_run
-        if architect_run.get("returncode") != 0:
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="environment_blocked",
-                next_action="inspect-failed-architect",
-            )
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-        with tags("wave:W00", "role:architect"):
-            mark_packet_status_task(architect_packet_id, PacketStatus.ACCEPTED.value)
-
-        architect_artifact_plan = resolve_architect_artifact_plan_task(
-            architect_run,
-            feature_id=feature_id,
-            title=title,
-            summary=summary,
-            business_context=business_context,
-            prefer_agent_output=prefer_agent_output,
-        )
-        packet_results["architect_artifact_plan"] = architect_artifact_plan
-        architect_artifacts = write_architect_artifacts_task(feature_id, architect_artifact_plan)
-        packet_results["architect_artifacts"] = architect_artifacts
-        publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
-
-        architect_payload = dict(architect_artifact_plan.get("payload") or {})
-        architect_next_action = _architect_plan_next_action(architect_payload)
-        architect_contract = _architect_packet_candidates_to_contract(architect_payload)
-        planner_required = should_run_planner or architect_next_action == "requires_planner"
-
-        if architect_next_action == "requires_user_decision":
-            reasons = list(architect_payload.get("open_decisions") or [])
-            feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
-            final_status = {
-                "feature": feature_record,
-                "has_failures": False,
-                "final_outcome": "awaiting_architect",
-                "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
-                "user_summary": _final_user_summary(
-                    outcome="awaiting_architect",
-                    status=FeatureStatus.ARCHITECT_READY.value,
-                    summary=str(feature_record.get("summary") or summary),
-                    next_action="architect-user-decision-required",
-                    reasons=reasons,
-                ),
-                "next_action": "architect-user-decision-required",
-                "reasons": reasons,
-            }
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-
-        if planner_required and planner_packet_id:
-            with tags("wave:W00", "role:planner"):
-                planner_run = run_packet_task(planner_packet_id, dry_run, timeout_seconds)
-        else:
-            planner_run = {
-                "packet_id": planner_packet_id,
-                "returncode": 0,
-                "launcher": "skipped",
-                "stdout_path": "",
-                "stderr_path": "",
-                "last_message_path": "",
-            }
-        packet_results["planner"] = planner_run
-        if planner_required and planner_run.get("returncode") != 0:
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="environment_blocked",
-                next_action="inspect-failed-planner",
-            )
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-        if planner_required and planner_packet_id:
-            with tags("wave:W00", "role:planner"):
-                mark_packet_status_task(planner_packet_id, PacketStatus.ACCEPTED.value)
-        elif planner_packet_id:
-            try:
-                update_record("packets", "packets", "packet_id", planner_packet_id, {"status": PacketStatus.DRAFT.value})
-            except KeyError:
-                pass
-
-        planner_contract_result = resolve_planner_contract_task(
-            planner_run,
-            planner_packet_id=planner_packet_id,
-            architect_packet_id=architect_packet_id,
-            feature_id=feature_id,
-            implementation_title=implementation_title,
-            implementation_summary=implementation_summary,
-            verifier_backend_profile=verifier_backend_profile,
-            verifier_frontend_profile=verifier_frontend_profile,
-            verifier_frontend_commands=verifier_frontend_commands,
-            verifier_observability_profile=verifier_observability_profile,
-            verifier_observability_commands=verifier_observability_commands,
-            verifier_artifact_globs=verifier_artifact_globs,
-            verifier_touches_frontend=verifier_touches_frontend,
-            verifier_requires_frontend_visual=verifier_requires_frontend_visual,
-            verifier_include_day_live_canary=verifier_include_day_live_canary,
-            planner_contract_override=planner_contract if planner_required else (architect_contract or planner_contract),
-            prefer_agent_output=prefer_agent_output and planner_required,
-        )
-        packet_results["planner_contract"] = planner_contract_result
-        if planner_required and prefer_agent_output and planner_contract_result.get("parser_error") and planner_contract_result.get("source") != "agent_output":
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="pipeline_invalid",
-                next_action="fix-planner-agent-output",
-                reasons=[str(planner_contract_result["parser_error"])],
-            )
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-        materialized_contract = materialize_planner_contract_task(
-            feature_id,
-            planner_packet_id,
-            architect_packet_id,
-            planner_contract_result,
-            agent_workdir,
-            agent_sandbox,
-            verifier_backend_profile,
-            verifier_frontend_profile,
-            verifier_frontend_commands,
-            verifier_observability_profile,
-            verifier_observability_commands,
-            verifier_artifact_globs,
-            verifier_touches_frontend,
-            verifier_requires_frontend_visual,
-            verifier_include_day_live_canary,
-        )
-        packet_results["planner_materialized"] = materialized_contract
-        _sync_architect_manifest_packets(
-            feature_id=feature_id,
-            generated_packets=list(materialized_contract.get("packets") or []),
-            architect_packet_id=architect_packet_id,
-        )
-        planner_validation = validate_planner_contract_task(feature_id, materialized_contract)
-        packet_results["planner_validation"] = planner_validation
-        publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, None)
-        if not planner_validation["valid"]:
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="pipeline_invalid",
-                next_action="fix-packet-graph-contract",
-                reasons=list(planner_validation.get("issues") or []),
-            )
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-
-        generated_packets = list(materialized_contract["packets"])
-        packets_by_id = packet_map(generated_packets)
-        wave_packets_by_id = _wave_packets_by_wave_id(generated_packets)
-        architect_manifest = _load_architect_manifest(feature_id)
-        wave_progression = _build_wave_progression(
-            architect_manifest=architect_manifest,
-            planner_waves=list(materialized_contract.get("waves") or []),
-            generated_packets=generated_packets,
-        )
-        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-        _persist_wave_progression(feature_id, wave_progression)
-        wave_progression_issues = _required_wave_progression_issues(wave_progression)
-        if wave_progression_issues:
-            for issue in wave_progression_issues:
-                issue_wave_id = _wave_id_from_issue(issue)
-                if issue_wave_id:
-                    _set_wave_progression_status(
-                        feature_id=feature_id,
-                        wave_progression=wave_progression,
-                        wave_id=issue_wave_id,
-                        status="blocked",
-                        reasons=[issue],
-                    )
-            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="pipeline_invalid",
-                next_action="fix-wave-plan-continuation",
-                reasons=wave_progression_issues,
-                next_wave_id=_wave_id_from_issue(wave_progression_issues[0]) or _next_required_wave_id(wave_progression),
-            )
-            _persist_wave_progression(feature_id, wave_progression)
-            publish_feature_artifacts_task(seeded["feature"], packet_results, None, review_route, None, final_status)
-            return {"feature": seeded["feature"], "seeded": seeded, "runs": packet_results, "review_route": review_route, "final_status": final_status}
-
-        verification_records: list[dict] = []
-        review_routes: list[dict] = []
-        wave_routes: list[dict] = []
-        wave_packet_sets: dict[str, set[str]] = {
-            wave_id: {str(packet["packet_id"]) for packet in packets}
-            for wave_id, packets in wave_packets_by_id.items()
-        }
-        completed_packet_ids: set[str] = {architect_packet_id}
-        if planner_required and planner_packet_id:
-            completed_packet_ids.add(planner_packet_id)
-        reviewer_decision_index = 0
-        wave_decision_index = 0
-
-        for wave_entry in wave_progression:
-            wave_id = str(wave_entry.get("wave_id") or "")
-            wave_packets = list(wave_packets_by_id.get(wave_id) or [])
-            if not wave_packets:
-                continue
-            _set_wave_progression_status(
-                feature_id=feature_id,
-                wave_progression=wave_progression,
-                wave_id=wave_id,
-                status="running",
-            )
-            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-            ordered_packets = order_packets_for_wave(wave_packets)
-            queue_packets = list(ordered_packets)
-            queue_ids = {str(packet["packet_id"]) for packet in queue_packets}
-            wave_route = None
-            idle_steps = 0
-
-            while queue_packets:
-                packet = queue_packets.pop(0)
-                packet_id = str(packet["packet_id"])
-                role = str(packet.get("role") or "")
-                queue_ids.discard(packet_id)
-
-                missing_dependencies = missing_internal_dependencies(
-                    packet,
-                    known_packet_ids=set(packets_by_id),
-                    completed_packet_ids=completed_packet_ids,
-                )
-                if missing_dependencies:
-                    append_unique_packet(queue_packets, packet)
-                    queue_ids.add(packet_id)
-                    idle_steps += 1
-                    if idle_steps > max(len(queue_packets), 1) + 1:
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="pipeline_invalid",
-                            next_action=f"dependency-deadlock:{packet_id}",
-                            reasons=list(missing_dependencies),
-                        )
-                        packet_results[packet_result_key("dependency_error", packet_id)] = {
-                            "packet_id": packet_id,
-                            "missing_dependencies": missing_dependencies,
-                        }
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_routes[-1] if review_routes else None,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    continue
-
-                idle_steps = 0
-
-                if role in {"coder", "planner", "architect", "reviewer"}:
-                    with tags(f"wave:{wave_id}", f"role:{role}"):
-                        packet_run = run_packet_task(packet_id, dry_run, timeout_seconds)
-                    packet_results[packet_result_key("run", packet_id)] = packet_run
-                    if packet_run.get("returncode") != 0:
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="environment_blocked",
-                            next_action=f"inspect-failed-packet:{packet_id}",
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_routes[-1] if review_routes else None,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-
-                if role == "coder":
-                    with tags(f"wave:{wave_id}", "role:coder"):
-                        mark_packet_status_task(packet_id, PacketStatus.REVIEW.value)
-                    completed_packet_ids.add(packet_id)
-                    if not packet_has_downstream_reviewer(packet_id, wave_packets):
-                        with tags(f"wave:{wave_id}", "role:coder"):
-                            mark_packet_status_task(packet_id, PacketStatus.ACCEPTED.value)
-                    continue
-
-                if role == "verifier":
-                    with tags(f"wave:{wave_id}", "role:verifier"):
-                        verifier_run = run_verifier_packet_task(packet_id, dry_run, timeout_seconds)
-                    packet_results[packet_result_key("verifier-run", packet_id)] = verifier_run
-                    if verifier_run.get("returncode") != 0:
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="environment_blocked",
-                            next_action=f"inspect-failed-verifier:{packet_id}",
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_routes[-1] if review_routes else None,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    verifier_result = resolve_verifier_result_task(
-                        verifier_run,
-                        verifier_test_verdict,
-                        verifier_observability_verdict,
-                        verifier_frontend_visual_verdict,
-                        verifier_commands_run,
-                        verifier_evidence_paths,
-                        verifier_blocking_issues,
-                        prefer_agent_output,
-                    )
-                    packet_results[packet_result_key("verifier-result", packet_id)] = verifier_result
-                    if verifier_result.get("source") == "parse_error":
-                        with tags(f"wave:{wave_id}", "role:verifier"):
-                            mark_packet_status_task(packet_id, PacketStatus.BLOCKED.value)
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="pipeline_invalid",
-                            next_action=f"inspect-verifier-parse-error:{packet_id}",
-                            reasons=list(verifier_result.get("blocking_issues") or []),
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_routes[-1] if review_routes else None,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    with tags(f"wave:{wave_id}", "role:verifier"):
-                        verification_record = record_verifier_result_task(packet_id, verifier_result)
-                        mark_packet_status_task(packet_id, PacketStatus.ACCEPTED.value)
-                    verification_records.append(verification_record)
-                    packet_results[packet_result_key("verification", packet_id)] = verification_record
-                    publish_feature_artifacts_task(
-                        seeded["feature"],
-                        packet_results,
-                        verification_record,
-                        review_routes[-1] if review_routes else None,
-                        wave_routes[-1] if wave_routes else None,
-                        None,
-                    )
-                    completed_packet_ids.add(packet_id)
-                    continue
-
-                if role == "reviewer":
-                    target_packet_id = reviewer_target_packet_id(packet, packets_by_id)
-                    current_review_reasons = (
-                        review_reasons_script[reviewer_decision_index]
-                        if review_reasons_script and reviewer_decision_index < len(review_reasons_script)
-                        else review_reasons
-                    )
-                    current_reviewer_verdict = (
-                        reviewer_verdict_script[reviewer_decision_index]
-                        if reviewer_verdict_script and reviewer_decision_index < len(reviewer_verdict_script)
-                        else reviewer_verdict
-                    )
-                    reviewer_decision = resolve_reviewer_decision_task(
-                        packet_run,
-                        current_reviewer_verdict,
-                        current_review_reasons,
-                        prefer_agent_output,
-                    )
-                    reviewer_decision = _normalize_reviewer_decision_for_pipeline(reviewer_decision)
-                    reviewer_decision = _escalate_repeated_observability_rework_for_pipeline(
-                        reviewer_decision,
-                        target_packet_id=target_packet_id,
-                        packets_by_id=packets_by_id,
-                    )
-                    route_classification = _classify_rework_route(reviewer_decision)
-                    rework_mode = _classify_rework_mode(
-                        decision=reviewer_decision,
-                        route_classification=route_classification,
-                        target_packet=packets_by_id.get(target_packet_id),
-                    )
-                    architect_rework_packet = None
-                    architect_rework_router_packet = None
-                    if (
-                        reviewer_decision.get("packet_verdict") == ReviewVerdict.REWORK_REQUIRED.value
-                        and create_rework
-                        and rework_routing_policy == REWORK_ROUTING_ARCHITECT_FIRST
-                        and route_classification == REWORK_ROUTE_SELF_RESOLVABLE
-                    ):
-                        architect_rework_router_packet = create_architect_rework_packet_from_review(
-                            target_packet_id,
-                            packet_id,
-                            list(reviewer_decision.get("reasons") or []),
-                            route_classification=route_classification,
-                        )
-                        packets_by_id[str(architect_rework_router_packet["packet_id"])] = architect_rework_router_packet
-                        packet_results[packet_result_key("architect_rework_packet", packet_id)] = architect_rework_router_packet
-                        with tags(f"wave:{wave_id}", "role:architect"):
-                            mark_packet_status_task(
-                                str(architect_rework_router_packet["packet_id"]),
-                                PacketStatus.CODING.value,
-                            )
-                            architect_rework_run = run_packet_task(
-                                str(architect_rework_router_packet["packet_id"]),
-                                dry_run,
-                                timeout_seconds,
-                            )
-                        packet_results[packet_result_key("architect_rework_run", packet_id)] = architect_rework_run
-                        if architect_rework_run.get("returncode") != 0:
-                            final_status = _final_failure(
-                                feature_id=feature_id,
-                                category="environment_blocked",
-                                next_action=f"inspect-failed-architect-rework:{architect_rework_router_packet['packet_id']}",
-                            )
-                            publish_feature_artifacts_task(
-                                seeded["feature"],
-                                packet_results,
-                                verification_records[-1] if verification_records else None,
-                                review_route,
-                                wave_routes[-1] if wave_routes else None,
-                                final_status,
-                            )
-                            return {
-                                "feature": seeded["feature"],
-                                "seeded": seeded,
-                                "runs": packet_results,
-                                "verification_records": verification_records,
-                                "review_routes": review_routes,
-                                "wave_routes": wave_routes,
-                                "final_status": final_status,
-                            }
-                        with tags(f"wave:{wave_id}", "role:architect"):
-                            mark_packet_status_task(
-                                str(architect_rework_router_packet["packet_id"]),
-                                PacketStatus.ACCEPTED.value,
-                            )
-                        architect_rework_packet = _build_architect_direct_rework(
-                            coder_packet_id=target_packet_id,
-                            reviewer_packet_id=packet_id,
-                            reasons=list(reviewer_decision.get("reasons") or []),
-                            architect_run=architect_rework_run,
-                            route_classification=route_classification,
-                            rework_mode=rework_mode,
-                        )
-                    reviewer_decision_index += 1
-                    with tags(f"wave:{wave_id}", "role:reviewer"):
-                        review_route = route_reviewer_verdict_task(
-                            target_packet_id,
-                            packet_id,
-                            reviewer_decision,
-                            create_rework,
-                            rework_routing_policy=rework_routing_policy,
-                            architect_rework_packet=architect_rework_packet,
-                        )
-                    review_routes.append(review_route)
-                    packet_results[packet_result_key("review", packet_id)] = review_route
-                    with tags(f"wave:{wave_id}", "role:reviewer", "artifact:packet"):
-                        publish_packet_review_artifacts_task(review_route)
-                    publish_feature_artifacts_task(
-                        seeded["feature"],
-                        packet_results,
-                        verification_records[-1] if verification_records else None,
-                        review_route,
-                        wave_routes[-1] if wave_routes else None,
-                        None,
-                    )
-                    completed_packet_ids.add(packet_id)
-
-                    if review_route["reviewer_verdict"] == ReviewVerdict.REWORK_REQUIRED.value:
-                        rework_object = review_route.get("rework")
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="blocked",
-                            reasons=list((review_route.get("review") or {}).get("reasons") or []),
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        if (
-                            review_route.get("route_classification") == REWORK_ROUTE_SELF_RESOLVABLE
-                            and rework_routing_policy == REWORK_ROUTING_ARCHITECT_FIRST
-                            and not (isinstance(rework_object, dict) and rework_object.get("packet_id"))
-                        ):
-                            final_status = _final_failure(
-                                feature_id=feature_id,
-                                category="pipeline_invalid",
-                                next_action=f"missing-architect-direct-rework:{packet_id}",
-                                reasons=[
-                                    f"Architect-first rework for {packet_id} did not yield a bounded direct coder packet."
-                                ],
-                            )
-                            publish_feature_artifacts_task(
-                                seeded["feature"],
-                                packet_results,
-                                verification_records[-1] if verification_records else None,
-                                review_route,
-                                wave_routes[-1] if wave_routes else None,
-                                final_status,
-                            )
-                            return {
-                                "feature": seeded["feature"],
-                                "seeded": seeded,
-                                "runs": packet_results,
-                                "verification_records": verification_records,
-                                "review_routes": review_routes,
-                                "wave_routes": wave_routes,
-                                "final_status": final_status,
-                            }
-                        if isinstance(rework_object, dict) and rework_object.get("packet_id"):
-                            direct_rework_packet = dict(rework_object)
-                            if (
-                                str(direct_rework_packet.get("rework_mode") or "") == REWORK_MODE_LIGHT_RESUME
-                                and str(direct_rework_packet.get("review_target_packet_id") or "") == str(target_packet_id)
-                            ):
-                                light_resume_followup = _build_light_resume_followup(
-                                    source_reviewer_packet=packet,
-                                    resumed_packet=dict(packets_by_id.get(target_packet_id) or {}),
-                                    reasons=list((review_route.get("review") or {}).get("reasons") or reviewer_decision.get("reasons") or []),
-                                    reviewer_packet_id=packet_id,
-                                    packets_by_id=packets_by_id,
-                                )
-                                review_route["rework"] = light_resume_followup["rework"]
-                                review_route["light_resume_stage"] = True
-                                rework_packets = list(light_resume_followup["packets"])
-                                rework_reviewer_packet_id = str(light_resume_followup["reviewer_packet_id"] or "")
-                            else:
-                                rework_packets, rework_reviewer_packet_id = _build_direct_rework_followup_packets(
-                                    source_reviewer_packet=packet,
-                                    direct_rework_packet=direct_rework_packet,
-                                    target_packet_id=target_packet_id,
-                                    packets_by_id=packets_by_id,
-                                )
-                        else:
-                            rework_bundle = rework_object or {}
-                            rework_packets = [
-                                packet_obj
-                                for packet_obj in [
-                                    rework_bundle.get("rework"),
-                                    rework_bundle.get("verifier"),
-                                    rework_bundle.get("reviewer"),
-                                ]
-                                if isinstance(packet_obj, dict) and packet_obj.get("packet_id")
-                            ]
-                            rework_reviewer_packet_id = str(rework_bundle.get("reviewer", {}).get("packet_id") or "")
-                        if rework_packets:
-                            for rework_packet in rework_packets:
-                                rework_packet_id = str(rework_packet["packet_id"])
-                                packets_by_id[rework_packet_id] = rework_packet
-                                wave_packet_sets.setdefault(wave_id, set()).add(rework_packet_id)
-                                if (
-                                    review_route.get("light_resume_stage") is True
-                                    and rework_packet_id == str(target_packet_id)
-                                ):
-                                    completed_packet_ids.discard(rework_packet_id)
-                                if rework_packet_id not in queue_ids and rework_packet_id not in completed_packet_ids:
-                                    append_unique_packet(queue_packets, rework_packet)
-                                    queue_ids.add(rework_packet_id)
-                            if rework_reviewer_packet_id:
-                                for queued_packet in queue_packets:
-                                    if str(queued_packet.get("role") or "") != "architect":
-                                        continue
-                                    if str(queued_packet.get("wave_id") or "") != wave_id:
-                                        continue
-                                    dependencies = list(queued_packet.get("dependencies") or [])
-                                    if packet_id in dependencies and rework_reviewer_packet_id and rework_reviewer_packet_id not in dependencies:
-                                        queued_packet["dependencies"] = [*dependencies, rework_reviewer_packet_id]
-                                        update_record(
-                                            "packets",
-                                            "packets",
-                                            "packet_id",
-                                            str(queued_packet["packet_id"]),
-                                            {"dependencies": queued_packet["dependencies"]},
-                                        )
-                            _set_wave_progression_status(
-                                feature_id=feature_id,
-                                wave_progression=wave_progression,
-                                wave_id=wave_id,
-                                status="running",
-                            )
-                            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                            continue
-                        if review_route.get("decision"):
-                            next_action = (
-                                "architect-user-decision-required"
-                                if review_route.get("route_classification") == REWORK_ROUTE_REQUIRES_USER_DECISION
-                                else "architect-planner-decomposition-required"
-                            )
-                            reasons = list((review_route.get("review") or {}).get("reasons") or [])
-                            _set_wave_progression_status(
-                                feature_id=feature_id,
-                                wave_progression=wave_progression,
-                                wave_id=wave_id,
-                                status="blocked",
-                                reasons=reasons,
-                            )
-                            packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                            feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
-                            final_status = {
-                                "feature": feature_record,
-                                "has_failures": False,
-                                "final_outcome": "awaiting_architect",
-                                "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
-                                "user_summary": _final_user_summary(
-                                    outcome="awaiting_architect",
-                                    status=FeatureStatus.ARCHITECT_READY.value,
-                                    summary=str(feature_record.get("summary") or summary),
-                                    next_action=next_action,
-                                    reasons=reasons,
-                                ),
-                                "next_action": next_action,
-                                "reasons": reasons,
-                                "wave_progression": [dict(item) for item in wave_progression],
-                            }
-                            notify_feature_event(
-                                feature_id=feature_id,
-                                title=str(seeded["feature"].get("title") or title),
-                                status=FeatureStatus.ARCHITECT_READY.value,
-                                summary=final_status["user_summary"],
-                                blockers=reasons,
-                                next_action=next_action,
-                            )
-                            publish_feature_artifacts_task(
-                                seeded["feature"],
-                                packet_results,
-                                verification_records[-1] if verification_records else None,
-                                review_route,
-                                wave_routes[-1] if wave_routes else None,
-                                final_status,
-                            )
-                            return {
-                                "feature": seeded["feature"],
-                                "seeded": seeded,
-                                "runs": packet_results,
-                                "verification_records": verification_records,
-                                "review_routes": review_routes,
-                                "wave_routes": wave_routes,
-                                "final_status": final_status,
-                            }
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="pipeline_invalid",
-                            next_action=f"missing-rework-packet:{packet_id}",
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_route,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    if review_route["reviewer_verdict"] == ReviewVerdict.ESCALATE_TO_ARCHITECT.value:
-                        reasons = list((review_route.get("review") or {}).get("reasons") or [])
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="blocked",
-                            reasons=reasons,
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        feature_record = mark_feature_status(feature_id, FeatureStatus.ARCHITECT_READY)
-                        final_status = {
-                            "feature": feature_record,
-                            "has_failures": False,
-                            "final_outcome": "awaiting_architect",
-                            "user_facing_status": FeatureStatus.ARCHITECT_READY.value,
-                            "user_summary": _final_user_summary(
-                                outcome="awaiting_architect",
-                                status=FeatureStatus.ARCHITECT_READY.value,
-                                summary=str(feature_record.get("summary") or summary),
-                                next_action="architect-decision-required",
-                                reasons=reasons,
-                            ),
-                            "next_action": "architect-decision-required",
-                            "reasons": reasons,
-                            "wave_progression": [dict(item) for item in wave_progression],
-                        }
-                        notify_feature_event(
-                            feature_id=feature_id,
-                            title=str(seeded["feature"].get("title") or title),
-                            status=FeatureStatus.ARCHITECT_READY.value,
-                            summary=final_status["user_summary"],
-                            blockers=reasons,
-                            next_action="architect-decision-required",
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_route,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    if review_route["reviewer_verdict"] == ReviewVerdict.BLOCKED.value:
-                        reasons = list((review_route.get("review") or {}).get("reasons") or [])
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="blocked",
-                            reasons=reasons,
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        category = "verification_blocked"
-                        if any(
-                            "pipeline" in reason.lower() or "verifier packet is missing" in reason.lower() or "structured text" in reason.lower()
-                            for reason in reasons
-                        ):
-                            category = "pipeline_invalid"
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category=category,
-                            next_action=f"inspect-review-blockers:{packet_id}",
-                            reasons=reasons,
-                        )
-                        publish_feature_artifacts_task(
-                            seeded["feature"],
-                            packet_results,
-                            verification_records[-1] if verification_records else None,
-                            review_route,
-                            wave_routes[-1] if wave_routes else None,
-                            final_status,
-                        )
-                        return {
-                            "feature": seeded["feature"],
-                            "seeded": seeded,
-                            "runs": packet_results,
-                            "verification_records": verification_records,
-                            "review_routes": review_routes,
-                            "wave_routes": wave_routes,
-                            "final_status": final_status,
-                        }
-                    continue
-
-                if role == "architect":
-                    current_wave_reasons = (
-                        wave_reasons_script[wave_decision_index]
-                        if wave_reasons_script and wave_decision_index < len(wave_reasons_script)
-                        else wave_reasons
-                    )
-                    current_wave_verdict = (
-                        wave_verdict_script[wave_decision_index]
-                        if wave_verdict_script and wave_decision_index < len(wave_verdict_script)
-                        else wave_verdict
-                    )
-                    wave_decision = resolve_wave_decision_task(
-                        packet_run,
-                        current_wave_verdict,
-                        current_wave_reasons,
-                        prefer_agent_output,
-                    )
-                    wave_decision_index += 1
-                    with tags(f"wave:{wave_id}", "role:architect"):
-                        wave_route = route_architect_wave_verdict_task(
-                            feature_id,
-                            wave_id,
-                            packet_id,
-                            wave_decision,
-                        )
-                    wave_route["wave_progress"] = next(
-                        (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
-                        {},
-                    )
-                    wave_routes.append(wave_route)
-                    packet_results[packet_result_key("wave", packet_id)] = wave_route
-                    publish_feature_artifacts_task(
-                        seeded["feature"],
-                        packet_results,
-                        verification_records[-1] if verification_records else None,
-                        review_routes[-1] if review_routes else None,
-                        wave_route,
-                        None,
-                    )
-                    completed_packet_ids.add(packet_id)
-                    if wave_route["wave_verdict"] == WaveVerdict.ACCEPTED.value:
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="accepted",
-                        )
-                        wave_route["wave_progress"] = next(
-                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
-                            {},
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        continue
-                    if wave_route["wave_verdict"] == WaveVerdict.REWORK_REQUIRED.value:
-                        reasons = list((wave_route.get("wave_review") or {}).get("reasons") or [])
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="blocked",
-                            reasons=reasons,
-                        )
-                        wave_route["wave_progress"] = next(
-                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
-                            {},
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        feature_record = mark_feature_status(
-                            feature_id,
-                            FeatureStatus.IN_PROGRESS,
-                            blocker_reasons=reasons,
-                        )
-                        final_status = {
-                            "feature": feature_record,
-                            "has_failures": False,
-                            "final_outcome": "rework_required",
-                            "user_facing_status": FeatureStatus.IN_PROGRESS.value,
-                            "user_summary": _final_user_summary(
-                                outcome="rework_required",
-                                status=FeatureStatus.IN_PROGRESS.value,
-                                summary=str(feature_record.get("summary") or summary),
-                                next_action=f"architect-wave-rework-required:{wave_id}",
-                                reasons=reasons,
-                            ),
-                            "next_action": f"architect-wave-rework-required:{wave_id}",
-                            "reasons": reasons,
-                            "wave_progression": [dict(item) for item in wave_progression],
-                        }
-                        notify_feature_event(
-                            feature_id=feature_id,
-                            title=str(seeded["feature"].get("title") or title),
-                            status=FeatureStatus.IN_PROGRESS.value,
-                            summary=final_status["user_summary"],
-                            wave_id=wave_id,
-                            blockers=reasons,
-                            next_action=final_status["next_action"],
-                        )
-                    else:
-                        reasons = list((wave_route.get("wave_review") or {}).get("reasons") or [])
-                        _set_wave_progression_status(
-                            feature_id=feature_id,
-                            wave_progression=wave_progression,
-                            wave_id=wave_id,
-                            status="blocked",
-                            reasons=reasons,
-                        )
-                        wave_route["wave_progress"] = next(
-                            (dict(item) for item in wave_progression if str(item.get("wave_id") or "") == wave_id),
-                            {},
-                        )
-                        packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                        final_status = _final_failure(
-                            feature_id=feature_id,
-                            category="product_blocked",
-                            next_action=f"architect-wave-blocked:{wave_id}",
-                            reasons=reasons,
-                        )
-                    publish_feature_artifacts_task(
-                        seeded["feature"],
-                        packet_results,
-                        verification_records[-1] if verification_records else None,
-                        review_routes[-1] if review_routes else None,
-                        wave_route,
-                        final_status,
-                    )
-                    return {
-                        "feature": seeded["feature"],
-                        "seeded": seeded,
-                        "runs": packet_results,
-                        "verification_records": verification_records,
-                        "review_routes": review_routes,
-                        "wave_routes": wave_routes,
-                        "final_status": final_status,
-                    }
-
-            if wave_route is None:
-                _set_wave_progression_status(
-                    feature_id=feature_id,
-                    wave_progression=wave_progression,
-                    wave_id=wave_id,
-                    status="blocked",
-                    reasons=[f"Missing architect wave gate for {wave_id}"],
-                )
-                packet_results["wave_progression"] = [dict(item) for item in wave_progression]
-                final_status = _final_failure(
-                    feature_id=feature_id,
-                    category="pipeline_invalid",
-                    next_action=f"missing-architect-wave-gate:{wave_id}",
-                )
-                publish_feature_artifacts_task(
-                    seeded["feature"],
-                    packet_results,
-                    verification_records[-1] if verification_records else None,
-                    review_routes[-1] if review_routes else None,
-                    wave_routes[-1] if wave_routes else None,
-                    final_status,
-                )
-                return {
-                    "feature": seeded["feature"],
-                    "seeded": seeded,
-                    "runs": packet_results,
-                    "verification_records": verification_records,
-                    "review_routes": review_routes,
-                    "wave_routes": wave_routes,
-                    "final_status": final_status,
-                }
-
-        if not _all_required_waves_accepted(wave_progression):
-            next_wave_id = _next_required_wave_id(wave_progression)
-            reasons = (
-                [f"Feature cannot be accepted until required wave {next_wave_id} is accepted."]
-                if next_wave_id
-                else ["Feature cannot be accepted because not all required waves are accepted."]
-            )
-            final_status = _final_failure(
-                feature_id=feature_id,
-                category="pipeline_invalid",
-                next_action=f"incomplete-required-waves:{next_wave_id or 'unknown'}",
-                reasons=reasons,
-            )
-            publish_feature_artifacts_task(
-                seeded["feature"],
-                packet_results,
-                verification_records[-1] if verification_records else None,
-                review_routes[-1] if review_routes else None,
-                wave_routes[-1] if wave_routes else None,
-                final_status,
-            )
-            return {
-                "feature": seeded["feature"],
-                "seeded": seeded,
-                "runs": packet_results,
-                "verification_records": verification_records,
-                "review_routes": review_routes,
-                "wave_routes": wave_routes,
-                "final_status": final_status,
-            }
-
-        accepted_feature = mark_feature_status(feature_id, FeatureStatus.ACCEPTED)
-        accepted_feature = update_record(
-            "features",
-            "features",
-            "feature_id",
-            feature_id,
-            {
-                "wave_progression": [dict(item) for item in wave_progression],
-                "next_wave_id": "",
-                "all_required_waves_accepted": True,
-            },
-        )
-        final_status = _post_acceptance_final_status(
-            feature_id=feature_id,
-            accepted_feature=accepted_feature,
-            summary=summary,
-            packet_results=packet_results,
-            verification_records=verification_records,
-            review_routes=review_routes,
-            wave_routes=wave_routes,
-            commit_hash=commit_hash,
-            wave_progression=wave_progression,
-        )
-        notify_feature_event(
-            feature_id=feature_id,
-            title=str(seeded["feature"].get("title") or title),
-            status=str(final_status["user_facing_status"]),
-            summary=final_status["user_summary"],
-            next_action=str(final_status["next_action"]),
-        )
-        publish_feature_artifacts_task(
-            seeded["feature"],
-            packet_results,
-            verification_records[-1] if verification_records else None,
-            review_routes[-1] if review_routes else None,
-            wave_routes[-1] if wave_routes else None,
-            final_status,
-        )
-        return {
-            "feature": seeded["feature"],
-            "seeded": seeded,
-            "runs": packet_results,
-            "verification_records": verification_records,
-            "review_routes": review_routes,
-            "wave_routes": wave_routes,
-            "verification": verification_records[-1] if verification_records else None,
-            "review_route": review_routes[-1] if review_routes else None,
-            "wave_route": wave_routes[-1] if wave_routes else None,
-            "final_status": final_status,
-        }
+    runtime = PipelineRuntime(
+        feature_id=feature_id,
+        title=title,
+        summary=summary,
+        implementation_title=implementation_title,
+        implementation_summary=implementation_summary,
+        dry_run=dry_run,
+        timeout_seconds=timeout_seconds,
+        verifier_backend_profile=verifier_backend_profile,
+        verifier_frontend_profile=verifier_frontend_profile,
+        verifier_frontend_commands=verifier_frontend_commands,
+        verifier_observability_profile=verifier_observability_profile,
+        verifier_observability_commands=verifier_observability_commands,
+        verifier_artifact_globs=verifier_artifact_globs,
+        verifier_touches_frontend=verifier_touches_frontend,
+        verifier_requires_frontend_visual=verifier_requires_frontend_visual,
+        verifier_include_day_live_canary=verifier_include_day_live_canary,
+        agent_workdir=agent_workdir,
+        agent_sandbox=agent_sandbox,
+        business_context=business_context,
+        planner_contract=planner_contract,
+        reviewer_verdict=reviewer_verdict,
+        review_reasons=review_reasons,
+        verifier_test_verdict=verifier_test_verdict,
+        verifier_observability_verdict=verifier_observability_verdict,
+        verifier_frontend_visual_verdict=verifier_frontend_visual_verdict,
+        verifier_commands_run=verifier_commands_run,
+        verifier_evidence_paths=verifier_evidence_paths,
+        verifier_blocking_issues=verifier_blocking_issues,
+        wave_verdict=wave_verdict,
+        wave_reasons=wave_reasons,
+        create_rework=create_rework,
+        prefer_agent_output=prefer_agent_output,
+        run_architect=run_architect,
+        run_planner=run_planner,
+        commit_hash=commit_hash,
+        rework_routing_policy=rework_routing_policy,
+        reviewer_verdict_script=reviewer_verdict_script,
+        review_reasons_script=review_reasons_script,
+        wave_verdict_script=wave_verdict_script,
+        wave_reasons_script=wave_reasons_script,
+    )
+    deps = _build_pipeline_deps()
+    state, final_result = run_bootstrap_phase(runtime, deps)
+    if final_result is not None:
+        return final_result
+    final_result = run_planning_phase(runtime, deps, state)
+    if final_result is not None:
+        return final_result
+    final_result = run_wave_execution_phase(runtime, deps, state)
+    if final_result is not None:
+        return final_result
+    return run_finalization_phase(runtime, deps, state)
 
 
 # START_FUNCTION_CONTRACT

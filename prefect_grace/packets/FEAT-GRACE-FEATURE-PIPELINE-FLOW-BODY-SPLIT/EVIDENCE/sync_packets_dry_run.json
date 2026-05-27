@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "sync-packets",
+  "result": {
+    "dry_run": true,
+    "packets_total": 33,
+    "registry_updates": 0,
+    "ready": [
+      "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+      "FEAT-GRACE-ORCHESTRATOR-MVP1-W01-PROJECT-ADAPTER-CONTRACTS"
+    ],
+    "accepted": [],
+    "blocked": [
+      "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+      "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+      "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+      "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+    ],
+    "changed_after_acceptance": [],
+    "ready_for_retry": [],
+    "cascading_blocked": [
+      "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+      "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+      "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+      "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+    ],
+    "cycles": []
+  },
+  "data": {
+    "dry_run": true,
+    "packets_total": 33,
+    "registry_updates": 0,
+    "ready": [
+      "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+      "FEAT-GRACE-ORCHESTRATOR-MVP1-W01-PROJECT-ADAPTER-CONTRACTS"
+    ],
+    "accepted": [],
+    "blocked": [
+      "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+      "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+      "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+      "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+    ],
+    "changed_after_acceptance": [],
+    "ready_for_retry": [],
+    "cascading_blocked": [
+      "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+      "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+      "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+      "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+    ],
+    "cycles": []
+  },
+  "warnings": [
+    "Skipped 756 markdown file(s) classified as legacy_missing_strict_sections; example: Skipping legacy packet FEAT-ARCH-FIRST-REWORK-W00-ARCHITECT-FORMALIZATION.md: has IDs but missing strict controller sections (allowed_write_scope=False, frozen_scope=False, must_preserve=False, verification=True, expected_evidence=False, escalation_triggers=False)",
+    "Skipped 547 markdown file(s) classified as missing_controller_ids; example: Skipping non-runnable packet FEAT-ARCH-FIRST-REWORK-W01-VERIFIER-REWORK-MAIN-SLICE.verification.md: missing packet_id=False, feature_id=False, wave_id=False",
+    "4 packet(s) have missing dependencies"
+  ],
+  "errors": []
+}
