@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-05-27T00:00:00+03:00",
+  "attempt": 1,
+  "packet_id": "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+  "packet_status": "ready_for_review",
+  "review_addressed": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/REVIEWS/review-0001.md",
+  "blockers_fixed": [
+    {
+      "blocker": "nested_command_status_passed_inferred_accepted",
+      "fix": "JSON evidence inference now reads only packet-level terminal fields and no longer recursively accepts nested status fields."
+    },
+    {
+      "blocker": "existing_terminal_registry_downgraded",
+      "fix": "Bootstrap preserves existing accepted/blocked registry records when source_hash is unchanged and artifact evidence is missing or weaker."
+    },
+    {
+      "blocker": "markdown_attempt_evidence_ignored",
+      "fix": "Bootstrap now discovers latest attempt evidence markdown files and parses explicit packet-level terminal fields while reporting non-terminal/rework evidence as warnings."
+    }
+  ],
+  "files_changed": [
+    "prefect_grace/platform/controller_backlog_bootstrap.py",
+    "prefect_grace/platform/backlog_controller.py",
+    "prefect_grace/cli.py",
+    "tests/test_prefect_grace_controller_backlog_bootstrap.py",
+    "tests/test_prefect_grace_cli_contracts.py",
+    "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EVIDENCE/attempt-0001/evidence_manifest.json"
+  ],
+  "tests": {
+    "bootstrap_regression": {
+      "command": "pytest -q tests/test_prefect_grace_controller_backlog_bootstrap.py",
+      "passed": 7,
+      "failed": 0
+    },
+    "targeted_packet_profile": {
+      "command": "pytest -q tests/test_prefect_grace_controller_backlog_bootstrap.py tests/test_prefect_grace_backlog_controller.py tests/test_prefect_grace_packet_parser.py tests/test_prefect_grace_packet_artifact_layout.py tests/test_prefect_grace_cli_contracts.py tests/test_prefect_grace_yaml_state.py",
+      "passed": 57,
+      "failed": 0
+    }
+  },
+  "static_checks": {
+    "compileall": {
+      "command": "python3 -m compileall -q prefect_grace/platform prefect_grace/cli.py",
+      "status": "passed"
+    },
+    "grace_lint": [
+      {
+        "command": "python3 scripts/grace_lint.py prefect_grace/platform/controller_backlog_bootstrap.py",
+        "status": "passed"
+      },
+      {
+        "command": "python3 scripts/grace_lint.py prefect_grace/platform/backlog_controller.py",
+        "status": "passed"
+      }
+    ],
+    "strict_packet_validation": {
+      "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.md --strict --json",
+      "ok": true
+    }
+  },
+  "cli_smoke": {
+    "bootstrap_backlog_dry_run": {
+      "command": "python3 -m prefect_grace.cli bootstrap-backlog --project prefect_grace/project.yaml --dry-run --json",
+      "ok": true,
+      "apply_count": 0,
+      "errors": 0
+    },
+    "sync_packets_dry_run": {
+      "command": "python3 -m prefect_grace.cli sync-packets --project prefect_grace/project.yaml --dry-run --json",
+      "ok": true,
+      "registry_updates": 0,
+      "errors": 0
+    }
+  },
+  "post_test_observability_verdict": "clean",
+  "runtime_safety": {
+    "source_packets_mutated": false,
+    "runtime_registry_mutated_by_dry_run": false,
+    "product_backend_frontend_touched": false,
+    "live_prefect_or_agents_started": false,
+    "docker_or_playwright_started": false
+  }
+}

@@ -107,6 +107,42 @@ def test_cli_sync_packets_dry_run() -> None:
     assert "blocked" in data["data"]
 
 
+def test_cli_bootstrap_backlog_dry_run_contract() -> None:
+    res = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "prefect_grace.cli",
+            "bootstrap-backlog",
+            "--project",
+            "prefect_grace/project.yaml",
+            "--dry-run",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    data = json.loads(res.stdout.strip())
+    assert data["ok"] is True
+    assert data["project_key"] == "astro-project"
+    assert data["command"] == "bootstrap-backlog"
+    assert data["result"] == data["data"]
+    assert data["data"]["dry_run"] is True
+    assert data["data"]["apply_count"] == 0
+    assert len(data["data"]["candidates"]) > 0
+    candidate = data["data"]["candidates"][0]
+    assert "packet_id" in candidate
+    assert "source_path" in candidate
+    assert "source_hash" in candidate
+    assert "current_registry_status" in candidate
+    assert "inferred_status" in candidate
+    assert "inference_reason" in candidate
+    assert "evidence_paths" in candidate
+    assert "planned_action" in candidate
+    assert "warnings" in candidate
+
+
 def test_cli_submit_packets_contract() -> None:
     """Verify submit-packets CLI exposes runner selection and dry-run defaults."""
     result = subprocess.run(

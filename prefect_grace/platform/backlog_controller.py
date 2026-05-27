@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from prefect_grace.platform.dag import validate_packet_dag
+from prefect_grace.platform.controller_backlog_bootstrap import summarize_skip_warnings
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.status_model import (
@@ -219,6 +220,7 @@ class BacklogController:
             except Exception as e:
                 result.errors.append(f"Failed to parse {path}: {e}")
 
+        result.warnings = summarize_skip_warnings(result.warnings)
         result.packets_total = len(packets_data)
 
         dag_result = validate_packet_dag(packets_data)

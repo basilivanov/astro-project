@@ -513,6 +513,50 @@ def _cmd_sync_packets(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_bootstrap_backlog(args: argparse.Namespace) -> None:
+    command = "bootstrap-backlog"
+    try:
+        from prefect_grace.platform.controller_backlog_bootstrap import (
+            build_backlog_bootstrap_plan,
+            dataclass_to_dict,
+        )
+
+        adapter = _load_adapter_from_args(args)
+        dry_run = not bool(getattr(args, "apply", False))
+        plan = build_backlog_bootstrap_plan(adapter, dry_run=dry_run)
+        result = dataclass_to_dict(plan)
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=not plan.errors,
+                command=command,
+                project_key=adapter.project_key,
+                result=result,
+                warnings=plan.warnings,
+                errors=plan.errors,
+            ))
+        else:
+            mode = "dry-run" if dry_run else "apply"
+            print(f"Backlog bootstrap {mode} for {adapter.project_key}:")
+            print(f"  Candidates: {len(plan.candidates)}")
+            print(f"  Applied: {plan.apply_count}")
+            print(f"  Warnings: {len(plan.warnings)}")
+            print(f"  Errors: {len(plan.errors)}")
+
+        if plan.errors:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "BOOTSTRAP_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Backlog bootstrap failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _cmd_packet_status(args: argparse.Namespace) -> None:
     command = "packet-status"
     try:
@@ -2176,6 +2220,14 @@ def build_parser() -> argparse.ArgumentParser:
     validate_packet.add_argument("--strict", action="store_true")
     validate_packet.add_argument("--json", action="store_true")
     validate_packet.set_defaults(func=_cmd_validate_packet)
+
+    bootstrap_backlog = subparsers.add_parser("bootstrap-backlog")
+    bootstrap_backlog.add_argument("--project", "--project-config", dest="project")
+    bootstrap_mode = bootstrap_backlog.add_mutually_exclusive_group()
+    bootstrap_mode.add_argument("--dry-run", action="store_true")
+    bootstrap_mode.add_argument("--apply", action="store_true")
+    bootstrap_backlog.add_argument("--json", action="store_true")
+    bootstrap_backlog.set_defaults(func=_cmd_bootstrap_backlog)
 
     sync_packets = subparsers.add_parser("sync-packets")
     sync_packets.add_argument("--project")
