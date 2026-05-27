@@ -1,0 +1,96 @@
+{
+  "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT-W01-FEATURE-PIPELINE-MODULE-SPLIT",
+  "feature_id": "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT",
+  "attempt": "attempt-0001",
+  "status": "passed",
+  "observability_verdict": "degraded-but-expected",
+  "observability_reason": "Targeted tests, platform regressions, compile, strict packet validation, import compatibility, and new helper lint passed. Whole-flows lint and size output are degraded by known pre-existing flow contract/size debt and the packet-declared informational size threshold.",
+  "decorated_functions_moved": 0,
+  "state_mutating_helpers_moved": 0,
+  "live_agents_started": 0,
+  "prefect_deployments_started": 0,
+  "product_files_modified": false,
+  "codex_launcher_modified": false,
+  "line_counts": {
+    "feature_pipeline_before": 3199,
+    "feature_pipeline_after": 2437,
+    "new_modules_under_600_lines": true
+  },
+  "artifacts": [
+    {
+      "path": "targeted_feature_pipeline_tests.txt",
+      "kind": "pytest",
+      "summary": "43 passed"
+    },
+    {
+      "path": "platform_regressions.txt",
+      "kind": "pytest",
+      "summary": "49 passed"
+    },
+    {
+      "path": "compileall_flows.txt",
+      "kind": "compile",
+      "summary": "pass"
+    },
+    {
+      "path": "grace_lint_pipeline_helpers.txt",
+      "kind": "lint",
+      "summary": "pass"
+    },
+    {
+      "path": "grace_lint_flows_degraded.txt",
+      "kind": "lint",
+      "summary": "degraded by existing flows contract debt"
+    },
+    {
+      "path": "strict_validate_packet.json",
+      "kind": "packet-validation",
+      "summary": "ok=true"
+    },
+    {
+      "path": "size_check_flows_informational.txt",
+      "kind": "size-check",
+      "summary": "informational: feature_pipeline reduced to 2437 lines but still above repo-wide limits"
+    },
+    {
+      "path": "line_counts_before.txt",
+      "kind": "line-counts",
+      "summary": "before counts"
+    },
+    {
+      "path": "line_counts_after.txt",
+      "kind": "line-counts",
+      "summary": "after counts"
+    },
+    {
+      "path": "decorated_inventory_before_after.json",
+      "kind": "prefect-inventory",
+      "summary": "decorated task/flow inventory unchanged"
+    },
+    {
+      "path": "moved_functions.json",
+      "kind": "refactor-inventory",
+      "summary": "moved helper list and non-moved stateful helper list"
+    },
+    {
+      "path": "import_compatibility_proof.json",
+      "kind": "compatibility",
+      "summary": "feature_pipeline compatibility aliases resolve to moved helpers"
+    },
+    {
+      "path": "git_status_short.txt",
+      "kind": "scope",
+      "summary": "changed files proof"
+    },
+    {
+      "path": "observability_verdict.txt",
+      "kind": "observability",
+      "summary": "degraded-but-expected"
+    },
+    {
+      "path": "validate_evidence_manifest.json",
+      "kind": "evidence-validation",
+      "summary": "ok=true"
+    }
+  ]
+}

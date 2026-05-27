@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "_build_wave_progression": true,
+    "_classify_rework_route": true,
+    "_collect_candidate_commit_files": true,
+    "_enrich_verifier_evidence_paths": true,
+    "_final_user_summary": true,
+    "_normalize_observability_scope": true,
+    "_normalize_reviewer_decision_for_pipeline": true,
+    "_plan_wave_sequence": true
+  },
+  "ok": true
+}

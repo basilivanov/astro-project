@@ -1,0 +1,421 @@
+{
+  "unchanged_names": true,
+  "before": [
+    {
+      "name": "bootstrap_task",
+      "line": 1355,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "bootstrap:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "seed_feature_packets_task",
+      "line": 1363,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "seed-packets:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_planner_contract_task",
+      "line": 1412,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_architect_artifact_plan_task",
+      "line": 1485,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "architect-artifacts:resolve:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "write_architect_artifacts_task",
+      "line": 1518,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "architect-artifacts:write:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "materialize_planner_contract_task",
+      "line": 1532,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:materialize:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "validate_planner_contract_task",
+      "line": 1582,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:validate:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "mark_feature_in_progress_task",
+      "line": 1680,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "feature-status:{feature_id}:in-progress",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "run_packet_task",
+      "line": 1694,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet:{packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "run_verifier_packet_task",
+      "line": 1701,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "verifier:{packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "mark_packet_status_task",
+      "line": 1708,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-status:{packet_id}:{status}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "record_canon_digest_task",
+      "line": 1725,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "canon-digest:record:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "route_reviewer_verdict_task",
+      "line": 1744,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-route:{coder_packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "route_architect_wave_verdict_task",
+      "line": 1839,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "wave-route:{feature_id}:{wave_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_verifier_result_task",
+      "line": 1871,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "verifier-result:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "record_verifier_result_task",
+      "line": 1916,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "record-verifier:{verifier_packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "publish_packet_review_artifacts_task",
+      "line": 1938,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-review-artifacts:{review_route[review][packet_id]}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "publish_feature_artifacts_task",
+      "line": 1946,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "feature-artifacts:{feature[feature_id]}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_reviewer_decision_task",
+      "line": 1975,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-decision:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_wave_decision_task",
+      "line": 2003,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "wave-decision:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "feature_pipeline",
+      "line": 2030,
+      "decorator": "flow",
+      "name_arg": "prefect-grace-feature-pipeline",
+      "task_run_name": null,
+      "flow_run_name": "feature:{feature_id}",
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "review_task",
+      "line": 3165,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-record:{packet_id}:{verdict}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "review_router_flow",
+      "line": 3179,
+      "decorator": "flow",
+      "name_arg": "prefect-grace-review-router",
+      "task_run_name": null,
+      "flow_run_name": "review:{packet_id}:{verdict}",
+      "module": "prefect_grace.flows.feature_pipeline"
+    }
+  ],
+  "after": [
+    {
+      "name": "bootstrap_task",
+      "line": 593,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "bootstrap:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "seed_feature_packets_task",
+      "line": 601,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "seed-packets:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_planner_contract_task",
+      "line": 650,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_architect_artifact_plan_task",
+      "line": 723,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "architect-artifacts:resolve:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "write_architect_artifacts_task",
+      "line": 756,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "architect-artifacts:write:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "materialize_planner_contract_task",
+      "line": 770,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:materialize:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "validate_planner_contract_task",
+      "line": 820,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-graph:validate:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "mark_feature_in_progress_task",
+      "line": 918,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "feature-status:{feature_id}:in-progress",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "run_packet_task",
+      "line": 932,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet:{packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "run_verifier_packet_task",
+      "line": 939,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "verifier:{packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "mark_packet_status_task",
+      "line": 946,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-status:{packet_id}:{status}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "record_canon_digest_task",
+      "line": 963,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "canon-digest:record:{feature_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "route_reviewer_verdict_task",
+      "line": 982,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-route:{coder_packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "route_architect_wave_verdict_task",
+      "line": 1077,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "wave-route:{feature_id}:{wave_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_verifier_result_task",
+      "line": 1109,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "verifier-result:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "record_verifier_result_task",
+      "line": 1154,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "record-verifier:{verifier_packet_id}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "publish_packet_review_artifacts_task",
+      "line": 1176,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "packet-review-artifacts:{review_route[review][packet_id]}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "publish_feature_artifacts_task",
+      "line": 1184,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "feature-artifacts:{feature[feature_id]}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_reviewer_decision_task",
+      "line": 1213,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-decision:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "resolve_wave_decision_task",
+      "line": 1241,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "wave-decision:resolve",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "feature_pipeline",
+      "line": 1268,
+      "decorator": "flow",
+      "name_arg": "prefect-grace-feature-pipeline",
+      "task_run_name": null,
+      "flow_run_name": "feature:{feature_id}",
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "review_task",
+      "line": 2403,
+      "decorator": "task",
+      "name_arg": null,
+      "task_run_name": "review-record:{packet_id}:{verdict}",
+      "flow_run_name": null,
+      "module": "prefect_grace.flows.feature_pipeline"
+    },
+    {
+      "name": "review_router_flow",
+      "line": 2417,
+      "decorator": "flow",
+      "name_arg": "prefect-grace-review-router",
+      "task_run_name": null,
+      "flow_run_name": "review:{packet_id}:{verdict}",
+      "module": "prefect_grace.flows.feature_pipeline"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+[GRACE-LINT] Strict contract verification FAILED:
+ - prefect_grace/flows/live_dashboard.py: Missing AI_HEADER banner within the first 30 lines.
+ - prefect_grace/flows/live_dashboard.py: Missing START_MODULE_CONTRACT.
+ - prefect_grace/flows/live_dashboard.py: Missing END_MODULE_CONTRACT.
+ - prefect_grace/flows/live_dashboard.py: Missing START_MODULE_MAP.
+ - prefect_grace/flows/live_dashboard.py: Missing END_MODULE_MAP.
+ - prefect_grace/flows/live_dashboard.py: Public function/method 'build_dashboard_snapshot' on line 9 is missing a GRACE function contract.
+ - prefect_grace/flows/live_dashboard.py: Public function/method 'publish_dashboard_task' on line 49 is missing a GRACE function contract.
+ - prefect_grace/flows/live_dashboard.py: Public function/method 'live_dashboard_flow' on line 71 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Missing AI_HEADER banner within the first 30 lines.
+ - prefect_grace/flows/feature_pipeline.py: Missing START_MODULE_CONTRACT.
+ - prefect_grace/flows/feature_pipeline.py: Missing END_MODULE_CONTRACT.
+ - prefect_grace/flows/feature_pipeline.py: Missing START_MODULE_MAP.
+ - prefect_grace/flows/feature_pipeline.py: Missing END_MODULE_MAP.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'bootstrap_task' on line 593 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'seed_feature_packets_task' on line 601 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'resolve_planner_contract_task' on line 650 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'resolve_architect_artifact_plan_task' on line 723 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'write_architect_artifacts_task' on line 756 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'materialize_planner_contract_task' on line 770 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'validate_planner_contract_task' on line 820 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'mark_feature_in_progress_task' on line 918 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'run_packet_task' on line 932 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'run_verifier_packet_task' on line 939 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'mark_packet_status_task' on line 946 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'record_canon_digest_task' on line 963 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'route_reviewer_verdict_task' on line 982 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'route_architect_wave_verdict_task' on line 1077 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'resolve_verifier_result_task' on line 1109 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'record_verifier_result_task' on line 1154 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'publish_packet_review_artifacts_task' on line 1176 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'publish_feature_artifacts_task' on line 1184 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'resolve_reviewer_decision_task' on line 1213 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'resolve_wave_decision_task' on line 1241 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'feature_pipeline' on line 1268 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'review_task' on line 2403 is missing a GRACE function contract.
+ - prefect_grace/flows/feature_pipeline.py: Public function/method 'review_router_flow' on line 2417 is missing a GRACE function contract.
+ - prefect_grace/flows/packet_lifecycle.py: Missing AI_HEADER banner within the first 30 lines.
+ - prefect_grace/flows/packet_lifecycle.py: Missing START_MODULE_CONTRACT.
+ - prefect_grace/flows/packet_lifecycle.py: Missing END_MODULE_CONTRACT.
+ - prefect_grace/flows/packet_lifecycle.py: Missing START_MODULE_MAP.
+ - prefect_grace/flows/packet_lifecycle.py: Missing END_MODULE_MAP.
+ - prefect_grace/flows/packet_lifecycle.py: Public function/method 'transition_packet' on line 9 is missing a GRACE function contract.
+ - prefect_grace/flows/packet_lifecycle.py: Public function/method 'packet_transition_flow' on line 19 is missing a GRACE function contract.
+
+EXIT_STATUS=1
+EXPECTED_DEGRADED_EXISTING_CONTRACT_DEBT=true

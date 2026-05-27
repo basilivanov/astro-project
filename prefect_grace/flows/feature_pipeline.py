@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import glob
 import json
 from pathlib import Path
-import re
 
 from prefect_grace.models import (
     FeatureStatus,
@@ -16,6 +14,64 @@ from prefect_grace.models import (
     WaveVerdict,
 )
 from prefect_grace.prefect_compat import flow, get_run_logger, tags, task
+from prefect_grace.flows.pipeline_helpers.evidence_collector import (
+    append_evidence_path as _append_evidence_path,
+    artifact_glob_matches as _artifact_glob_matches,
+    candidate_file_path as _candidate_file_path,
+    collect_candidate_commit_files as _collect_candidate_commit_files,
+    collect_candidate_commit_files_from_payload as _collect_candidate_commit_files_from_payload,
+    collect_verifier_supplemental_evidence as _collect_verifier_supplemental_evidence,
+    enrich_verifier_evidence_paths as _enrich_verifier_evidence_paths,
+    existing_file_path as _existing_file_path,
+    feature_line_records as _feature_line_records,
+    find_commit_marker as _find_commit_marker,
+    normalize_commit_marker as _normalize_commit_marker,
+    normalize_evidence_path as _normalize_evidence_path,
+    path_candidates_from_text as _path_candidates_from_text,
+    verifier_packet_for_run as _verifier_packet_for_run,
+)
+from prefect_grace.flows.pipeline_helpers.normalizers import (
+    normalize_observability_scope as _normalize_observability_scope,
+)
+from prefect_grace.flows.pipeline_helpers.rework_routing import (
+    REWORK_MODE_BOUNDED_FRESH,
+    REWORK_MODE_DECISION_REQUIRED,
+    REWORK_MODE_LIGHT_RESUME,
+    REWORK_ROUTE_REQUIRES_PLANNER,
+    REWORK_ROUTE_REQUIRES_USER_DECISION,
+    REWORK_ROUTE_SELF_RESOLVABLE,
+    REWORK_ROUTING_ARCHITECT_FIRST,
+    REWORK_ROUTING_AUTO_BUNDLE,
+    classify_rework_mode as _classify_rework_mode,
+    classify_rework_route as _classify_rework_route,
+    classify_rework_route_from_reasons as _classify_rework_route_from_reasons,
+    escalate_repeated_observability_rework_for_pipeline as _escalate_repeated_observability_rework_for_pipeline,
+    normalize_reviewer_decision_for_pipeline as _normalize_reviewer_decision_for_pipeline,
+    normalize_rework_mode as _normalize_rework_mode,
+    normalize_rework_route_classification as _normalize_rework_route_classification,
+    packet_execution_contract as _packet_execution_contract,
+    string_command_list as _string_command_list,
+    uses_today_week_observability as _uses_today_week_observability,
+)
+from prefect_grace.flows.pipeline_helpers.status_formatter import (
+    failure_status_for_category as _failure_status_for_category,
+    final_user_summary as _final_user_summary,
+    short_reason as _short_reason,
+    status_label_ru as _status_label_ru,
+)
+from prefect_grace.flows.pipeline_helpers.wave_progression import (
+    all_required_waves_accepted as _all_required_waves_accepted,
+    architect_wave_gate_packet_id_for_wave as _architect_wave_gate_packet_id_for_wave,
+    build_wave_progression as _build_wave_progression,
+    is_execution_wave_id as _is_execution_wave_id,
+    next_required_wave_id as _next_required_wave_id,
+    normalize_wave_progression_entry as _normalize_wave_progression_entry,
+    plan_wave_sequence as _plan_wave_sequence,
+    required_wave_progression_issues as _required_wave_progression_issues,
+    wave_id_from_issue as _wave_id_from_issue,
+    wave_packets_by_wave_id as _wave_packets_by_wave_id,
+    wave_required as _wave_required,
+)
 from prefect_grace.tasks.agent_output_parser import (
     parse_architect_artifact_plan_message,
     parse_direct_rework_packet_message,
@@ -50,7 +106,6 @@ from prefect_grace.tasks.telegram_notify import notify_feature_event, notify_pac
 from prefect_grace.tasks.verification_router import record_verification
 from prefect_grace.tasks.wave_executor import (
     append_unique_packet,
-    group_packets_by_wave,
     missing_internal_dependencies,
     order_packets_for_wave,
     packet_has_downstream_reviewer,
@@ -58,17 +113,6 @@ from prefect_grace.tasks.wave_executor import (
     packet_result_key,
     reviewer_target_packet_id,
 )
-
-
-def _failure_status_for_category(category: str) -> FeatureStatus:
-    return {
-        "pipeline_invalid": FeatureStatus.PIPELINE_INVALID,
-        "verification_blocked": FeatureStatus.VERIFICATION_BLOCKED,
-        "environment_blocked": FeatureStatus.ENVIRONMENT_BLOCKED,
-        "product_blocked": FeatureStatus.PRODUCT_BLOCKED,
-    }.get(category, FeatureStatus.BLOCKED)
-
-
 def _final_failure(
     *,
     feature_id: str,
@@ -108,492 +152,7 @@ def _final_failure(
     }
 
 
-_EVIDENCE_ONLY_REVIEW_MARKERS = (
-    "evidence",
-    "visual",
-    "observability",
-    "artifact",
-    "screenshot",
-    "proof",
-    "no-evidence-blocker",
-    "canonical logs",
-)
-_TERMINAL_REVIEW_MARKERS = (
-    "architect decision",
-    "business",
-    "scope expansion",
-    "slice boundary",
-    "decomposition",
-    "orchestration wiring",
-    "invalid verifier command",
-    "malformed pipeline contract",
-    "schema",
-    "environment unavailable",
-)
-_OBSERVABILITY_REVIEW_MARKERS = (
-    "observability",
-    "no-evidence-blocker",
-    "canonical logs",
-    "canonical evidence",
-    "trace_id",
-    "correlation_id",
-    "request_id",
-    "report_id",
-)
-
-_TODAY_WEEK_MARKER = "tools/post_test_review.py --profile today-week"
-
-REWORK_ROUTE_SELF_RESOLVABLE = "self_resolvable_rework"
-REWORK_ROUTE_REQUIRES_USER_DECISION = "requires_user_decision"
-REWORK_ROUTE_REQUIRES_PLANNER = "requires_planner"
-REWORK_ROUTING_ARCHITECT_FIRST = "architect_first"
-REWORK_ROUTING_AUTO_BUNDLE = "auto_bundle"
-REWORK_MODE_LIGHT_RESUME = "light_resume"
-REWORK_MODE_BOUNDED_FRESH = "bounded_fresh"
-REWORK_MODE_DECISION_REQUIRED = "decision_required"
-
-_USER_DECISION_REVIEW_MARKERS = (
-    "business decision",
-    "product decision",
-    "user decision",
-    "ask the user",
-    "requires user",
-    "requires architect/business",
-    "business",
-    "product",
-    "pricing",
-    "legal",
-    "compliance",
-    "policy decision",
-    "scope expansion",
-    "change business semantics",
-)
-_PLANNER_REVIEW_MARKERS = (
-    "planner",
-    "decomposition",
-    "reslice",
-    "re-slice",
-    "split packet",
-    "packet graph",
-    "wave graph",
-    "dependency graph",
-    "multi-wave",
-    "multiple waves",
-    "slice boundary",
-    "execution topology",
-)
-
-
-def _normalize_reviewer_decision_for_pipeline(decision: dict) -> dict:
-    if str(decision.get("packet_verdict") or "") != ReviewVerdict.BLOCKED.value:
-        return decision
-    reasons = [str(item).strip() for item in list(decision.get("reasons") or []) if str(item).strip()]
-    if not reasons:
-        return decision
-    lowered = [reason.lower() for reason in reasons]
-    if any(any(marker in reason for marker in _TERMINAL_REVIEW_MARKERS) for reason in lowered):
-        return decision
-    if not all(any(marker in reason for marker in _EVIDENCE_ONLY_REVIEW_MARKERS) for reason in lowered):
-        return decision
-    return {
-        **decision,
-        "packet_verdict": ReviewVerdict.REWORK_REQUIRED.value,
-        "follow_up_action": "localized_rework",
-        "source": "pipeline_normalized_rework",
-    }
-
-
-def _normalize_observability_scope(value: object) -> str:
-    return str(value or "").strip().lower().replace("-", "_")
-
-
-def _short_reason(reason: str) -> str:
-    text = " ".join(str(reason or "").strip().split())
-    if len(text) <= 140:
-        return text
-    return text[:137].rstrip() + "..."
-
-
-def _status_label_ru(status: str) -> str:
-    return {
-        FeatureStatus.ACCEPTED.value: "принято",
-        FeatureStatus.AWAITING_COMMIT.value: "принято, ждёт коммита",
-        FeatureStatus.IN_PROGRESS.value: "нужна доработка",
-        FeatureStatus.ARCHITECT_READY.value: "нужно решение архитектора",
-        FeatureStatus.BLOCKED.value: "заблокировано",
-        FeatureStatus.PRODUCT_BLOCKED.value: "заблокировано продуктовым решением",
-        FeatureStatus.VERIFICATION_BLOCKED.value: "заблокировано проверкой",
-        FeatureStatus.PIPELINE_INVALID.value: "пайплайн некорректен",
-        FeatureStatus.ENVIRONMENT_BLOCKED.value: "среда заблокировала выпуск",
-    }.get(str(status or "").strip().lower(), str(status or "").strip().lower())
-
-
-def _final_user_summary(
-    *,
-    outcome: str,
-    status: str,
-    summary: str,
-    next_action: str,
-    reasons: list[str] | None = None,
-) -> str:
-    cleaned_summary = " ".join(str(summary or "").strip().split())
-    primary_reason = _short_reason((reasons or [""])[0]) if reasons else ""
-    normalized_outcome = str(outcome or "").strip().lower()
-    normalized_status = str(status or "").strip().lower()
-    if normalized_outcome == "awaiting_commit" or normalized_status == FeatureStatus.AWAITING_COMMIT.value:
-        return "Итог: принято, ждёт коммита. Дальше: закоммитить изменения."
-    if normalized_outcome == "accepted":
-        return cleaned_summary or "Итог: принято и закоммичено."
-    if normalized_outcome == "rework_required":
-        if primary_reason:
-            return f"Итог: нужна доработка. {primary_reason}"
-        if cleaned_summary:
-            return f"Итог: нужна доработка. {cleaned_summary}"
-        return "Итог: нужна доработка."
-    if normalized_outcome == "awaiting_architect":
-        if primary_reason:
-            return f"Итог: нужно решение архитектора. {primary_reason}"
-        return "Итог: нужно решение архитектора."
-    if normalized_outcome == "blocked":
-        if primary_reason:
-            return f"Итог: {_status_label_ru(normalized_status)}. {primary_reason}"
-        return f"Итог: {_status_label_ru(normalized_status)}."
-    if cleaned_summary:
-        return cleaned_summary
-    return f"Итог: {_status_label_ru(normalized_status)}."
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 POST_ACCEPTANCE_NEXT_ACTION = "commit-feature-changes"
-_COMMIT_HASH_RE = re.compile(r"\b[0-9a-f]{7,40}\b", re.IGNORECASE)
-_PATH_TOKEN_RE = re.compile(
-    r"(?P<path>(?:\.{1,2}/|/)?[A-Za-z0-9_.@+~=-]+(?:/[A-Za-z0-9_.@+~=\-*\[\]{}]+)+"
-    r"|[A-Za-z0-9_.@+~=-]+\.(?:py|tsx|ts|js|jsx|md|xml|yaml|yml|json|toml|css|scss|html|png|jpg|jpeg|webp|zip|log|txt|svg|lock))"
-)
-_COMMIT_MARKER_KEYS = {
-    "commit_hash",
-    "commit_sha",
-    "git_commit",
-    "git_commit_hash",
-    "git_sha",
-    "commit_marker",
-    "committed_hash",
-}
-_CANDIDATE_LIST_KEYS = {
-    "allowed_write_scope",
-    "artifact_files",
-    "artifact_paths",
-    "artifacts",
-    "candidate_commit_files",
-    "changed_files",
-    "created_files",
-    "deleted_files",
-    "evidence_paths",
-    "file_paths",
-    "files_changed",
-    "modified_files",
-    "output_files",
-    "touched_files",
-    "write_scope",
-}
-_CANDIDATE_PATH_KEYS = {
-    "architect_handoff_path",
-    "architect_manifest_path",
-    "brief_path",
-    "development_plan_slice_path",
-    "execution_packet_path",
-    "knowledge_graph_slice_path",
-    "packet_path",
-    "requirements_slice_path",
-    "review_path",
-    "verification_matrix_slice_path",
-    "verification_path",
-    "wave_plan_path",
-}
-_VERIFIER_RUN_ARTIFACT_KEYS = ("last_message_path", "stdout_path", "stderr_path")
-_COMMON_OBSERVABILITY_EVIDENCE = (
-    "logs/feed.jsonl",
-    "logs/report.jsonl",
-    "test-results/grace-report.json",
-)
-_MAX_ENRICHED_EVIDENCE_PATHS = 80
-
-
-def _normalize_commit_marker(value: object) -> str:
-    if isinstance(value, bool):
-        return "commit_marker" if value else ""
-    if isinstance(value, (list, tuple)):
-        for item in value:
-            marker = _normalize_commit_marker(item)
-            if marker:
-                return marker
-        return ""
-    if isinstance(value, dict):
-        marker = _find_commit_marker(value)
-        return marker
-    text = " ".join(str(value or "").strip().split())
-    if not text or text.lower() in {"false", "none", "null", "n/a", "no"}:
-        return ""
-    match = _COMMIT_HASH_RE.search(text)
-    return match.group(0) if match else text
-
-
-def _find_commit_marker(value: object) -> str:
-    if isinstance(value, dict):
-        for key, item in value.items():
-            normalized_key = str(key or "").strip().lower()
-            is_commit_key = normalized_key in _COMMIT_MARKER_KEYS or (
-                "commit" in normalized_key
-                and any(marker in normalized_key for marker in ("hash", "sha", "marker"))
-            )
-            if is_commit_key:
-                marker = _normalize_commit_marker(item)
-                if marker:
-                    return marker
-            if isinstance(item, (dict, list, tuple)):
-                marker = _find_commit_marker(item)
-                if marker:
-                    return marker
-    if isinstance(value, (list, tuple)):
-        for item in value:
-            marker = _find_commit_marker(item)
-            if marker:
-                return marker
-    return ""
-
-
-def _candidate_file_path(value: object) -> str | None:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    text = raw.strip("`'\" \t\r\n")
-    text = re.sub(r"^\s*[-*]\s+", "", text).strip()
-    text = text.rstrip(".,;)")
-    if not text or text.lower() in {"-", "none", "n/a", "null"}:
-        return None
-    lowered = text.lower()
-    if lowered.startswith(("http://", "https://", "trace_id:", "request_id:", "report_id:", "correlation_id:")):
-        return None
-    if any(ch.isspace() for ch in text):
-        return None
-    if "/" not in text and "\\" not in text and not Path(text).suffix:
-        return None
-    if ":" in text:
-        text = re.sub(r"(:\d+)(?::\d+)?$", "", text)
-    path = Path(text)
-    if path.is_absolute():
-        try:
-            text = str(path.resolve().relative_to(PROJECT_ROOT))
-        except (OSError, ValueError):
-            text = str(path)
-    elif text.startswith("./"):
-        text = text[2:]
-    return text
-
-
-def _path_candidates_from_text(value: object) -> list[str]:
-    text = str(value or "").strip()
-    if not text:
-        return []
-    candidates: list[str] = []
-    exact = _candidate_file_path(text)
-    if exact:
-        candidates.append(exact)
-    for match in _PATH_TOKEN_RE.finditer(text):
-        candidate = _candidate_file_path(match.group("path"))
-        if candidate and candidate not in candidates:
-            candidates.append(candidate)
-    return candidates
-
-
-def _add_candidate_file(files: list[str], value: object) -> None:
-    if value in (None, "", [], {}):
-        return
-    if isinstance(value, dict):
-        _collect_candidate_commit_files_from_payload(value, files)
-        return
-    if isinstance(value, (list, tuple, set)):
-        for item in value:
-            _add_candidate_file(files, item)
-        return
-    for candidate in _path_candidates_from_text(value):
-        if candidate not in files:
-            files.append(candidate)
-
-
-def _collect_candidate_commit_files_from_payload(payload: object, files: list[str]) -> None:
-    if isinstance(payload, dict):
-        for key, value in payload.items():
-            normalized_key = str(key or "").strip().lower()
-            if normalized_key in _CANDIDATE_LIST_KEYS or normalized_key in _CANDIDATE_PATH_KEYS:
-                _add_candidate_file(files, value)
-            elif isinstance(value, dict):
-                _collect_candidate_commit_files_from_payload(value, files)
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        _collect_candidate_commit_files_from_payload(item, files)
-    elif isinstance(payload, list):
-        for item in payload:
-            if isinstance(item, dict):
-                _collect_candidate_commit_files_from_payload(item, files)
-
-
-def _feature_line_records(feature_id: str) -> list[dict]:
-    records: list[dict] = []
-    for state_name, key in (
-        ("features", "features"),
-        ("packets", "packets"),
-        ("verifications", "verifications"),
-        ("reviews", "reviews"),
-        ("wave_reviews", "wave_reviews"),
-    ):
-        for item in list(load_state(state_name).get(key) or []):
-            if str(item.get("feature_id") or "") == feature_id:
-                records.append(dict(item))
-    return records
-
-
-def _collect_candidate_commit_files(
-    *,
-    feature_id: str,
-    feature: dict,
-    packet_results: dict,
-    verification_records: list[dict],
-    review_routes: list[dict],
-    wave_routes: list[dict],
-) -> list[str]:
-    files: list[str] = []
-    _collect_candidate_commit_files_from_payload(feature, files)
-    _collect_candidate_commit_files_from_payload(packet_results, files)
-    _collect_candidate_commit_files_from_payload(verification_records, files)
-    _collect_candidate_commit_files_from_payload(review_routes, files)
-    _collect_candidate_commit_files_from_payload(wave_routes, files)
-    for record in _feature_line_records(feature_id):
-        _collect_candidate_commit_files_from_payload(record, files)
-    return files
-
-
-def _normalize_evidence_path(path: Path | str) -> str:
-    raw = str(path or "").strip()
-    if not raw:
-        return ""
-    candidate = Path(raw)
-    try:
-        resolved = candidate.resolve()
-    except OSError:
-        return raw
-    try:
-        return str(resolved.relative_to(PROJECT_ROOT))
-    except ValueError:
-        return str(resolved)
-
-
-def _append_evidence_path(paths: list[str], value: object) -> None:
-    raw = str(value or "").strip()
-    if not raw:
-        return
-    candidate = Path(raw)
-    if candidate.is_absolute():
-        normalized = _normalize_evidence_path(candidate)
-    elif raw.startswith("./"):
-        normalized = raw[2:]
-    else:
-        normalized = raw
-    if normalized and normalized not in paths:
-        paths.append(normalized)
-
-
-def _existing_file_path(value: object) -> Path | None:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    path = Path(raw)
-    try:
-        if path.is_file():
-            return path
-    except OSError:
-        return None
-    return None
-
-
-def _verifier_packet_for_run(verifier_run: dict) -> dict:
-    packet_id = str(verifier_run.get("packet_id") or "").strip()
-    if not packet_id:
-        return {}
-    try:
-        return find_record("packets", "packets", "packet_id", packet_id)
-    except KeyError:
-        return {}
-
-
-def _artifact_glob_matches(patterns: list[str], *, workdir: Path) -> list[str]:
-    matches: list[str] = []
-    for pattern in patterns:
-        raw_pattern = str(pattern or "").strip()
-        if not raw_pattern:
-            continue
-        search_pattern = raw_pattern if Path(raw_pattern).is_absolute() else str(workdir / raw_pattern)
-        for match in glob.glob(search_pattern, recursive=True):
-            path = Path(match)
-            if not path.is_file():
-                continue
-            normalized = _normalize_evidence_path(path)
-            if normalized and normalized not in matches:
-                matches.append(normalized)
-            if len(matches) >= _MAX_ENRICHED_EVIDENCE_PATHS:
-                return matches
-    return matches
-
-
-def _collect_verifier_supplemental_evidence(verifier_run: dict, verifier_result: dict) -> list[str]:
-    evidence: list[str] = []
-    packet = _verifier_packet_for_run(verifier_run)
-    execution_hints = dict(packet.get("execution_hints") or {})
-    workdir = Path(str(execution_hints.get("workdir") or PROJECT_ROOT))
-    if not workdir.is_absolute():
-        workdir = PROJECT_ROOT / workdir
-
-    for key in _VERIFIER_RUN_ARTIFACT_KEYS:
-        path = _existing_file_path(verifier_run.get(key))
-        if path is not None:
-            _append_evidence_path(evidence, path)
-
-    for attempt in list(verifier_run.get("attempts") or []):
-        if not isinstance(attempt, dict):
-            continue
-        for key in _VERIFIER_RUN_ARTIFACT_KEYS:
-            path = _existing_file_path(attempt.get(key))
-            if path is not None:
-                _append_evidence_path(evidence, path)
-
-    artifact_globs = [str(item).strip() for item in list(execution_hints.get("artifact_globs") or []) if str(item).strip()]
-    for path in _artifact_glob_matches(artifact_globs, workdir=workdir):
-        _append_evidence_path(evidence, path)
-
-    commands_run = [str(item) for item in list(verifier_result.get("commands_run") or [])]
-    if any("tools/post_test_review.py" in command or "gracectl.cli evidence review" in command for command in commands_run):
-        for candidate in _COMMON_OBSERVABILITY_EVIDENCE:
-            path = workdir / candidate
-            if path.is_file():
-                _append_evidence_path(evidence, path)
-
-    return evidence[:_MAX_ENRICHED_EVIDENCE_PATHS]
-
-
-def _enrich_verifier_evidence_paths(verifier_run: dict, verifier_result: dict) -> dict:
-    if str(verifier_result.get("source") or "") != "agent_output":
-        return verifier_result
-    evidence_paths = [str(item).strip() for item in list(verifier_result.get("evidence_paths") or []) if str(item).strip()]
-    for path in _collect_verifier_supplemental_evidence(verifier_run, verifier_result):
-        _append_evidence_path(evidence_paths, path)
-    if evidence_paths == list(verifier_result.get("evidence_paths") or []):
-        return verifier_result
-    return {
-        **verifier_result,
-        "evidence_paths": evidence_paths,
-        "source": "agent_output_enriched",
-    }
 
 
 def _post_acceptance_final_status(
@@ -716,197 +275,6 @@ def _architect_wave_contract(architect_manifest: dict, wave_id: str) -> dict:
     return {}
 
 
-def _packet_execution_contract(packet: dict) -> dict:
-    verification_profile = dict(packet.get("verification_profile") or {})
-    execution = verification_profile.get("execution")
-    if isinstance(execution, dict):
-        return dict(execution)
-    return dict(packet.get("execution_hints") or {})
-
-
-def _string_command_list(value: object) -> list[str]:
-    if value in (None, "", []):
-        return []
-    if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
-    return [str(value).strip()] if str(value).strip() else []
-
-
-def _wave_required(raw: dict | None) -> bool:
-    payload = dict(raw or {})
-    required = payload.get("required")
-    if required is None:
-        required = not bool(payload.get("optional"))
-    return bool(required)
-
-
-def _is_execution_wave_id(value: object) -> bool:
-    return str(value or "").strip().upper() != "W00"
-
-
-def _normalize_wave_progression_entry(
-    raw: dict | None,
-    *,
-    fallback_wave_id: str,
-    source: str,
-) -> dict[str, object]:
-    payload = dict(raw or {})
-    wave_id = str(payload.get("wave_id") or fallback_wave_id).strip().upper()
-    title = str(payload.get("title") or wave_id).strip()
-    objective = str(payload.get("objective") or payload.get("goal") or title or wave_id).strip()
-    return {
-        "wave_id": wave_id,
-        "title": title,
-        "objective": objective,
-        "required": _wave_required(payload),
-        "source": source,
-    }
-
-
-def _plan_wave_sequence(
-    *,
-    architect_manifest: dict,
-    planner_waves: list[dict],
-    generated_packets: list[dict],
-) -> list[dict[str, object]]:
-    architect_entries = [
-        _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="architect_manifest")
-        for index, raw in enumerate(architect_manifest.get("waves") or [], start=1)
-        if isinstance(raw, dict)
-        and _is_execution_wave_id(raw.get("wave_id") or f"W{index:02d}")
-    ]
-    planner_entries = [
-        _normalize_wave_progression_entry(raw, fallback_wave_id=f"W{index:02d}", source="planner_contract")
-        for index, raw in enumerate(planner_waves or [], start=1)
-        if isinstance(raw, dict)
-        and _is_execution_wave_id(raw.get("wave_id") or f"W{index:02d}")
-    ]
-    planner_by_id = {str(item["wave_id"]): item for item in planner_entries}
-    ordered_ids: list[str] = []
-    ordered_entries: list[dict[str, object]] = []
-    seen: set[str] = set()
-
-    primary_entries = architect_entries or planner_entries
-    for entry in primary_entries:
-        wave_id = str(entry["wave_id"])
-        ordered_ids.append(wave_id)
-        ordered_entries.append(dict(entry))
-        seen.add(wave_id)
-
-    secondary_entries = planner_entries if architect_entries else []
-    for entry in secondary_entries:
-        wave_id = str(entry["wave_id"])
-        if wave_id in seen:
-            continue
-        ordered_ids.append(wave_id)
-        ordered_entries.append(dict(entry))
-        seen.add(wave_id)
-
-    for wave_id, _packets in group_packets_by_wave(generated_packets):
-        if not _is_execution_wave_id(wave_id):
-            continue
-        if wave_id in seen:
-            continue
-        ordered_ids.append(wave_id)
-        ordered_entries.append(
-            dict(
-                planner_by_id.get(
-                    wave_id,
-                    _normalize_wave_progression_entry(
-                        {"wave_id": wave_id, "title": wave_id, "objective": "Generated execution wave"},
-                        fallback_wave_id=wave_id,
-                        source="generated_packets",
-                    ),
-                )
-            )
-        )
-        seen.add(wave_id)
-
-    return ordered_entries
-
-
-def _wave_packets_by_wave_id(generated_packets: list[dict]) -> dict[str, list[dict]]:
-    return {
-        wave_id: list(packets)
-        for wave_id, packets in group_packets_by_wave(generated_packets)
-    }
-
-
-def _architect_wave_gate_packet_id_for_wave(wave_packets: list[dict]) -> str:
-    for packet in wave_packets:
-        if str(packet.get("role") or "").strip().lower() == "architect":
-            return str(packet.get("packet_id") or "")
-    return ""
-
-
-def _build_wave_progression(
-    *,
-    architect_manifest: dict,
-    planner_waves: list[dict],
-    generated_packets: list[dict],
-) -> list[dict[str, object]]:
-    packets_by_wave_id = _wave_packets_by_wave_id(generated_packets)
-    progression: list[dict[str, object]] = []
-    for position, entry in enumerate(
-        _plan_wave_sequence(
-            architect_manifest=architect_manifest,
-            planner_waves=planner_waves,
-            generated_packets=generated_packets,
-        ),
-        start=1,
-    ):
-        wave_id = str(entry["wave_id"])
-        wave_packets = list(packets_by_wave_id.get(wave_id) or [])
-        progression.append(
-            {
-                **entry,
-                "position": position,
-                "status": "pending",
-                "packet_ids": [str(packet.get("packet_id") or "") for packet in wave_packets if str(packet.get("packet_id") or "").strip()],
-                "architect_gate_packet_id": _architect_wave_gate_packet_id_for_wave(wave_packets),
-                "reasons": [],
-            }
-        )
-    return progression
-
-
-def _required_wave_progression_issues(wave_progression: list[dict[str, object]]) -> list[str]:
-    issues: list[str] = []
-    for wave in wave_progression:
-        if not bool(wave.get("required", True)):
-            continue
-        wave_id = str(wave.get("wave_id") or "")
-        if not list(wave.get("packet_ids") or []):
-            issues.append(f"{wave_id}: required wave from architect plan was not materialized into execution packets")
-        if not str(wave.get("architect_gate_packet_id") or "").strip():
-            issues.append(f"{wave_id}: required wave is missing an architect gate packet")
-    return issues
-
-
-def _wave_id_from_issue(reason: str) -> str:
-    text = str(reason or "").strip()
-    if ":" not in text:
-        return ""
-    wave_id = text.split(":", 1)[0].strip().upper()
-    return wave_id if wave_id else ""
-
-
-def _next_required_wave_id(wave_progression: list[dict[str, object]]) -> str:
-    for wave in wave_progression:
-        if not bool(wave.get("required", True)):
-            continue
-        if str(wave.get("status") or "") != "accepted":
-            return str(wave.get("wave_id") or "")
-    return ""
-
-
-def _all_required_waves_accepted(wave_progression: list[dict[str, object]]) -> bool:
-    return all(
-        (not bool(wave.get("required", True))) or str(wave.get("status") or "") == "accepted"
-        for wave in wave_progression
-    )
-
-
 def _persist_wave_progression(feature_id: str, wave_progression: list[dict[str, object]]) -> dict:
     return update_record(
         "features",
@@ -942,136 +310,6 @@ def _set_wave_progression_status(
         break
     _persist_wave_progression(feature_id, wave_progression)
     return updated_wave or {}
-
-
-def _uses_today_week_observability(packet: dict) -> bool:
-    execution = _packet_execution_contract(packet)
-    observability_commands = _string_command_list(execution.get("observability_commands"))
-    observability_profile = str(execution.get("observability_profile") or "").strip().lower()
-    return observability_profile == "today-week" or any(_TODAY_WEEK_MARKER in command for command in observability_commands)
-
-
-def _escalate_repeated_observability_rework_for_pipeline(
-    decision: dict,
-    *,
-    target_packet_id: str,
-    packets_by_id: dict[str, dict],
-) -> dict:
-    if str(decision.get("packet_verdict") or "") != ReviewVerdict.REWORK_REQUIRED.value:
-        return decision
-    target_packet = dict(packets_by_id.get(str(target_packet_id)) or {})
-    parent_packet_id = str(target_packet.get("parent_packet_id") or "").strip()
-    if not parent_packet_id:
-        return decision
-    reasons = [str(item).strip() for item in list(decision.get("reasons") or []) if str(item).strip()]
-    if not reasons:
-        return decision
-    lowered = [reason.lower() for reason in reasons]
-    if any(any(marker in reason for marker in _TERMINAL_REVIEW_MARKERS) for reason in lowered):
-        return decision
-    if not any(any(marker in reason for marker in _OBSERVABILITY_REVIEW_MARKERS) for reason in lowered):
-        return decision
-    repeated_reason = (
-        f"Repeated observability-only rework for {parent_packet_id} still did not produce canonical evidence; "
-        "pipeline repair required before another coder packet."
-    )
-    if not any("pipeline repair" in reason.lower() for reason in reasons):
-        reasons = [*reasons, repeated_reason]
-    return {
-        **decision,
-        "packet_verdict": ReviewVerdict.BLOCKED.value,
-        "follow_up_action": "none",
-        "reasons": reasons,
-        "source": "pipeline_rework_escalation",
-    }
-
-
-def _normalize_rework_route_classification(value: object) -> str:
-    classification = str(value or "").strip().lower().replace("-", "_")
-    aliases = {
-        "self_resolvable": REWORK_ROUTE_SELF_RESOLVABLE,
-        "localized_rework": REWORK_ROUTE_SELF_RESOLVABLE,
-        "direct_rework": REWORK_ROUTE_SELF_RESOLVABLE,
-        "architect_direct_rework": REWORK_ROUTE_SELF_RESOLVABLE,
-        "user_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
-        "architect_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
-        "product_decision": REWORK_ROUTE_REQUIRES_USER_DECISION,
-        "planner": REWORK_ROUTE_REQUIRES_PLANNER,
-        "planner_required": REWORK_ROUTE_REQUIRES_PLANNER,
-    }
-    classification = aliases.get(classification, classification)
-    if classification not in {
-        REWORK_ROUTE_SELF_RESOLVABLE,
-        REWORK_ROUTE_REQUIRES_USER_DECISION,
-        REWORK_ROUTE_REQUIRES_PLANNER,
-    }:
-        return REWORK_ROUTE_SELF_RESOLVABLE
-    return classification
-
-
-def _normalize_rework_mode(value: object) -> str:
-    mode = str(value or "").strip().lower().replace("-", "_")
-    aliases = {
-        "light": REWORK_MODE_LIGHT_RESUME,
-        "resume": REWORK_MODE_LIGHT_RESUME,
-        "packet_local_resume": REWORK_MODE_LIGHT_RESUME,
-        "small_fix": REWORK_MODE_LIGHT_RESUME,
-        "smallfix": REWORK_MODE_LIGHT_RESUME,
-        "fresh": REWORK_MODE_BOUNDED_FRESH,
-        "bounded": REWORK_MODE_BOUNDED_FRESH,
-        "fresh_packet": REWORK_MODE_BOUNDED_FRESH,
-        "execution": REWORK_MODE_BOUNDED_FRESH,
-        "rework": REWORK_MODE_BOUNDED_FRESH,
-        "gate": REWORK_MODE_DECISION_REQUIRED,
-        "decision": REWORK_MODE_DECISION_REQUIRED,
-        "gate_decision": REWORK_MODE_DECISION_REQUIRED,
-        "architect_decision": REWORK_MODE_DECISION_REQUIRED,
-    }
-    mode = aliases.get(mode, mode)
-    if mode not in {
-        REWORK_MODE_LIGHT_RESUME,
-        REWORK_MODE_BOUNDED_FRESH,
-        REWORK_MODE_DECISION_REQUIRED,
-    }:
-        return REWORK_MODE_BOUNDED_FRESH
-    return mode
-
-
-def _classify_rework_route_from_reasons(reasons: list[str]) -> str:
-    lowered = [str(reason).strip().lower() for reason in reasons if str(reason).strip()]
-    if any(any(marker in reason for marker in _USER_DECISION_REVIEW_MARKERS) for reason in lowered):
-        return REWORK_ROUTE_REQUIRES_USER_DECISION
-    if any(any(marker in reason for marker in _PLANNER_REVIEW_MARKERS) for reason in lowered):
-        return REWORK_ROUTE_REQUIRES_PLANNER
-    return REWORK_ROUTE_SELF_RESOLVABLE
-
-
-def _classify_rework_route(decision: dict) -> str:
-    explicit = decision.get("route_classification")
-    if explicit:
-        return _normalize_rework_route_classification(explicit)
-    follow_up = str(decision.get("follow_up_action") or "").strip().lower().replace("-", "_")
-    if follow_up == "architect_decision":
-        return REWORK_ROUTE_REQUIRES_USER_DECISION
-    return _classify_rework_route_from_reasons(list(decision.get("reasons") or []))
-
-
-def _classify_rework_mode(*, decision: dict, route_classification: str, target_packet: dict | None = None) -> str:
-    explicit = decision.get("rework_mode")
-    if explicit:
-        explicit_mode = _normalize_rework_mode(explicit)
-        if explicit_mode == REWORK_MODE_LIGHT_RESUME and route_classification != REWORK_ROUTE_SELF_RESOLVABLE:
-            return REWORK_MODE_DECISION_REQUIRED
-        return explicit_mode
-    if route_classification != REWORK_ROUTE_SELF_RESOLVABLE:
-        return REWORK_MODE_DECISION_REQUIRED
-    target = dict(target_packet or {})
-    role = str(target.get("role") or "").strip().lower()
-    parent_packet_id = str(target.get("parent_packet_id") or "").strip()
-    reasons = [str(reason).strip() for reason in list(decision.get("reasons") or []) if str(reason).strip()]
-    if role == "coder" and not parent_packet_id and 0 < len(reasons) <= 2:
-        return REWORK_MODE_LIGHT_RESUME
-    return REWORK_MODE_BOUNDED_FRESH
 
 
 def _build_direct_rework_followup_packets(
