@@ -1,0 +1,10 @@
+contract pytest: 55 passed in 4.40s
+nearby regression pytest: 34 passed in 27.13s
+compileall prefect_grace: pass
+grace_lint prefect_grace/platform: pass
+validate-project --json: captured, ok=true
+scan-packets --mode legacy_warn --json: captured, ok=true
+validate-packet --strict --json: captured, ok=true
+bootstrap-backlog --dry-run --json: captured
+sync-packets --dry-run --json: captured, ok=true
+observability verdict: clean for deterministic audit evidence
