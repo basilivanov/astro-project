@@ -36,7 +36,7 @@ QUESTIONS_PATH = AUTOMATION_DIR / "worker_questions.yaml"
 LOG_PATH = AUTOMATION_DIR / "workloop.log"
 RR_STATE_PATH = AUTOMATION_DIR / "model_rr_state.json"
 MODEL_HEALTH_PATH = AUTOMATION_DIR / "model_health.yaml"
-CLI_HEALTH_PATH = AUTOMATION_DIR / "cli_health.yaml"
+DEFAULT_CLI_HEALTH_PATH = AUTOMATION_DIR / ".runtime" / "cli_health.json"
 
 TASK_TOOL_DIR = Path.home() / ".ductor" / "workspace" / "tools" / "task_tools"
 
@@ -576,11 +576,20 @@ def save_model_health(payload: dict[str, Any]) -> None:
     save_yaml(MODEL_HEALTH_PATH, payload)
 
 
+def cli_health_path() -> Path:
+    configured = os.environ.get("SUPERVISOR_CLI_HEALTH_PATH")
+    if configured:
+        return Path(configured).expanduser()
+    return DEFAULT_CLI_HEALTH_PATH
+
+
 def codex_cli_available() -> bool:
     from ductor_bot.cli.codex_health import CodexHealthMonitor
 
     status = CodexHealthMonitor().to_payload(force=True)
-    CLI_HEALTH_PATH.write_text(json.dumps(status, ensure_ascii=False))
+    health_path = cli_health_path()
+    health_path.parent.mkdir(parents=True, exist_ok=True)
+    health_path.write_text(json.dumps(status, ensure_ascii=False) + "\n")
     return bool(status.get("ok"))
 
 

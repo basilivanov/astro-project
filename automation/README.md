@@ -25,6 +25,10 @@
 - `worker_questions.yaml` — накопитель открытых/закрытых вопросов от background tasks.
 - `model_rr_state.json` — служебное состояние для round-robin/распределения моделей между задачами.
 
+`cli_health` — runtime-состояние, а не конфигурация. По умолчанию `automation/cli_health.py`
+и `astro_workloop.py` пишут его в `automation/.runtime/cli_health.json`; путь можно
+переопределить через `SUPERVISOR_CLI_HEALTH_PATH`.
+
 ### Логи
 
 - `workloop.log` — лог обычного запуска workloop.

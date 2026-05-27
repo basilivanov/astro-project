@@ -246,6 +246,9 @@ TASKMEMORY.md
 # Local runtime dumps / agent scratch
 .antigravitycli/
 *.bak
+automation/.runtime/
+automation/cli_health.json
+automation/cli_health.yaml
 artifacts/day_live_canary/
 frontend/debug-read-whole-sign.mjs
 frontend/artifacts/
