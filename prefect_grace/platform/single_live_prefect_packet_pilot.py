@@ -390,8 +390,9 @@ def create_bounded_prefect_status_reader(prefect_client: Any | None = None) -> C
                                     "errors": [{"code": "FLOW_RUN_EVIDENCE_INCOMPLETE", "message": "Flow run completed but domain/scope evidence is incomplete"}],
                                 }
 
-                            # Only accept explicit accepted/passed
-                            ok = (domain_status == "accepted" and scope_verdict == "passed")
+                            # Accept both "accepted" and "passed" domain_status with "passed" scope_verdict
+                            # Aligns with managed_packet_runner.py:363 and pilot final gate logic
+                            ok = (domain_status in ("accepted", "passed") and scope_verdict == "passed")
 
                             result = {
                                 "ok": ok,
