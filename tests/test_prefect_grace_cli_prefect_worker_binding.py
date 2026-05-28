@@ -96,8 +96,72 @@ class TestPrefectWorkerBindingCLI:
         captured = capsys.readouterr()
         assert "--i-understand-prefect-mutation" in captured.err
 
-    def test_cli_apply_without_env_approval_blocked(self, tmp_path, capsys, monkeypatch):
-        """Test that apply-deployment without env approval is blocked."""
+    def test_cli_apply_without_env_approval_dry_run_allowed(self, tmp_path, capsys, monkeypatch):
+        """Test that apply-deployment in dry-run mode works without env approval."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Ensure env var is not set
+        monkeypatch.delenv("GRACE_PREFECT_BINDING_APPROVED", raising=False)
+
+        # Mock result showing dry-run plan
+        mock_result = PrefectWorkerBindingResult(
+            ok=True,
+            project_key="test-project",
+            mode="prefect_worker_binding",
+            dry_run=True,
+            prefect_api_url="http://localhost:4200/api",
+            prefect_version="3.6.25",
+            server_healthy=True,
+            work_pool_name="astro-process",
+            work_pool_status="READY",
+            work_pool_type="process",
+            required_queues=["grace-live", "grace-monitoring"],
+            queue_statuses={
+                "grace-live": {"exists": True, "status": "READY"},
+                "grace-monitoring": {"exists": True, "status": "READY"},
+            },
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_exists=False,
+            deployment_work_pool_name=None,
+            deployment_work_queue_name=None,
+            deployment_parameters_valid=False,
+            worker_runtime_smoke={"smoke_ran": False, "ok": None},
+            deployment_mutation="dry_run_would_apply",
+            deployment_apply_result=None,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            warnings=[],
+            errors=[{"type": "DEPLOYMENT_NOT_FOUND", "message": "Deployment not found"}],
+        )
+
+        with patch("prefect_grace.platform.prefect_worker_binding.run_prefect_worker_binding_preflight", return_value=mock_result):
+            from prefect_grace.cli_commands.prefect_worker_binding import _cmd_prefect_worker_binding
+
+            args = Mock()
+            args.project = project_config
+            args.apply = False  # No --apply flag means dry-run
+            args.apply_deployment = True
+            args.i_understand_prefect_mutation = True
+            args.run_worker_smoke = False
+            args.json = True
+
+            # Should exit with 0 (success)
+            with pytest.raises(SystemExit) as exc_info:
+                _cmd_prefect_worker_binding(args)
+
+            assert exc_info.value.code == 0
+
+            captured = capsys.readouterr()
+            output = json.loads(captured.out)
+
+            # Should report dry_run_would_apply
+            assert output["result"]["deployment_mutation"] == "dry_run_would_apply"
+            assert output["result"]["prefect_runs_created"] == 0
+            assert output["result"]["live_agents_started"] == 0
+
+    def test_cli_apply_without_env_approval_live_blocked(self, tmp_path, capsys, monkeypatch):
+        """Test that apply-deployment in live mode (--apply) is blocked without env approval."""
         project_config = tmp_path / "grace.yaml"
         project_config.write_text("project_key: test-project\n")
 
@@ -108,7 +172,7 @@ class TestPrefectWorkerBindingCLI:
 
         args = Mock()
         args.project = project_config
-        args.dry_run = True
+        args.apply = True  # --apply flag means live mode
         args.apply_deployment = True
         args.i_understand_prefect_mutation = True
         args.run_worker_smoke = False

@@ -511,37 +511,39 @@ def run_prefect_worker_binding_preflight(
     deployment_mutation = "none"
     deployment_apply_result = None
     if apply_deployment:
-        if not acknowledge_prefect_mutation:
-            errors.append({"type": "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED", "message": "Deployment apply requires --i-understand-prefect-mutation flag"})
-        elif approval_token != "deployment":
-            errors.append({"type": "DEPLOYMENT_APPLY_NOT_APPROVED", "message": "Deployment apply requires GRACE_PREFECT_BINDING_APPROVED=deployment"})
-        elif dry_run:
-            # Dry-run mode: report what would happen
+        if dry_run:
+            # Dry-run mode: report what would happen, no approval gates required
             deployment_mutation = "dry_run_would_apply"
         else:
-            # Live mode: actually apply deployment
-            apply_result = _apply_managed_packet_deployment(
-                prefect_client, api_url, work_pool_name, "grace-live"
-            )
-            deployment_apply_result = apply_result.to_dict()
-
-            if apply_result.success:
-                deployment_mutation = "applied"
-                warnings.append(f"Deployment {'created' if apply_result.created else 'updated'}: {apply_result.deployment_id}")
-
-                # Re-read deployment after successful apply to get consistent state
-                deployment_exists, dep_work_pool, dep_work_queue, parameters_valid, reread_errors = _check_deployment(
-                    prefect_client, deployment_name, work_pool_name, "grace-live"
-                )
-
-                # Clear stale pre-apply DEPLOYMENT_NOT_FOUND errors
-                errors = [e for e in errors if e["type"] != "DEPLOYMENT_NOT_FOUND"]
-
-                # Add any new errors from re-read (should be none if apply succeeded)
-                errors.extend(reread_errors)
+            # Live mode: require approval gates before applying
+            if not acknowledge_prefect_mutation:
+                errors.append({"type": "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED", "message": "Deployment apply requires --i-understand-prefect-mutation flag"})
+            elif approval_token != "deployment":
+                errors.append({"type": "DEPLOYMENT_APPLY_NOT_APPROVED", "message": "Deployment apply requires GRACE_PREFECT_BINDING_APPROVED=deployment"})
             else:
-                deployment_mutation = "apply_failed"
-                errors.extend(apply_result.errors)
+                # Live mode with approval: actually apply deployment
+                apply_result = _apply_managed_packet_deployment(
+                    prefect_client, api_url, work_pool_name, "grace-live"
+                )
+                deployment_apply_result = apply_result.to_dict()
+
+                if apply_result.success:
+                    deployment_mutation = "applied"
+                    warnings.append(f"Deployment {'created' if apply_result.created else 'updated'}: {apply_result.deployment_id}")
+
+                    # Re-read deployment after successful apply to get consistent state
+                    deployment_exists, dep_work_pool, dep_work_queue, parameters_valid, reread_errors = _check_deployment(
+                        prefect_client, deployment_name, work_pool_name, "grace-live"
+                    )
+
+                    # Clear stale pre-apply DEPLOYMENT_NOT_FOUND errors
+                    errors = [e for e in errors if e["type"] != "DEPLOYMENT_NOT_FOUND"]
+
+                    # Add any new errors from re-read (should be none if apply succeeded)
+                    errors.extend(reread_errors)
+                else:
+                    deployment_mutation = "apply_failed"
+                    errors.extend(apply_result.errors)
     elif not deployment_exists:
         deployment_mutation = "dry_run_would_register"
 

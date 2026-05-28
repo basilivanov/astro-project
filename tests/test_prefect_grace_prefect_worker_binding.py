@@ -386,6 +386,56 @@ class TestPreflightApplyPath:
         # Should be ok
         assert result.ok is True
 
+    def test_preflight_dry_run_apply_no_approval(self, tmp_path, monkeypatch):
+        """Test dry-run apply mode does not require approval gates."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - not found
+        mock_client.read_deployment_by_name = Mock(return_value=None)
+
+        # Run preflight in dry-run apply mode WITHOUT approval token
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=True,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=True,
+            approval_token=None,  # No approval token
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should report dry_run_would_apply (not blocked by missing approval)
+        assert result.dry_run is True
+        assert result.deployment_mutation == "dry_run_would_apply"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+
+        # Should NOT have DEPLOYMENT_APPLY_NOT_APPROVED error
+        assert not any(e["type"] == "DEPLOYMENT_APPLY_NOT_APPROVED" for e in result.errors)
+
+        # Should have DEPLOYMENT_NOT_FOUND (expected before apply)
+        assert any(e["type"] == "DEPLOYMENT_NOT_FOUND" for e in result.errors)
+
+        # ok is False because deployment doesn't exist yet, but the dry-run plan is valid
+        # The important part is that approval gates didn't block the dry-run plan
+        assert result.ok is False  # Deployment not found is still an error state
+
     def test_preflight_apply_failure(self, tmp_path, monkeypatch):
         """Test failed apply reports apply_failed and preserves errors."""
         project_config = tmp_path / "grace.yaml"

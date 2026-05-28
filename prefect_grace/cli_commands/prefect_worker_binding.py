@@ -36,8 +36,8 @@ def _cmd_prefect_worker_binding(args):
     # Check approval gates for apply mode
     approval_token = os.environ.get("GRACE_PREFECT_BINDING_APPROVED")
 
-    # When --apply-deployment is used with --apply, enforce approval gates
-    if args.apply_deployment and args.apply:
+    # When --apply-deployment is used in live mode (not dry-run), enforce approval gates
+    if args.apply_deployment and not dry_run:
         if not args.i_understand_prefect_mutation:
             print("ERROR: --apply-deployment requires --i-understand-prefect-mutation", file=sys.stderr)
             sys.exit(2)
