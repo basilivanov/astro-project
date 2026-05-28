@@ -340,22 +340,57 @@ def _cmd_run_prefect_e2e_real_dry_run_smoke(args: argparse.Namespace) -> None:
 def _cmd_run_nightly(args: argparse.Namespace) -> None:
     command = "run-nightly"
     try:
-        adapter = _load_adapter_from_args(args)
-        result = {
-            "until_blocked": args.until_blocked,
-            "submitted": [],
-            "note": "Nightly execution is declared but not enabled in this contract-only MVP.",
-        }
+        if bool(getattr(args, "execute", False)):
+            result = {
+                "mode": "nightly_dry_run",
+                "until_blocked": bool(args.until_blocked),
+                "submitted": [],
+                "side_effects": {
+                    "registry_updates": 0,
+                    "prefect_runs_created": 0,
+                    "live_agents_started": 0,
+                    "source_files_changed": 0,
+                },
+            }
+            errors = [
+                {
+                    "code": "NIGHTLY_EXECUTION_NOT_ENABLED",
+                    "message": "Real nightly execution is not enabled in this packet.",
+                }
+            ]
+            if args.json:
+                _print_json(_json_envelope(
+                    ok=False,
+                    command=command,
+                    result=result,
+                    errors=errors,
+                ))
+            else:
+                print(errors[0]["message"], file=sys.stderr)
+            sys.exit(1)
+
+        from prefect_grace.platform.nightly_dry_run_controller import run_nightly_dry_run
+
+        result_obj = run_nightly_dry_run(
+            project_config=getattr(args, "project", None),
+            until_blocked=bool(args.until_blocked),
+        )
+        result = result_obj.to_dict()
         if args.json:
             _print_json(_json_envelope(
-                ok=True,
+                ok=result_obj.ok,
                 command=command,
-                project_key=adapter.project_key,
+                project_key=result_obj.project_key or None,
                 result=result,
-                warnings=["NIGHTLY_EXECUTION_NOT_ENABLED"],
+                warnings=result_obj.warnings,
+                errors=result_obj.errors,
             ))
         else:
-            print(result["note"])
+            print(f"Nightly dry-run for {result_obj.project_key}: {result_obj.preflight_status}")
+            print(f"  Would submit: {result_obj.plan.get('would_submit_total', 0)}")
+            print(f"  Stop reason: {result_obj.plan.get('stop_reason') or '-'}")
+        if result_obj.errors:
+            sys.exit(1)
     except Exception as e:
         if args.json:
             _print_json(_json_envelope(

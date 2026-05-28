@@ -229,6 +229,21 @@ def test_cli_submit_packets_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_run_nightly_dry_run_contract() -> None:
+    """Verify run-nightly exposes dry-run planning and fail-closed execute guard."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-nightly", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--until-blocked" in result.stdout
+    assert "--execute" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_prefect_e2e_live_smoke_contract() -> None:
     """Verify run-prefect-e2e-live-smoke CLI follows contract."""
     result = subprocess.run(

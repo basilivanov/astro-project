@@ -1,0 +1,15 @@
+{
+  "command": "python3 -m prefect_grace.cli run-nightly --project prefect_grace/project.yaml --until-blocked --execute --json",
+  "exit_code": 1,
+  "ok": false,
+  "result_equals_data": true,
+  "error_codes": [
+    "NIGHTLY_EXECUTION_NOT_ENABLED"
+  ],
+  "side_effects": {
+    "registry_updates": 0,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "source_files_changed": 0
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "all_accepted": {
+    "ok": true,
+    "preflight_status": "ready",
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/all-accepted/runtime/state/locks/backlog-controller.lock",
+      "acquired": true,
+      "released": true,
+      "already_running": false,
+      "stale_replaced": false,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:all-accepted",
+      "existing_owner": "",
+      "message": "",
+      "errors": []
+    },
+    "would_submit": [],
+    "would_submit_total": 0,
+    "blocked_packets": [],
+    "stop_reason": "nothing_runnable",
+    "runtime": {
+      "registry_packets_total": 2,
+      "accepted": 2,
+      "ready": 0,
+      "blocked": 0,
+      "waiting": 0,
+      "stale_source_runtime_mismatches_total": 0
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "source_files_changed": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "stale_blocks_ready": {
+    "ok": true,
+    "preflight_status": "blocked",
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/stale/runtime/state/locks/backlog-controller.lock",
+      "acquired": true,
+      "released": true,
+      "already_running": false,
+      "stale_replaced": false,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:stale",
+      "existing_owner": "",
+      "message": "",
+      "errors": []
+    },
+    "would_submit": [],
+    "would_submit_total": 0,
+    "blocked_packets": [],
+    "stop_reason": "source_runtime_mismatch",
+    "runtime": {
+      "registry_packets_total": 0,
+      "accepted": 0,
+      "ready": 0,
+      "blocked": 0,
+      "waiting": 0,
+      "stale_source_runtime_mismatches_total": 1
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "source_files_changed": 0
+    },
+    "errors": [],
+    "warnings": [
+      "BOOTSTRAP_WARNING",
+      "SYNC_WARNING",
+      "SOURCE_RUNTIME_PREFLIGHT_BLOCKED"
+    ]
+  },
+  "runnable_dependency_order": {
+    "ok": true,
+    "preflight_status": "ready",
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/runnable/runtime/state/locks/backlog-controller.lock",
+      "acquired": true,
+      "released": true,
+      "already_running": false,
+      "stale_replaced": false,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:runnable",
+      "existing_owner": "",
+      "message": "",
+      "errors": []
+    },
+    "would_submit": [
+      "FEAT-C-W01-PACKET"
+    ],
+    "would_submit_total": 1,
+    "blocked_packets": [],
+    "stop_reason": null,
+    "runtime": {
+      "registry_packets_total": 2,
+      "accepted": 1,
+      "ready": 1,
+      "blocked": 0,
+      "waiting": 0,
+      "stale_source_runtime_mismatches_total": 0
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "source_files_changed": 0
+    },
+    "errors": [],
+    "warnings": [
+      "SUBMISSION_WARNING"
+    ]
+  },
+  "blocked_dependency": {
+    "ok": true,
+    "preflight_status": "ready",
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/blocked/runtime/state/locks/backlog-controller.lock",
+      "acquired": true,
+      "released": true,
+      "already_running": false,
+      "stale_replaced": false,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:blocked",
+      "existing_owner": "",
+      "message": "",
+      "errors": []
+    },
+    "would_submit": [],
+    "would_submit_total": 0,
+    "blocked_packets": [
+      "FEAT-BLOCK-W01-PACKET"
+    ],
+    "stop_reason": "blocked_dependencies",
+    "runtime": {
+      "registry_packets_total": 2,
+      "accepted": 0,
+      "ready": 0,
+      "blocked": 1,
+      "waiting": 1,
+      "stale_source_runtime_mismatches_total": 0
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "source_files_changed": 0
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "already_running_lock": {
+    "ok": false,
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/lock/runtime/state/locks/backlog-controller.lock",
+      "acquired": false,
+      "released": false,
+      "already_running": true,
+      "stale_replaced": false,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:lock",
+      "existing_owner": "existing-controller",
+      "message": "controller_already_running",
+      "errors": [
+        {
+          "code": "controller_already_running",
+          "message": "Controller lock is already active"
+        }
+      ]
+    },
+    "errors": [
+      "controller_already_running"
+    ]
+  },
+  "stale_lock_replaced": {
+    "ok": false,
+    "lock": {
+      "path": "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EVIDENCE/attempt-0001/temp_scenarios_fixture/lock/runtime/state/locks/backlog-controller.lock",
+      "acquired": true,
+      "released": true,
+      "already_running": false,
+      "stale_replaced": true,
+      "ephemeral": false,
+      "owner": "nightly-dry-run:lock",
+      "existing_owner": "",
+      "message": "",
+      "errors": []
+    },
+    "lock_exists_after": false
+  },
+  "fixture_removed": true
+}

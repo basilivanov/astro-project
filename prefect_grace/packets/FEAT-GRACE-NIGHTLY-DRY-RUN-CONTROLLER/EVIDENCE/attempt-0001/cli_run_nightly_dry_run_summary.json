@@ -1,0 +1,63 @@
+{
+  "command": "python3 -m prefect_grace.cli run-nightly --project prefect_grace/project.yaml --dry-run --until-blocked --json",
+  "exit_code": 0,
+  "ok": true,
+  "project_key": "astro-project",
+  "result_equals_data": true,
+  "preflight_status": "blocked",
+  "plan_id": "sha256:3f1b8e9bad8bf6bd51b4b850110723249bf86aea3c864f9b2db88f25ef0d7072",
+  "plan_hash": "sha256:3f1b8e9bad8bf6bd51b4b850110723249bf86aea3c864f9b2db88f25ef0d7072",
+  "state_root": "/var/lib/grace-orchestrator/astro-project",
+  "lock": {
+    "path": "/var/lib/grace-orchestrator/astro-project/state/locks/backlog-controller.lock",
+    "acquired": true,
+    "released": true,
+    "already_running": false,
+    "stale_replaced": false,
+    "ephemeral": true,
+    "owner": "nightly-dry-run:astro-project",
+    "existing_owner": "",
+    "message": "lock_not_persisted_permission_denied",
+    "errors": []
+  },
+  "source": {
+    "candidates_total": 35,
+    "status_counts": {
+      "accepted": 34,
+      "ready": 1
+    },
+    "planned_action_counts": {
+      "create": 35
+    },
+    "errors": 0,
+    "warnings": 2,
+    "warning_classes": 2
+  },
+  "runtime": {
+    "registry_packets_total": 0,
+    "accepted": 0,
+    "ready": 0,
+    "blocked": 0,
+    "waiting": 0,
+    "cascading_blocked": 0,
+    "stale_source_runtime_mismatches_total": 35,
+    "accepted_source_still_ready_or_blocked_count": 34
+  },
+  "plan": {
+    "would_submit": [],
+    "would_submit_total": 0,
+    "submission_order": [],
+    "submission_order_total": 0,
+    "blocked_packets": [],
+    "blocked_packets_total": 0,
+    "stop_reason": "source_runtime_mismatch"
+  },
+  "side_effects": {
+    "registry_updates": 0,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "source_files_changed": 0
+  },
+  "warnings_count": 7,
+  "errors_count": 0
+}

@@ -371,6 +371,8 @@ def _register_prefect_smokes_commands(subparsers) -> None:
 
     run_nightly = subparsers.add_parser("run-nightly")
     run_nightly.add_argument("--project")
+    run_nightly.add_argument("--dry-run", action="store_true", default=True)
+    run_nightly.add_argument("--execute", action="store_true")
     run_nightly.add_argument("--until-blocked", action="store_true")
     run_nightly.add_argument("--json", action="store_true")
     run_nightly.set_defaults(func=_cmd_run_nightly)
