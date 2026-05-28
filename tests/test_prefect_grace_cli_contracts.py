@@ -156,6 +156,20 @@ def test_cli_registry_apply_smoke_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_registry_bootstrap_apply_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "registry-bootstrap-apply", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--project-config" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_legacy_queue_dashboard_contract() -> None:
     queue = subprocess.run(
         [sys.executable, "-m", "prefect_grace.cli", "queue", "--help"],

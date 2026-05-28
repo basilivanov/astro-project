@@ -51,6 +51,7 @@ from prefect_grace.cli_commands.project_registry import (
     _cmd_validate_packet,
     _cmd_sync_packets,
     _cmd_bootstrap_backlog,
+    _cmd_registry_bootstrap_apply,
     _cmd_packet_status,
     _cmd_registry_dump,
 )
@@ -277,6 +278,14 @@ def _register_project_registry_commands(subparsers) -> None:
     bootstrap_mode.add_argument("--apply", action="store_true")
     bootstrap_backlog.add_argument("--json", action="store_true")
     bootstrap_backlog.set_defaults(func=_cmd_bootstrap_backlog)
+
+    registry_bootstrap_apply = subparsers.add_parser("registry-bootstrap-apply")
+    registry_bootstrap_apply.add_argument("--project", "--project-config", dest="project", required=True)
+    registry_bootstrap_mode = registry_bootstrap_apply.add_mutually_exclusive_group()
+    registry_bootstrap_mode.add_argument("--dry-run", action="store_true", default=True)
+    registry_bootstrap_mode.add_argument("--apply", action="store_true")
+    registry_bootstrap_apply.add_argument("--json", action="store_true")
+    registry_bootstrap_apply.set_defaults(func=_cmd_registry_bootstrap_apply)
 
     packet_status = subparsers.add_parser("packet-status")
     packet_status.add_argument("--project")

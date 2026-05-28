@@ -1,0 +1,46 @@
+{
+  "packet_id": "FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-W01-SOURCE-TO-RUNTIME",
+  "status": "implemented",
+  "summary": "Added guarded registry-bootstrap-apply operator wrapper with dry-run default, explicit apply opt-in, write-root containment, bounded backup, source read-only check, idempotence dry-run, and submit dry-run proof.",
+  "real_project_apply_executed": false,
+  "real_project_apply_reason": "Not executed because this run did not receive explicit operator approval to mutate /var/lib/grace-orchestrator/astro-project runtime state.",
+  "evidence": {
+    "targeted_pytest": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/targeted_pytest.txt",
+    "state_parser_pytest": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/state_parser_pytest.txt",
+    "static_checks": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/static_checks.txt",
+    "strict_packet_validation": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/validate_packet_strict.json",
+    "temp_state_apply_proof": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/temp_state_apply_proof_summary.json",
+    "real_bootstrap_backlog_dry_run": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/real_bootstrap_backlog_dry_run_summary.json",
+    "real_sync_packets_dry_run": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/real_sync_packets_dry_run_summary.json",
+    "real_registry_dump_summary": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/real_registry_dump_summary.json",
+    "real_submit_packets_dry_run": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/real_submit_packets_dry_run_summary.json",
+    "real_registry_bootstrap_apply_dry_run": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EVIDENCE/attempt-0001/real_registry_bootstrap_apply_dry_run_summary.json"
+  },
+  "checks": {
+    "targeted_pytest": "52 passed",
+    "state_parser_pytest": "7 passed",
+    "compileall": "pass",
+    "targeted_lint": "pass",
+    "strict_validate_packet": "ok=true",
+    "temp_state_apply": "ok=true apply_count=2 writes_outside_runtime_state_root=[] source_mutations=[] idempotence_planned_upserts_after_apply=0 submit_prefect_runs_created=0",
+    "real_registry_bootstrap_apply_dry_run": "ok=true apply=false submit_prefect_runs_created=0"
+  },
+  "safety": {
+    "dry_run_default": true,
+    "explicit_apply_required": true,
+    "explicit_project_required_for_apply": true,
+    "source_status_accepted_not_trusted": true,
+    "generic_nested_status_passed_not_trusted": true,
+    "unchanged_terminal_registry_not_downgraded": true,
+    "source_packets_mutated_by_apply": false,
+    "prefect_runs_created_by_submit_dry_run": 0,
+    "live_agents_or_prefect_runs_started": false,
+    "docker_backend_frontend_playwright_used": false
+  },
+  "observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "No real runtime apply was executed without explicit operator approval.",
+    "No live agents, live Prefect submissions, Docker, backend, frontend, Playwright, provider APIs, or credentials were used.",
+    "Evidence is bounded to pytest/static outputs and summarized JSON command results, not full registry dumps."
+  ]
+}

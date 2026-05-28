@@ -65,6 +65,7 @@ from prefect_grace.cli_commands.project_registry import (
     _cmd_validate_packet,
     _cmd_sync_packets,
     _cmd_bootstrap_backlog,
+    _cmd_registry_bootstrap_apply,
     _cmd_packet_status,
     _cmd_registry_dump,
 )

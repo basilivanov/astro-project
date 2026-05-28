@@ -1,0 +1,16 @@
+{
+  "command": "/usr/bin/python3 -m prefect_grace.cli submit-packets --project prefect_grace/project.yaml --dry-run --json",
+  "exit_code": 0,
+  "ok": true,
+  "project_key": "astro-project",
+  "warnings_count": 0,
+  "errors_count": 0,
+  "dry_run": true,
+  "packets_planned_count": 0,
+  "packets_submitted_count": 0,
+  "packets_to_submit_count": 0,
+  "blocked_packets_count": 0,
+  "prefect_runs_created": 0,
+  "packets_planned": [],
+  "packets_to_submit": []
+}

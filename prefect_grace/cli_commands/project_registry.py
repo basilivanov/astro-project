@@ -237,6 +237,8 @@ def _cmd_bootstrap_backlog(args: argparse.Namespace) -> None:
             dataclass_to_dict,
         )
 
+        if bool(getattr(args, "apply", False)) and not getattr(args, "project", None):
+            raise ValueError("bootstrap-backlog --apply requires explicit --project")
         adapter = _load_adapter_from_args(args)
         dry_run = not bool(getattr(args, "apply", False))
         plan = build_backlog_bootstrap_plan(adapter, dry_run=dry_run)
@@ -270,6 +272,51 @@ def _cmd_bootstrap_backlog(args: argparse.Namespace) -> None:
             ))
         else:
             print(f"Backlog bootstrap failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _cmd_registry_bootstrap_apply(args: argparse.Namespace) -> None:
+    command = "registry-bootstrap-apply"
+    try:
+        from prefect_grace.platform.registry_bootstrap_apply import run_registry_bootstrap_apply
+
+        result = run_registry_bootstrap_apply(
+            project_config=Path(args.project),
+            apply=bool(getattr(args, "apply", False)),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key or None,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            mode = "apply" if result.apply else "dry-run"
+            print(f"Registry bootstrap {mode} for {result.project_key or '-'}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  Runtime state root: {result.runtime_state_root or '-'}")
+            print(f"  Write root: {result.write_root or '-'}")
+            print(f"  Candidates: {result.preflight.get('source_packet_candidate_count', 0)}")
+            print(f"  Planned upserts: {len(result.preflight.get('planned_upserts') or [])}")
+            print(f"  Apply count: {result.apply_summary.get('apply_count', 0)}")
+            print(f"  Submit dry-run Prefect runs created: {result.submit_dry_run.get('prefect_runs_created', 0)}")
+            for error in result.errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+        if not result.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "REGISTRY_BOOTSTRAP_APPLY_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Registry bootstrap apply failed: {e}", file=sys.stderr)
         sys.exit(1)
 
 
