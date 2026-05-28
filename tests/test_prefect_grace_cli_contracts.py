@@ -178,6 +178,7 @@ def test_cli_registry_bootstrap_apply_contract() -> None:
     assert result.returncode == 0
     assert "--project" in result.stdout
     assert "--project-config" in result.stdout
+    assert "--packet-id" in result.stdout
     assert "--dry-run" in result.stdout
     assert "--apply" in result.stdout
     assert "--json" in result.stdout

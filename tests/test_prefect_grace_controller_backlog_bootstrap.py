@@ -123,6 +123,62 @@ verdict: ACCEPTED
     assert p2.read_text(encoding="utf-8") == before_p2
 
 
+def test_bootstrap_packet_filter_scopes_candidates_and_apply(tmp_path: Path) -> None:
+    packets_dir = tmp_path / "packets"
+    state_root = tmp_path / "runtime"
+    _write_strict_packet(packets_dir, "FEAT-ONE", "FEAT-ONE-W01-PACKET")
+    _write_strict_packet(packets_dir, "FEAT-TWO", "FEAT-TWO-W01-PACKET")
+
+    project = MockProjectAdapter(tmp_path, "packets", state_root)
+    dry_run = build_backlog_bootstrap_plan(
+        project,
+        dry_run=True,
+        packet_ids=["FEAT-TWO-W01-PACKET", "FEAT-TWO-W01-PACKET"],
+    )
+
+    assert dry_run.errors == []
+    assert dry_run.packet_ids == ["FEAT-TWO-W01-PACKET"]
+    assert [candidate.packet_id for candidate in dry_run.candidates] == ["FEAT-TWO-W01-PACKET"]
+
+    apply = build_backlog_bootstrap_plan(
+        project,
+        dry_run=False,
+        packet_ids=["FEAT-TWO-W01-PACKET"],
+    )
+
+    registry = PacketRegistryStore(state_root / "state")
+    assert apply.errors == []
+    assert apply.apply_count == 1
+    assert registry.load_packet("FEAT-TWO-W01-PACKET") is not None
+    assert registry.load_packet("FEAT-ONE-W01-PACKET") is None
+
+
+def test_bootstrap_packet_filter_fails_closed_for_missing_or_blank_ids(tmp_path: Path) -> None:
+    packets_dir = tmp_path / "packets"
+    state_root = tmp_path / "runtime"
+    _write_strict_packet(packets_dir, "FEAT-ONE", "FEAT-ONE-W01-PACKET")
+
+    project = MockProjectAdapter(tmp_path, "packets", state_root)
+    missing = build_backlog_bootstrap_plan(
+        project,
+        dry_run=False,
+        packet_ids=["FEAT-ONE-W01-PACKET", "FEAT-MISSING-W01-PACKET"],
+    )
+    blank = build_backlog_bootstrap_plan(
+        project,
+        dry_run=False,
+        packet_ids=[" "],
+    )
+
+    assert missing.apply_count == 0
+    assert missing.candidates == []
+    assert any(error.startswith("PACKET_FILTER_NOT_FOUND:") for error in missing.errors)
+    assert PacketRegistryStore(state_root / "state").load_packet("FEAT-ONE-W01-PACKET") is None
+    assert blank.apply_count == 0
+    assert any(error.startswith("PACKET_FILTER_INVALID:") for error in blank.errors)
+    assert not (state_root / "state" / "packet_registry.yaml").exists()
+
+
 def test_bootstrap_does_not_treat_nested_passed_as_packet_acceptance(tmp_path: Path) -> None:
     packets_dir = tmp_path / "packets"
     state_root = tmp_path / "runtime"

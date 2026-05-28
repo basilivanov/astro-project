@@ -283,6 +283,7 @@ def _cmd_registry_bootstrap_apply(args: argparse.Namespace) -> None:
         result = run_registry_bootstrap_apply(
             project_config=Path(args.project),
             apply=bool(getattr(args, "apply", False)),
+            packet_ids=getattr(args, "packet_id", []),
         )
         payload = result.to_dict()
 

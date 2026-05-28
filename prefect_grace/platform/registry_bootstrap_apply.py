@@ -29,8 +29,11 @@ from typing import Any
 from prefect_grace.platform.backlog_controller import BacklogController
 from prefect_grace.platform.controller_backlog_bootstrap import (
     BacklogBootstrapPlan,
+    PACKET_FILTER_INVALID_PREFIX,
+    PACKET_FILTER_NOT_FOUND_PREFIX,
     build_backlog_bootstrap_plan,
     dataclass_to_dict,
+    normalize_packet_ids,
 )
 from prefect_grace.platform.prefect_native_submission import submit_ready_packets_to_prefect
 from prefect_grace.platform.project_adapter import load_project_adapter
@@ -47,6 +50,8 @@ class RegistryBootstrapApplyResult:
     project_key: str = ""
     dry_run: bool = True
     apply: bool = False
+    packet_ids: list[str] = field(default_factory=list)
+    packet_filter: dict[str, Any] = field(default_factory=dict)
     project_config: str = ""
     runtime_state_root: str = ""
     write_root: str = ""
@@ -82,6 +87,16 @@ def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     payload = {"code": code, "message": message}
     payload.update(extra)
     return payload
+
+
+def _bootstrap_plan_error(error: str) -> dict[str, Any]:
+    if error.startswith(PACKET_FILTER_NOT_FOUND_PREFIX):
+        message = error.removeprefix(PACKET_FILTER_NOT_FOUND_PREFIX).strip()
+        return _error("PACKET_FILTER_NOT_FOUND", message)
+    if error.startswith(PACKET_FILTER_INVALID_PREFIX):
+        message = error.removeprefix(PACKET_FILTER_INVALID_PREFIX).strip()
+        return _error("PACKET_FILTER_INVALID", message)
+    return _error("BOOTSTRAP_PREFLIGHT_ERROR", error)
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
@@ -294,8 +309,10 @@ def run_registry_bootstrap_apply(
     *,
     project_config: Path | str,
     apply: bool = False,
+    packet_ids: list[str] | tuple[str, ...] | None = None,
 ) -> RegistryBootstrapApplyResult:
     project_config_path = Path(project_config)
+    normalized_packet_ids, packet_filter_errors = normalize_packet_ids(packet_ids)
     try:
         project = load_project_adapter(project_config_path)
     except Exception as exc:
@@ -303,6 +320,11 @@ def run_registry_bootstrap_apply(
             ok=False,
             dry_run=not apply,
             apply=apply,
+            packet_ids=normalized_packet_ids,
+            packet_filter={
+                "enabled": bool(normalized_packet_ids),
+                "packet_ids": normalized_packet_ids,
+            },
             project_config=str(project_config_path),
             errors=[_error("PROJECT_LOAD_FAILED", str(exc))],
         )
@@ -312,17 +334,35 @@ def run_registry_bootstrap_apply(
         project_key=project.project_key,
         dry_run=not apply,
         apply=apply,
+        packet_ids=normalized_packet_ids,
+        packet_filter={
+            "enabled": bool(normalized_packet_ids),
+            "packet_ids": normalized_packet_ids,
+        },
         project_config=str(project_config_path),
         runtime_state_root=str(Path(project.runtime_state_root).resolve()),
         write_root=str((Path(project.runtime_state_root) / "state").resolve()),
     )
+    result.errors.extend(
+        _error(
+            "PACKET_FILTER_INVALID",
+            error.removeprefix(PACKET_FILTER_INVALID_PREFIX).strip(),
+        )
+        for error in packet_filter_errors
+    )
+    if result.errors:
+        return result
 
-    preflight_plan = build_backlog_bootstrap_plan(project, dry_run=True)
+    preflight_plan = build_backlog_bootstrap_plan(
+        project,
+        dry_run=True,
+        packet_ids=normalized_packet_ids,
+    )
     result.preflight = _preflight_summary(project, preflight_plan)
     result.before_snapshot = _registry_snapshot(project)
     result.source_files_checked = len(_source_fingerprints(project, preflight_plan))
     result.warnings.extend(_error("BOOTSTRAP_WARNING", warning) for warning in preflight_plan.warnings)
-    result.errors.extend(_error("BOOTSTRAP_PREFLIGHT_ERROR", error) for error in preflight_plan.errors)
+    result.errors.extend(_bootstrap_plan_error(error) for error in preflight_plan.errors)
     result.errors.extend(_unsafe_plan_errors(project, preflight_plan, project_config_path))
     result.sync_dry_run = _sync_summary(project)
     result.submit_dry_run = _submit_dry_run_summary(project)
@@ -337,7 +377,11 @@ def run_registry_bootstrap_apply(
 
     source_before = _source_fingerprints(project, preflight_plan)
     result.backup_path = _write_backup(project, result.before_snapshot)
-    apply_plan = build_backlog_bootstrap_plan(project, dry_run=False)
+    apply_plan = build_backlog_bootstrap_plan(
+        project,
+        dry_run=False,
+        packet_ids=normalized_packet_ids,
+    )
     result.apply_summary = {
         "apply_count": apply_plan.apply_count,
         "errors": apply_plan.errors,
@@ -348,7 +392,11 @@ def run_registry_bootstrap_apply(
     source_after = _source_fingerprints(project, preflight_plan)
     result.source_mutations = _changed_fingerprints(source_before, source_after)
     result.writes_outside_runtime_state_root = _writes_outside_runtime_root(project, [result.backup_path])
-    idempotence_plan = build_backlog_bootstrap_plan(project, dry_run=True)
+    idempotence_plan = build_backlog_bootstrap_plan(
+        project,
+        dry_run=True,
+        packet_ids=normalized_packet_ids,
+    )
     result.idempotence = {
         "planned_upserts_after_apply": _planned_upserts(idempotence_plan),
         "planned_action_counts": _preflight_summary(project, idempotence_plan)["planned_action_counts"],

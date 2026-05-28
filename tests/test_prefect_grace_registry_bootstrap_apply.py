@@ -135,6 +135,66 @@ def test_registry_bootstrap_apply_writes_only_runtime_root_and_is_idempotent(tmp
     assert result.submit_dry_run["prefect_runs_created"] == 0
 
 
+def test_registry_bootstrap_apply_packet_filter_scopes_dry_run_and_apply(tmp_path: Path) -> None:
+    config, _repo_root, packets_dir, runtime_root = _fixture_project(tmp_path)
+    _write_strict_packet(packets_dir, "FEAT-ONE", "FEAT-ONE-W01-PACKET")
+    _write_strict_packet(packets_dir, "FEAT-TWO", "FEAT-TWO-W01-PACKET")
+
+    dry_run = run_registry_bootstrap_apply(
+        project_config=config,
+        packet_ids=["FEAT-TWO-W01-PACKET", "FEAT-TWO-W01-PACKET"],
+    )
+
+    assert dry_run.ok is True
+    assert dry_run.packet_ids == ["FEAT-TWO-W01-PACKET"]
+    assert dry_run.packet_filter == {
+        "enabled": True,
+        "packet_ids": ["FEAT-TWO-W01-PACKET"],
+    }
+    assert dry_run.preflight["source_packet_candidate_count"] == 1
+    assert dry_run.source_files_checked == 1
+    assert [
+        item["packet_id"]
+        for item in dry_run.preflight["planned_upserts"]
+    ] == ["FEAT-TWO-W01-PACKET"]
+
+    apply = run_registry_bootstrap_apply(
+        project_config=config,
+        apply=True,
+        packet_ids=["FEAT-TWO-W01-PACKET"],
+    )
+
+    registry = PacketRegistryStore(runtime_root / "state")
+    assert apply.ok is True
+    assert apply.apply_summary["apply_count"] == 1
+    assert registry.load_packet("FEAT-TWO-W01-PACKET") is not None
+    assert registry.load_packet("FEAT-ONE-W01-PACKET") is None
+    assert apply.idempotence["planned_upserts_after_apply"] == []
+
+
+def test_registry_bootstrap_apply_packet_filter_fails_closed_for_missing_or_blank_ids(tmp_path: Path) -> None:
+    config, _repo_root, packets_dir, runtime_root = _fixture_project(tmp_path)
+    _write_strict_packet(packets_dir, "FEAT-ONE", "FEAT-ONE-W01-PACKET")
+
+    missing = run_registry_bootstrap_apply(
+        project_config=config,
+        apply=True,
+        packet_ids=["FEAT-ONE-W01-PACKET", "FEAT-MISSING-W01-PACKET"],
+    )
+    blank = run_registry_bootstrap_apply(
+        project_config=config,
+        apply=True,
+        packet_ids=[""],
+    )
+
+    assert missing.ok is False
+    assert any(error["code"] == "PACKET_FILTER_NOT_FOUND" for error in missing.errors)
+    assert PacketRegistryStore(runtime_root / "state").load_packet("FEAT-ONE-W01-PACKET") is None
+    assert blank.ok is False
+    assert any(error["code"] == "PACKET_FILTER_INVALID" for error in blank.errors)
+    assert not (runtime_root / "state" / "packet_registry.yaml").exists()
+
+
 def test_registry_bootstrap_apply_does_not_trust_source_status_or_nested_passed(tmp_path: Path) -> None:
     config, _repo_root, packets_dir, _runtime_root = _fixture_project(tmp_path)
     _write_strict_packet(packets_dir, "FEAT-SOURCE", "FEAT-SOURCE-W01-PACKET", status="accepted")
@@ -220,6 +280,36 @@ def test_registry_bootstrap_apply_cli_json_envelope(tmp_path: Path) -> None:
     assert payload["result"] == payload["data"]
     assert payload["data"]["dry_run"] is True
     assert payload["data"]["submit_dry_run"]["prefect_runs_created"] == 0
+
+
+def test_registry_bootstrap_apply_cli_packet_id_filter_json(tmp_path: Path) -> None:
+    config, _repo_root, packets_dir, _runtime_root = _fixture_project(tmp_path)
+    _write_strict_packet(packets_dir, "FEAT-ONE", "FEAT-ONE-W01-PACKET")
+    _write_strict_packet(packets_dir, "FEAT-TWO", "FEAT-TWO-W01-PACKET")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "prefect_grace.cli",
+            "registry-bootstrap-apply",
+            "--project",
+            str(config),
+            "--packet-id",
+            "FEAT-TWO-W01-PACKET",
+            "--dry-run",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["result"] == payload["data"]
+    assert payload["data"]["packet_ids"] == ["FEAT-TWO-W01-PACKET"]
+    assert payload["data"]["preflight"]["source_packet_candidate_count"] == 1
+    assert payload["data"]["preflight"]["planned_upserts"][0]["packet_id"] == "FEAT-TWO-W01-PACKET"
 
 
 def test_bootstrap_backlog_apply_requires_explicit_project() -> None:

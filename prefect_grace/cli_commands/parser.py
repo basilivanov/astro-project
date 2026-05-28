@@ -298,6 +298,7 @@ def _register_project_registry_commands(subparsers) -> None:
 
     registry_bootstrap_apply = subparsers.add_parser("registry-bootstrap-apply")
     registry_bootstrap_apply.add_argument("--project", "--project-config", dest="project", required=True)
+    registry_bootstrap_apply.add_argument("--packet-id", action="append", default=[])
     registry_bootstrap_mode = registry_bootstrap_apply.add_mutually_exclusive_group()
     registry_bootstrap_mode.add_argument("--dry-run", action="store_true", default=True)
     registry_bootstrap_mode.add_argument("--apply", action="store_true")

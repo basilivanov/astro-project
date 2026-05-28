@@ -56,6 +56,7 @@ class BacklogBootstrapCandidate:
 class BacklogBootstrapPlan:
     project_key: str
     dry_run: bool
+    packet_ids: list[str] = field(default_factory=list)
     candidates: list[BacklogBootstrapCandidate] = field(default_factory=list)
     apply_count: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -214,6 +215,57 @@ def _scan_strict_packets(project: Any) -> tuple[list[_StrictPacketRecord], list[
 
 
 #END_BLOCK_SCANNING
+#START_BLOCK_PACKET_FILTER
+PACKET_FILTER_INVALID_PREFIX = "PACKET_FILTER_INVALID:"
+PACKET_FILTER_NOT_FOUND_PREFIX = "PACKET_FILTER_NOT_FOUND:"
+
+
+# START_FUNCTION_CONTRACT
+# name: normalize_packet_ids
+# purpose: Normalize optional operator packet id filters for deterministic scoped bootstrap planning.
+# inputs:
+#   packet_ids: Optional packet id sequence from API or CLI.
+# returns: Tuple of sorted unique packet ids and fail-closed validation error strings.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Returns PACKET_FILTER_INVALID-prefixed errors for blank ids.
+# END_FUNCTION_CONTRACT
+def normalize_packet_ids(packet_ids: list[str] | tuple[str, ...] | None) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    if packet_ids is None:
+        return [], errors
+
+    normalized: set[str] = set()
+    for value in packet_ids:
+        packet_id = str(value or "").strip()
+        if not packet_id:
+            errors.append(f"{PACKET_FILTER_INVALID_PREFIX} packet id must not be blank")
+            continue
+        normalized.add(packet_id)
+
+    return sorted(normalized), errors
+
+
+def _filter_records(
+    records: list[_StrictPacketRecord],
+    packet_ids: list[str],
+) -> tuple[list[_StrictPacketRecord], list[str]]:
+    if not packet_ids:
+        return records, []
+
+    by_packet_id = {record.parsed.packet_id: record for record in records}
+    missing = [packet_id for packet_id in packet_ids if packet_id not in by_packet_id]
+    if missing:
+        return [], [
+            (
+                f"{PACKET_FILTER_NOT_FOUND_PREFIX} requested packet id(s) not found "
+                f"in source candidates: {', '.join(missing)}"
+            )
+        ]
+    return [by_packet_id[packet_id] for packet_id in packet_ids], []
+
+
+#END_BLOCK_PACKET_FILTER
 #START_BLOCK_ARTIFACT_INFERENCE
 TERMINAL_REGISTRY_STATUSES = {
     RegistryStatus.ACCEPTED.value,
@@ -486,8 +538,22 @@ def _dependency_statuses(
 # emitted_logs: None.
 # error_behavior: Captures scan/apply errors in the returned plan.
 # END_FUNCTION_CONTRACT
-def build_backlog_bootstrap_plan(project: Any, *, dry_run: bool = True) -> BacklogBootstrapPlan:
-    plan = BacklogBootstrapPlan(project_key=project.project_key, dry_run=dry_run)
+def build_backlog_bootstrap_plan(
+    project: Any,
+    *,
+    dry_run: bool = True,
+    packet_ids: list[str] | tuple[str, ...] | None = None,
+) -> BacklogBootstrapPlan:
+    normalized_packet_ids, packet_filter_errors = normalize_packet_ids(packet_ids)
+    plan = BacklogBootstrapPlan(
+        project_key=project.project_key,
+        dry_run=dry_run,
+        packet_ids=normalized_packet_ids,
+    )
+    if packet_filter_errors:
+        plan.errors.extend(packet_filter_errors)
+        return plan
+
     repo_root = Path(project.repo_root)
     registry = PacketRegistryStore(Path(project.runtime_state_root) / "state")
 
@@ -495,6 +561,11 @@ def build_backlog_bootstrap_plan(project: Any, *, dry_run: bool = True) -> Backl
     plan.warnings.extend(warnings)
     plan.errors.extend(errors)
     if errors:
+        return plan
+
+    selected_records, packet_filter_errors = _filter_records(records, normalized_packet_ids)
+    if packet_filter_errors:
+        plan.errors.extend(packet_filter_errors)
         return plan
 
     inferred: dict[str, str] = {}
@@ -510,7 +581,7 @@ def build_backlog_bootstrap_plan(project: Any, *, dry_run: bool = True) -> Backl
         if artifact_inference.status in {RegistryStatus.ACCEPTED.value, RegistryStatus.BLOCKED.value}:
             inferred[record.parsed.packet_id] = artifact_inference.status
 
-    for record in records:
+    for record in selected_records:
         packet_id = record.parsed.packet_id
         artifact_inference = artifact_inferences[packet_id]
         current_record = registry.load_packet(packet_id)
