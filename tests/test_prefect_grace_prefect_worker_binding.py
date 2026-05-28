@@ -448,7 +448,10 @@ class TestPreflightApplyPath:
         )
 
         # Should be blocked
+        assert result.ok is False
         assert result.deployment_mutation == "none"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
         assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED" for e in result.errors)
 
         # Run preflight without approval token
@@ -463,6 +466,71 @@ class TestPreflightApplyPath:
         )
 
         # Should be blocked
+        assert result.ok is False
         assert result.deployment_mutation == "none"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+        assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_APPROVED" for e in result.errors)
+
+    def test_preflight_missing_approval_gates_with_valid_deployment(self, tmp_path):
+        """Test apply without approval gates is blocked even when deployment exists and is valid."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - exists and is valid
+        mock_deployment = Mock()
+        mock_deployment.work_pool_name = "astro-process"
+        mock_deployment.work_queue_name = "grace-live"
+        mock_client.read_deployment_by_name = Mock(return_value=mock_deployment)
+
+        # Run preflight without acknowledgement (deployment exists and is valid)
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=False,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=False,  # Missing gate
+            approval_token="deployment",
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should be blocked even though deployment is valid
+        assert result.ok is False
+        assert result.deployment_mutation == "none"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+        assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED" for e in result.errors)
+
+        # Run preflight without approval token (deployment exists and is valid)
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=False,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=True,
+            approval_token=None,  # Missing gate
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should be blocked even though deployment is valid
+        assert result.ok is False
+        assert result.deployment_mutation == "none"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
         assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_APPROVED" for e in result.errors)
 

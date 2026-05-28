@@ -518,7 +518,7 @@ def run_prefect_worker_binding_preflight(
         and work_pool_type == "process"
         and all(q["exists"] and q["status"] == "READY" for q in queue_statuses.values())
         and (deployment_exists and parameters_valid)
-        and len([e for e in errors if e["type"] not in ["DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED", "DEPLOYMENT_APPLY_NOT_APPROVED"]]) == 0
+        and len(errors) == 0
     )
 
     return PrefectWorkerBindingResult(
