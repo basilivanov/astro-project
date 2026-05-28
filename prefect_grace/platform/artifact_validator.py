@@ -39,8 +39,7 @@ import hashlib
 # Block: validator - Validate artifact paths exist and are accessible
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class ArtifactReference:
     """Validated artifact reference.
@@ -108,10 +107,8 @@ class ArtifactValidationResult:
             "missing_artifacts": list(self.missing_artifacts),
         }
 
-# END_BLOCK: models
-
-# START_BLOCK: validator
-
+# END_BLOCK_MODELS
+# START_BLOCK_VALIDATOR
 # START_FUNCTION_CONTRACT
 # Function: validate_artifact_references
 # Purpose: Validate artifact paths claimed in manifest
@@ -262,4 +259,4 @@ def _compute_file_hash(path: Path) -> str:
             sha256.update(chunk)
     return sha256.hexdigest()
 
-# END_BLOCK: validator
+# END_BLOCK_VALIDATOR

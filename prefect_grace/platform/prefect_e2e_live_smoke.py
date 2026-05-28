@@ -40,9 +40,7 @@ SMOKE_PACKET_ID = "FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP-W01-E2E-LIVE-SMOKE"
 SMOKE_WAVE_ID = "W01"
 
 
-# START_BLOCK: models
-
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PrefectE2ELiveSmokeResult:
     ok: bool
@@ -89,11 +87,8 @@ class PrefectE2ELiveSmokeResult:
         }
 
 
-# END_BLOCK: models
-
-# START_BLOCK: helpers
-
-
+# END_BLOCK_MODELS
+# START_BLOCK_HELPERS
 @dataclass(frozen=True)
 class _SmokeProject:
     project_key: str
@@ -278,11 +273,8 @@ def _smoke_project(project: ProjectAdapterConfig, *, state_root: Path, worktree_
     )
 
 
-# END_BLOCK: helpers
-
-# START_BLOCK: smoke
-
-
+# END_BLOCK_HELPERS
+# START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_prefect_e2e_live_smoke
 # purpose: Create and submit exactly one low-risk E2E packet through native Prefect submission.
@@ -405,4 +397,4 @@ def run_prefect_e2e_live_smoke(
     )
 
 
-# END_BLOCK: smoke
+# END_BLOCK_SMOKE

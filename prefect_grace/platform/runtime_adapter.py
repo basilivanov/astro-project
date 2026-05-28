@@ -30,8 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-# START_BLOCK: runtime_interface
-
+# START_BLOCK_RUNTIME_INTERFACE
 @dataclass
 class WorkflowRuntime(ABC):
     name: str
@@ -81,10 +80,8 @@ class WorkflowRuntime(ABC):
     def read_run_status(self, run_ref: dict[str, Any]) -> dict[str, Any]:
         pass
 
-# END_BLOCK: runtime_interface
-
-# START_BLOCK: dry_run_runtime
-
+# END_BLOCK_RUNTIME_INTERFACE
+# START_BLOCK_DRY_RUN_RUNTIME
 class DryRunRuntime(WorkflowRuntime):
     def __init__(self):
         super().__init__(name="dry-run")
@@ -118,10 +115,8 @@ class DryRunRuntime(WorkflowRuntime):
             "status": "simulated",
         }
 
-# END_BLOCK: dry_run_runtime
-
-# START_BLOCK: prefect_runtime_adapter
-
+# END_BLOCK_DRY_RUN_RUNTIME
+# START_BLOCK_PREFECT_RUNTIME_ADAPTER
 class PrefectRuntimeAdapter(WorkflowRuntime):
     def __init__(self, work_pool: str | None = None, queue: str | None = None):
         super().__init__(name="prefect")
@@ -233,10 +228,8 @@ class PrefectRuntimeAdapter(WorkflowRuntime):
         except Exception as e:
             return {"error": str(e)}
 
-# END_BLOCK: prefect_runtime_adapter
-
-# START_BLOCK: feature_submitter
-
+# END_BLOCK_PREFECT_RUNTIME_ADAPTER
+# START_BLOCK_FEATURE_SUBMITTER
 class FeatureSubmitter:
     """Submitter for feature flow runs via Prefect native submission."""
 
@@ -307,10 +300,8 @@ class FeatureSubmitter:
             "tags": request["tags"],
         }
 
-# END_BLOCK: feature_submitter
-
-# START_BLOCK: e2e_packet_submitter
-
+# END_BLOCK_FEATURE_SUBMITTER
+# START_BLOCK_E2E_PACKET_SUBMITTER
 class E2EPacketSubmitter:
     """Submitter for E2E packet flow runs via Prefect native submission."""
 
@@ -388,10 +379,8 @@ class E2EPacketSubmitter:
             "tags": request["tags"],
         }
 
-# END_BLOCK: e2e_packet_submitter
-
-# START_BLOCK: managed_packet_submitter
-
+# END_BLOCK_E2E_PACKET_SUBMITTER
+# START_BLOCK_MANAGED_PACKET_SUBMITTER
 class ManagedPacketSubmitter:
     """Submitter for managed packet flow runs via Prefect native submission."""
 
@@ -465,10 +454,8 @@ class ManagedPacketSubmitter:
             "tags": request["tags"],
         }
 
-# END_BLOCK: managed_packet_submitter
-
-# START_BLOCK: factory
-
+# END_BLOCK_MANAGED_PACKET_SUBMITTER
+# START_BLOCK_FACTORY
 # START_FUNCTION_CONTRACT
 # name: create_runtime
 # purpose: Factory function to create runtime adapter instances.
@@ -493,10 +480,8 @@ def create_runtime(runtime_type: str, config: dict[str, Any] | None = None) -> W
     else:
         raise ValueError(f"Unknown runtime type: {runtime_type}")
 
-# END_BLOCK: factory
-
-# START_BLOCK: prefect_client_helper
-
+# END_BLOCK_FACTORY
+# START_BLOCK_PREFECT_CLIENT_HELPER
 # START_FUNCTION_CONTRACT
 # name: create_prefect_sync_client
 # purpose: Create a synchronous Prefect client for infrastructure validation.
@@ -518,10 +503,8 @@ def create_prefect_sync_client() -> Any | None:
     except (ImportError, Exception):
         return None
 
-# END_BLOCK: prefect_client_helper
-
-# START_BLOCK: deployment_helper
-
+# END_BLOCK_PREFECT_CLIENT_HELPER
+# START_BLOCK_DEPLOYMENT_HELPER
 @dataclass
 class DeploymentApplyResult:
     """Result of deployment apply operation with bounded before/after metadata."""
@@ -702,4 +685,4 @@ def apply_managed_packet_deployment_helper(
             errors=[{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}],
         )
 
-# END_BLOCK: deployment_helper
+# END_BLOCK_DEPLOYMENT_HELPER

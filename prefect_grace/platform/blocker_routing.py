@@ -41,8 +41,7 @@ from typing import Any
 # Block: router - Route blocker to correct role
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class BlockerRoute:
     """Blocker routing result.
@@ -74,10 +73,8 @@ class BlockerRoute:
             "message": self.message,
         }
 
-# END_BLOCK: models
-
-# START_BLOCK: routing_table
-
+# END_BLOCK_MODELS
+# START_BLOCK_ROUTING_TABLE
 # Blocker routing table
 # Maps blocker codes to (route_to, message_template)
 BLOCKER_ROUTES = {
@@ -175,10 +172,8 @@ BLOCKER_ROUTES = {
     ),
 }
 
-# END_BLOCK: routing_table
-
-# START_BLOCK: router
-
+# END_BLOCK_ROUTING_TABLE
+# START_BLOCK_ROUTER
 # START_FUNCTION_CONTRACT
 # Function: route_evidence_blocker
 # Purpose: Route evidence blocker to correct role
@@ -231,4 +226,4 @@ def route_evidence_blocker(error: dict[str, Any]) -> BlockerRoute:
         message=message,
     )
 
-# END_BLOCK: router
+# END_BLOCK_ROUTER

@@ -27,8 +27,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass
 class SyntheticScenario:
     """
@@ -61,10 +60,8 @@ class SyntheticScenarioResult:
     packet_accepted: bool = False
     blocked_reason: str | None = None
 
-# END_BLOCK: models
-
-# START_BLOCK: dimension_definitions
-
+# END_BLOCK_MODELS
+# START_BLOCK_DIMENSION_DEFINITIONS
 # Dimension value definitions
 DIMENSIONS = {
     "source_hash": ["same", "changed", "missing", "malformed"],
@@ -117,10 +114,8 @@ DIMENSIONS = {
     "scope": ["allowed_only", "frozen_only", "mixed_allowed_frozen", "no_changes"],
 }
 
-# END_BLOCK: dimension_definitions
-
-# START_BLOCK: pruning_rules
-
+# END_BLOCK_DIMENSION_DEFINITIONS
+# START_BLOCK_PRUNING_RULES
 # START_FUNCTION_CONTRACT
 # name: _is_impossible_combination
 # purpose: Check if a dimension combination is physically impossible.
@@ -190,10 +185,8 @@ def prune_impossible_scenarios(scenarios: list[SyntheticScenario]) -> list[Synth
         pruned_scenarios.append(scenario)
     return pruned_scenarios
 
-# END_BLOCK: pruning_rules
-
-# START_BLOCK: invariant_mapping
-
+# END_BLOCK_PRUNING_RULES
+# START_BLOCK_INVARIANT_MAPPING
 # START_FUNCTION_CONTRACT
 # name: _map_invariants_for_scenario
 # purpose: Map expected invariants based on scenario dimensions.
@@ -249,10 +242,8 @@ def _map_invariants_for_scenario(dimensions: dict[str, str]) -> list[str]:
 
     return invariants
 
-# END_BLOCK: invariant_mapping
-
-# START_BLOCK: matrix_builder
-
+# END_BLOCK_INVARIANT_MAPPING
+# START_BLOCK_MATRIX_BUILDER
 # START_FUNCTION_CONTRACT
 # name: build_synthetic_edge_matrix
 # purpose: Build deterministic synthetic scenario matrix.
@@ -352,4 +343,4 @@ def build_synthetic_edge_matrix(
 
     return scenarios
 
-# END_BLOCK: matrix_builder
+# END_BLOCK_MATRIX_BUILDER

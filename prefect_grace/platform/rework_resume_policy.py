@@ -26,8 +26,7 @@ from pathlib import Path
 from prefect_grace.platform.packet_artifact_layout import resolve_packet_layout
 from prefect_grace.platform.context_bundle import build_context_bundle
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass
 class ReworkResumeDecision:
     """
@@ -45,10 +44,8 @@ class ReworkResumeDecision:
     context_mode: str
     context_paths: list[str]
 
-# END_BLOCK: models
-
-# START_BLOCK: policy
-
+# END_BLOCK_MODELS
+# START_BLOCK_POLICY
 # START_FUNCTION_CONTRACT
 # name: decide_rework_resume
 # purpose: Decide whether coder rework can resume based on source hash changes.
@@ -161,4 +158,4 @@ def decide_rework_resume(
         context_paths=context_paths,
     )
 
-# END_BLOCK: policy
+# END_BLOCK_POLICY

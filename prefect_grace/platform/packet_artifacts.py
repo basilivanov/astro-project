@@ -28,8 +28,7 @@ from typing import Any
 
 from prefect_grace.platform.packet_artifact_layout import resolve_packet_layout
 
-# START_BLOCK: artifact_writers
-
+# START_BLOCK_ARTIFACT_WRITERS
 # START_FUNCTION_CONTRACT
 # name: write_review
 # purpose: Write review verdict to REVIEWS/review-XXXX.md.
@@ -177,4 +176,4 @@ def write_rework(
 
     return rework_file
 
-# END_BLOCK: artifact_writers
+# END_BLOCK_ARTIFACT_WRITERS

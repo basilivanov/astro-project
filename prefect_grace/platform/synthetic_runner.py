@@ -33,9 +33,7 @@ from prefect_grace.platform.scenario_fixtures import generate_fixture_for_scenar
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.synthetic_edge_matrix import SyntheticScenario, SyntheticScenarioResult
 
-# START_BLOCK: runner
-
-
+# START_BLOCK_RUNNER
 # START_FUNCTION_CONTRACT
 # name: run_synthetic_scenario
 # purpose: Execute a synthetic scenario without starting live agents.
@@ -141,11 +139,8 @@ def run_synthetic_scenario(scenario: SyntheticScenario, tmp_path: Path) -> Synth
     return result
 
 
-# END_BLOCK: runner
-
-# START_BLOCK: real_policy_integration
-
-
+# END_BLOCK_RUNNER
+# START_BLOCK_REAL_POLICY_INTEGRATION
 def _compute_resume_decision(fixture: Any, dimensions: dict[str, str]) -> dict[str, Any]:
     """
     Compute resume decision using real policy logic.
@@ -360,4 +355,4 @@ def _compute_blocked_reason(dimensions: dict[str, str], resume_decision: dict[st
     return None
 
 
-# END_BLOCK: real_policy_integration
+# END_BLOCK_REAL_POLICY_INTEGRATION

@@ -41,8 +41,7 @@ import json
 # Block: validator - Validate manifest against contract
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class EvidenceItem:
     """Single evidence item in manifest.
@@ -160,10 +159,8 @@ class EvidenceManifest:
             blockers=data.get("blockers", []),
         )
 
-# END_BLOCK: models
-
-# START_BLOCK: validation_constants
-
+# END_BLOCK_MODELS
+# START_BLOCK_VALIDATION_CONSTANTS
 # Allowed evidence statuses
 ALLOWED_STATUSES = {
     "collected",
@@ -175,10 +172,8 @@ ALLOWED_STATUSES = {
     "contract_invalid",
 }
 
-# END_BLOCK: validation_constants
-
-# START_BLOCK: parser
-
+# END_BLOCK_VALIDATION_CONSTANTS
+# START_BLOCK_PARSER
 # START_FUNCTION_CONTRACT
 # Function: parse_evidence_manifest
 # Purpose: Load evidence manifest from JSON file
@@ -200,10 +195,8 @@ def parse_evidence_manifest(path: Path) -> "EvidenceManifest":
         data = json.load(f)
     return EvidenceManifest.from_dict(data)
 
-# END_BLOCK: parser
-
-# START_BLOCK: validator
-
+# END_BLOCK_PARSER
+# START_BLOCK_VALIDATOR
 # START_FUNCTION_CONTRACT
 # Function: validate_evidence_manifest
 # Purpose: Validate manifest against contract
@@ -320,4 +313,4 @@ def validate_evidence_manifest(
         warnings=warnings,
     )
 
-# END_BLOCK: validator
+# END_BLOCK_VALIDATOR

@@ -40,8 +40,7 @@ from typing import Any
 # Block: validation - Prefect infrastructure validation helpers
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PrefectWorkerBindingResult:
     """Result of Prefect worker binding preflight check.
@@ -136,10 +135,8 @@ class PrefectWorkerBindingResult:
             "errors": list(self.errors),
         }
 
-# END_BLOCK: models
-
-# START_BLOCK: validation
-
+# END_BLOCK_MODELS
+# START_BLOCK_VALIDATION
 def _check_prefect_available() -> tuple[bool, str | None, list[dict[str, Any]]]:
     """Check if Prefect is available and return version.
 
@@ -207,10 +204,8 @@ def _check_queues(prefect_client: Any, work_pool_name: str, required_queues: lis
 
     return queue_statuses, errors
 
-# END_BLOCK: validation
-
-# START_BLOCK: deployment_apply
-
+# END_BLOCK_VALIDATION
+# START_BLOCK_DEPLOYMENT_APPLY
 def _apply_managed_packet_deployment(prefect_client: Any, api_url: str, work_pool_name: str, work_queue_name: str):
     """Apply the managed packet runner deployment.
 
@@ -238,10 +233,8 @@ def _apply_managed_packet_deployment(prefect_client: Any, api_url: str, work_poo
             errors=[{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}],
         )
 
-# END_BLOCK: deployment_apply
-
-# START_BLOCK: worker_smoke
-
+# END_BLOCK_DEPLOYMENT_APPLY
+# START_BLOCK_WORKER_SMOKE
 def _run_worker_smoke_test(prefect_client: Any, work_pool_name: str, work_queue_name: str) -> dict[str, Any]:
     """Run worker runtime smoke test.
 
@@ -261,10 +254,8 @@ def _run_worker_smoke_test(prefect_client: Any, work_pool_name: str, work_queue_
         "error": "Worker runtime smoke not implemented. Use scripts/grace_worker_smoke.sh for manual validation."
     }
 
-# END_BLOCK: worker_smoke
-
-# START_BLOCK: deployment_validation
-
+# END_BLOCK_WORKER_SMOKE
+# START_BLOCK_DEPLOYMENT_VALIDATION
 def _check_deployment(prefect_client: Any, deployment_name: str, expected_work_pool: str, expected_queue: str) -> tuple[bool, str | None, str | None, bool, list[dict[str, Any]]]:
     """Check deployment exists and has correct routing.
 
@@ -321,10 +312,8 @@ def _check_deployment(prefect_client: Any, deployment_name: str, expected_work_p
     except Exception as e:
         return False, None, None, False, [{"type": "DEPLOYMENT_CHECK_FAILED", "message": f"Failed to check deployment: {e}"}]
 
-# END_BLOCK: deployment_validation
-
-# START_BLOCK: preflight
-
+# END_BLOCK_DEPLOYMENT_VALIDATION
+# START_BLOCK_PREFLIGHT
 # START_FUNCTION_CONTRACT
 # Function: run_prefect_worker_binding_preflight
 # Purpose: Validate Prefect infrastructure readiness for live packet execution
@@ -591,7 +580,4 @@ def run_prefect_worker_binding_preflight(
         errors=errors,
     )
 
-# END_BLOCK: preflight
-
-
-
+# END_BLOCK_PREFLIGHT

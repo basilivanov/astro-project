@@ -27,8 +27,7 @@ from typing import Any
 
 import yaml
 
-# START_BLOCK: packets_store
-
+# START_BLOCK_PACKETS_STORE
 class PacketRegistryStore:
     # START_FUNCTION_CONTRACT
     # name: load_packet
@@ -113,10 +112,8 @@ class PacketRegistryStore:
         data = self._load_all()
         return list(data.values())
 
-# END_BLOCK: packets_store
-
-# START_BLOCK: runs_store
-
+# END_BLOCK_PACKETS_STORE
+# START_BLOCK_RUNS_STORE
 class RunStore:
     def __init__(self, state_root: Path | str):
         self.file_path = Path(state_root) / "runs.yaml"
@@ -197,10 +194,8 @@ class RunStore:
     def list_runs(self) -> list[dict[str, Any]]:
         return list(self._load_all().values())
 
-# END_BLOCK: runs_store
-
-# START_BLOCK: history_store
-
+# END_BLOCK_RUNS_STORE
+# START_BLOCK_HISTORY_STORE
 class ExecutorHistoryStore:
     def __init__(self, state_root: Path | str):
         self.file_path = Path(state_root) / "executor_history.yaml"
@@ -246,4 +241,4 @@ class ExecutorHistoryStore:
     def list_executions(self) -> list[dict[str, Any]]:
         return self._load_all()
 
-# END_BLOCK: history_store
+# END_BLOCK_HISTORY_STORE

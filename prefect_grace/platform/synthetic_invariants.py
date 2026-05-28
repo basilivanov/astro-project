@@ -32,9 +32,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from prefect_grace.platform.synthetic_edge_matrix import SyntheticScenarioResult
 
-# START_BLOCK: invariant_assertions
-
-
+# START_BLOCK_INVARIANT_ASSERTIONS
 # START_FUNCTION_CONTRACT
 # name: assert_inv_no_resume_on_source_hash_change
 # purpose: Assert INV-NO-RESUME-ON-SOURCE-HASH-CHANGE invariant.
@@ -252,10 +250,8 @@ def assert_inv_no_live_agents(result: SyntheticScenarioResult) -> None:
     )
 
 
-# END_BLOCK: invariant_assertions
-
-# START_BLOCK: invariant_runner
-
+# END_BLOCK_INVARIANT_ASSERTIONS
+# START_BLOCK_INVARIANT_RUNNER
 INVARIANT_FUNCTIONS = {
     "INV-NO-RESUME-ON-SOURCE-HASH-CHANGE": assert_inv_no_resume_on_source_hash_change,
     "INV-NO-RESUME-WHEN-REGISTRY-BLOCKS": assert_inv_no_resume_when_registry_blocks,
@@ -312,4 +308,4 @@ def assert_all_invariants(
     return passed, failed
 
 
-# END_BLOCK: invariant_runner
+# END_BLOCK_INVARIANT_RUNNER

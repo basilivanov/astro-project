@@ -23,8 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-# START_BLOCK: artifact_generators
-
+# START_BLOCK_ARTIFACT_GENERATORS
 # START_FUNCTION_CONTRACT
 # name: generate_packet_table_markdown
 # purpose: Generate a Markdown table of packets with status.
@@ -146,4 +145,4 @@ def generate_backlog_sync_artifact(
 
     return "\n".join(lines)
 
-# END_BLOCK: artifact_generators
+# END_BLOCK_ARTIFACT_GENERATORS

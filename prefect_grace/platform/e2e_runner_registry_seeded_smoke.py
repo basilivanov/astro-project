@@ -37,9 +37,7 @@ from prefect_grace.platform.prefect_native_submission import submit_ready_packet
 from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.state_store import PacketRegistryStore
 
-# START_BLOCK: models
-
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class E2ERegistrySeededSmokeCase:
     name: str
@@ -119,11 +117,8 @@ class E2ERegistrySeededSmokeResult:
         }
 
 
-# END_BLOCK: models
-
-# START_BLOCK: fixtures
-
-
+# END_BLOCK_MODELS
+# START_BLOCK_FIXTURES
 PACKET_PARENT_ACCEPTED = "SMOKE-PARENT-ACCEPTED-W01-PACKET"
 PACKET_CHILD_RUNNABLE = "SMOKE-CHILD-RUNNABLE-W01-PACKET"
 PACKET_CHILD_MISSING_DEP = "SMOKE-CHILD-MISSING-DEP-W01-PACKET"
@@ -233,11 +228,8 @@ def _write_smoke_fixtures(packet_root: Path) -> dict[str, Path]:
     return packet_paths
 
 
-# END_BLOCK: fixtures
-
-# START_BLOCK: helpers
-
-
+# END_BLOCK_FIXTURES
+# START_BLOCK_HELPERS
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"code": code, "message": message, **extra}
 
@@ -416,11 +408,8 @@ def _paths_outside_roots(paths: list[Path], roots: list[Path]) -> list[str]:
     return outside
 
 
-# END_BLOCK: helpers
-
-# START_BLOCK: smoke
-
-
+# END_BLOCK_HELPERS
+# START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_e2e_runner_registry_seeded_smoke
 # purpose: Run an isolated registry-seeded dry-run smoke through the E2E packet runner.
@@ -690,4 +679,4 @@ def run_e2e_runner_registry_seeded_smoke(
     )
 
 
-# END_BLOCK: smoke
+# END_BLOCK_SMOKE

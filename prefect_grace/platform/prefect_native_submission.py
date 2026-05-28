@@ -37,9 +37,7 @@ from prefect_grace.tasks.prefect_submitter import (
     managed_packet_flow_run_name,
 )
 
-# START_BLOCK: models
-
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PacketSubmissionRecord:
     packet_id: str
@@ -122,11 +120,8 @@ class NativeSubmissionResult:
         }
 
 
-# END_BLOCK: models
-
-# START_BLOCK: submission
-
-
+# END_BLOCK_MODELS
+# START_BLOCK_SUBMISSION
 # START_FUNCTION_CONTRACT
 # name: build_idempotency_key
 # purpose: Build deterministic idempotency key for packet submission.
@@ -597,4 +592,4 @@ def submit_ready_packets_to_prefect(
     )
 
 
-# END_BLOCK: submission
+# END_BLOCK_SUBMISSION

@@ -324,14 +324,27 @@ SHOULD иметь function contract.
 
 Крупные или критичные участки функции SHOULD быть размечены paired blocks:
 
-- `START_BLOCK: <NAME>`
-- `END_BLOCK: <NAME>`
+- `START_BLOCK_<NAME>`
+- `END_BLOCK_<NAME>`
 
 Правило naming:
 
 - имя блока описывает `WHAT`, а не `HOW`;
 - блок должен быть устойчивой semantic unit;
 - блок должен быть достаточно мал для targeted reasoning.
+
+Пример:
+```python
+# START_BLOCK_VALIDATION
+def validate_packet(packet_data):
+    ...
+# END_BLOCK_VALIDATION
+
+# START_BLOCK_SUBMISSION
+def submit_to_prefect(packet_id):
+    ...
+# END_BLOCK_SUBMISSION
+```
 
 ### 7.6 Size guardrails
 

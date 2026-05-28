@@ -48,8 +48,7 @@ from prefect_grace.platform.status_model import DomainStatus, normalize_domain_s
 # Block: handoff_controller - Main run_verifier_reviewer_handoff function
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class HandoffAgentResult:
     """Result from verifier or reviewer agent execution.
@@ -160,10 +159,8 @@ class PacketHandoffResult:
             "blocker_reason": self.blocker_reason,
         }
 
-# END_BLOCK: models
-
-# START_BLOCK: marker_parsing
-
+# END_BLOCK_MODELS
+# START_BLOCK_MARKER_PARSING
 # START_FUNCTION_CONTRACT
 # Function: parse_verifier_evidence_marker
 # Purpose: Parse FINAL_VERIFIER_EVIDENCE_JSON marker from verifier output
@@ -227,10 +224,8 @@ def parse_reviewer_decision_marker(raw_output: str) -> tuple[dict[str, Any] | No
         errors.append(f"Invalid JSON in reviewer decision marker: {e}")
         return None, True, errors
 
-# END_BLOCK: marker_parsing
-
-# START_BLOCK: evidence_validation
-
+# END_BLOCK_MARKER_PARSING
+# START_BLOCK_EVIDENCE_VALIDATION
 # START_FUNCTION_CONTRACT
 # Function: validate_verifier_evidence
 # Purpose: Validate verifier evidence manifest against contract and artifacts
@@ -315,10 +310,8 @@ def validate_verifier_evidence(
 
     return len(errors) == 0, errors
 
-# END_BLOCK: evidence_validation
-
-# START_BLOCK: handoff_controller
-
+# END_BLOCK_EVIDENCE_VALIDATION
+# START_BLOCK_HANDOFF_CONTROLLER
 # START_FUNCTION_CONTRACT
 # Function: run_verifier_reviewer_handoff
 # Purpose: Execute complete verifier-reviewer handoff for a packet
@@ -574,4 +567,4 @@ def run_verifier_reviewer_handoff(
         blocker_reason=None if domain_status in ["accepted", "rework_required"] else reasons[0] if reasons else "Unknown blocker",
     )
 
-# END_BLOCK: handoff_controller
+# END_BLOCK_HANDOFF_CONTROLLER

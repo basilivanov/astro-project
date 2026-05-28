@@ -26,8 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass
 class PacketArtifactLayout:
     """
@@ -43,10 +42,8 @@ class PacketArtifactLayout:
     evidence_dir: Path
     rework_dir: Path
 
-# END_BLOCK: models
-
-# START_BLOCK: resolvers
-
+# END_BLOCK_MODELS
+# START_BLOCK_RESOLVERS
 # START_FUNCTION_CONTRACT
 # name: resolve_packet_layout
 # purpose: Resolve packet artifact directory layout from packet directory.
@@ -126,4 +123,4 @@ def latest_rework(layout: PacketArtifactLayout) -> Path | None:
     rework_files = sorted(layout.rework_dir.glob("attempt-*.md"))
     return rework_files[-1] if rework_files else None
 
-# END_BLOCK: resolvers
+# END_BLOCK_RESOLVERS

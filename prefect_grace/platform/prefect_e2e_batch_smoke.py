@@ -42,9 +42,7 @@ BATCH_SMOKE_MIN_PACKETS = 2
 BATCH_SMOKE_MAX_PACKETS = 3
 
 
-# START_BLOCK: models
-
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PrefectE2EBatchSmokeResult:
     ok: bool
@@ -92,11 +90,8 @@ class _SmokeProject:
     packets_dir: str
 
 
-# END_BLOCK: models
-
-# START_BLOCK: helpers
-
-
+# END_BLOCK_MODELS
+# START_BLOCK_HELPERS
 # START_FUNCTION_CONTRACT
 # name: _result
 # purpose: Build a batch smoke result with stable default metadata.
@@ -274,11 +269,8 @@ def _work_queue_from_records(records: list[dict[str, Any]]) -> str | None:
     return None
 
 
-# END_BLOCK: helpers
-
-# START_BLOCK: smoke
-
-
+# END_BLOCK_HELPERS
+# START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_prefect_e2e_batch_smoke
 # purpose: Create and submit 2-3 low-risk E2E packets through native Prefect submission.
@@ -404,4 +396,4 @@ def run_prefect_e2e_batch_smoke(
     )
 
 
-# END_BLOCK: smoke
+# END_BLOCK_SMOKE

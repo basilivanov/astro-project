@@ -28,8 +28,7 @@ from typing import Any
 
 import yaml
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass
 class SyntheticFixture:
     """
@@ -223,10 +222,8 @@ Synthetic test packet for scenario testing.
         content = f"{self.packet_id}-{self.feature_id}"
         return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
-# END_BLOCK: models
-
-# START_BLOCK: generator
-
+# END_BLOCK_MODELS
+# START_BLOCK_GENERATOR
 # START_FUNCTION_CONTRACT
 # name: generate_fixture_for_scenario
 # purpose: Generate a SyntheticFixture for a given scenario.
@@ -275,4 +272,4 @@ def generate_fixture_for_scenario(
 
     return fixture
 
-# END_BLOCK: generator
+# END_BLOCK_GENERATOR

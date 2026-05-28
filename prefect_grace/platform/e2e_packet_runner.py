@@ -56,8 +56,7 @@ from prefect_grace.platform.packet_parser import parse_packet_markdown
 # Block: orchestrator - run_e2e_packet function
 # END_MODULE_MAP
 
-# START_BLOCK: models
-
+# START_BLOCK_MODELS
 @dataclass(frozen=True)
 class E2EPacketRunnerResult:
     """Result of end-to-end packet execution.
@@ -125,10 +124,8 @@ class E2EPacketRunnerResult:
             "errors": list(self.errors),
         }
 
-# END_BLOCK: models
-
-# START_BLOCK: fake_launchers
-
+# END_BLOCK_MODELS
+# START_BLOCK_FAKE_LAUNCHERS
 # START_FUNCTION_CONTRACT
 # Function: _create_fake_verifier_launcher
 # Purpose: Create fake verifier launcher for testing handoff without live agents
@@ -274,10 +271,8 @@ FINAL_PACKET_DECISION_JSON
 END_FINAL_PACKET_DECISION_JSON
 """
 
-# END_BLOCK: fake_launchers
-
-# START_BLOCK: status_transition_helpers
-
+# END_BLOCK_FAKE_LAUNCHERS
+# START_BLOCK_STATUS_TRANSITION_HELPERS
 # START_FUNCTION_CONTRACT
 # Function: _serialize_registry_transition
 # Purpose: Convert a domain status into a JSON-safe registry transition
@@ -320,10 +315,8 @@ def _registry_fields(domain_status: str) -> dict[str, Any]:
         "registry_transition": transition,
     }
 
-# END_BLOCK: status_transition_helpers
-
-# START_BLOCK: orchestrator
-
+# END_BLOCK_STATUS_TRANSITION_HELPERS
+# START_BLOCK_ORCHESTRATOR
 # START_FUNCTION_CONTRACT
 # Function: run_e2e_packet
 # Purpose: Run end-to-end packet execution from coder to verifier to reviewer
@@ -540,4 +533,4 @@ def run_e2e_packet(
         errors=errors,
     )
 
-# END_BLOCK: orchestrator
+# END_BLOCK_ORCHESTRATOR

@@ -29,9 +29,7 @@ from typing import Any, Mapping
 
 import yaml
 
-# START_BLOCK: data_models
-
-
+# START_BLOCK_DATA_MODELS
 def _required_string(data: Mapping[str, Any], field_name: str, context: str) -> str:
     value = data.get(field_name)
     if not isinstance(value, str) or not value.strip():
@@ -296,10 +294,8 @@ class ProjectAdapterConfig:
             "agent_executor": self.agent_executor.to_dict(),
         }
 
-# END_BLOCK: data_models
-
-# START_BLOCK: config_loader
-
+# END_BLOCK_DATA_MODELS
+# START_BLOCK_CONFIG_LOADER
 # START_FUNCTION_CONTRACT
 # name: load_project_adapter
 # purpose: Load project configuration from a file with optional overrides.
@@ -330,4 +326,4 @@ def load_project_adapter(
 
     return ProjectAdapterConfig.from_dict(data)
 
-# END_BLOCK: config_loader
+# END_BLOCK_CONFIG_LOADER
