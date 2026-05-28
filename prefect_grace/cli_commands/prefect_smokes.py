@@ -444,3 +444,57 @@ def _cmd_nightly_preflight_risk_report(args: argparse.Namespace) -> None:
         else:
             print(f"Nightly preflight risk report failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_nightly_select_batch(args: argparse.Namespace) -> None:
+    command = "nightly-select-batch"
+    try:
+        from prefect_grace.platform.nightly_batch_selection import select_safe_batch
+
+        result_obj = select_safe_batch(
+            project_config=getattr(args, "project", None),
+            preflight_report_path=getattr(args, "preflight_report", None),
+            max_packets=int(getattr(args, "max_packets", 10)),
+            max_cost=getattr(args, "max_cost", "live_required"),
+            allow_conflicts=bool(getattr(args, "allow_conflicts", False)),
+            allow_risky=bool(getattr(args, "allow_risky", False)),
+        )
+        result = result_obj.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result_obj.ok,
+                command=command,
+                project_key=result_obj.project_key or None,
+                result=result,
+                warnings=result_obj.warnings,
+                errors=result_obj.errors,
+            ))
+        else:
+            print(f"Nightly batch selection for {result_obj.project_key}:")
+            print(f"  Selected: {result_obj.selected_total}")
+            print(f"  Excluded: {result_obj.excluded_total}")
+            print(f"  Batch limit: {result_obj.batch_limits.max_packets}")
+            print(f"  Max cost: {result_obj.batch_limits.max_cost}")
+            print(f"  Estimated total cost: {result_obj.estimated_total_cost}")
+            print(f"  Stop reason: {result_obj.stop_reason}")
+            print(f"  Conflict groups detected: {result_obj.conflict_groups_detected}")
+            if result_obj.selected_packets:
+                print(f"  Selected packets:")
+                for pid in result_obj.selected_packets[:10]:
+                    print(f"    - {pid}")
+            if result_obj.excluded_packets:
+                print(f"  Excluded packets (showing first 5):")
+                for excluded in result_obj.excluded_packets[:5]:
+                    print(f"    - {excluded.packet_id}: {excluded.reason}")
+        if result_obj.errors:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "BATCH_SELECTION_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Nightly batch selection failed: {e}", file=sys.stderr)
+        sys.exit(1)

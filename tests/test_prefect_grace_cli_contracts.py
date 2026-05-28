@@ -524,3 +524,20 @@ def test_cli_nightly_preflight_risk_report_contract() -> None:
     assert result.returncode == 0
     assert "--project" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_cli_nightly_select_batch_contract() -> None:
+    """Verify nightly-select-batch CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "nightly-select-batch", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--preflight-report" in result.stdout
+    assert "--max-packets" in result.stdout
+    assert "--max-cost" in result.stdout
+    assert "--allow-conflicts" in result.stdout
+    assert "--allow-risky" in result.stdout
+    assert "--json" in result.stdout

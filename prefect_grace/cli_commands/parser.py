@@ -66,6 +66,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_run_prefect_e2e_real_dry_run_smoke,
     _cmd_run_nightly,
     _cmd_nightly_preflight_risk_report,
+    _cmd_nightly_select_batch,
 )
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,
@@ -386,6 +387,16 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     nightly_preflight_risk_report.add_argument("--project")
     nightly_preflight_risk_report.add_argument("--json", action="store_true")
     nightly_preflight_risk_report.set_defaults(func=_cmd_nightly_preflight_risk_report)
+
+    nightly_select_batch = subparsers.add_parser("nightly-select-batch")
+    nightly_select_batch.add_argument("--project")
+    nightly_select_batch.add_argument("--preflight-report", help="Path to saved preflight report JSON")
+    nightly_select_batch.add_argument("--max-packets", type=int, default=10, help="Maximum packets to select")
+    nightly_select_batch.add_argument("--max-cost", default="live_required", help="Maximum cost level")
+    nightly_select_batch.add_argument("--allow-conflicts", action="store_true", help="Allow file conflicts")
+    nightly_select_batch.add_argument("--allow-risky", action="store_true", help="Allow risky packets")
+    nightly_select_batch.add_argument("--json", action="store_true")
+    nightly_select_batch.set_defaults(func=_cmd_nightly_select_batch)
 
 
 def _register_worktrees_commands(subparsers) -> None:
