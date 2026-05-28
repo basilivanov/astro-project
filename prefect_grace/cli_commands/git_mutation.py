@@ -15,6 +15,7 @@
 # START_MODULE_MAP
 # mapping:
 #   - function: _cmd_git_mutation_gate
+#   - function: _cmd_packet_branch_push_gate
 #   - function: _cmd_merge_steward
 # END_MODULE_MAP
 
@@ -76,6 +77,56 @@ def _cmd_git_mutation_gate(args: argparse.Namespace) -> None:
             ))
         else:
             print(f"Git mutation gate failed: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_packet_branch_push_gate(args: argparse.Namespace) -> None:
+    command = "packet-branch-push-gate"
+    try:
+        from prefect_grace.platform.packet_branch_push_gate import run_packet_branch_push_gate
+
+        result = run_packet_branch_push_gate(
+            packet=args.packet,
+            repo_root=args.repo_root,
+            worktree_root=args.worktree_root,
+            worktree_path=args.worktree_path,
+            project_key=args.project_key,
+            packet_id=args.packet_id,
+            attempt=int(args.attempt),
+            base_ref=args.base_ref,
+            remote=args.remote,
+            dry_run=bool(args.dry_run) or not bool(args.apply),
+            apply=bool(args.apply),
+            commit=bool(args.commit),
+            push=bool(args.push),
+            approve_commit=bool(args.allow_git_commit),
+            approve_push=bool(args.allow_git_push),
+        )
+        payload = result.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=payload,
+                errors=result.blockers,
+            ))
+        else:
+            print(f"Packet branch push gate: {result.status}")
+            print(f"  Packet: {result.packet_id}")
+            print(f"  Commit: {result.mutations.get('commit')}")
+            print(f"  Push: {result.mutations.get('push')}")
+            if result.blocker_reason:
+                print(f"  Blocker: {result.blocker_reason}")
+        sys.exit(0 if result.ok else 1)
+    except Exception as exc:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PACKET_BRANCH_PUSH_GATE_COMMAND_FAILED", "message": str(exc)}],
+            ))
+        else:
+            print(f"Packet branch push gate failed: {exc}", file=sys.stderr)
         sys.exit(2)
 
 

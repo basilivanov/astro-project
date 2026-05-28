@@ -101,6 +101,7 @@ from prefect_grace.cli_commands.executors import (
 )
 from prefect_grace.cli_commands.git_mutation import (
     _cmd_git_mutation_gate,
+    _cmd_packet_branch_push_gate,
     _cmd_merge_steward,
 )
 from prefect_grace.cli_commands.prefect_worker_binding import (
@@ -700,6 +701,25 @@ def _register_git_mutation_commands(subparsers) -> None:
     git_gate.add_argument("--i-understand-merge", action="store_true", help="Required for merge apply")
     git_gate.add_argument("--json", action="store_true", help="JSON output")
     git_gate.set_defaults(func=_cmd_git_mutation_gate)
+
+    branch_push = subparsers.add_parser("packet-branch-push-gate", help="Plan or apply guarded packet branch commit/push")
+    branch_push.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    branch_push.add_argument("--repo-root", type=Path, required=True, help="Main repository root")
+    branch_push.add_argument("--worktree-root", type=Path, required=True, help="Allowed worktree root")
+    branch_push.add_argument("--worktree-path", type=Path, required=True, help="Packet worktree path")
+    branch_push.add_argument("--project-key", required=True, help="Project key")
+    branch_push.add_argument("--packet-id", required=True, help="Packet ID")
+    branch_push.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    branch_push.add_argument("--base-ref", required=True, help="Base ref used for the packet branch")
+    branch_push.add_argument("--remote", default="origin", help="Remote name for packet branch push")
+    branch_push.add_argument("--dry-run", action="store_true", help="Plan only; default when --apply is omitted")
+    branch_push.add_argument("--apply", action="store_true", help="Allow requested Git commit/push mutations")
+    branch_push.add_argument("--commit", action="store_true", help="Request guarded packet worktree commit")
+    branch_push.add_argument("--push", action="store_true", help="Request guarded packet branch push")
+    branch_push.add_argument("--allow-git-commit", action="store_true", help="Approve commit application")
+    branch_push.add_argument("--allow-git-push", action="store_true", help="Approve push application")
+    branch_push.add_argument("--json", action="store_true", help="JSON output")
+    branch_push.set_defaults(func=_cmd_packet_branch_push_gate)
 
     merge_steward = subparsers.add_parser("merge-steward", help="Plan or apply operator-approved fast-forward merges")
     merge_steward.add_argument("--repo-root", type=Path, required=True, help="Target repository root")

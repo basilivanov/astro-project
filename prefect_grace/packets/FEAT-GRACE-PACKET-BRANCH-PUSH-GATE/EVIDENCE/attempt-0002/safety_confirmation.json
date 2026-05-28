@@ -1,0 +1,21 @@
+{
+  "review_blocker_closed": "push-only apply validates committed base_ref...HEAD diff before push",
+  "out_of_scope_committed_push_only_blocked": true,
+  "in_scope_committed_push_only_supported": true,
+  "empty_committed_diff_push_only_blocked": true,
+  "no_merge_path_exposed": true,
+  "no_force_push_flag_or_command": true,
+  "no_tag_push": true,
+  "no_branch_deletion": true,
+  "no_reset_rebase_squash": true,
+  "no_target_branch_update": true,
+  "no_real_product_remote_push": true,
+  "no_real_product_merge": true,
+  "temp_repos_only_for_apply_proofs": true,
+  "no_live_agents": true,
+  "no_prefect_flow_runs": true,
+  "no_docker_backend_frontend_playwright": true,
+  "no_registry_apply_or_state_write": true,
+  "no_provider_api_or_credentials": true,
+  "post_test_observability_verdict": "clean"
+}

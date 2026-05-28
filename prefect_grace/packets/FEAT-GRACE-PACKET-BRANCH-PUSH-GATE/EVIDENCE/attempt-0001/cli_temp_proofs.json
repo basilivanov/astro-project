@@ -1,0 +1,32 @@
+{
+  "proofs": {
+    "cli_dry_run": {
+      "commit": "planned",
+      "dirty_after": true,
+      "dirty_before": true,
+      "head_unchanged": true,
+      "merge": "not_available",
+      "ok": true,
+      "push": "planned",
+      "result_equals_data": true,
+      "returncode": 0,
+      "status": "planned",
+      "stdout_bytes": 2418
+    },
+    "temp_bare_remote_commit_push": {
+      "commit": "applied",
+      "commit_sha": "c6f5fd986f55b966817237f9316e6f009c286889",
+      "main_head_unchanged": true,
+      "merge": "not_available",
+      "ok": true,
+      "push": "applied",
+      "pushed_ref": "origin/agent/astro-project/FEAT-PACKET-BRANCH-PUSH-W01-PACKET/attempt-0001",
+      "remote_main_ref_missing": true,
+      "remote_packet_ref_contains_sha": true,
+      "result_equals_data": true,
+      "returncode": 0,
+      "status": "applied",
+      "stdout_bytes": 3002
+    }
+  }
+}

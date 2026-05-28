@@ -1,0 +1,100 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-BRANCH-PUSH-GATE-W01-ACCEPTED-PACKET-BRANCH-PUSH",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Closed review blocker by validating committed base_ref...HEAD branch diff before push-only apply and before the push leg of commit+push apply.",
+  "artifact_index": {
+    "targeted_pytest": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/targeted_pytest.txt",
+    "compileall": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/compileall.txt",
+    "lint_packet_branch_push_gate": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/lint_packet_branch_push_gate.txt",
+    "validate_packet_strict": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/validate_packet_strict.json",
+    "validate_evidence_manifest": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/validate_evidence_manifest.json",
+    "scope_check": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/scope_check.json",
+    "push_only_committed_diff_proof": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/push_only_committed_diff_proof.json",
+    "safety_confirmation": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EVIDENCE/attempt-0002/safety_confirmation.json"
+  },
+  "evidence": [
+    {
+      "id": "EV-PACKET-BRANCH-PUSH-REWORK-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted packet branch push gate, CLI wrapper, underlying git mutation gate, and CLI contract tests passed: 62 passed."
+    },
+    {
+      "id": "EV-PACKET-BRANCH-PUSH-REWORK-STATIC",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "compileall.txt",
+        "lint_packet_branch_push_gate.txt"
+      ],
+      "summary": "Compileall passed for platform/CLI modules; targeted GRACE lint passed for touched wrapper module."
+    },
+    {
+      "id": "EV-PACKET-BRANCH-PUSH-REWORK-VALIDATION",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json",
+        "scope_check.json"
+      ],
+      "summary": "Strict packet validation returned ok=true; scope check for rework files returned ok=true."
+    },
+    {
+      "id": "EV-PACKET-BRANCH-PUSH-REWORK-PROOF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "push_only_committed_diff_proof.json"
+      ],
+      "summary": "Temp bare remote proof: clean worktree with already committed frozen file is blocked and creates no remote packet ref; clean worktree with already committed allowed file is pushed only to packet branch."
+    },
+    {
+      "id": "EV-PACKET-BRANCH-PUSH-REWORK-SAFETY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "safety_confirmation.json"
+      ],
+      "summary": "Safety confirmation records no real product push/merge, no live/Prefect/provider/registry/Docker execution, and clean post-test observability verdict."
+    }
+  ],
+  "checks": {
+    "targeted_pytest": "62 passed",
+    "compileall": "pass",
+    "lint_packet_branch_push_gate": "pass",
+    "strict_validate_packet": "ok=true",
+    "scope_check": "ok=true",
+    "validate_evidence_manifest": "ok=true",
+    "out_of_scope_push_only": "blocked with committed_diff_scope_failed and no remote packet ref",
+    "in_scope_push_only": "applied push to temp bare packet branch only",
+    "observability_verdict": "clean"
+  },
+  "safety": {
+    "dry_run_default": true,
+    "commit_requires_apply_and_approval": true,
+    "push_requires_apply_and_approval": true,
+    "push_only_committed_diff_scope_validated": true,
+    "push_only_empty_committed_diff_rejected": true,
+    "merge_exposed": false,
+    "force_push_used": false,
+    "tag_push_used": false,
+    "target_branch_update_used": false,
+    "destructive_git_commands_used": false,
+    "real_product_merge_or_push": false,
+    "live_agents_or_prefect_runs_started": false,
+    "prefect_flow_runs_started": false,
+    "runtime_registry_written": false,
+    "docker_backend_frontend_playwright_used": false,
+    "provider_api_or_credentials_used": false
+  },
+  "blockers": []
+}

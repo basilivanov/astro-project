@@ -632,3 +632,33 @@ def test_merge_steward_cli_contract() -> None:
     assert "--merge" in result.stdout
     assert "--i-understand-merge" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_packet_branch_push_gate_cli_contract() -> None:
+    """Verify packet-branch-push-gate CLI follows narrow commit/push contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "packet-branch-push-gate", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--repo-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--worktree-path" in result.stdout
+    assert "--project-key" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--attempt" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--remote" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--commit" in result.stdout
+    assert "--push" in result.stdout
+    assert "--allow-git-commit" in result.stdout
+    assert "--allow-git-push" in result.stdout
+    assert "--json" in result.stdout
+    assert "--merge" not in result.stdout
+    assert "--force" not in result.stdout
+    assert "--target-branch" not in result.stdout
+    assert "--i-understand-merge" not in result.stdout

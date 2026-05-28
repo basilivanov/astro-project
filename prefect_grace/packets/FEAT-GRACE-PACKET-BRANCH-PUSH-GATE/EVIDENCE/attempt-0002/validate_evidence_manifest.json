@@ -1,0 +1,173 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-BRANCH-PUSH-GATE-W01-ACCEPTED-PACKET-BRANCH-PUSH",
+    "evidence_count": 5,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-PYTEST",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-STATIC",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-STATIC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-VALIDATION",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-VALIDATION not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-PROOF",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-PROOF not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-SAFETY",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-SAFETY not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 100,
+          "hash": "a29694221390809adbdaf6061c9793d6dd2f84950e0e9bea6fcfa4af8a7b091c"
+        },
+        {
+          "path": "compileall.txt",
+          "exists": true,
+          "size": 18,
+          "hash": "b9a7a7bdf18f0940bd1e4f2a0af1284a0286a3c6256b77f010dadfe940fead1a"
+        },
+        {
+          "path": "lint_packet_branch_push_gate.txt",
+          "exists": true,
+          "size": 121,
+          "hash": "e575d95036afa994f014b9de31e889aab562298918e7ebbb16ea3ee2fe0b4dd1"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 9644,
+          "hash": "756235b4eef02f52aaa4b3218c12f70bd491fe00798a195a07dda2402288389e"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 5010,
+          "hash": "62d41cea4d858a9fd93db590878a7afa8719663317cc4dff4d9d10dc20ad9f5b"
+        },
+        {
+          "path": "push_only_committed_diff_proof.json",
+          "exists": true,
+          "size": 1155,
+          "hash": "21cf51bab4f3d30a437c7a21819fb5bcdfc6abb259d43947d8776e78d96f3a0d"
+        },
+        {
+          "path": "safety_confirmation.json",
+          "exists": true,
+          "size": 805,
+          "hash": "ba89a456071ae96ac74f71b1ae5af2bf6fe4b5e57f89709911885e31b1de22cd"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-BRANCH-PUSH-GATE-W01-ACCEPTED-PACKET-BRANCH-PUSH",
+    "evidence_count": 5,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-PYTEST",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-STATIC",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-STATIC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-VALIDATION",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-VALIDATION not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-PROOF",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-PROOF not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-BRANCH-PUSH-REWORK-SAFETY",
+          "message": "Evidence EV-PACKET-BRANCH-PUSH-REWORK-SAFETY not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 100,
+          "hash": "a29694221390809adbdaf6061c9793d6dd2f84950e0e9bea6fcfa4af8a7b091c"
+        },
+        {
+          "path": "compileall.txt",
+          "exists": true,
+          "size": 18,
+          "hash": "b9a7a7bdf18f0940bd1e4f2a0af1284a0286a3c6256b77f010dadfe940fead1a"
+        },
+        {
+          "path": "lint_packet_branch_push_gate.txt",
+          "exists": true,
+          "size": 121,
+          "hash": "e575d95036afa994f014b9de31e889aab562298918e7ebbb16ea3ee2fe0b4dd1"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 9644,
+          "hash": "756235b4eef02f52aaa4b3218c12f70bd491fe00798a195a07dda2402288389e"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 5010,
+          "hash": "62d41cea4d858a9fd93db590878a7afa8719663317cc4dff4d9d10dc20ad9f5b"
+        },
+        {
+          "path": "push_only_committed_diff_proof.json",
+          "exists": true,
+          "size": 1155,
+          "hash": "21cf51bab4f3d30a437c7a21819fb5bcdfc6abb259d43947d8776e78d96f3a0d"
+        },
+        {
+          "path": "safety_confirmation.json",
+          "exists": true,
+          "size": 805,
+          "hash": "ba89a456071ae96ac74f71b1ae5af2bf6fe4b5e57f89709911885e31b1de22cd"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

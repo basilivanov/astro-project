@@ -1,0 +1,40 @@
+{
+  "proofs": {
+    "in_scope_push_only_pushed": {
+      "commit": "not_requested",
+      "committed_diff_sample": [
+        "allowed/already_committed.txt"
+      ],
+      "committed_diff_total": 1,
+      "merge": "not_available",
+      "ok": true,
+      "push": "applied",
+      "pushed_commit_matches_head": true,
+      "pushed_ref": "origin/agent/astro-project/FEAT-PACKET-BRANCH-PUSH-W01-PACKET/attempt-0001",
+      "remote_main_ref_missing": true,
+      "remote_packet_ref_contains_sha": true,
+      "result_equals_data": true,
+      "returncode": 0,
+      "status": "applied",
+      "stdout_bytes": 3538,
+      "worktree_clean_before": true
+    },
+    "out_of_scope_push_only_blocked": {
+      "blocker_codes": [
+        "committed_diff_scope_failed"
+      ],
+      "blocker_reason": "committed_diff_scope_failed",
+      "committed_diff_sample": [
+        "frozen/already_committed.txt"
+      ],
+      "committed_diff_total": 1,
+      "ok": false,
+      "remote_packet_ref_missing": true,
+      "result_equals_data": true,
+      "returncode": 1,
+      "status": "blocked",
+      "stdout_bytes": 2635,
+      "worktree_clean_before": true
+    }
+  }
+}
