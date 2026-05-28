@@ -1,0 +1,119 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05-CONTROLLER-BACKLOG-BOOTSTRAP-SIDECAR",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Reconciled exactly one accepted controller backlog bootstrap runtime registry source hash after YAML sidecar creation.",
+  "evidence": [
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "SUMMARY.md"
+      ],
+      "summary": "Attempt summary, runtime apply result, read-only post checks, and clean verdict."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-PREFLIGHT",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "preflight_registry_bootstrap_apply_dry_run.json"
+      ],
+      "summary": "Scoped dry-run planned exactly one target runtime registry source hash update."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-APPLY",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "approved_registry_bootstrap_apply.json"
+      ],
+      "summary": "Scoped apply updated exactly one runtime registry record and idempotence reported noop."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-TARGET-STATUS",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "target_packet_status_after.json"
+      ],
+      "summary": "Target packet status after apply reports accepted with the reconciled source hash."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-SYNC",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "sync_packets_after_target_apply.json"
+      ],
+      "summary": "sync-packets dry-run reports no changed_after_acceptance drift and no registry updates."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-AUDIT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "audit_sidecars_after.json"
+      ],
+      "summary": "Post-apply audit reports canonical=20, no_sidecar=60, stale_sidecar=0, invalid_sidecar=0, skipped=2."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-SELF-SIDECAR",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "self_sidecar_sync_dry_run.json"
+      ],
+      "summary": "Self-sidecar sync dry-run reports noop for this W05 source packet."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-STRICT-VALIDATE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "strict_validate_packet.json"
+      ],
+      "summary": "Strict packet validation output."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-MANIFEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "Evidence manifest validation output."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-SCOPE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Explicit changed source files are within the packet allowed write scope."
+    },
+    {
+      "id": "EV-W05-CONTROLLER-BACKLOG-BOOTSTRAP-RECONCILE-DIFF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git",
+      "artifact_paths": [
+        "diff_check.txt"
+      ],
+      "summary": "git diff whitespace check output."
+    }
+  ],
+  "blockers": []
+}
