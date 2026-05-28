@@ -1,0 +1,101 @@
+{
+  "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "validate-evidence-manifest now resolves short relative artifact paths against the evidence manifest directory while preserving artifact-root-relative and absolute-under-root validation.",
+  "artifact_index": {
+    "targeted_pytest": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/targeted_pytest.txt",
+    "static_checks": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/static_checks.txt",
+    "strict_packet_validation": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/validate_packet_strict.json",
+    "cli_manifest_local": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/cli_manifest_local_ok.json",
+    "cli_repo_relative": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/cli_repo_relative_ok.json",
+    "cli_traversal_rejected": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/cli_traversal_rejected.json",
+    "cli_absolute_outside_rejected": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/cli_absolute_outside_rejected.json",
+    "cli_rejection_exit_codes": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/cli_rejection_exit_codes.json",
+    "nightly_manifest_regression": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EVIDENCE/attempt-0001/nightly_manifest_regression_ok.json"
+  },
+  "evidence": [
+    {
+      "id": "EV-PATH-RESOLUTION-TARGETED-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted artifact validator, CLI manifest path, evidence manifest, and CLI contract tests passed: 58 passed."
+    },
+    {
+      "id": "EV-PATH-RESOLUTION-STATIC-CHECKS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "static_checks.txt"
+      ],
+      "summary": "Compileall and targeted GRACE lint passed for changed modules."
+    },
+    {
+      "id": "EV-PATH-RESOLUTION-STRICT-PACKET",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json"
+      ],
+      "summary": "Strict packet validation returned ok=true."
+    },
+    {
+      "id": "EV-PATH-RESOLUTION-CLI-ACCEPTS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_manifest_local_ok.json",
+        "cli_repo_relative_ok.json",
+        "nightly_manifest_regression_ok.json"
+      ],
+      "summary": "CLI accepts manifest-local sibling artifacts, repo-relative artifacts, and the existing nightly evidence manifest without rewriting it."
+    },
+    {
+      "id": "EV-PATH-RESOLUTION-CLI-REJECTS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_traversal_rejected.json",
+        "cli_absolute_outside_rejected.json",
+        "cli_rejection_exit_codes.json"
+      ],
+      "summary": "CLI rejects traversal from manifest directory and absolute paths outside allowed roots with exit code 1."
+    }
+  ],
+  "checks": {
+    "targeted_pytest": "58 passed",
+    "compileall": "pass",
+    "targeted_lint": "pass",
+    "strict_validate_packet": "ok=true",
+    "cli_manifest_local": "ok=true artifact_validation.ok=true result_equals_data=true",
+    "cli_repo_relative": "ok=true artifact_validation.ok=true result_equals_data=true",
+    "cli_traversal_rejected": "ok=false artifact_validation.ok=false exit=1",
+    "cli_absolute_outside_rejected": "ok=false artifact_validation.ok=false exit=1",
+    "nightly_manifest_regression": "ok=true artifact_validation.ok=true"
+  },
+  "safety": {
+    "manifest_relative_paths_enabled": true,
+    "repo_relative_paths_preserved": true,
+    "absolute_under_root_preserved": true,
+    "absolute_outside_root_rejected": true,
+    "relative_traversal_rejected": true,
+    "json_envelope_result_equals_data": true,
+    "existing_packet_evidence_mutated": false,
+    "live_agents_or_prefect_runs_started": false,
+    "docker_backend_frontend_playwright_used": false
+  },
+  "observability_verdict": "clean",
+  "observability_notes": [
+    "Evidence validation is local filesystem validation only.",
+    "No source packet, runtime registry, worktree, live Prefect, agent, backend, frontend, Docker, Playwright, provider API, credential, commit, merge, or push was used."
+  ],
+  "blockers": []
+}

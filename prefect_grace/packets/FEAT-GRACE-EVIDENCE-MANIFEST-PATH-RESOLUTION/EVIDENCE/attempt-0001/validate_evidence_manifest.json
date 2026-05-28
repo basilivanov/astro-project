@@ -1,0 +1,197 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+    "evidence_count": 5,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-TARGETED-PYTEST",
+          "message": "Evidence EV-PATH-RESOLUTION-TARGETED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-STATIC-CHECKS",
+          "message": "Evidence EV-PATH-RESOLUTION-STATIC-CHECKS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-STRICT-PACKET",
+          "message": "Evidence EV-PATH-RESOLUTION-STRICT-PACKET not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-CLI-ACCEPTS",
+          "message": "Evidence EV-PATH-RESOLUTION-CLI-ACCEPTS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-CLI-REJECTS",
+          "message": "Evidence EV-PATH-RESOLUTION-CLI-REJECTS not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "73c11946d8dde45cb10e5666308fca1b2261c213e20668e40e4f366b5dad0af0"
+        },
+        {
+          "path": "static_checks.txt",
+          "exists": true,
+          "size": 716,
+          "hash": "a5d99604ebf18aff80f6cf195e36579e166ffe5b885c5b437c08ce882b67de1d"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 16078,
+          "hash": "a35cbeb5a0e0582bd75535b9320b2a3799420577802ef9043faa1a2df855f261"
+        },
+        {
+          "path": "cli_manifest_local_ok.json",
+          "exists": true,
+          "size": 1443,
+          "hash": "525f2b49f4274f92dd3e3023257e56fac03ca188cfc53d32ce4c4d143c15d51c"
+        },
+        {
+          "path": "cli_repo_relative_ok.json",
+          "exists": true,
+          "size": 1487,
+          "hash": "0c0cfeee2cc9d86d5008905515ce74efc595ab47813be7163c08c54f680a2ab6"
+        },
+        {
+          "path": "nightly_manifest_regression_ok.json",
+          "exists": true,
+          "size": 7621,
+          "hash": "cfdef498c1b1e34f7901736be56c8a4a1e73a09d3b19c2067d6cb74812718d64"
+        },
+        {
+          "path": "cli_traversal_rejected.json",
+          "exists": true,
+          "size": 1416,
+          "hash": "8d9ee704d84040f56aae2653d158930ac9af42bd0e275c29a54f8ed01a13f0b4"
+        },
+        {
+          "path": "cli_absolute_outside_rejected.json",
+          "exists": true,
+          "size": 1544,
+          "hash": "ef7da7d7d8c3752008b5ab9d0d92343f1202a9be72aefd1cf83797513d53e9cd"
+        },
+        {
+          "path": "cli_rejection_exit_codes.json",
+          "exists": true,
+          "size": 47,
+          "hash": "3b680489337f2e4c9bbdf73954e082463d5bac884f7cd8c72275e506d796f792"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+    "evidence_count": 5,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-TARGETED-PYTEST",
+          "message": "Evidence EV-PATH-RESOLUTION-TARGETED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-STATIC-CHECKS",
+          "message": "Evidence EV-PATH-RESOLUTION-STATIC-CHECKS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-STRICT-PACKET",
+          "message": "Evidence EV-PATH-RESOLUTION-STRICT-PACKET not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-CLI-ACCEPTS",
+          "message": "Evidence EV-PATH-RESOLUTION-CLI-ACCEPTS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PATH-RESOLUTION-CLI-REJECTS",
+          "message": "Evidence EV-PATH-RESOLUTION-CLI-REJECTS not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "73c11946d8dde45cb10e5666308fca1b2261c213e20668e40e4f366b5dad0af0"
+        },
+        {
+          "path": "static_checks.txt",
+          "exists": true,
+          "size": 716,
+          "hash": "a5d99604ebf18aff80f6cf195e36579e166ffe5b885c5b437c08ce882b67de1d"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 16078,
+          "hash": "a35cbeb5a0e0582bd75535b9320b2a3799420577802ef9043faa1a2df855f261"
+        },
+        {
+          "path": "cli_manifest_local_ok.json",
+          "exists": true,
+          "size": 1443,
+          "hash": "525f2b49f4274f92dd3e3023257e56fac03ca188cfc53d32ce4c4d143c15d51c"
+        },
+        {
+          "path": "cli_repo_relative_ok.json",
+          "exists": true,
+          "size": 1487,
+          "hash": "0c0cfeee2cc9d86d5008905515ce74efc595ab47813be7163c08c54f680a2ab6"
+        },
+        {
+          "path": "nightly_manifest_regression_ok.json",
+          "exists": true,
+          "size": 7621,
+          "hash": "cfdef498c1b1e34f7901736be56c8a4a1e73a09d3b19c2067d6cb74812718d64"
+        },
+        {
+          "path": "cli_traversal_rejected.json",
+          "exists": true,
+          "size": 1416,
+          "hash": "8d9ee704d84040f56aae2653d158930ac9af42bd0e275c29a54f8ed01a13f0b4"
+        },
+        {
+          "path": "cli_absolute_outside_rejected.json",
+          "exists": true,
+          "size": 1544,
+          "hash": "ef7da7d7d8c3752008b5ab9d0d92343f1202a9be72aefd1cf83797513d53e9cd"
+        },
+        {
+          "path": "cli_rejection_exit_codes.json",
+          "exists": true,
+          "size": 47,
+          "hash": "3b680489337f2e4c9bbdf73954e082463d5bac884f7cd8c72275e506d796f792"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

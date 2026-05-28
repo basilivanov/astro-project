@@ -304,8 +304,11 @@ def _cmd_validate_evidence_manifest(args: argparse.Namespace) -> None:
         # Validate manifest against contract
         contract_validation = validate_evidence_manifest(manifest, contract)
 
-        # Validate artifact references
-        artifact_roots = [Path(args.artifact_root)] if args.artifact_root else []
+        # Validate artifact references. The manifest directory is a relative
+        # root so short sibling paths such as "targeted_pytest.txt" work.
+        artifact_roots = [args.manifest_path.parent]
+        if args.artifact_root:
+            artifact_roots.append(Path(args.artifact_root))
         artifact_validation = validate_artifact_references(manifest, artifact_roots)
 
         result = {

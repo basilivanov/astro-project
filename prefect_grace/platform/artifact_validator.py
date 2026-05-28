@@ -183,11 +183,12 @@ def _validate_single_artifact(
 
     # Check if path is absolute
     if path.is_absolute():
-        # Check if under any allowed artifact root
+        # Check if under any allowed artifact root after resolving symlinks and
+        # traversal segments.
         under_root = False
         for root in artifact_roots:
             try:
-                path.relative_to(root)
+                path.resolve().relative_to(root.resolve())
                 under_root = True
                 break
             except ValueError:

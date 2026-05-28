@@ -1,0 +1,8 @@
+$ python3 -m compileall -q prefect_grace/platform/artifact_validator.py prefect_grace/cli_commands/evidence.py prefect_grace/cli_commands/parser.py
+compileall: PASS
+$ python3 scripts/grace_lint.py prefect_grace/platform/artifact_validator.py
+[GRACE-LINT] All modules in prefect_grace/platform/artifact_validator.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/cli_commands/evidence.py
+[GRACE-LINT] All modules in prefect_grace/cli_commands/evidence.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/cli_commands/parser.py
+[GRACE-LINT] All modules in prefect_grace/cli_commands/parser.py comply with GRACE Canon Script Discipline.

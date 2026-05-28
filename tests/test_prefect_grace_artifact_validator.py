@@ -202,6 +202,39 @@ def test_validate_artifact_references_relative_path():
         assert result.validated_artifacts[0].hash is not None
 
 
+def test_validate_artifact_references_rejects_relative_traversal_outside_root():
+    """Test validation rejects relative paths that escape the allowed root."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        root = tmpdir_path / "root"
+        root.mkdir()
+        outside = tmpdir_path / "outside.txt"
+        outside.write_text("outside")
+
+        item = EvidenceItem(
+            id="EV-TEST-001",
+            status="collected",
+            stage="packet_local",
+            producer="pytest",
+            artifact_paths=["../outside.txt"],
+            summary="Traversal attempt",
+        )
+        manifest = EvidenceManifest(
+            packet_id="PKT-001",
+            generated_by="verifier",
+            evidence=[item],
+            blockers=[],
+        )
+
+        result = validate_artifact_references(manifest, [root])
+
+        assert result.ok is False
+        assert len(result.validated_artifacts) == 1
+        assert result.validated_artifacts[0].path == "../outside.txt"
+        assert result.validated_artifacts[0].exists is False
+        assert result.missing_artifacts == ["../outside.txt"]
+
+
 def test_validate_artifact_references_records_metadata():
     """Test validation records size and hash metadata."""
     with tempfile.TemporaryDirectory() as tmpdir:
