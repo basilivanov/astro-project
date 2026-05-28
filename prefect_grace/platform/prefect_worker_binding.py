@@ -487,6 +487,17 @@ def run_prefect_worker_binding_preflight(
             if apply_success:
                 deployment_mutation = "applied"
                 warnings.append(f"Deployment applied: {deployment_id}")
+
+                # Re-read deployment after successful apply to get consistent state
+                deployment_exists, dep_work_pool, dep_work_queue, parameters_valid, reread_errors = _check_deployment(
+                    prefect_client, deployment_name, work_pool_name, "grace-live"
+                )
+
+                # Clear stale pre-apply DEPLOYMENT_NOT_FOUND errors
+                errors = [e for e in errors if e["type"] != "DEPLOYMENT_NOT_FOUND"]
+
+                # Add any new errors from re-read (should be none if apply succeeded)
+                errors.extend(reread_errors)
             else:
                 deployment_mutation = "apply_failed"
                 errors.extend(apply_errors)

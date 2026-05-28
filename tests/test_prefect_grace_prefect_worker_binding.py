@@ -251,3 +251,218 @@ class TestDeployment:
         # Check function exists
         assert hasattr(module, "managed_packet_runner_flow"), "Flow function not found in module"
         assert callable(module.managed_packet_runner_flow), "managed_packet_runner_flow is not callable"
+
+
+class TestPreflightApplyPath:
+    """Test platform-level preflight apply path with injected mocks."""
+
+    def test_preflight_dry_run_would_apply(self, tmp_path):
+        """Test dry-run mode with --apply-deployment reports would-apply plan."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - not found
+        mock_client.read_deployment_by_name = Mock(return_value=None)
+
+        # Run preflight in dry-run mode with apply_deployment=True
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=True,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=True,
+            approval_token="deployment",
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should report dry_run_would_apply
+        assert result.dry_run is True
+        assert result.deployment_mutation == "dry_run_would_apply"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+
+        # Should not call apply helper in dry-run mode
+        # (no way to verify this without patching, but zero runs proves it)
+
+    def test_preflight_apply_success_rereads_deployment(self, tmp_path, monkeypatch):
+        """Test successful apply re-reads deployment and returns consistent state."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - first call returns None (not found), second call returns deployment
+        mock_deployment = Mock()
+        mock_deployment.work_pool_name = "astro-process"
+        mock_deployment.work_queue_name = "grace-live"
+        mock_client.read_deployment_by_name = Mock(side_effect=[None, mock_deployment])
+
+        # Mock apply helper to succeed
+        from unittest.mock import patch
+        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
+            mock_apply.return_value = (True, "dep-123", [])
+
+            # Run preflight in apply mode
+            result = run_prefect_worker_binding_preflight(
+                project_config=project_config,
+                dry_run=False,
+                apply_deployment=True,
+                acknowledge_prefect_mutation=True,
+                approval_token="deployment",
+                run_worker_smoke=False,
+                prefect_client=mock_client,
+            )
+
+        # Should report applied
+        assert result.dry_run is False
+        assert result.deployment_mutation == "applied"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+
+        # Should have re-read deployment (2 calls total)
+        assert mock_client.read_deployment_by_name.call_count == 2
+
+        # After-state should be consistent
+        assert result.deployment_exists is True
+        assert result.deployment_work_pool_name == "astro-process"
+        assert result.deployment_work_queue_name == "grace-live"
+        assert result.deployment_parameters_valid is True
+
+        # Should not have DEPLOYMENT_NOT_FOUND error
+        assert not any(e["type"] == "DEPLOYMENT_NOT_FOUND" for e in result.errors)
+
+        # Should be ok
+        assert result.ok is True
+
+    def test_preflight_apply_failure(self, tmp_path, monkeypatch):
+        """Test failed apply reports apply_failed and preserves errors."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - not found
+        mock_client.read_deployment_by_name = Mock(return_value=None)
+
+        # Mock apply helper to fail
+        from unittest.mock import patch
+        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
+            mock_apply.return_value = (False, None, [{"type": "DEPLOYMENT_APPLY_FAILED", "message": "Apply failed"}])
+
+            # Run preflight in apply mode
+            result = run_prefect_worker_binding_preflight(
+                project_config=project_config,
+                dry_run=False,
+                apply_deployment=True,
+                acknowledge_prefect_mutation=True,
+                approval_token="deployment",
+                run_worker_smoke=False,
+                prefect_client=mock_client,
+            )
+
+        # Should report apply_failed
+        assert result.dry_run is False
+        assert result.deployment_mutation == "apply_failed"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+
+        # Should have apply failure error
+        assert any(e["type"] == "DEPLOYMENT_APPLY_FAILED" for e in result.errors)
+
+        # Should not be ok
+        assert result.ok is False
+
+    def test_preflight_missing_approval_gates(self, tmp_path):
+        """Test apply without approval gates is blocked."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - not found
+        mock_client.read_deployment_by_name = Mock(return_value=None)
+
+        # Run preflight without acknowledgement
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=False,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=False,  # Missing gate
+            approval_token="deployment",
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should be blocked
+        assert result.deployment_mutation == "none"
+        assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED" for e in result.errors)
+
+        # Run preflight without approval token
+        result = run_prefect_worker_binding_preflight(
+            project_config=project_config,
+            dry_run=False,
+            apply_deployment=True,
+            acknowledge_prefect_mutation=True,
+            approval_token=None,  # Missing gate
+            run_worker_smoke=False,
+            prefect_client=mock_client,
+        )
+
+        # Should be blocked
+        assert result.deployment_mutation == "none"
+        assert any(e["type"] == "DEPLOYMENT_APPLY_NOT_APPROVED" for e in result.errors)
+
