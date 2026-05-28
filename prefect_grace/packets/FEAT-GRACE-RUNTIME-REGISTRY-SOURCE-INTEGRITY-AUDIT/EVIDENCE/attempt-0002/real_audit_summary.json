@@ -1,0 +1,33 @@
+{
+  "command": "python3 -m prefect_grace.cli registry-source-integrity-audit --project prefect_grace/project.yaml --json --max-items 20",
+  "exit_code": 1,
+  "expected_nonzero": true,
+  "summary": {
+    "accepted_total": 59,
+    "checked_total": 59,
+    "blocking_issue_total": 12,
+    "warning_issue_total": 7,
+    "issue_counts": {
+      "evidence_manifest_invalid": 5,
+      "evidence_manifest_missing": 12,
+      "source_untracked": 2
+    }
+  },
+  "regression_confirmation": {
+    "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+    "latest_review_status": "accepted",
+    "source_tracked_by_git": false,
+    "latest_evidence_manifest_valid": false,
+    "expected_issue_codes_still_present": [
+      "source_untracked",
+      "evidence_manifest_invalid"
+    ]
+  },
+  "runtime_safety": {
+    "registry_written": false,
+    "astro_packet_dirs_edited": false,
+    "prefect_started": false,
+    "live_agents_started": false
+  }
+}
+

@@ -71,6 +71,54 @@ def _cmd_registry_apply_smoke(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_registry_source_integrity_audit(args: argparse.Namespace) -> None:
+    command = "registry-source-integrity-audit"
+    try:
+        from prefect_grace.platform.registry_source_integrity_audit import (
+            audit_registry_source_integrity,
+        )
+
+        result = audit_registry_source_integrity(
+            project_config=Path(args.project) if args.project else None,
+            max_items=int(getattr(args, "max_items", 50)),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            warning_issues = [issue for issue in result.issues if issue.get("severity") == "warning"]
+            blocking_issues = [issue for issue in result.issues if issue.get("severity") == "blocking"]
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=warning_issues,
+                errors=[] if result.ok else blocking_issues,
+            ))
+        else:
+            print(f"Registry source integrity audit for {result.project_key}: {'OK' if result.ok else 'FAILED'}")
+            print(f"  Accepted checked: {result.checked_total}")
+            print(f"  Blocking issues: {result.blocking_issue_total}")
+            print(f"  Warning issues: {result.warning_issue_total}")
+            if result.issue_counts:
+                print("  Issue counts:")
+                for code, count in result.issue_counts.items():
+                    print(f"    - {code}: {count}")
+
+        if not result.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "REGISTRY_SOURCE_INTEGRITY_AUDIT_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Registry source integrity audit failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _cmd_run_e2e_registry_seeded_smoke(args: argparse.Namespace) -> None:
     command = "run-e2e-registry-seeded-smoke"
     try:

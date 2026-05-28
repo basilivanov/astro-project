@@ -156,6 +156,19 @@ def test_cli_registry_apply_smoke_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_registry_source_integrity_audit_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "registry-source-integrity-audit", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--project-config" in result.stdout
+    assert "--max-items" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_registry_bootstrap_apply_contract() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "prefect_grace.cli", "registry-bootstrap-apply", "--help"],

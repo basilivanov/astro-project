@@ -1,0 +1,4 @@
+command: python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.md --strict --json
+result: PASS
+summary: ok=true; parsed packet_id FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT-W01-ACCEPTED-SOURCE-EVIDENCE-AUDIT with no legacy warnings.
+

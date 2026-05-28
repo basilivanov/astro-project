@@ -1,0 +1,3 @@
+command: python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EVIDENCE/attempt-0002/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.md --json
+result: PASS
+summary: ok=true; contract validation had only unknown_evidence_id warnings from the minimal local contract parser, and artifact validation found all referenced artifacts.

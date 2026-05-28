@@ -1,0 +1,39 @@
+{
+  "command": "python3 -m prefect_grace.cli registry-source-integrity-audit --project prefect_grace/project.yaml --json --max-items 20",
+  "exit_code": 1,
+  "expected_nonzero": true,
+  "summary": {
+    "accepted_total": 59,
+    "checked_total": 59,
+    "blocking_issue_total": 12,
+    "warning_issue_total": 7,
+    "issue_counts": {
+      "evidence_manifest_invalid": 5,
+      "evidence_manifest_missing": 12,
+      "source_untracked": 2
+    },
+    "issues_truncated": false,
+    "packets_truncated": true
+  },
+  "expected_findings": [
+    {
+      "packet_id": "FEAT-ASTRO-DATE-FORMATTER-TEST-W01-ISO-DATE-UTILS",
+      "code": "source_untracked"
+    },
+    {
+      "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+      "codes": [
+        "source_untracked",
+        "evidence_manifest_invalid"
+      ],
+      "manifest_error": "manifest_packet_id_unknown"
+    }
+  ],
+  "runtime_safety": {
+    "registry_written": false,
+    "source_packets_mutated": false,
+    "prefect_started": false,
+    "live_agents_started": false
+  }
+}
+

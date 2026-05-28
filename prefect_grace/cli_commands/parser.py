@@ -60,6 +60,7 @@ from prefect_grace.cli_commands.packet_submission import (
 )
 from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_registry_apply_smoke,
+    _cmd_registry_source_integrity_audit,
     _cmd_run_e2e_registry_seeded_smoke,
     _cmd_run_prefect_e2e_live_smoke,
     _cmd_run_prefect_e2e_batch_smoke,
@@ -336,6 +337,12 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     registry_apply_smoke.add_argument("--packet-root")
     registry_apply_smoke.add_argument("--json", action="store_true")
     registry_apply_smoke.set_defaults(func=_cmd_registry_apply_smoke)
+
+    registry_source_integrity_audit = subparsers.add_parser("registry-source-integrity-audit")
+    registry_source_integrity_audit.add_argument("--project", "--project-config", dest="project", required=True)
+    registry_source_integrity_audit.add_argument("--max-items", type=int, default=50)
+    registry_source_integrity_audit.add_argument("--json", action="store_true")
+    registry_source_integrity_audit.set_defaults(func=_cmd_registry_source_integrity_audit)
 
     e2e_registry_seeded_smoke = subparsers.add_parser("run-e2e-registry-seeded-smoke")
     e2e_registry_seeded_smoke.add_argument("--project", required=True)
