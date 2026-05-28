@@ -1,0 +1,87 @@
+schema_version: '1'
+artifact_type: execution_packet
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY-W01-ONE-SIDECAR
+feature_id: FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY
+wave_id: W01
+title: FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY-W01-ONE-SIDECAR
+objective: Apply exactly one stale canonical `EXECUTION_PACKET.yaml` sidecar through
+  the accepted operator-gated migration command, without migrating missing sidecars.
+status: ready
+phase: PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP
+depends_on:
+- FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE
+modules:
+- M-GRACE-PACKET-AUTHORING
+- M-GRACE-CLI
+- M-GRACE-PACKET-VALIDATION
+allowed_write_scope:
+- prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml
+- prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/**
+frozen_scope:
+- backend/**
+- frontend/**
+- .worktrees/**
+- prefect_grace/executor_history.yaml
+- prefect_grace/packet_registry.yaml
+- /var/lib/grace-orchestrator/**
+- prefect_grace/packets/FEAT-ASTRO-*/**
+- prefect_grace/packets/FEAT-WEEK-*/**
+must_preserve:
+- Only the stale `prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml`
+  sidecar may be updated by the migration apply.
+- The 64 packets without sidecars must remain unmigrated.
+- The apply command must use `--stale-only --apply --limit 1`, the explicit source-hash-change
+  acknowledgement flag, and `GRACE_PACKET_YAML_MIGRATION_APPROVED=source_hash_change`.
+- Apply output must report no markdown mutations, registry mutations, Prefect runs,
+  or live agents.
+- Audit and plan verification must be read-only and report no writes, runs, or agents.
+- Docker, backend, frontend, Playwright, live Prefect, and live agents remain untouched.
+verification: '- `python3 -m prefect_grace.cli apply-packet-yaml-sidecar-migration
+  --packet-root prefect_grace/packets --project prefect_grace/project.yaml --stale-only
+  --dry-run --limit 1 --json`
+
+  - `GRACE_PACKET_YAML_MIGRATION_APPROVED=source_hash_change python3 -m prefect_grace.cli
+  apply-packet-yaml-sidecar-migration --packet-root prefect_grace/packets --project
+  prefect_grace/project.yaml --stale-only --apply --limit 1 --i-understand-source-hash-change
+  --json`
+
+  - `python3 -m prefect_grace.cli audit-packet-yaml-sidecars --packet-root prefect_grace/packets
+  --json --limit 100`
+
+  - `python3 -m prefect_grace.cli plan-packet-yaml-sidecar-migration --packet-root
+  prefect_grace/packets --project prefect_grace/project.yaml --json --limit 100`
+
+  - `python3 -m prefect_grace.cli sync-packet-yaml-sidecar --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md
+  --dry-run --json`
+
+  - `python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md
+  --strict --json`
+
+  - `python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EVIDENCE/attempt-0001/evidence_manifest.json
+  --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md
+  --artifact-root prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EVIDENCE/attempt-0001
+  --json`
+
+  - `python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md
+  --repo-root . --json`
+
+  - `git diff --check`'
+expected_evidence:
+- EVIDENCE/attempt-0001/evidence_manifest.json
+- EVIDENCE/attempt-0001/SUMMARY.md
+- EVIDENCE/attempt-0001/preflight_stale_only_dry_run.json
+- EVIDENCE/attempt-0001/apply_stale_only_one_sidecar.json
+- EVIDENCE/attempt-0001/post_audit.json
+- EVIDENCE/attempt-0001/post_plan.json
+- EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json
+- EVIDENCE/attempt-0001/strict_validate_packet.json
+- EVIDENCE/attempt-0001/validate_evidence_manifest.json
+- EVIDENCE/attempt-0001/scope_check.json
+- EVIDENCE/attempt-0001/diff_check.txt
+escalation_triggers:
+- Dry-run selection is not exactly `FEAT-GRACE-PACKET-YAML-CONTRACT-W01-PACKET-SPEC-SIDECAR`.
+- Apply would write any path other than `prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml`.
+- Apply would create missing sidecars or mutate markdown, runtime registry, executor
+  history, Prefect state, Docker, backend, frontend, or Playwright.
+- Post-apply audit still reports a stale or invalid sidecar.
+- Evidence cannot prove the apply had zero Prefect runs and zero live agents.

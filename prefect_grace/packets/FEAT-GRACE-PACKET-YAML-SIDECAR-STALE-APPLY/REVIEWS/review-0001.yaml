@@ -1,0 +1,55 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY-W01-ONE-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T21:05:33Z"
+summary: >
+  Accepted. The packet applied exactly one stale canonical EXECUTION_PACKET.yaml
+  sidecar through the operator-gated migration command, left missing sidecars
+  unmigrated, and kept markdown, registry, Prefect, and live-agent mutations at
+  zero.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: degraded-but-expected
+  verification:
+    preflight_stale_only_dry_run: passed
+    approved_stale_only_apply: passed
+    post_apply_audit: passed
+    post_apply_plan: passed
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed_with_non_blocking_unknown_evidence_id_warnings
+    self_sidecar_sync_dry_run: noop
+    changed_packet_sidecar_sync_dry_run: noop
+    scope_check: passed
+    git_diff_check: passed
+  apply:
+    selected_count: 1
+    target_packet_id: FEAT-GRACE-PACKET-YAML-CONTRACT-W01-PACKET-SPEC-SIDECAR
+    mutated_path: prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml
+    markdown_mutations: []
+    registry_mutations: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  post_state:
+    packets_total: 72
+    canonical: 6
+    no_sidecar: 64
+    stale_sidecar: 0
+    invalid_sidecar: 0
+    skipped: 2
+  residual_risk:
+    sync_packets_changed_after_acceptance:
+      - FEAT-GRACE-PACKET-YAML-CONTRACT-W01-PACKET-SPEC-SIDECAR
+notes:
+  - >
+    The changed-after-acceptance signal is expected after the approved
+    source-hash-changing sidecar apply. It should be reconciled by a separate
+    scoped registry source-hash packet before considering the YAML sidecar
+    migration state fully clean.
+  - >
+    The remaining migration plan contains only missing sidecars and was not
+    applied by this package.
+blockers: []
