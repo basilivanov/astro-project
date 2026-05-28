@@ -684,8 +684,13 @@ def _register_prefect_worker_binding_commands(subparsers) -> None:
     """Register Prefect worker binding commands."""
     prefect_binding = subparsers.add_parser("prefect-worker-binding", help="Validate Prefect infrastructure readiness")
     prefect_binding.add_argument("--project", type=Path, required=True, help="Path to grace.yaml project config")
-    prefect_binding.add_argument("--dry-run", action="store_true", default=True, help="Dry-run mode (default)")
-    prefect_binding.add_argument("--apply-deployment", action="store_true", help="Apply deployment registration (requires approval)")
+
+    # Mutually exclusive group for dry-run vs apply mode
+    mode_group = prefect_binding.add_mutually_exclusive_group()
+    mode_group.add_argument("--dry-run", action="store_true", default=False, help="Dry-run mode (default if neither flag specified)")
+    mode_group.add_argument("--apply", action="store_true", help="Apply mode (requires --apply-deployment and approval gates)")
+
+    prefect_binding.add_argument("--apply-deployment", action="store_true", help="Apply deployment registration (requires --apply and approval)")
     prefect_binding.add_argument("--i-understand-prefect-mutation", action="store_true", help="Acknowledge Prefect mutation")
     prefect_binding.add_argument("--run-worker-smoke", action="store_true", help="Run worker runtime smoke test")
     prefect_binding.add_argument("--json", action="store_true", help="JSON output")

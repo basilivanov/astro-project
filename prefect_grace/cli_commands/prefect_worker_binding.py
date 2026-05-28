@@ -30,8 +30,16 @@ def _cmd_prefect_worker_binding(args):
     from prefect_grace.platform.prefect_worker_binding import run_prefect_worker_binding_preflight
     from prefect_grace.platform.runtime_adapter import create_prefect_sync_client
 
+    # Determine dry-run mode: default to True unless --apply is specified
+    dry_run = not args.apply if hasattr(args, 'apply') else True
+
     # Check approval gates for apply mode
     approval_token = os.environ.get("GRACE_PREFECT_BINDING_APPROVED")
+
+    # Apply mode requires --apply flag
+    if args.apply_deployment and not args.apply:
+        print("ERROR: --apply-deployment requires --apply flag", file=sys.stderr)
+        sys.exit(2)
 
     if args.apply_deployment:
         if not args.i_understand_prefect_mutation:
@@ -48,7 +56,7 @@ def _cmd_prefect_worker_binding(args):
     # Run preflight with client (or None if Prefect unavailable)
     result = run_prefect_worker_binding_preflight(
         project_config=args.project,
-        dry_run=args.dry_run,
+        dry_run=dry_run,
         apply_deployment=args.apply_deployment,
         acknowledge_prefect_mutation=args.i_understand_prefect_mutation,
         approval_token=approval_token,
