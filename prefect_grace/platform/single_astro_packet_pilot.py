@@ -321,6 +321,15 @@ def _write_selected_registry(
     return submission_root
 
 
+# START_FUNCTION_CONTRACT
+# name: _is_low_risk_candidate
+# purpose: Check if packet is a low-risk candidate for first Astro pilot.
+# inputs: packet (dict[str, Any]) - Packet record with status and allowed_write_scope.
+# returns: tuple[bool, str | None] - (is_low_risk, rejection_reason).
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Returns (False, reason_string) for any rejection condition.
+# END_FUNCTION_CONTRACT
 def _is_low_risk_candidate(packet: dict[str, Any]) -> tuple[bool, str | None]:
     """Check if packet is a low-risk candidate for first Astro pilot.
 
@@ -357,6 +366,15 @@ def _is_low_risk_candidate(packet: dict[str, Any]) -> tuple[bool, str | None]:
     return True, None
 
 
+# START_FUNCTION_CONTRACT
+# name: run_single_astro_packet_pilot
+# purpose: Plan or run one low-risk real Astro packet through managed Prefect runner.
+# inputs: project_path (Path), state/worktree/packet roots (Path), dry_run (bool), execute_agent (bool), acknowledge_live_agent (bool), opt_in_token (str|None), timeout_seconds (int), packet_id (str|None), submitter (Callable|None), status_reader (Callable|None).
+# returns: SingleAstroPacketPilotResult with bounded submission and scope evidence.
+# side_effects: May submit one Prefect flow run after all gates; no Git mutation.
+# emitted_logs: None.
+# error_behavior: Returns structured errors for gate, planning, submission, status, and scope failures.
+# END_FUNCTION_CONTRACT
 def run_single_astro_packet_pilot(
     project_path: str | Path,
     state_root: str | Path,
@@ -390,15 +408,6 @@ def run_single_astro_packet_pilot(
     Returns:
         SingleAstroPacketPilotResult with bounded evidence
     """
-    # START_FUNCTION_CONTRACT
-    # name: run_single_astro_packet_pilot
-    # purpose: Plan or run one low-risk real Astro packet through managed Prefect runner.
-    # inputs: project_path (Path), state/worktree/packet roots (Path), dry_run (bool), execute_agent (bool), acknowledge_live_agent (bool), opt_in_token (str|None), timeout_seconds (int), packet_id (str|None), submitter (Callable|None), status_reader (Callable|None).
-    # returns: SingleAstroPacketPilotResult with bounded submission and scope evidence.
-    # side_effects: May submit one Prefect flow run after all gates; no Git mutation.
-    # emitted_logs: None.
-    # error_behavior: Returns structured errors for gate, planning, submission, status, and scope failures.
-    # END_FUNCTION_CONTRACT
     project_path = Path(project_path)
     state_root = Path(state_root)
     worktree_root = Path(worktree_root)
