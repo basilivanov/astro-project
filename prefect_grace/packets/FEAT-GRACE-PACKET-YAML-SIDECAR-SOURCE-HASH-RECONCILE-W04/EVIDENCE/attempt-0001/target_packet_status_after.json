@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT-W01-FEATURE-PIPELINE-MODULE-SPLIT"
+      ],
+      "feature_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT",
+      "objective": "Split `prefect_grace/tasks/codex_launcher.py` into smaller modules after the\nsource-hash resume gate, synthetic edge matrix, and feature pipeline split are\naccepted.\n\nThis packet is an extraction-only refactor of the Codex executor adapter. It\nmust not change resume behavior, prompt content, heartbeat behavior, process\nexecution, session storage, or registry semantics.",
+      "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+      "path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4",
+      "status": "ready",
+      "title": "GRACE Codex Launcher Module Split",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT-W01-FEATURE-PIPELINE-MODULE-SPLIT"
+      ],
+      "feature_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT",
+      "objective": "Split `prefect_grace/tasks/codex_launcher.py` into smaller modules after the\nsource-hash resume gate, synthetic edge matrix, and feature pipeline split are\naccepted.\n\nThis packet is an extraction-only refactor of the Codex executor adapter. It\nmust not change resume behavior, prompt content, heartbeat behavior, process\nexecution, session storage, or registry semantics.",
+      "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+      "path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4",
+      "status": "ready",
+      "title": "GRACE Codex Launcher Module Split",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

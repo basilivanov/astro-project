@@ -1,0 +1,58 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04-CODEX-LAUNCHER-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T23:12:30Z"
+summary: >
+  Accepted. The package reconciles exactly one accepted Codex launcher module
+  split runtime registry source hash after YAML sidecar creation, using the
+  existing scoped registry-bootstrap-apply path.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: clean_for_target_reconcile_with_pre_review_ready_self
+  verification:
+    preflight_registry_bootstrap_apply_dry_run: passed
+    approved_registry_bootstrap_apply: passed
+    target_packet_status_after: passed
+    sync_packets_after_target_apply: passed_with_ready_self
+    audit_sidecars_after: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    scope_check: passed
+    git_diff_check: passed
+  reconcile:
+    packet_id: FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT
+    previous_source_hash: sha256:fecfbd8664f05851b779a869c4e7c6815ac44385aa7346840ce13fa57f4678e9
+    reconciled_source_hash: sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4
+    planned_action_counts:
+      update: 1
+    apply_count: 1
+    idempotence_after_apply:
+      noop: 1
+    changed_after_acceptance_after_apply: []
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04-CODEX-LAUNCHER-SIDECAR
+    source_mutations: []
+    writes_outside_runtime_state_root: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  sidecar_state:
+    canonical: 17
+    no_sidecar: 61
+    stale_sidecar: 0
+    invalid_sidecar: 0
+    skipped: 2
+notes:
+  - >
+    The sidecar audit canonical count includes this newly-created W04 packet
+    sidecar. No target source file or target sidecar was mutated by this
+    reconcile package.
+  - >
+    The pre-review ready item is this packet itself, which is expected until
+    this accepted review is committed and the packet is scoped-bootstrap-applied
+    into the runtime registry.
+blockers: []
