@@ -1,0 +1,109 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR",
+  "generated_by": "codex",
+  "status": "confirmed",
+  "summary": "Post-parser rework verification passed: target sidecar is canonical, invalid_sidecar=0, stale_sidecar=0, and only the expected changed_after_acceptance remains before source-hash reconcile.",
+  "evidence": [
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "SUMMARY.md"
+      ],
+      "summary": "Attempt-0002 summary and degraded-but-expected verdict."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-POST-AUDIT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "post_audit_after_parser_rework.json"
+      ],
+      "summary": "Post-parser audit reports stale_sidecar=0, invalid_sidecar=0, target canonical, and no writes/runs/agents."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-POST-PLAN",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "post_plan_after_parser_rework.json"
+      ],
+      "summary": "Post-parser plan reports 63 remaining missing sidecars with target absent from items and findings."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-SYNC-PACKETS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "sync_packets_after_parser_rework.json"
+      ],
+      "summary": "sync-packets dry-run succeeds with exactly one expected changed_after_acceptance target and no GRACE mismatch."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-TARGET-STATUS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "packet_status_target_before_reconcile.json"
+      ],
+      "summary": "Target runtime status is accepted with the old source hash before reconcile."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-SELF-SYNC",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "self_sidecar_sync_dry_run.json"
+      ],
+      "summary": "Self-sidecar sync dry-run for this packet reports noop."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-STRICT-VALIDATE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "strict_validate_packet.json"
+      ],
+      "summary": "Strict packet validation output for this packet."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-MANIFEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "Evidence manifest validation output."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-SCOPE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Explicit changed files are within the packet allowed write scope."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MISSING-APPLY-DIFF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git",
+      "artifact_paths": [
+        "diff_check.txt"
+      ],
+      "summary": "git diff whitespace check output."
+    }
+  ],
+  "blockers": []
+}

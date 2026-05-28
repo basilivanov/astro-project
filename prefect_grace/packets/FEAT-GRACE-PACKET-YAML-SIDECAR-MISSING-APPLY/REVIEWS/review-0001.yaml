@@ -1,0 +1,59 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T22:05:57Z"
+summary: >
+  Accepted after parser-prerequisite rework. The package created exactly one
+  missing GRACE EXECUTION_PACKET.yaml sidecar, then re-verified it as canonical
+  after the legacy H1 title parser guard removed the false GRACE packet-id
+  mismatch.
+metadata:
+  attempt: attempt-0002
+  observability_verdict: degraded-but-expected
+  verification:
+    attempt_0001_preflight: passed
+    attempt_0001_one_sidecar_apply: passed
+    post_parser_sidecar_audit: passed
+    post_parser_migration_plan: passed
+    sync_packets_dry_run: passed_degraded_expected
+    target_packet_status: passed
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    self_sidecar_sync_dry_run: noop
+    scope_check: passed
+    git_diff_check: passed
+  apply:
+    selected_count: 1
+    target_packet_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+    mutated_path: prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.yaml
+    planned_action: create
+    risk: accepted_source_hash_change
+    markdown_mutations: []
+    registry_mutations: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  post_rework_state:
+    sidecar_counts:
+      canonical: 10
+      no_sidecar: 63
+      stale_sidecar: 0
+      invalid_sidecar: 0
+      skipped: 2
+    remaining_plan_count: 63
+    target_in_remaining_plan: false
+    changed_after_acceptance:
+      - FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+notes:
+  - >
+    Attempt-0001 exposed a real parser compatibility issue for descriptive
+    Execution Packet H1 titles. That issue was fixed and accepted separately in
+    FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD.
+  - >
+    The remaining changed_after_acceptance item is expected after creating a
+    sidecar for an already accepted packet. It should be reconciled in the next
+    scoped runtime source-hash packet.
+blockers: []
