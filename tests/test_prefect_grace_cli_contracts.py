@@ -319,6 +319,27 @@ def test_cli_live_opt_in_single_scratch_packet_contract() -> None:
     assert "--offline-fake-submitter" not in result.stdout
 
 
+def test_cli_single_live_prefect_packet_pilot_contract() -> None:
+    """Verify run-single-live-prefect-packet-pilot CLI follows fail-closed contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-single-live-prefect-packet-pilot", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--state-root" in result.stdout
+    assert "--worktree-root" in result.stdout
+    assert "--packet-root" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--no-dry-run" in result.stdout
+    assert "--execute-agent" in result.stdout
+    assert "--i-understand-live-agent" in result.stdout
+    assert "--timeout-seconds" in result.stdout
+    assert "--json" in result.stdout
+    assert "--offline-fake-submitter" not in result.stdout
+
+
 def test_check_scope_cli_contract() -> None:
     """Verify check-scope CLI follows contract."""
     # Test that command exists and has required args

@@ -1,0 +1,199 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "result": {
+    "packet_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+    "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+    "objective": "Run one operator-approved synthetic scratch packet through the real Prefect\nmanaged packet runner deployment and GRACE worker, with no product-code scope.\n\nThis is the first real Prefect-managed packet execution after deployment\nbinding. It must prove that Prefect creates exactly one managed packet flow run,\nthe worker consumes it, the managed runner uses an isolated worktree, and scope\nevidence remains confined to scratch-only paths. It must not run a real Astro\nproduct packet yet.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+      "FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT-W01-PREFECT-WORKTREE-GIT-GATE",
+      "FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET-W01-LIVE-OPT-IN-SINGLE-SCRATCH"
+    ],
+    "modules": [
+      "M-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+      "M-GRACE-PREFECT-NATIVE-SUBMISSION",
+      "M-GRACE-MANAGED-PACKET-RUNNER",
+      "M-GRACE-LIVE-OPT-IN",
+      "M-GRACE-SCOPE-GUARD",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/single_live_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/prefect_native_submission.py",
+      "/opt/astro-project/prefect_grace/tasks/prefect_submitter.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_execution.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_submission.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/**",
+      "/tmp/grace-single-live-prefect-packet-pilot/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet",
+      "/opt/astro-project/.worktrees/**"
+    ],
+    "must_preserve": [
+      "Exactly one synthetic scratch packet is selected.",
+      "Dry-run default creates zero Prefect flow runs and starts zero agents.",
+      "Real execution requires explicit CLI opt-in and an environment token.",
+      "Scratch packet allowed scope is only `scratch/grace-single-live-prefect/**`",
+      "Backend, frontend, platform code, source packets, registry state, Docker",
+      "Git commit, push, and merge are disabled for this packet.",
+      "CLI JSON envelope keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_single_live_prefect_packet_pilot.py \\\n  tests/test_prefect_grace_cli_single_live_prefect_packet_pilot.py \\\n  tests/test_prefect_grace_single_live_packet_pilot.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, worker-container dry-run\nbinding proof, and injected live proof. Do not run real live agent without\nArchitect approval.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Dry-run CLI proof.",
+      "Missing opt-in blocked proof.",
+      "Injected one-run proof with `prefect_runs_created=1`.",
+      "Scope proof with only scratch/temp writes.",
+      "Post-test observability verdict."
+    ],
+    "escalation_triggers": [
+      "More than one packet can run.",
+      "A real source packet is selected.",
+      "Product code or source packet files are modified.",
+      "Git mutation is reachable.",
+      "Output includes unbounded logs or secrets."
+    ],
+    "source_hash": "sha256:ac60dc4cb8d9be880a59f7b0b46f0720460606f4dcb8e324d4170fc3bb4719ef",
+    "section_lines": {
+      "execution packet: feat-grace-single-live-prefect-packet-pilot-w01-managed-prefect-scratch-run": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 39,
+      "allowed write scope": 48,
+      "frozen scope": 64,
+      "must preserve": 74,
+      "required design decisions": 86,
+      "1. prefect is the execution path": 88,
+      "2. single scratch packet": 93,
+      "3. bounded polling": 99,
+      "implementation requirements": 104,
+      "acceptance criteria": 115,
+      "verification": 124,
+      "expected evidence": 140,
+      "escalation triggers": 152
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.md"
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+    "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+    "objective": "Run one operator-approved synthetic scratch packet through the real Prefect\nmanaged packet runner deployment and GRACE worker, with no product-code scope.\n\nThis is the first real Prefect-managed packet execution after deployment\nbinding. It must prove that Prefect creates exactly one managed packet flow run,\nthe worker consumes it, the managed runner uses an isolated worktree, and scope\nevidence remains confined to scratch-only paths. It must not run a real Astro\nproduct packet yet.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+      "FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT-W01-PREFECT-WORKTREE-GIT-GATE",
+      "FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET-W01-LIVE-OPT-IN-SINGLE-SCRATCH"
+    ],
+    "modules": [
+      "M-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+      "M-GRACE-PREFECT-NATIVE-SUBMISSION",
+      "M-GRACE-MANAGED-PACKET-RUNNER",
+      "M-GRACE-LIVE-OPT-IN",
+      "M-GRACE-SCOPE-GUARD",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/single_live_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/prefect_native_submission.py",
+      "/opt/astro-project/prefect_grace/tasks/prefect_submitter.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_execution.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_submission.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_single_live_prefect_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/**",
+      "/tmp/grace-single-live-prefect-packet-pilot/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet",
+      "/opt/astro-project/.worktrees/**"
+    ],
+    "must_preserve": [
+      "Exactly one synthetic scratch packet is selected.",
+      "Dry-run default creates zero Prefect flow runs and starts zero agents.",
+      "Real execution requires explicit CLI opt-in and an environment token.",
+      "Scratch packet allowed scope is only `scratch/grace-single-live-prefect/**`",
+      "Backend, frontend, platform code, source packets, registry state, Docker",
+      "Git commit, push, and merge are disabled for this packet.",
+      "CLI JSON envelope keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_single_live_prefect_packet_pilot.py \\\n  tests/test_prefect_grace_cli_single_live_prefect_packet_pilot.py \\\n  tests/test_prefect_grace_single_live_packet_pilot.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, worker-container dry-run\nbinding proof, and injected live proof. Do not run real live agent without\nArchitect approval.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Dry-run CLI proof.",
+      "Missing opt-in blocked proof.",
+      "Injected one-run proof with `prefect_runs_created=1`.",
+      "Scope proof with only scratch/temp writes.",
+      "Post-test observability verdict."
+    ],
+    "escalation_triggers": [
+      "More than one packet can run.",
+      "A real source packet is selected.",
+      "Product code or source packet files are modified.",
+      "Git mutation is reachable.",
+      "Output includes unbounded logs or secrets."
+    ],
+    "source_hash": "sha256:ac60dc4cb8d9be880a59f7b0b46f0720460606f4dcb8e324d4170fc3bb4719ef",
+    "section_lines": {
+      "execution packet: feat-grace-single-live-prefect-packet-pilot-w01-managed-prefect-scratch-run": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 39,
+      "allowed write scope": 48,
+      "frozen scope": 64,
+      "must preserve": 74,
+      "required design decisions": 86,
+      "1. prefect is the execution path": 88,
+      "2. single scratch packet": 93,
+      "3. bounded polling": 99,
+      "implementation requirements": 104,
+      "acceptance criteria": 115,
+      "verification": 124,
+      "expected evidence": 140,
+      "escalation triggers": 152
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.md"
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,21 @@
+Injected live proof is covered by:
+
+- tests/test_prefect_grace_single_live_prefect_packet_pilot.py::test_injected_live_path_creates_one_prefect_run_and_agent
+- tests/test_prefect_grace_single_live_prefect_packet_pilot.py::test_scope_blocked_fails_closed
+- tests/test_prefect_grace_single_live_prefect_packet_pilot.py::test_multiple_ready_packets_fail_closed
+
+Assertions covered:
+
+- selected_packet_id == SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH
+- deployment_name == prefect-grace-managed-packet-runner/live-managed-packet-runner
+- submitted parameters use dry_run=false and execute_agent=true
+- prefect_runs_created == 1
+- live_agents_started == 1
+- domain_status == accepted
+- scope_verdict == passed
+- changed_files == ["scratch/grace-single-live-prefect/result.txt"]
+- writes_outside_temp_roots == []
+- backend/forbidden.py is rejected with LIVE_PREFECT_CHANGED_FILES_OUTSIDE_SCRATCH
+- multi-packet plans are rejected with LIVE_PREFECT_PACKET_COUNT_INVALID
+
+No real live agent or real Prefect packet run was launched for this injected proof.
