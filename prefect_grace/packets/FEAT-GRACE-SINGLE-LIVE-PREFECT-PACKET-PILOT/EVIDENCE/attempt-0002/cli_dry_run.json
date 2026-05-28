@@ -1,0 +1,219 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "run-single-live-prefect-packet-pilot",
+  "result": {
+    "ok": true,
+    "project_key": "astro-project",
+    "mode": "single_live_prefect_packet_pilot",
+    "dry_run": true,
+    "opt_in_confirmed": true,
+    "state_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/state",
+    "worktree_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/worktrees",
+    "packet_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/packets",
+    "selected_packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+    "registry_before": {
+      "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH": {
+        "depends_on": [],
+        "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+        "objective": "Write one deterministic scratch file through the managed Prefect packet runner.",
+        "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "path": "packets/SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH/EXECUTION_PACKET.md",
+        "phase": "",
+        "registry_reason": "strict_source_ready_no_terminal_artifact_evidence",
+        "registry_status": "ready",
+        "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+        "status": "ready",
+        "title": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "wave_id": "W01"
+      }
+    },
+    "registry_after": {
+      "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH": {
+        "depends_on": [],
+        "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+        "objective": "Write one deterministic scratch file through the managed Prefect packet runner.",
+        "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "path": "packets/SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH/EXECUTION_PACKET.md",
+        "phase": "",
+        "registry_reason": "strict_source_ready_no_terminal_artifact_evidence",
+        "registry_status": "ready",
+        "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+        "status": "ready",
+        "title": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "wave_id": "W01"
+      }
+    },
+    "submit_plan": {
+      "ok": true,
+      "project_key": "astro-project",
+      "dry_run": true,
+      "packets_planned": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ],
+      "packets_submitted": [],
+      "records": [
+        {
+          "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+          "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+          "wave_id": "W01",
+          "attempt": 1,
+          "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+          "idempotency_key": "grace-packet:astro-project:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:attempt-0001:sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+          "flow_run_id": null,
+          "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+          "deployment_name": "prefect-grace-managed-packet-runner/live-managed-packet-runner",
+          "work_queue_name": null,
+          "status": "dry_run",
+          "runner_kind": "managed",
+          "url": null,
+          "error": null
+        }
+      ],
+      "blocked_packets": [],
+      "warnings": [],
+      "errors": [],
+      "packets_to_submit": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ]
+    },
+    "deployment_name": "prefect-grace-managed-packet-runner/live-managed-packet-runner",
+    "work_queue_name": null,
+    "flow_run_id": null,
+    "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+    "flow_run_url": null,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "domain_status": null,
+    "scope_verdict": null,
+    "changed_files": [],
+    "writes_outside_temp_roots": [],
+    "poll_events": [],
+    "warnings": [],
+    "errors": [],
+    "bootstrap_apply_count": 1,
+    "sync_plan": {
+      "packets_total": 1,
+      "registry_updates": 0,
+      "ready": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ],
+      "accepted": [],
+      "blocked": [],
+      "changed_after_acceptance": [],
+      "ready_for_retry": [],
+      "cascading_blocked": [],
+      "cycles": [],
+      "warnings": [],
+      "errors": []
+    }
+  },
+  "data": {
+    "ok": true,
+    "project_key": "astro-project",
+    "mode": "single_live_prefect_packet_pilot",
+    "dry_run": true,
+    "opt_in_confirmed": true,
+    "state_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/state",
+    "worktree_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/worktrees",
+    "packet_root": "/tmp/grace-single-live-prefect-packet-pilot-evidence/packets",
+    "selected_packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+    "registry_before": {
+      "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH": {
+        "depends_on": [],
+        "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+        "objective": "Write one deterministic scratch file through the managed Prefect packet runner.",
+        "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "path": "packets/SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH/EXECUTION_PACKET.md",
+        "phase": "",
+        "registry_reason": "strict_source_ready_no_terminal_artifact_evidence",
+        "registry_status": "ready",
+        "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+        "status": "ready",
+        "title": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "wave_id": "W01"
+      }
+    },
+    "registry_after": {
+      "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH": {
+        "depends_on": [],
+        "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+        "objective": "Write one deterministic scratch file through the managed Prefect packet runner.",
+        "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "path": "packets/SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH/EXECUTION_PACKET.md",
+        "phase": "",
+        "registry_reason": "strict_source_ready_no_terminal_artifact_evidence",
+        "registry_status": "ready",
+        "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+        "status": "ready",
+        "title": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+        "wave_id": "W01"
+      }
+    },
+    "submit_plan": {
+      "ok": true,
+      "project_key": "astro-project",
+      "dry_run": true,
+      "packets_planned": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ],
+      "packets_submitted": [],
+      "records": [
+        {
+          "packet_id": "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+          "feature_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT",
+          "wave_id": "W01",
+          "attempt": 1,
+          "source_hash": "sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+          "idempotency_key": "grace-packet:astro-project:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:attempt-0001:sha256:e9f54699874c5a04815fe1e629c90ced9b17eef4099ea828a090cb89d9dd6e67",
+          "flow_run_id": null,
+          "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+          "deployment_name": "prefect-grace-managed-packet-runner/live-managed-packet-runner",
+          "work_queue_name": null,
+          "status": "dry_run",
+          "runner_kind": "managed",
+          "url": null,
+          "error": null
+        }
+      ],
+      "blocked_packets": [],
+      "warnings": [],
+      "errors": [],
+      "packets_to_submit": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ]
+    },
+    "deployment_name": "prefect-grace-managed-packet-runner/live-managed-packet-runner",
+    "work_queue_name": null,
+    "flow_run_id": null,
+    "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+    "flow_run_url": null,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "domain_status": null,
+    "scope_verdict": null,
+    "changed_files": [],
+    "writes_outside_temp_roots": [],
+    "poll_events": [],
+    "warnings": [],
+    "errors": [],
+    "bootstrap_apply_count": 1,
+    "sync_plan": {
+      "packets_total": 1,
+      "registry_updates": 0,
+      "ready": [
+        "SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH"
+      ],
+      "accepted": [],
+      "blocked": [],
+      "changed_after_acceptance": [],
+      "ready_for_retry": [],
+      "cascading_blocked": [],
+      "cycles": [],
+      "warnings": [],
+      "errors": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

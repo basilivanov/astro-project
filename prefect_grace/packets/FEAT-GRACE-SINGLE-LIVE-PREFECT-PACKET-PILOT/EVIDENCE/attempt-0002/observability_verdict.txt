@@ -1,0 +1,7 @@
+Observability verdict: degraded-but-expected
+
+Runtime behavior reviewed cleanly for the bounded static/injected profile.
+Status reader now correctly reads real payload from flow run state and accepts both accepted/passed and passed/passed domain statuses.
+Scope check is clean after removing out-of-scope test file.
+
+No Prefect flow runs, live agents, registry writes, source packet writes, Git mutations, backend/frontend changes, Docker changes, or product writes were performed.

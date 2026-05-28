@@ -1,0 +1,20 @@
+Injected live proof covers:
+- Exactly one managed Prefect run submitted
+- Exactly one agent launch
+- Accepted domain status
+- Passed scope verdict
+- Scratch-only changed files
+- Zero writes outside temp roots
+- Missing deployment failure with zero runs
+- Worker timeout with bounded poll events
+- Scope blocked detection with fail-closed
+- Status reader accepts both accepted/passed and passed/passed
+- Status reader fails closed for missing/incomplete payload
+- Status reader fails closed for non-success terminal states
+
+Test coverage: 61 tests passed
+- 7 pilot integration tests
+- 10 status reader unit tests with fake Prefect client
+- 44 supporting tests (CLI contracts, single live packet pilot)
+
+Real live agent and real managed Prefect flow execution were not run.
