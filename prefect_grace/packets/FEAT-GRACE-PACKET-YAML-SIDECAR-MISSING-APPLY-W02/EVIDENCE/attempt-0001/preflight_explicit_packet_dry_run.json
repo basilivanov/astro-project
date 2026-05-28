@@ -1,0 +1,107 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "apply-packet-yaml-sidecar-migration",
+  "result": {
+    "ok": true,
+    "dry_run": true,
+    "apply": false,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "stale_only": false,
+    "packet_ids": [
+      "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT"
+    ],
+    "limit": 1,
+    "apply_limit": 10,
+    "packets_total": 76,
+    "plan_count": 63,
+    "selected_count": 1,
+    "selected_items": [
+      {
+        "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3",
+        "planned_source_hash": "sha256:91ade763366cbab5aaf25e269c22aa6c3c0f2e18b0fd09e8c3737590c64ec1f5",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      }
+    ],
+    "selected_items_truncated": false,
+    "selected_risk_counts": {
+      "accepted_source_hash_change": 1
+    },
+    "source_hash_change_count": 1,
+    "source_hash_change_approval_required": false,
+    "plan_counts": {
+      "canonical": 11,
+      "no_sidecar": 63,
+      "stale_sidecar": 0,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "warnings": [],
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "markdown_mutations": [],
+    "registry_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "data": {
+    "ok": true,
+    "dry_run": true,
+    "apply": false,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "stale_only": false,
+    "packet_ids": [
+      "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT"
+    ],
+    "limit": 1,
+    "apply_limit": 10,
+    "packets_total": 76,
+    "plan_count": 63,
+    "selected_count": 1,
+    "selected_items": [
+      {
+        "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3",
+        "planned_source_hash": "sha256:91ade763366cbab5aaf25e269c22aa6c3c0f2e18b0fd09e8c3737590c64ec1f5",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      }
+    ],
+    "selected_items_truncated": false,
+    "selected_risk_counts": {
+      "accepted_source_hash_change": 1
+    },
+    "source_hash_change_count": 1,
+    "source_hash_change_approval_required": false,
+    "plan_counts": {
+      "canonical": 11,
+      "no_sidecar": 63,
+      "stale_sidecar": 0,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "warnings": [],
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "markdown_mutations": [],
+    "registry_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "warnings": [],
+  "errors": []
+}

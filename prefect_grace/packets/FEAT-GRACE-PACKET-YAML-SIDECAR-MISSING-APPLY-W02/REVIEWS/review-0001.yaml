@@ -1,0 +1,66 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02-CLI-COMMAND-SPLIT-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T22:36:05Z"
+summary: >
+  Accepted. The package applies exactly one missing canonical EXECUTION_PACKET.yaml
+  sidecar for the already-accepted CLI command module split packet, using the
+  existing scoped sidecar migration command only.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: degraded_but_expected_target_source_hash_reconcile_pending
+  verification:
+    preflight_explicit_packet_dry_run: passed
+    apply_one_sidecar: passed
+    post_sidecar_audit: passed
+    post_migration_plan: passed
+    sync_packets_after_apply: passed_with_expected_target_changed_after_acceptance
+    target_packet_status_before_reconcile: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    scope_check: passed
+    git_diff_check: passed
+  target:
+    packet_id: FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT
+    sidecar_path: prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    planned_action: create
+    previous_runtime_source_hash: sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3
+    planned_source_hash: sha256:91ade763366cbab5aaf25e269c22aa6c3c0f2e18b0fd09e8c3737590c64ec1f5
+    risk: accepted_source_hash_change
+  apply:
+    selected_count: 1
+    writes:
+      - prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    source_mutations:
+      - prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    markdown_mutations: []
+    registry_mutations: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  post_state:
+    sidecar_counts:
+      canonical: 12
+      no_sidecar: 62
+      stale_sidecar: 0
+      invalid_sidecar: 0
+      skipped: 2
+    plan_count: 62
+    changed_after_acceptance:
+      - FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02-CLI-COMMAND-SPLIT-SIDECAR
+notes:
+  - >
+    The target packet remains in changed_after_acceptance by design because
+    this package only creates the YAML sidecar. Runtime source-hash
+    reconciliation belongs to the next package.
+  - >
+    The only ready item before reviewer bootstrap is this newly-created W02
+    package itself, which is expected until this accepted review is applied to
+    the runtime registry.
+blockers: []
