@@ -276,139 +276,6 @@ END_FINAL_PACKET_DECISION_JSON
 
 # END_BLOCK: fake_launchers
 
-# START_BLOCK: real_launchers
-
-# START_FUNCTION_CONTRACT
-# Function: _create_real_verifier_launcher
-# Purpose: Create real verifier launcher that runs live agent via codex
-# Args:
-#   - packet_id: Base packet identifier
-#   - project: Project config with runtime_state_root
-#   - timeout_seconds: Agent timeout
-# Returns: Callable that launches verifier agent and returns dict with raw_output
-# Inputs: Packet ID, project config, timeout
-# Side_effects: Launches live codex agent, writes to state store
-# Emitted_logs: Agent execution logs
-# Error_behavior: Raises exception if agent launch fails
-# END_FUNCTION_CONTRACT
-def _create_real_verifier_launcher(
-    packet_id: str,
-    project: Any,
-    timeout_seconds: int,
-) -> Callable[..., dict[str, Any]]:
-    """Create real verifier launcher that runs live agent."""
-    from prefect_grace.tasks.codex_launcher import _launch_codex_for_packet
-    from prefect_grace.platform.state_store import PacketRegistryStore
-
-    def launcher(**kwargs: Any) -> dict[str, Any]:
-        # Create temporary verifier packet record
-        verifier_packet_id = f"{packet_id}-VERIFIER"
-        runtime_state_root = getattr(project, "runtime_state_root", None)
-
-        # Register verifier packet in state store
-        if runtime_state_root:
-            store = PacketRegistryStore(Path(runtime_state_root) / "state")
-            coder_result = kwargs.get("coder_result", {})
-            packet_path = kwargs.get("packet_file")
-
-            # Create verifier packet record
-            verifier_record = {
-                "packet_id": verifier_packet_id,
-                "feature_id": packet_id.rsplit("-W", 1)[0] if "-W" in packet_id else packet_id,
-                "wave_id": "W01",
-                "path": str(packet_path) if packet_path else "",
-                "role": "verifier",
-                "reasoning": "high",
-            }
-            store.upsert_packet(verifier_record)
-
-        # Launch verifier agent
-        result = _launch_codex_for_packet(
-            verifier_packet_id,
-            dry_run=False,
-            timeout_seconds=timeout_seconds,
-            runtime_state_root=runtime_state_root,
-            workdir_override=coder_result.get("worktree_path") if coder_result else None,
-        )
-
-        # Extract output from agent result
-        last_message_path = result.get("last_message_path")
-        if last_message_path and Path(last_message_path).exists():
-            raw_output = Path(last_message_path).read_text()
-        else:
-            raw_output = ""
-
-        return {"raw_output": raw_output}
-
-    return launcher
-
-
-# START_FUNCTION_CONTRACT
-# Function: _create_real_reviewer_launcher
-# Purpose: Create real reviewer launcher that runs live agent via codex
-# Args:
-#   - packet_id: Base packet identifier
-#   - project: Project config with runtime_state_root
-#   - timeout_seconds: Agent timeout
-# Returns: Callable that launches reviewer agent and returns dict with raw_output
-# Inputs: Packet ID, project config, timeout
-# Side_effects: Launches live codex agent, writes to state store
-# Emitted_logs: Agent execution logs
-# Error_behavior: Raises exception if agent launch fails
-# END_FUNCTION_CONTRACT
-def _create_real_reviewer_launcher(
-    packet_id: str,
-    project: Any,
-    timeout_seconds: int,
-) -> Callable[..., dict[str, Any]]:
-    """Create real reviewer launcher that runs live agent."""
-    from prefect_grace.tasks.codex_launcher import _launch_codex_for_packet
-    from prefect_grace.platform.state_store import PacketRegistryStore
-
-    def launcher(**kwargs: Any) -> dict[str, Any]:
-        # Create temporary reviewer packet record
-        reviewer_packet_id = f"{packet_id}-REVIEWER"
-        runtime_state_root = getattr(project, "runtime_state_root", None)
-
-        # Register reviewer packet in state store
-        if runtime_state_root:
-            store = PacketRegistryStore(Path(runtime_state_root) / "state")
-            coder_result = kwargs.get("coder_result", {})
-            packet_path = kwargs.get("packet_file")
-
-            # Create reviewer packet record
-            reviewer_record = {
-                "packet_id": reviewer_packet_id,
-                "feature_id": packet_id.rsplit("-W", 1)[0] if "-W" in packet_id else packet_id,
-                "wave_id": "W01",
-                "path": str(packet_path) if packet_path else "",
-                "role": "reviewer",
-                "reasoning": "high",
-            }
-            store.upsert_packet(reviewer_record)
-
-        # Launch reviewer agent
-        result = _launch_codex_for_packet(
-            reviewer_packet_id,
-            dry_run=False,
-            timeout_seconds=timeout_seconds,
-            runtime_state_root=runtime_state_root,
-            workdir_override=coder_result.get("worktree_path") if coder_result else None,
-        )
-
-        # Extract output from agent result
-        last_message_path = result.get("last_message_path")
-        if last_message_path and Path(last_message_path).exists():
-            raw_output = Path(last_message_path).read_text()
-        else:
-            raw_output = ""
-
-        return {"raw_output": raw_output}
-
-    return launcher
-
-# END_BLOCK: real_launchers
-
 # START_BLOCK: status_transition_helpers
 
 # START_FUNCTION_CONTRACT
@@ -545,39 +412,6 @@ def run_e2e_packet(
 
     # Step 2: Run managed packet runner (coder phase)
     try:
-        # Load project config for executor selection and state store access
-        from prefect_grace.platform.project_adapter import load_project_adapter
-        from prefect_grace.platform.state_store import PacketRegistryStore
-
-        try:
-            project = load_project_adapter(project_root / "grace.yaml")
-            # Override runtime_state_root to use the provided state_root
-            project.runtime_state_root = str(state_root)
-        except FileNotFoundError:
-            # Fallback: create minimal project object if no config exists
-            from types import SimpleNamespace
-            project = SimpleNamespace(
-                runtime_state_root=str(state_root),
-                project_key=project_key,
-                agent_executor=SimpleNamespace(
-                    default="codex-cli",
-                    command="codex1",
-                    executors=None
-                )
-            )
-
-        # Register coder packet in state store before launching
-        store = PacketRegistryStore(Path(state_root) / "state")
-        coder_record = {
-            "packet_id": packet_id,
-            "feature_id": packet_id.rsplit("-W", 1)[0] if "-W" in packet_id else packet_id,
-            "wave_id": "W01",
-            "path": str(packet_path),
-            "role": "coder",
-            "reasoning": "high",
-        }
-        store.upsert_packet(coder_record)
-
         managed_result = run_managed_packet(
             packet_file=packet_path,
             repo_root=project_root,
@@ -591,7 +425,7 @@ def run_e2e_packet(
             timeout_seconds=timeout_seconds,
             keep_worktree=keep_worktree,
             launcher=None,  # Use default launcher
-            project=project,  # Pass project for state store access
+            project=None,  # No project config for now
         )
     except Exception as e:
         domain_status = DomainStatus.RUNNER_ERROR.value
@@ -633,23 +467,9 @@ def run_e2e_packet(
 
     # Step 4: Run verifier/reviewer handoff
     try:
-        # Create launchers: real if no fake outputs provided, fake otherwise
-        if fake_verifier_output is None and fake_reviewer_output is None:
-            # Use real launchers
-            verifier_launcher = _create_real_verifier_launcher(
-                packet_id=packet_id,
-                project=project,
-                timeout_seconds=timeout_seconds,
-            )
-            reviewer_launcher = _create_real_reviewer_launcher(
-                packet_id=packet_id,
-                project=project,
-                timeout_seconds=timeout_seconds,
-            )
-        else:
-            # Use fake launchers
-            verifier_launcher = _create_fake_verifier_launcher(fake_verifier_output)
-            reviewer_launcher = _create_fake_reviewer_launcher(fake_reviewer_output)
+        # Create fake launchers
+        verifier_launcher = _create_fake_verifier_launcher(fake_verifier_output)
+        reviewer_launcher = _create_fake_reviewer_launcher(fake_reviewer_output)
 
         # Get packet directory
         packet_dir = packet_path.parent
@@ -661,7 +481,7 @@ def run_e2e_packet(
             coder_result=managed_result.to_dict(),
             verifier_launcher=verifier_launcher,
             reviewer_launcher=reviewer_launcher,
-            project=project,  # Pass project for state store access
+            project=None,
             dry_run=dry_run,
         )
     except Exception as e:

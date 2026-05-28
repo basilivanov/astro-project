@@ -4,7 +4,7 @@
   "evidence": [
     {
       "id": "pytest-output",
-      "status": "passed",
+      "status": "collected",
       "stage": "verification",
       "producer": "pytest",
       "artifact_paths": ["pytest_output.txt"],
@@ -12,7 +12,7 @@
     },
     {
       "id": "compile-check",
-      "status": "passed",
+      "status": "collected",
       "stage": "verification",
       "producer": "compileall",
       "artifact_paths": ["compile_output.txt"],
@@ -20,7 +20,7 @@
     },
     {
       "id": "grace-lint",
-      "status": "passed",
+      "status": "collected",
       "stage": "verification",
       "producer": "grace_lint",
       "artifact_paths": ["lint_output.txt"],
@@ -28,7 +28,7 @@
     },
     {
       "id": "packet-validation",
-      "status": "passed",
+      "status": "collected",
       "stage": "verification",
       "producer": "validate-packet",
       "artifact_paths": ["packet_validation.json"],
@@ -36,7 +36,7 @@
     },
     {
       "id": "worker-dry-run",
-      "status": "passed",
+      "status": "collected",
       "stage": "integration",
       "producer": "docker-compose",
       "artifact_paths": ["worker_dry_run.json"],
@@ -44,7 +44,7 @@
     },
     {
       "id": "worker-smoke",
-      "status": "passed",
+      "status": "collected",
       "stage": "integration",
       "producer": "grace_worker_smoke.sh",
       "artifact_paths": ["worker_smoke.txt"],
@@ -52,7 +52,7 @@
     },
     {
       "id": "zero-mutations-proof",
-      "status": "passed",
+      "status": "collected",
       "stage": "audit",
       "producer": "manual",
       "artifact_paths": ["zero_mutations_proof.txt"],
@@ -60,7 +60,7 @@
     },
     {
       "id": "bounded-metadata-proof",
-      "status": "passed",
+      "status": "collected",
       "stage": "audit",
       "producer": "manual",
       "artifact_paths": ["bounded_metadata_proof.txt"],

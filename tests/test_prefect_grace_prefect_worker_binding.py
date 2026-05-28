@@ -459,7 +459,12 @@ class TestPreflightApplyPath:
         assert result.ok is False
 
     def test_preflight_invalid_entrypoint_blocks_apply(self, tmp_path, monkeypatch):
-        """Test invalid entrypoint fails closed before apply."""
+        """Test invalid entrypoint fails closed before apply.
+
+        This test verifies that when the entrypoint file does not exist,
+        the apply helper returns INVALID_ENTRYPOINT error and does NOT
+        call RunnerDeployment.from_entrypoint.
+        """
         project_config = tmp_path / "grace.yaml"
         project_config.write_text("project_key: test-project\n")
 
@@ -481,37 +486,64 @@ class TestPreflightApplyPath:
         # Mock deployment - not found
         mock_client.read_deployment_by_name = Mock(return_value=None)
 
-        # Mock the apply helper to return invalid entrypoint error
         from unittest.mock import patch
-        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+        import sys
+        from pathlib import Path
 
-        mock_apply_result = DeploymentApplyResult(
-            success=False,
-            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
-            deployment_id=None,
-            work_pool_name="astro-process",
-            work_queue_name="grace-live",
-            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
-            working_directory="/opt/astro-project",
-            created=False,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            errors=[{"type": "INVALID_ENTRYPOINT", "message": "Entrypoint file not found: prefect_grace/flows/managed_packet_runner_flow.py"}],
-        )
+        # Temporarily rename the real entrypoint file to simulate it not existing
+        real_entrypoint_file = Path("prefect_grace/flows/managed_packet_runner_flow.py")
+        temp_renamed_file = Path("prefect_grace/flows/managed_packet_runner_flow.py.test_backup")
 
-        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
-            mock_apply.return_value = mock_apply_result
+        # Track if from_entrypoint is called
+        from_entrypoint_called = []
 
-            # Run preflight in apply mode
-            result = run_prefect_worker_binding_preflight(
-                project_config=project_config,
-                dry_run=False,
-                apply_deployment=True,
-                acknowledge_prefect_mutation=True,
-                approval_token="deployment",
-                run_worker_smoke=False,
-                prefect_client=mock_client,
-            )
+        def mock_from_entrypoint(*args, **kwargs):
+            from_entrypoint_called.append(True)
+            raise Exception("RunnerDeployment.from_entrypoint should not be called")
+
+        # Mock all prefect imports
+        mock_runner_deployment = Mock()
+        mock_runner_deployment.from_entrypoint = mock_from_entrypoint
+
+        mock_deployment_update = Mock()
+
+        mock_runner_module = Mock()
+        mock_runner_module.RunnerDeployment = mock_runner_deployment
+
+        mock_actions_module = Mock()
+        mock_actions_module.DeploymentUpdate = mock_deployment_update
+
+        # Mock load_runtime_config to return working_directory
+        mock_runtime = Mock()
+        mock_runtime.working_directory = str(tmp_path)
+
+        def mock_load_runtime_config():
+            return mock_runtime
+
+        # Rename the file temporarily
+        if real_entrypoint_file.exists():
+            real_entrypoint_file.rename(temp_renamed_file)
+
+        try:
+            with patch.dict(sys.modules, {
+                "prefect.deployments.runner": mock_runner_module,
+                "prefect.client.schemas.actions": mock_actions_module,
+            }):
+                with patch("prefect_grace.runtime_config.load_runtime_config", mock_load_runtime_config):
+                    # Run preflight in apply mode
+                    result = run_prefect_worker_binding_preflight(
+                        project_config=project_config,
+                        dry_run=False,
+                        apply_deployment=True,
+                        acknowledge_prefect_mutation=True,
+                        approval_token="deployment",
+                        run_worker_smoke=False,
+                        prefect_client=mock_client,
+                    )
+        finally:
+            # Restore the file
+            if temp_renamed_file.exists():
+                temp_renamed_file.rename(real_entrypoint_file)
 
         # Should report apply_failed (not applied)
         assert result.dry_run is False
@@ -520,12 +552,15 @@ class TestPreflightApplyPath:
         assert result.live_agents_started == 0
 
         # Should have INVALID_ENTRYPOINT error
-        assert any(e["type"] == "INVALID_ENTRYPOINT" for e in result.errors)
+        assert any(e["type"] == "INVALID_ENTRYPOINT" for e in result.errors), f"Expected INVALID_ENTRYPOINT error, got: {result.errors}"
 
         # Should have deployment_apply_result showing failure
         assert result.deployment_apply_result is not None
         assert result.deployment_apply_result["success"] is False
         assert result.deployment_apply_result["deployment_id"] is None
+
+        # CRITICAL: RunnerDeployment.from_entrypoint should NOT have been called
+        assert len(from_entrypoint_called) == 0, "RunnerDeployment.from_entrypoint was called despite invalid entrypoint"
 
         # Should not be ok
         assert result.ok is False

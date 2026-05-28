@@ -539,6 +539,16 @@ class DeploymentApplyResult:
     entrypoint_not_inspectable: bool = False  # True if entrypoint cannot be verified from existing deployment
     working_directory_not_inspectable: bool = False  # True if working_directory cannot be verified from existing deployment
 
+    # START_FUNCTION_CONTRACT
+    # Function: to_dict
+    # Purpose: Serialize DeploymentApplyResult to dict for JSON output
+    # Args: None (instance method)
+    # Returns: Dict with all result fields
+    # Inputs: self
+    # Side_effects: None (pure function)
+    # Emitted_logs: None
+    # Error_behavior: Never raises
+    # END_FUNCTION_CONTRACT
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for JSON output."""
         return {
