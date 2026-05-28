@@ -1,0 +1,249 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+    "evidence_count": 9,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "strict-validation-output",
+          "message": "Evidence strict-validation-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "targeted-pytest-output",
+          "message": "Evidence targeted-pytest-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "compile-output",
+          "message": "Evidence compile-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "targeted-lint-output",
+          "message": "Evidence targeted-lint-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "scope-blocked-non-rotation-proof",
+          "message": "Evidence scope-blocked-non-rotation-proof not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "true-failure-rotation-proof",
+          "message": "Evidence true-failure-rotation-proof not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "scope-check-output",
+          "message": "Evidence scope-check-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "safety-confirmation",
+          "message": "Evidence safety-confirmation not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "post-test-observability-verdict",
+          "message": "Evidence post-test-observability-verdict not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 12312,
+          "hash": "7752023e00e1e55d3803b4a36396d86bacf42a63ec959948b64cf84c906ca987"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 115,
+          "hash": "d0c2459c232e2622051de4fe08e8718e3dc35bf61801252c1356a43c448bcc48"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 6398,
+          "hash": "ed17646c76753605112b7a49f0dfcff9c638622b63cfdad68efc53f3a707daf9"
+        },
+        {
+          "path": "no_live_operations.txt",
+          "exists": true,
+          "size": 598,
+          "hash": "7860ec8e2086c18ab948a00274fe265dae949c4aa1b515c28b134e9f69264271"
+        },
+        {
+          "path": "git_status.txt",
+          "exists": true,
+          "size": 392,
+          "hash": "d2d78bbd5ba4500a971a7199332940a91472e440f442e778a242b2a48b01d57f"
+        },
+        {
+          "path": "observability_verdict.txt",
+          "exists": true,
+          "size": 902,
+          "hash": "ec62c2285bbc43b332da1cd0cf8dfe6b77c5be5e0d46a1f62db2a0af0938ed1d"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+    "evidence_count": 9,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "strict-validation-output",
+          "message": "Evidence strict-validation-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "targeted-pytest-output",
+          "message": "Evidence targeted-pytest-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "compile-output",
+          "message": "Evidence compile-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "targeted-lint-output",
+          "message": "Evidence targeted-lint-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "scope-blocked-non-rotation-proof",
+          "message": "Evidence scope-blocked-non-rotation-proof not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "true-failure-rotation-proof",
+          "message": "Evidence true-failure-rotation-proof not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "scope-check-output",
+          "message": "Evidence scope-check-output not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "safety-confirmation",
+          "message": "Evidence safety-confirmation not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "post-test-observability-verdict",
+          "message": "Evidence post-test-observability-verdict not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 12312,
+          "hash": "7752023e00e1e55d3803b4a36396d86bacf42a63ec959948b64cf84c906ca987"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 115,
+          "hash": "d0c2459c232e2622051de4fe08e8718e3dc35bf61801252c1356a43c448bcc48"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "ec9bc9c395754209c09abcd0ee47806137255e5c41860f336ed1f4975ec7bed4"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 6398,
+          "hash": "ed17646c76753605112b7a49f0dfcff9c638622b63cfdad68efc53f3a707daf9"
+        },
+        {
+          "path": "no_live_operations.txt",
+          "exists": true,
+          "size": 598,
+          "hash": "7860ec8e2086c18ab948a00274fe265dae949c4aa1b515c28b134e9f69264271"
+        },
+        {
+          "path": "git_status.txt",
+          "exists": true,
+          "size": 392,
+          "hash": "d2d78bbd5ba4500a971a7199332940a91472e440f442e778a242b2a48b01d57f"
+        },
+        {
+          "path": "observability_verdict.txt",
+          "exists": true,
+          "size": 902,
+          "hash": "ec62c2285bbc43b332da1cd0cf8dfe6b77c5be5e0d46a1f62db2a0af0938ed1d"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

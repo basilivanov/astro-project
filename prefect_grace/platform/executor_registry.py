@@ -301,6 +301,7 @@ def _count_consecutive_failures(
     - Count failures for same executor_id, newest first
     - Stop at first non-failure for same executor
     - If packet has source_hash, only count records with matching source_hash
+    - Ignore scope_blocked records; they do not increment or reset the streak
     """
     count = 0
     for record in history:
@@ -313,6 +314,9 @@ def _count_consecutive_failures(
             if record_source_hash is not None and record_source_hash != packet_source_hash:
                 # Different source hash, skip this record
                 continue
+
+        if record.get("domain_status") == DomainStatus.SCOPE_BLOCKED.value:
+            continue
 
         # Check if failure
         if _is_executor_failure(record):

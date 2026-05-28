@@ -1,0 +1,98 @@
+{
+  "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "strict-validation-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json"
+      ],
+      "summary": "Strict validation of EXECUTION_PACKET.md returned ok=true."
+    },
+    {
+      "id": "targeted-pytest-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted executor registry and managed runner tests passed: 24 passed."
+    },
+    {
+      "id": "compile-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "compile_output.txt"
+      ],
+      "summary": "compileall passed for prefect_grace/platform/executor_registry.py."
+    },
+    {
+      "id": "targeted-lint-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "lint_output.txt"
+      ],
+      "summary": "Targeted GRACE lint passed for executor_registry.py."
+    },
+    {
+      "id": "scope-blocked-non-rotation-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Tests prove scope_blocked records with returncode=1 are skipped by _count_consecutive_failures and do not rotate codex-a to codex-b."
+    },
+    {
+      "id": "true-failure-rotation-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Tests prove mixed history counts only true failures around ignored scope_blocked records, stops on success, and still rotates after max_consecutive_failures."
+    },
+    {
+      "id": "scope-check-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Scope check passed for changed code, tests, and packet-local evidence artifacts."
+    },
+    {
+      "id": "safety-confirmation",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "manual",
+      "artifact_paths": [
+        "no_live_operations.txt",
+        "git_status.txt"
+      ],
+      "summary": "No live agents, Prefect, Docker, backend, frontend, Playwright, provider APIs, registry apply, Git push, merge, or worktree mutation were used."
+    },
+    {
+      "id": "post-test-observability-verdict",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "post_test_review",
+      "artifact_paths": [
+        "observability_verdict.txt"
+      ],
+      "summary": "Post-test observability verdict is clean for local registry logic verification."
+    }
+  ],
+  "blockers": []
+}

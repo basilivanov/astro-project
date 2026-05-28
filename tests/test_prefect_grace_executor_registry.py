@@ -549,7 +549,7 @@ def test_select_executor_rotation_after_failures():
 
 
 def test_select_executor_scope_blocked_not_failure():
-    """Verify scope_blocked doesn't count as executor failure."""
+    """Verify scope_blocked with nonzero returncode doesn't rotate executor."""
     project = ProjectAdapterConfig(
         version=1,
         project_key="test-project",
@@ -578,18 +578,26 @@ def test_select_executor_scope_blocked_not_failure():
                     "priority": 50,
                     "max_consecutive_failures": 2,
                 },
+                {
+                    "executor_id": "codex-b",
+                    "kind": "codex",
+                    "command": "codex1",
+                    "enabled": True,
+                    "priority": 100,
+                    "max_consecutive_failures": 2,
+                },
             ],
         ),
     )
 
-    # History with scope_blocked (not executor failure)
+    # History with scope_blocked and returncode=1 should be skipped for rotation.
     history = [
         {
             "packet_id": "TEST-PACKET",
             "role": "coder",
             "executor_id": "codex-a",
             "domain_status": "scope_blocked",
-            "returncode": 0,
+            "returncode": 1,
             "recorded_at": "2026-05-26T12:02:00Z",
         },
         {
@@ -597,7 +605,7 @@ def test_select_executor_scope_blocked_not_failure():
             "role": "coder",
             "executor_id": "codex-a",
             "domain_status": "scope_blocked",
-            "returncode": 0,
+            "returncode": 1,
             "recorded_at": "2026-05-26T12:01:00Z",
         },
     ]
@@ -605,7 +613,7 @@ def test_select_executor_scope_blocked_not_failure():
     packet = {"packet_id": "TEST-PACKET", "role": "coder"}
     selection = select_executor_for_packet(project=project, packet=packet, history=history)
 
-    # Should NOT rotate, scope_blocked is not executor failure
+    # Should NOT rotate to codex-b.
     assert selection.ok is True
     assert selection.selected.executor_id == "codex-a"
 
@@ -715,3 +723,182 @@ def test_count_consecutive_failures():
     # Should count 2 consecutive failures, stop at success
     assert count == 2
 
+
+def test_count_consecutive_failures_skips_scope_blocked_nonzero_returncode():
+    """Verify scope_blocked returncode=1 records do not affect streaks."""
+    history = [
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "scope_blocked",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:03:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "scope_blocked",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:02:00Z",
+        },
+    ]
+
+    count = _count_consecutive_failures(history, "codex-a", None)
+
+    assert count == 0
+
+
+def test_count_consecutive_failures_skips_scope_blocked_without_resetting():
+    """Verify scope_blocked is ignored and success still stops counting."""
+    history = [
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "scope_blocked",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:04:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "agent_failed",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:03:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "returncode": 0,
+            "recorded_at": "2026-05-26T12:02:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "agent_failed",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:01:00Z",
+        },
+    ]
+
+    count = _count_consecutive_failures(history, "codex-a", None)
+
+    assert count == 1
+
+
+def test_select_executor_mixed_scope_blocked_history_rotates_only_on_true_failures():
+    """Verify scope_blocked is skipped while true failures still rotate."""
+    project = ProjectAdapterConfig(
+        version=1,
+        project_key="test-project",
+        repo_root="/opt/test",
+        default_branch="main",
+        grace_dir="grace",
+        packets_dir="grace/packets",
+        runtime_state_root="/var/lib/grace",
+        artifact_root="/var/lib/grace/artifacts",
+        worktree_root="/var/lib/grace/worktrees",
+        workflow_runtime="prefect",
+        prefect=PrefectConfig(
+            work_pool="test-pool",
+            live_queue="test-live",
+            monitoring_queue="test-monitoring",
+        ),
+        agent_executor=AgentExecutorConfig(
+            default="codex-cli",
+            command="codex1",
+            executors=[
+                {
+                    "executor_id": "codex-a",
+                    "kind": "codex",
+                    "command": "codex1",
+                    "enabled": True,
+                    "priority": 50,
+                    "max_consecutive_failures": 2,
+                },
+                {
+                    "executor_id": "codex-b",
+                    "kind": "codex",
+                    "command": "codex1",
+                    "enabled": True,
+                    "priority": 100,
+                    "max_consecutive_failures": 2,
+                },
+            ],
+        ),
+    )
+    packet = {"packet_id": "TEST-PACKET", "role": "coder"}
+    mixed_history = [
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "scope_blocked",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:04:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "agent_failed",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:03:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "returncode": 0,
+            "recorded_at": "2026-05-26T12:02:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "agent_failed",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:01:00Z",
+        },
+    ]
+
+    selection = select_executor_for_packet(project=project, packet=packet, history=mixed_history)
+
+    assert selection.ok is True
+    assert selection.selected.executor_id == "codex-a"
+
+    threshold_history = [
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "scope_blocked",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:04:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "domain_status": "agent_failed",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:03:00Z",
+        },
+        {
+            "packet_id": "TEST-PACKET",
+            "role": "coder",
+            "executor_id": "codex-a",
+            "returncode": 1,
+            "recorded_at": "2026-05-26T12:02:00Z",
+        },
+    ]
+
+    selection = select_executor_for_packet(project=project, packet=packet, history=threshold_history)
+
+    assert selection.ok is True
+    assert selection.selected.executor_id == "codex-b"
