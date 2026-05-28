@@ -476,6 +476,25 @@ def test_validate_evidence_manifest_cli_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_git_mutation_gate_cli_contract() -> None:
+    """Verify git-mutation-gate CLI exposes independent guarded mutation flags."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "git-mutation-gate", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--worktree-path" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--commit" in result.stdout
+    assert "--push" in result.stdout
+    assert "--merge" in result.stdout
+    assert "--i-understand-merge" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_run_e2e_packet_flow_cli_contract() -> None:
     """Verify run-e2e-packet-flow CLI follows contract."""
     result = subprocess.run(

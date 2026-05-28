@@ -107,6 +107,9 @@ from prefect_grace.cli_commands.executors import (
     _cmd_select_executor,
     _cmd_synthetic_edge_matrix,
 )
+from prefect_grace.cli_commands.git_mutation import (
+    _cmd_git_mutation_gate,
+)
 
 # Parser constructor
 from prefect_grace.cli_commands.parser import build_parser as _base_build_parser

@@ -93,6 +93,9 @@ from prefect_grace.cli_commands.executors import (
     _cmd_select_executor,
     _cmd_synthetic_edge_matrix,
 )
+from prefect_grace.cli_commands.git_mutation import (
+    _cmd_git_mutation_gate,
+)
 
 
 class NoDryRunAction(argparse.Action):
@@ -579,6 +582,28 @@ def _register_executors_commands(subparsers) -> None:
     synthetic_edge_matrix.set_defaults(func=_cmd_synthetic_edge_matrix)
 
 
+def _register_git_mutation_commands(subparsers) -> None:
+    git_gate = subparsers.add_parser("git-mutation-gate", help="Plan or apply guarded packet Git mutations")
+    git_gate.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    git_gate.add_argument("--repo-root", type=Path, required=True, help="Main repository root")
+    git_gate.add_argument("--worktree-root", type=Path, required=True, help="Allowed worktree root")
+    git_gate.add_argument("--worktree-path", type=Path, required=True, help="Packet worktree path")
+    git_gate.add_argument("--project-key", required=True, help="Project key")
+    git_gate.add_argument("--packet-id", required=True, help="Packet ID")
+    git_gate.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    git_gate.add_argument("--base-ref", required=True, help="Base ref used for the packet branch")
+    git_gate.add_argument("--target-branch", required=True, help="Explicit merge target branch")
+    git_gate.add_argument("--remote", default="origin", help="Remote name for packet branch push")
+    git_gate.add_argument("--dry-run", action="store_true", help="Plan only; default when --apply is omitted")
+    git_gate.add_argument("--apply", action="store_true", help="Allow requested Git mutations")
+    git_gate.add_argument("--commit", action="store_true", help="Request guarded commit")
+    git_gate.add_argument("--push", action="store_true", help="Request guarded packet branch push")
+    git_gate.add_argument("--merge", action="store_true", help="Request guarded fast-forward merge")
+    git_gate.add_argument("--i-understand-merge", action="store_true", help="Required for merge apply")
+    git_gate.add_argument("--json", action="store_true", help="JSON output")
+    git_gate.set_defaults(func=_cmd_git_mutation_gate)
+
+
 # START_FUNCTION_CONTRACT
 # name: build_parser
 # purpose: Assemble and return the complete argument parser.
@@ -600,5 +625,6 @@ def build_parser() -> argparse.ArgumentParser:
     _register_packet_execution_commands(subparsers)
     _register_evidence_commands(subparsers)
     _register_executors_commands(subparsers)
+    _register_git_mutation_commands(subparsers)
 
     return parser

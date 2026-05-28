@@ -1,0 +1,20 @@
+{
+  "exit_code": 0,
+  "ok": true,
+  "result_equals_data": true,
+  "status": "applied",
+  "mutations": {
+    "commit": "applied",
+    "push": "applied",
+    "merge": "not_requested"
+  },
+  "changed_files_total": 1,
+  "commit_sha_present": true,
+  "pushed_ref": "origin/agent/astro-project/FEAT-TEMP-W01-PACKET/attempt-0001",
+  "pushed_commit_sha_present": true,
+  "merge_sha_present": false,
+  "blocker_reason": null,
+  "blocker_codes": [],
+  "remote_main_ref_exists": false,
+  "remote_packet_ref_exists": true
+}

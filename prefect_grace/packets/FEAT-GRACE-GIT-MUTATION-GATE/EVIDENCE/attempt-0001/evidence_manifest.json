@@ -1,0 +1,150 @@
+{
+  "packet_id": "FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Added a guarded Git mutation gate with dry-run default, independent commit/push/merge opt-ins, worktree containment, scope/review/evidence preflight, temp-repo commit and push apply proof, and merge approval guards.",
+  "artifact_index": {
+    "targeted_pytest": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/targeted_pytest.txt",
+    "static_checks": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/static_checks.txt",
+    "strict_packet_validation": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/validate_packet_strict.json",
+    "cli_dry_run": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_dry_run_summary.json",
+    "cli_commit_apply": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_commit_apply_summary.json",
+    "cli_push_apply": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_push_apply_summary.json",
+    "cli_merge_blocked": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_merge_blocked_summary.json",
+    "cli_branch_mismatch": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_branch_mismatch_summary.json",
+    "cli_missing_review": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_missing_review_summary.json",
+    "cli_invalid_evidence": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_invalid_evidence_summary.json",
+    "cli_scope_violation": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_scope_violation_summary.json",
+    "cli_unsafe_path": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_unsafe_path_summary.json",
+    "scope_check": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/scope_check.json",
+    "out_of_profile_inventory": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EVIDENCE/attempt-0001/cli_command_module_split_inventory_degraded.txt"
+  },
+  "evidence": [
+    {
+      "id": "EV-GIT-GATE-TARGETED-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted git mutation gate, CLI gate, worktree manager, worktree scope lifecycle, managed runner, and CLI contract tests passed: 78 passed."
+    },
+    {
+      "id": "EV-GIT-GATE-STATIC-CHECKS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "static_checks.txt"
+      ],
+      "summary": "Compileall and targeted GRACE lint passed for the new gate, split CLI command, parser, and CLI facade."
+    },
+    {
+      "id": "EV-GIT-GATE-STRICT-PACKET",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json"
+      ],
+      "summary": "Strict packet validation returned ok=true."
+    },
+    {
+      "id": "EV-GIT-GATE-CLI-DRY-RUN",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_dry_run_summary.json"
+      ],
+      "summary": "Temp CLI dry-run planned commit without changing main HEAD or cleaning the dirty packet worktree."
+    },
+    {
+      "id": "EV-GIT-GATE-CLI-APPLY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_commit_apply_summary.json",
+        "cli_push_apply_summary.json"
+      ],
+      "summary": "Temp CLI commit apply produced a commit only in the packet worktree; push apply pushed only HEAD to the packet branch on a temporary bare remote and did not create a main ref."
+    },
+    {
+      "id": "EV-GIT-GATE-BLOCKERS",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_merge_blocked_summary.json",
+        "cli_branch_mismatch_summary.json",
+        "cli_missing_review_summary.json",
+        "cli_invalid_evidence_summary.json",
+        "cli_scope_violation_summary.json",
+        "cli_unsafe_path_summary.json"
+      ],
+      "summary": "CLI proofs show fail-closed behavior for missing merge approvals, branch mismatch, missing accepted review, invalid evidence, scope violation, and main-repo/unsafe worktree path."
+    },
+    {
+      "id": "EV-GIT-GATE-SCOPE-CHECK",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Current changed files for this packet pass the packet scope guard with no frozen or outside-allowed violations."
+    },
+    {
+      "id": "EV-GIT-GATE-OUT-OF-PROFILE-INVENTORY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "cli_command_module_split_inventory_degraded.txt"
+      ],
+      "summary": "Out-of-profile parser inventory test remains degraded because its static pre-split inventory omits existing registry-bootstrap-apply and the new git-mutation-gate command; the file is outside this packet's allowed write scope."
+    }
+  ],
+  "checks": {
+    "targeted_pytest": "78 passed",
+    "compileall": "pass",
+    "targeted_lint": "pass",
+    "strict_validate_packet": "ok=true",
+    "cli_dry_run": "ok=true status=planned commit=planned main_head_unchanged=true",
+    "cli_commit_apply": "ok=true status=applied commit=applied main_head_unchanged=true",
+    "cli_push_apply": "ok=true push=applied remote_packet_ref_exists=true remote_main_ref_exists=false",
+    "cli_merge_blocked": "ok=false blocker=merge_requires_cli_approval",
+    "cli_branch_mismatch": "ok=false blocker=packet_branch_mismatch",
+    "cli_missing_review": "ok=false blocker=missing_accepted_review",
+    "cli_invalid_evidence": "ok=false blocker=invalid_evidence_manifest",
+    "cli_scope_violation": "ok=false blocker=scope_guard_failed",
+    "cli_unsafe_path": "ok=false blocker=main_repo_worktree_rejected",
+    "scope_check": "ok=true"
+  },
+  "safety": {
+    "dry_run_default": true,
+    "commit_requires_apply": true,
+    "push_requires_apply": true,
+    "merge_requires_cli_and_env_approval": true,
+    "commit_only_in_packet_worktree": true,
+    "push_only_packet_branch": true,
+    "force_push_used": false,
+    "tag_push_used": false,
+    "destructive_git_commands_used": false,
+    "real_product_merge_or_push": false,
+    "live_agents_or_prefect_runs_started": false,
+    "runtime_registry_written": false,
+    "docker_backend_frontend_playwright_used": false,
+    "provider_api_or_credentials_used": false,
+    "worktrees_dir_touched": false
+  },
+  "observability_verdict": "degraded-but-expected",
+  "observability_notes": [
+    "Packet-required tests and CLI proofs are clean.",
+    "The only degraded evidence is an out-of-profile static parser inventory test whose expected command set is already stale for registry-bootstrap-apply and also omits this new command; that test file is outside this packet's allowed write scope.",
+    "All mutation apply proofs used temporary Git repositories and temporary bare remotes only."
+  ],
+  "blockers": []
+}
