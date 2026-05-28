@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "sync-packet-yaml-sidecar",
+  "result": {
+    "ok": true,
+    "dry_run": true,
+    "apply": false,
+    "packets_total": 1,
+    "results": [
+      {
+        "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md",
+        "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml",
+        "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+        "planned_action": "noop",
+        "writes": [],
+        "markdown_mutations": [],
+        "error": null
+      }
+    ],
+    "writes": [],
+    "markdown_mutations": [],
+    "errors": []
+  },
+  "data": {
+    "ok": true,
+    "dry_run": true,
+    "apply": false,
+    "packets_total": 1,
+    "results": [
+      {
+        "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md",
+        "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml",
+        "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+        "planned_action": "noop",
+        "writes": [],
+        "markdown_mutations": [],
+        "error": null
+      }
+    ],
+    "writes": [],
+    "markdown_mutations": [],
+    "errors": []
+  },
+  "warnings": [],
+  "errors": []
+}

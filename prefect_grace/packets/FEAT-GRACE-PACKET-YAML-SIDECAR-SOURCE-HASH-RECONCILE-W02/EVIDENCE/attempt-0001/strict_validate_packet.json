@@ -1,0 +1,185 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+    "feature_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE",
+    "wave_id": "W02",
+    "title": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+    "objective": "Reconcile exactly one accepted Agent API failure-classifier runtime registry source hash after accepted YAML sidecar canonicalization, using the existing scoped `registry-bootstrap-apply` command only.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR"
+    ],
+    "modules": [
+      "M-GRACE-PACKET-AUTHORING",
+      "M-GRACE-RUNTIME-REGISTRY",
+      "M-GRACE-CLI"
+    ],
+    "allowed_write_scope": [
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/**"
+    ],
+    "frozen_scope": [
+      "backend/**",
+      "frontend/**",
+      ".worktrees/**",
+      "prefect_grace/executor_history.yaml",
+      "prefect_grace/packet_registry.yaml",
+      "prefect_grace/packets/FEAT-ASTRO-*/**",
+      "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-*/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/**",
+      "/var/lib/grace-orchestrator/**/runs/**",
+      "/var/lib/grace-orchestrator/**/agents/**"
+    ],
+    "must_preserve": [
+      "Use the existing scoped `registry-bootstrap-apply` command only for runtime registry reconciliation.",
+      "Reconcile only `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The preflight must plan exactly one runtime update for `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The apply must update the runtime registry source hash from `sha256:760c9c28f6576401349adc7e85aa42394902acbd7c2fe7beda9d1ba358e58ec6` to `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "After apply, `packet-status` must report `registry_status=accepted` and source hash `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "After apply, `sync-packets --dry-run --json` must report `changed_after_acceptance=[]`, `ready=[]`, and `registry_updates=0`.",
+      "`audit-packet-yaml-sidecars` must report no invalid or stale sidecars.",
+      "Self-sidecar sync dry-run for this packet must be noop.",
+      "No source files outside this packet directory may be modified.",
+      "No markdown mutations, no source mutations, no Prefect runs, and no live agents may occur.",
+      "No writes outside the runtime state root may occur.",
+      "Docker, backend, frontend, Playwright, broad corpus apply, live Prefect, and live agents remain untouched."
+    ],
+    "verification": "- `python3 -m prefect_grace.cli registry-bootstrap-apply --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --dry-run --json`\n- `python3 -m prefect_grace.cli registry-bootstrap-apply --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --apply --json`\n- `python3 -m prefect_grace.cli packet-status --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --json`\n- `python3 -m prefect_grace.cli sync-packets --project prefect_grace/project.yaml --dry-run --json`\n- `python3 -m prefect_grace.cli audit-packet-yaml-sidecars --packet-root prefect_grace/packets --json --limit 100`\n- `python3 -m prefect_grace.cli sync-packet-yaml-sidecar --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --dry-run --json`\n- `python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --strict --json`\n- `python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --artifact-root prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001 --json`\n- `python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --repo-root . --json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/evidence_manifest.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/SUMMARY.md --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/preflight_registry_bootstrap_apply_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/apply_registry_bootstrap_apply.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/packet_status_after.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/sync_packets_after_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/audit_sidecars_after.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/strict_validate_packet.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/validate_evidence_manifest.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/scope_check.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/diff_check.txt`\n- `git diff --check`",
+    "expected_evidence": [
+      "EVIDENCE/attempt-0001/evidence_manifest.json",
+      "EVIDENCE/attempt-0001/SUMMARY.md",
+      "EVIDENCE/attempt-0001/preflight_registry_bootstrap_apply_dry_run.json",
+      "EVIDENCE/attempt-0001/apply_registry_bootstrap_apply.json",
+      "EVIDENCE/attempt-0001/packet_status_after.json",
+      "EVIDENCE/attempt-0001/sync_packets_after_dry_run.json",
+      "EVIDENCE/attempt-0001/audit_sidecars_after.json",
+      "EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json",
+      "EVIDENCE/attempt-0001/strict_validate_packet.json",
+      "EVIDENCE/attempt-0001/validate_evidence_manifest.json",
+      "EVIDENCE/attempt-0001/scope_check.json",
+      "EVIDENCE/attempt-0001/diff_check.txt"
+    ],
+    "escalation_triggers": [
+      "Preflight planned update count is not exactly one.",
+      "Preflight or apply target is not `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The scoped apply reports source mutations, markdown mutations, Prefect runs, live agents, or writes outside runtime state root.",
+      "Post-apply `packet-status` does not report accepted status and source hash `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "Post-apply `sync-packets --dry-run --json` does not report `changed_after_acceptance=[]`, `ready=[]`, and `registry_updates=0`.",
+      "Post-apply sidecar audit reports invalid or stale sidecars.",
+      "Any source file outside `prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/**` is modified by this packet."
+    ],
+    "source_hash": "sha256:8c8c0fbb2a7e9ce1ed514ee4fa87a2ccc0f8c577ff1c3640caf21cfc97d04f4d",
+    "section_lines": {
+      "execution packet: feat-grace-packet-yaml-sidecar-source-hash-reconcile-w02-agent-api-sidecar": 1,
+      "objective": 3,
+      "slice": 6,
+      "impacted modules": 14,
+      "allowed write scope": 19,
+      "frozen scope": 22,
+      "must preserve": 37,
+      "required behavior": 51,
+      "verification": 61,
+      "expected evidence": 73,
+      "escalation triggers": 87
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md"
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+    "feature_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE",
+    "wave_id": "W02",
+    "title": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+    "objective": "Reconcile exactly one accepted Agent API failure-classifier runtime registry source hash after accepted YAML sidecar canonicalization, using the existing scoped `registry-bootstrap-apply` command only.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR"
+    ],
+    "modules": [
+      "M-GRACE-PACKET-AUTHORING",
+      "M-GRACE-RUNTIME-REGISTRY",
+      "M-GRACE-CLI"
+    ],
+    "allowed_write_scope": [
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/**"
+    ],
+    "frozen_scope": [
+      "backend/**",
+      "frontend/**",
+      ".worktrees/**",
+      "prefect_grace/executor_history.yaml",
+      "prefect_grace/packet_registry.yaml",
+      "prefect_grace/packets/FEAT-ASTRO-*/**",
+      "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-*/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/**",
+      "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/**",
+      "/var/lib/grace-orchestrator/**/runs/**",
+      "/var/lib/grace-orchestrator/**/agents/**"
+    ],
+    "must_preserve": [
+      "Use the existing scoped `registry-bootstrap-apply` command only for runtime registry reconciliation.",
+      "Reconcile only `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The preflight must plan exactly one runtime update for `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The apply must update the runtime registry source hash from `sha256:760c9c28f6576401349adc7e85aa42394902acbd7c2fe7beda9d1ba358e58ec6` to `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "After apply, `packet-status` must report `registry_status=accepted` and source hash `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "After apply, `sync-packets --dry-run --json` must report `changed_after_acceptance=[]`, `ready=[]`, and `registry_updates=0`.",
+      "`audit-packet-yaml-sidecars` must report no invalid or stale sidecars.",
+      "Self-sidecar sync dry-run for this packet must be noop.",
+      "No source files outside this packet directory may be modified.",
+      "No markdown mutations, no source mutations, no Prefect runs, and no live agents may occur.",
+      "No writes outside the runtime state root may occur.",
+      "Docker, backend, frontend, Playwright, broad corpus apply, live Prefect, and live agents remain untouched."
+    ],
+    "verification": "- `python3 -m prefect_grace.cli registry-bootstrap-apply --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --dry-run --json`\n- `python3 -m prefect_grace.cli registry-bootstrap-apply --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --apply --json`\n- `python3 -m prefect_grace.cli packet-status --project prefect_grace/project.yaml --packet-id FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER --json`\n- `python3 -m prefect_grace.cli sync-packets --project prefect_grace/project.yaml --dry-run --json`\n- `python3 -m prefect_grace.cli audit-packet-yaml-sidecars --packet-root prefect_grace/packets --json --limit 100`\n- `python3 -m prefect_grace.cli sync-packet-yaml-sidecar --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --dry-run --json`\n- `python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --strict --json`\n- `python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --artifact-root prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001 --json`\n- `python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --repo-root . --json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/evidence_manifest.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/SUMMARY.md --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/preflight_registry_bootstrap_apply_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/apply_registry_bootstrap_apply.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/packet_status_after.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/sync_packets_after_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/audit_sidecars_after.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/strict_validate_packet.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/validate_evidence_manifest.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/scope_check.json --changed-file prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EVIDENCE/attempt-0001/diff_check.txt`\n- `git diff --check`",
+    "expected_evidence": [
+      "EVIDENCE/attempt-0001/evidence_manifest.json",
+      "EVIDENCE/attempt-0001/SUMMARY.md",
+      "EVIDENCE/attempt-0001/preflight_registry_bootstrap_apply_dry_run.json",
+      "EVIDENCE/attempt-0001/apply_registry_bootstrap_apply.json",
+      "EVIDENCE/attempt-0001/packet_status_after.json",
+      "EVIDENCE/attempt-0001/sync_packets_after_dry_run.json",
+      "EVIDENCE/attempt-0001/audit_sidecars_after.json",
+      "EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json",
+      "EVIDENCE/attempt-0001/strict_validate_packet.json",
+      "EVIDENCE/attempt-0001/validate_evidence_manifest.json",
+      "EVIDENCE/attempt-0001/scope_check.json",
+      "EVIDENCE/attempt-0001/diff_check.txt"
+    ],
+    "escalation_triggers": [
+      "Preflight planned update count is not exactly one.",
+      "Preflight or apply target is not `FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER`.",
+      "The scoped apply reports source mutations, markdown mutations, Prefect runs, live agents, or writes outside runtime state root.",
+      "Post-apply `packet-status` does not report accepted status and source hash `sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f`.",
+      "Post-apply `sync-packets --dry-run --json` does not report `changed_after_acceptance=[]`, `ready=[]`, and `registry_updates=0`.",
+      "Post-apply sidecar audit reports invalid or stale sidecars.",
+      "Any source file outside `prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/**` is modified by this packet."
+    ],
+    "source_hash": "sha256:8c8c0fbb2a7e9ce1ed514ee4fa87a2ccc0f8c577ff1c3640caf21cfc97d04f4d",
+    "section_lines": {
+      "execution packet: feat-grace-packet-yaml-sidecar-source-hash-reconcile-w02-agent-api-sidecar": 1,
+      "objective": 3,
+      "slice": 6,
+      "impacted modules": 14,
+      "allowed write scope": 19,
+      "frozen scope": 22,
+      "must preserve": 37,
+      "required behavior": 51,
+      "verification": 61,
+      "expected evidence": 73,
+      "escalation triggers": 87
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md"
+  },
+  "warnings": [],
+  "errors": []
+}

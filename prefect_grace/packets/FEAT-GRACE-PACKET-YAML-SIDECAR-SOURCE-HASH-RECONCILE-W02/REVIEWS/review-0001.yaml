@@ -1,0 +1,57 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T22:23:14Z"
+summary: >
+  Accepted after rework. The package reconciles exactly one accepted Agent API
+  failure-classifier source hash in the runtime registry after YAML sidecar
+  creation, using the existing scoped registry-bootstrap-apply path.
+metadata:
+  attempt: attempt-0002
+  observability_verdict: clean_for_target_reconcile_with_pre_review_ready_self
+  verification:
+    preflight_registry_bootstrap_apply_dry_run: passed
+    approved_registry_bootstrap_apply: passed
+    target_packet_status_after: passed
+    sync_packets_after_target_apply: passed_with_ready_self
+    audit_sidecars_after: passed
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    self_sidecar_sync_dry_run: noop
+    scope_check: passed
+    git_diff_check: passed
+  reconcile:
+    packet_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+    previous_source_hash: sha256:760c9c28f6576401349adc7e85aa42394902acbd7c2fe7beda9d1ba358e58ec6
+    reconciled_source_hash: sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f
+    planned_action_counts:
+      update: 1
+    apply_count: 1
+    idempotence_after_apply:
+      noop: 1
+    changed_after_acceptance_after_apply: []
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR
+    source_mutations: []
+    writes_outside_runtime_state_root: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  sidecar_state:
+    canonical: 11
+    no_sidecar: 63
+    stale_sidecar: 0
+    invalid_sidecar: 0
+    skipped: 2
+notes:
+  - >
+    The pre-review ready item is this packet itself, which is expected until
+    this accepted review is committed and the packet is scoped-bootstrap-applied
+    into the runtime registry.
+  - >
+    Target runtime reconciliation was already applied by the worker; reviewer
+    follow-up should only bootstrap this W02 packet itself.
+blockers: []
