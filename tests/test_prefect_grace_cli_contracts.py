@@ -512,3 +512,15 @@ def test_run_e2e_packet_flow_cli_contract() -> None:
     assert "--fake-verifier-output" in result.stdout
     assert "--fake-reviewer-output" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_cli_nightly_preflight_risk_report_contract() -> None:
+    """Verify nightly-preflight-risk-report CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "nightly-preflight-risk-report", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--json" in result.stdout

@@ -401,3 +401,46 @@ def _cmd_run_nightly(args: argparse.Namespace) -> None:
         else:
             print(f"Nightly failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_nightly_preflight_risk_report(args: argparse.Namespace) -> None:
+    command = "nightly-preflight-risk-report"
+    try:
+        from prefect_grace.platform.nightly_preflight_risk_report import generate_nightly_preflight_risk_report
+
+        result_obj = generate_nightly_preflight_risk_report(
+            project_config=getattr(args, "project", None),
+        )
+        result = result_obj.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result_obj.ok,
+                command=command,
+                project_key=result_obj.project_key or None,
+                result=result,
+                warnings=result_obj.warnings,
+                errors=result_obj.errors,
+            ))
+        else:
+            print(f"Nightly preflight risk report for {result_obj.project_key}:")
+            print(f"  Packets total: {result_obj.packets_total}")
+            print(f"  Ready: {result_obj.ready_total}")
+            print(f"  Blocked: {result_obj.blocked_total}")
+            print(f"  Accepted: {result_obj.accepted_total}")
+            print(f"  Safe candidates: {result_obj.safe_candidates_total}")
+            print(f"  Risky candidates: {result_obj.risky_candidates_total}")
+            print(f"  Blocked candidates: {result_obj.blocked_candidates_total}")
+            print(f"  Approval required: {result_obj.approval_required_candidates_total}")
+            print(f"  Conflict groups: {result_obj.conflict_groups_total}")
+        if result_obj.errors:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PREFLIGHT_RISK_REPORT_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Nightly preflight risk report failed: {e}", file=sys.stderr)
+        sys.exit(1)

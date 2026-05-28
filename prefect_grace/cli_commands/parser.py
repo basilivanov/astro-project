@@ -65,6 +65,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_run_prefect_e2e_batch_smoke,
     _cmd_run_prefect_e2e_real_dry_run_smoke,
     _cmd_run_nightly,
+    _cmd_nightly_preflight_risk_report,
 )
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,
@@ -380,6 +381,11 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     run_nightly.add_argument("--until-blocked", action="store_true")
     run_nightly.add_argument("--json", action="store_true")
     run_nightly.set_defaults(func=_cmd_run_nightly)
+
+    nightly_preflight_risk_report = subparsers.add_parser("nightly-preflight-risk-report")
+    nightly_preflight_risk_report.add_argument("--project")
+    nightly_preflight_risk_report.add_argument("--json", action="store_true")
+    nightly_preflight_risk_report.set_defaults(func=_cmd_nightly_preflight_risk_report)
 
 
 def _register_worktrees_commands(subparsers) -> None:
