@@ -113,6 +113,66 @@ def test_evidence_manifest_from_dict():
     assert manifest.blockers == []
 
 
+def test_evidence_manifest_from_dict_uses_legacy_requirement_results_alias():
+    """Test legacy handoff requirement_results populates evidence items."""
+    data = {
+        "packet_id": "PKT-001",
+        "generated_by": "legacy-handoff",
+        "requirement_results": [
+            {
+                "id": "EV-LEGACY-001",
+                "status": "collected",
+                "stage": "packet_local",
+                "producer": "pytest",
+                "artifact_paths": ["legacy-output.txt"],
+                "summary": "Legacy evidence item",
+            }
+        ],
+        "blockers": [],
+    }
+
+    manifest = EvidenceManifest.from_dict(data)
+
+    assert len(manifest.evidence) == 1
+    assert manifest.evidence[0].id == "EV-LEGACY-001"
+    assert manifest.to_dict()["evidence"][0]["id"] == "EV-LEGACY-001"
+    assert "requirement_results" not in manifest.to_dict()
+
+
+def test_evidence_manifest_from_dict_prefers_canonical_evidence_over_legacy_alias():
+    """Test canonical evidence wins when both fields are present."""
+    data = {
+        "packet_id": "PKT-001",
+        "generated_by": "verifier",
+        "evidence": [
+            {
+                "id": "EV-CANONICAL-001",
+                "status": "collected",
+                "stage": "packet_local",
+                "producer": "pytest",
+                "artifact_paths": ["canonical-output.txt"],
+                "summary": "Canonical evidence item",
+            }
+        ],
+        "requirement_results": [
+            {
+                "id": "EV-LEGACY-001",
+                "status": "collected",
+                "stage": "packet_local",
+                "producer": "pytest",
+                "artifact_paths": ["legacy-output.txt"],
+                "summary": "Legacy evidence item",
+            }
+        ],
+        "blockers": [],
+    }
+
+    manifest = EvidenceManifest.from_dict(data)
+
+    assert len(manifest.evidence) == 1
+    assert manifest.evidence[0].id == "EV-CANONICAL-001"
+
+
 def test_parse_evidence_manifest_from_json():
     """Test parsing evidence manifest from JSON file."""
     data = {
@@ -144,6 +204,54 @@ def test_parse_evidence_manifest_from_json():
         assert manifest.evidence[0].id == "EV-TEST-001"
     finally:
         temp_path.unlink()
+
+
+def test_validate_evidence_manifest_packet_id_missing_fails_closed():
+    """Test validation rejects missing manifest packet_id."""
+    contract = EvidenceContract(packet_id="PKT-001", requirements=[])
+    manifest = EvidenceManifest(
+        packet_id="",
+        generated_by="verifier",
+        evidence=[],
+        blockers=[],
+    )
+
+    validation = validate_evidence_manifest(manifest, contract)
+
+    assert validation.ok is False
+    assert any(e["code"] == "manifest_packet_id_missing" for e in validation.errors)
+
+
+def test_validate_evidence_manifest_packet_id_unknown_fails_closed():
+    """Test validation rejects UNKNOWN manifest packet_id."""
+    contract = EvidenceContract(packet_id="PKT-001", requirements=[])
+    manifest = EvidenceManifest(
+        packet_id="UNKNOWN",
+        generated_by="verifier",
+        evidence=[],
+        blockers=[],
+    )
+
+    validation = validate_evidence_manifest(manifest, contract)
+
+    assert validation.ok is False
+    assert any(e["code"] == "manifest_packet_id_unknown" for e in validation.errors)
+
+
+def test_validate_evidence_manifest_packet_id_mismatch_fails_closed():
+    """Test validation rejects manifest packet_id mismatch."""
+    contract = EvidenceContract(packet_id="PKT-001", requirements=[])
+    manifest = EvidenceManifest(
+        packet_id="PKT-OTHER",
+        generated_by="verifier",
+        evidence=[],
+        blockers=[],
+    )
+
+    validation = validate_evidence_manifest(manifest, contract)
+
+    assert validation.ok is False
+    assert any(e["code"] == "manifest_packet_id_mismatch" for e in validation.errors)
 
 
 def test_validate_evidence_manifest_complete():

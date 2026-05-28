@@ -1,0 +1,68 @@
+{
+  "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "EV-TARGETED-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted pytest covered platform parser/validator behavior, manifest-local path regression tests, and CLI identity gate behavior."
+    },
+    {
+      "id": "EV-COMPILE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "compileall.txt"
+      ],
+      "summary": "compileall passed for evidence manifest platform module and evidence CLI command module."
+    },
+    {
+      "id": "EV-LINT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "lint_evidence_manifest.txt",
+        "lint_cli_evidence.txt"
+      ],
+      "summary": "GRACE lint passed for touched implementation module and CLI command module."
+    },
+    {
+      "id": "EV-STRICT-PACKET",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json"
+      ],
+      "summary": "Strict validate-packet passed for this execution packet."
+    },
+    {
+      "id": "EV-EVIDENCE-MANIFEST-VALIDATION",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "validate-evidence-manifest passed for this packet's canonical evidence manifest."
+    },
+    {
+      "id": "EV-OBSERVABILITY-VERDICT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "manual",
+      "artifact_paths": [
+        "observability_verdict.md"
+      ],
+      "summary": "Post-test observability verdict is clean for the local validation flow."
+    }
+  ],
+  "blockers": []
+}

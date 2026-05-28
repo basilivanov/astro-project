@@ -155,10 +155,13 @@ class EvidenceManifest:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "EvidenceManifest":
         """Deserialize from dict."""
+        evidence_items = data.get("evidence") if "evidence" in data else data.get("requirement_results", [])
+        if evidence_items is None:
+            evidence_items = []
         return cls(
             packet_id=data.get("packet_id", ""),
             generated_by=data.get("generated_by", ""),
-            evidence=[EvidenceItem.from_dict(item) for item in data.get("evidence", [])],
+            evidence=[EvidenceItem.from_dict(item) for item in evidence_items],
             blockers=data.get("blockers", []),
             manifest_dir=data.get("manifest_dir"),
         )
@@ -364,6 +367,32 @@ def validate_evidence_manifest(
 
     errors = []
     warnings = []
+
+    manifest_packet_id = str(manifest.packet_id or "").strip()
+    contract_packet_id = str(getattr(contract, "packet_id", "") or "").strip()
+    if not manifest_packet_id:
+        errors.append({
+            "code": "manifest_packet_id_missing",
+            "route_to": "verifier",
+            "message": "Evidence manifest packet_id is required",
+        })
+    elif manifest_packet_id.upper() == "UNKNOWN":
+        errors.append({
+            "code": "manifest_packet_id_unknown",
+            "route_to": "verifier",
+            "message": "Evidence manifest packet_id cannot be UNKNOWN",
+        })
+    elif manifest_packet_id != contract_packet_id:
+        errors.append({
+            "code": "manifest_packet_id_mismatch",
+            "route_to": "verifier",
+            "manifest_packet_id": manifest_packet_id,
+            "contract_packet_id": contract_packet_id,
+            "message": (
+                "Evidence manifest packet_id does not match packet contract "
+                f"packet_id: {manifest_packet_id} != {contract_packet_id}"
+            ),
+        })
 
     # Build map of contract requirements by ID
     contract_reqs = {req.id: req for req in contract.requirements}

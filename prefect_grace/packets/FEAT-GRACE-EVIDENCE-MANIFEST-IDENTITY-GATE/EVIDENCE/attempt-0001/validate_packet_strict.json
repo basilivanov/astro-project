@@ -1,0 +1,167 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "result": {
+    "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+    "feature_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+    "objective": "Add a fail-closed identity gate to GRACE evidence manifest validation so a\nmanifest cannot validate successfully when its `packet_id` is missing,\n`UNKNOWN`, or different from the parsed packet contract packet id.\n\nAlso preserve backward compatibility for legacy verifier handoff manifests that\nuse `requirement_results` as the evidence list, while keeping canonical\n`evidence` output from `to_dict()`.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [],
+    "modules": [
+      "M-GRACE-EVIDENCE-MANIFEST",
+      "M-GRACE-CLI",
+      "M-GRACE-EVIDENCE-VALIDATION"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/evidence_manifest.py",
+      "/opt/astro-project/prefect_grace/cli_commands/evidence.py",
+      "/opt/astro-project/tests/test_prefect_grace_evidence_manifest.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_evidence_manifest_paths.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_evidence_manifest_identity.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/.worktrees/**",
+      "/opt/astro-project/prefect_grace/executor_history.yaml",
+      "/opt/astro-project/prefect_grace/packet_registry.yaml",
+      "/opt/astro-project/prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/**",
+      "/opt/astro-project/prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/**",
+      "/opt/astro-project/prefect_grace/platform/** outside allowed scope",
+      "/opt/astro-project/prefect_grace/cli_commands/** outside allowed scope",
+      "/opt/astro-project/tests/** outside allowed scope",
+      "/var/lib/**"
+    ],
+    "must_preserve": [
+      "Artifact reference validation continues to resolve manifest-local paths.",
+      "Unknown evidence ids remain warnings when packet identity is valid.",
+      "Canonical manifest serialization keeps the `evidence` field.",
+      "CLI JSON envelope keeps `result == data`.",
+      "Bootstrap, registry inference, backend, frontend, and runtime registry state are not changed."
+    ],
+    "verification": "Run:\n\n```bash\npython3 -m pytest -q tests/test_prefect_grace_evidence_manifest.py tests/test_prefect_grace_cli_evidence_manifest_paths.py tests/test_prefect_grace_cli_evidence_manifest_identity.py\npython3 -m compileall -q prefect_grace/platform/evidence_manifest.py prefect_grace/cli_commands/evidence.py\npython3 scripts/grace_lint.py prefect_grace/platform/evidence_manifest.py\npython3 scripts/grace_lint.py prefect_grace/cli_commands/evidence.py\npython3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md --strict --json\npython3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EVIDENCE/attempt-0001/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md --artifact-root /opt/astro-project --json\ngit diff --check\n```",
+    "expected_evidence": [
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Strict packet validation output.",
+      "Evidence manifest validation output.",
+      "Observability verdict with post-test evidence review."
+    ],
+    "escalation_triggers": [
+      "A manifest with missing, `UNKNOWN`, or mismatched packet id validates.",
+      "A legacy `requirement_results` manifest silently validates with zero evidence.",
+      "Manifest-local artifact paths regress.",
+      "Registry, bootstrap, backend, frontend, or runtime state changes appear."
+    ],
+    "source_hash": "sha256:83caebd1d55471960254bf7b761a7d10c2589aa5b19c3ac25af6207008098a50",
+    "section_lines": {
+      "execution packet: feat-grace-evidence-manifest-identity-gate-w01-strict-packet-id": 1,
+      "objective": 3,
+      "slice": 13,
+      "source of truth": 24,
+      "impacted modules": 34,
+      "allowed write scope": 40,
+      "frozen scope": 49,
+      "must preserve": 63,
+      "required design decisions": 71,
+      "1. identity gate location": 73,
+      "2. identity rules": 78,
+      "3. legacy evidence alias": 92,
+      "implementation requirements": 98,
+      "acceptance criteria": 107,
+      "verification": 115,
+      "expected evidence": 129,
+      "escalation triggers": 138
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md"
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+    "feature_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+    "objective": "Add a fail-closed identity gate to GRACE evidence manifest validation so a\nmanifest cannot validate successfully when its `packet_id` is missing,\n`UNKNOWN`, or different from the parsed packet contract packet id.\n\nAlso preserve backward compatibility for legacy verifier handoff manifests that\nuse `requirement_results` as the evidence list, while keeping canonical\n`evidence` output from `to_dict()`.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [],
+    "modules": [
+      "M-GRACE-EVIDENCE-MANIFEST",
+      "M-GRACE-CLI",
+      "M-GRACE-EVIDENCE-VALIDATION"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/evidence_manifest.py",
+      "/opt/astro-project/prefect_grace/cli_commands/evidence.py",
+      "/opt/astro-project/tests/test_prefect_grace_evidence_manifest.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_evidence_manifest_paths.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_evidence_manifest_identity.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/.worktrees/**",
+      "/opt/astro-project/prefect_grace/executor_history.yaml",
+      "/opt/astro-project/prefect_grace/packet_registry.yaml",
+      "/opt/astro-project/prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/**",
+      "/opt/astro-project/prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/**",
+      "/opt/astro-project/prefect_grace/platform/** outside allowed scope",
+      "/opt/astro-project/prefect_grace/cli_commands/** outside allowed scope",
+      "/opt/astro-project/tests/** outside allowed scope",
+      "/var/lib/**"
+    ],
+    "must_preserve": [
+      "Artifact reference validation continues to resolve manifest-local paths.",
+      "Unknown evidence ids remain warnings when packet identity is valid.",
+      "Canonical manifest serialization keeps the `evidence` field.",
+      "CLI JSON envelope keeps `result == data`.",
+      "Bootstrap, registry inference, backend, frontend, and runtime registry state are not changed."
+    ],
+    "verification": "Run:\n\n```bash\npython3 -m pytest -q tests/test_prefect_grace_evidence_manifest.py tests/test_prefect_grace_cli_evidence_manifest_paths.py tests/test_prefect_grace_cli_evidence_manifest_identity.py\npython3 -m compileall -q prefect_grace/platform/evidence_manifest.py prefect_grace/cli_commands/evidence.py\npython3 scripts/grace_lint.py prefect_grace/platform/evidence_manifest.py\npython3 scripts/grace_lint.py prefect_grace/cli_commands/evidence.py\npython3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md --strict --json\npython3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EVIDENCE/attempt-0001/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md --artifact-root /opt/astro-project --json\ngit diff --check\n```",
+    "expected_evidence": [
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Strict packet validation output.",
+      "Evidence manifest validation output.",
+      "Observability verdict with post-test evidence review."
+    ],
+    "escalation_triggers": [
+      "A manifest with missing, `UNKNOWN`, or mismatched packet id validates.",
+      "A legacy `requirement_results` manifest silently validates with zero evidence.",
+      "Manifest-local artifact paths regress.",
+      "Registry, bootstrap, backend, frontend, or runtime state changes appear."
+    ],
+    "source_hash": "sha256:83caebd1d55471960254bf7b761a7d10c2589aa5b19c3ac25af6207008098a50",
+    "section_lines": {
+      "execution packet: feat-grace-evidence-manifest-identity-gate-w01-strict-packet-id": 1,
+      "objective": 3,
+      "slice": 13,
+      "source of truth": 24,
+      "impacted modules": 34,
+      "allowed write scope": 40,
+      "frozen scope": 49,
+      "must preserve": 63,
+      "required design decisions": 71,
+      "1. identity gate location": 73,
+      "2. identity rules": 78,
+      "3. legacy evidence alias": 92,
+      "implementation requirements": 98,
+      "acceptance criteria": 107,
+      "verification": 115,
+      "expected evidence": 129,
+      "escalation triggers": 138
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md"
+  },
+  "warnings": [],
+  "errors": []
+}
