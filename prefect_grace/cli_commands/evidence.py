@@ -301,14 +301,20 @@ def _cmd_validate_evidence_manifest(args: argparse.Namespace) -> None:
         contract = parse_evidence_contract(packet)
         manifest = parse_evidence_manifest(args.manifest_path)
 
-        # Validate manifest against contract
-        contract_validation = validate_evidence_manifest(manifest, contract)
-
         # Validate artifact references. The manifest directory is a relative
         # root so short sibling paths such as "targeted_pytest.txt" work.
         artifact_roots = [args.manifest_path.parent]
         if args.artifact_root:
             artifact_roots.append(Path(args.artifact_root))
+
+        # Validate manifest against contract and structured trace artifacts
+        # using the same roots artifact reference validation uses.
+        contract_validation = validate_evidence_manifest(
+            manifest,
+            contract,
+            artifact_roots=artifact_roots,
+        )
+
         artifact_validation = validate_artifact_references(manifest, artifact_roots)
 
         result = {

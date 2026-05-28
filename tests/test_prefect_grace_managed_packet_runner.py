@@ -6,6 +6,7 @@ Uses temporary git repositories and fake launcher callables.
 """
 
 import tempfile
+import json
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from prefect_grace.platform.managed_packet_runner import (
     ManagedPacketRunResult,
     run_managed_packet,
 )
+from prefect_grace.platform.trace_context import create_trace_context
 
 
 def _create_minimal_packet(path: Path) -> None:
@@ -90,6 +92,56 @@ def test_managed_packet_run_dry_run_passes(tmp_path):
     assert result.attempt == 1
     assert len(result.changed_files) == 0
     assert result.blocker_reason is None
+
+
+def test_managed_packet_run_writes_structured_trace(tmp_path):
+    """Managed runner emits critical path structured trace events."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_root, check=True)
+    (repo_root / "README.md").write_text("base\n")
+    subprocess.run(["git", "add", "README.md"], cwd=repo_root, check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], cwd=repo_root, check=True)
+
+    packet_file = tmp_path / "EXECUTION_PACKET.md"
+    _create_minimal_packet(packet_file)
+    trace_context = create_trace_context(
+        packet_id="TEST-W01-PACKET",
+        attempt=1,
+        scenario_id="SCN-MANAGED-RUNNER-TEST",
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    result = run_managed_packet(
+        packet_file=packet_file,
+        repo_root=repo_root,
+        worktree_root=tmp_path / "worktrees",
+        project_key="test-project",
+        packet_id="TEST-W01-PACKET",
+        attempt=1,
+        base_ref="HEAD",
+        dry_run=True,
+        execute_agent=False,
+        trace_context=trace_context,
+    )
+
+    assert result.ok is True
+    trace_path = tmp_path / "artifacts" / "TEST-W01-PACKET" / "execution_trace.jsonl"
+    rows = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
+    events = {row["event"] for row in rows}
+    assert {
+        "worktree_created",
+        "agent_started",
+        "agent_completed",
+        "scope_validation_started",
+        "scope_validation_completed",
+        "domain_status_determined",
+    }.issubset(events)
+    assert all(row["trace_id"] == "TRACE-TEST-W01-PACKET-ATTEMPT-001" for row in rows)
 
 
 def test_managed_packet_run_scope_blocked_frozen(tmp_path):

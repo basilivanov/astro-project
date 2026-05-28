@@ -8,7 +8,7 @@
 # inputs: Packet file, repo root, worktree root, project key, packet ID, attempt, base ref, execution flags.
 # returns: ManagedPacketRunResult with domain status and execution details.
 # side_effects: Creates worktree, launches agent, evaluates scope, preserves worktree by default.
-# emitted_logs: None (caller should log).
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Fails closed on parse/worktree/launcher/lifecycle errors, returns domain status.
 # END_MODULE_CONTRACT
 
@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from prefect_grace.platform.packet_parser import parse_packet_markdown
+from prefect_grace.platform.structured_logger import log_event
 from prefect_grace.platform.worktree_manager import WorktreeManager
 from prefect_grace.platform.worktree_scope_lifecycle import evaluate_worktree_scope
 from prefect_grace.platform.status_model import DomainStatus, normalize_domain_status
@@ -90,9 +91,10 @@ class ManagedPacketRunResult:
 #   keep_worktree: Preserve worktree after execution.
 #   launcher: Optional launcher callable (default: launch_codex_for_packet).
 #   project: Optional project config for executor selection.
+#   trace_context: Optional structured logging trace context.
 # returns: ManagedPacketRunResult with domain status and execution details.
 # side_effects: Creates worktree, launches agent if execute_agent=True and dry_run=False, evaluates scope, preserves worktree if keep_worktree=True.
-# emitted_logs: None (caller should log).
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Fails closed on parse/worktree/launcher/lifecycle errors, returns runner_error domain status. Scope violations return scope_blocked. Agent failures return agent_failed. Success returns passed.
 # END_FUNCTION_CONTRACT
 def run_managed_packet(
@@ -110,6 +112,7 @@ def run_managed_packet(
     keep_worktree: bool = True,
     launcher: Callable[..., dict[str, Any]] | None = None,
     project: Any | None = None,
+    trace_context: Any | None = None,
 ) -> ManagedPacketRunResult:
     """
     Execute packet in isolated worktree with agent and scope validation.
@@ -146,6 +149,17 @@ def run_managed_packet(
     Returns:
         ManagedPacketRunResult with domain status and execution details
     """
+    def _log(event: str, result: str = "ok", **extra: Any) -> None:
+        log_event(
+            trace_context,
+            module="M-GRACE-MANAGED-PACKET-RUNNER",
+            fn="run_managed_packet",
+            block="AGENT_EXECUTION",
+            event=event,
+            result=result,
+            **extra,
+        )
+
     # Default launcher
     if launcher is None:
         launcher = launch_codex_for_packet
@@ -154,6 +168,7 @@ def run_managed_packet(
     try:
         packet = parse_packet_markdown(packet_file)
     except Exception as e:
+        _log("packet_parse_failed", "fail", error=str(e))
         return ManagedPacketRunResult(
             ok=False,
             domain_status=DomainStatus.RUNNER_ERROR.value,
@@ -186,6 +201,7 @@ def run_managed_packet(
         )
 
         if not selection.ok:
+            _log("executor_selection_failed", "fail", reason=selection.reason)
             return ManagedPacketRunResult(
                 ok=False,
                 domain_status="runner_error",
@@ -217,6 +233,7 @@ def run_managed_packet(
                 },
                 attempt=attempt,
             )
+            _log("executor_selection_failed", "fail", executor_kind=selected_executor.kind)
             return ManagedPacketRunResult(
                 ok=False,
                 domain_status="runner_error",
@@ -246,6 +263,7 @@ def run_managed_packet(
             # Reuse existing worktree
             worktree_path = worktree_status.path
             branch_name = worktree_status.branch_name
+            _log("worktree_created", "ok", reused=True, worktree_path=str(worktree_path), branch_name=branch_name)
         else:
             # Create new worktree
             worktree_result = manager.create_packet_worktree(
@@ -255,7 +273,9 @@ def run_managed_packet(
             )
             worktree_path = worktree_result.worktree_path
             branch_name = worktree_result.branch_name
+            _log("worktree_created", "ok", reused=False, worktree_path=str(worktree_path), branch_name=branch_name)
     except Exception as e:
+        _log("worktree_created", "fail", error=str(e))
         return ManagedPacketRunResult(
             ok=False,
             domain_status=DomainStatus.RUNNER_ERROR.value,
@@ -275,6 +295,7 @@ def run_managed_packet(
     agent_ok = True
     if execute_agent and not dry_run:
         try:
+            _log("agent_started", "ok", dry_run=dry_run, execute_agent=execute_agent)
             # Determine runtime_state_root from project or default
             runtime_state_root = None
             if project is not None:
@@ -288,7 +309,14 @@ def run_managed_packet(
                 runtime_state_root=runtime_state_root,
             )
             agent_ok = agent_result.get("returncode", 1) == 0
+            _log(
+                "agent_completed",
+                "ok" if agent_ok else "fail",
+                returncode=agent_result.get("returncode"),
+                termination_reason=agent_result.get("termination_reason"),
+            )
         except Exception as e:
+            _log("agent_completed", "fail", error=str(e))
             return ManagedPacketRunResult(
                 ok=False,
                 domain_status="runner_error",
@@ -304,6 +332,7 @@ def run_managed_packet(
             )
     else:
         # Dry run or no agent execution
+        _log("agent_started", "skip", dry_run=dry_run, execute_agent=execute_agent)
         agent_result = {
             "returncode": 0,
             "termination_reason": "dry_run" if dry_run else "no_agent_execution",
@@ -312,6 +341,7 @@ def run_managed_packet(
             "execute_agent": execute_agent,
         }
         agent_ok = True
+        _log("agent_completed", "skip", termination_reason=agent_result["termination_reason"])
 
     # Include executor metadata in agent_result
     if selected_executor is not None:
@@ -320,6 +350,7 @@ def run_managed_packet(
 
     # Evaluate worktree scope
     try:
+        _log("scope_validation_started", "ok")
         lifecycle_result = evaluate_worktree_scope(
             packet_file=packet_file,
             packet_id=packet_id,
@@ -331,6 +362,7 @@ def run_managed_packet(
             keep_on_failure=keep_worktree,
         )
     except Exception as e:
+        _log("scope_validation_completed", "fail", error=str(e))
         return ManagedPacketRunResult(
             ok=False,
             domain_status=DomainStatus.RUNNER_ERROR.value,
@@ -349,6 +381,12 @@ def run_managed_packet(
     changed_files = lifecycle_result.changed_files
     scope_guard = lifecycle_result.scope_guard
     lifecycle_result_dict = lifecycle_result.to_dict()
+    _log(
+        "scope_validation_completed",
+        "ok" if lifecycle_status == "passed" else "fail",
+        lifecycle_status=lifecycle_status,
+        changed_file_count=len(changed_files),
+    )
 
     # Determine domain status (priority: runner_error > scope_blocked > agent_failed > passed)
     # Use DomainStatus enum for normalization
@@ -368,6 +406,12 @@ def run_managed_packet(
         domain_status = DomainStatus.RUNNER_ERROR.value
         ok = False
         blocker_reason = f"Unexpected lifecycle status: {lifecycle_status}"
+    _log(
+        "domain_status_determined",
+        "ok" if ok else "fail",
+        domain_status=domain_status,
+        blocker_reason=blocker_reason,
+    )
 
     # Record executor attempt if project provided
     if selected_executor is not None and project is not None:

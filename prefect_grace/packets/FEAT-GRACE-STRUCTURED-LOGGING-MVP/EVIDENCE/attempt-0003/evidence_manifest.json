@@ -1,0 +1,103 @@
+{
+  "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+  "generated_by": "codex-worker-rework-0002",
+  "evidence": [
+    {
+      "id": "EV-REWORK-0002-REQUIRED-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "required_pytest.txt"
+      ],
+      "summary": "Required packet pytest subset passed after rework-0002."
+    },
+    {
+      "id": "EV-REWORK-0002-FOCUSED-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "focused_pytest.txt"
+      ],
+      "summary": "Focused suite including Review-0001 and Review-0002 CLI trace regressions passed."
+    },
+    {
+      "id": "EV-REWORK-0002-INVALID-LOCAL-TRACE-CLI",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "invalid_manifest_local_trace_cli.json",
+        "invalid_manifest_local_trace_cli.status"
+      ],
+      "summary": "CLI validate-evidence-manifest rejects invalid manifest-local execution_trace.jsonl with exit code 1."
+    },
+    {
+      "id": "EV-REWORK-0002-INVALID-REPO-TRACE-CLI",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "invalid_repo_relative_trace_cli.json",
+        "invalid_repo_relative_trace_cli.status"
+      ],
+      "summary": "CLI validate-evidence-manifest rejects invalid repo-relative execution_trace.jsonl resolved through --artifact-root with exit code 1."
+    },
+    {
+      "id": "EV-REWORK-0002-COMPILE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "compileall.txt"
+      ],
+      "summary": "prefect_grace/platform and prefect_grace/cli_commands compiled successfully."
+    },
+    {
+      "id": "EV-REWORK-0002-GRACE-LINT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "grace_lint_structured_logger.txt",
+        "grace_lint_trace_context.txt",
+        "grace_lint_log_collector.txt",
+        "grace_lint_touched.txt"
+      ],
+      "summary": "GRACE lint passed for new modules, touched platform modules, and cli_commands/evidence.py."
+    },
+    {
+      "id": "EV-REWORK-0002-PACKET-VALIDATION",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_packet_strict.json"
+      ],
+      "summary": "Execution packet validates in strict mode after narrow allowed-scope addition for cli_commands/evidence.py."
+    },
+    {
+      "id": "EV-REWORK-0002-EXECUTION-TRACE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE/execution_trace.jsonl",
+        "execution_trace_validation.txt"
+      ],
+      "summary": "Valid sample execution_trace.jsonl contains 11 structured events and validates through manifest-local resolution."
+    },
+    {
+      "id": "EV-REWORK-0002-OBSERVABILITY-VERDICT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "manual",
+      "artifact_paths": [
+        "observability_verdict.txt"
+      ],
+      "summary": "Observability verdict is clean for deterministic unit/static proof after rework-0002."
+    }
+  ],
+  "blockers": []
+}

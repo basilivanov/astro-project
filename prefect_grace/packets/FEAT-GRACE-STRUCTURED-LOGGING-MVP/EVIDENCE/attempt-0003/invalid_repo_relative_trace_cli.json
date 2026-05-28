@@ -1,0 +1,79 @@
+{
+  "ok": false,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+    "evidence_count": 1,
+    "contract_validation": {
+      "ok": false,
+      "errors": [
+        {
+          "code": "execution_trace_invalid_json",
+          "path": "/tmp/tmp.2kTkn2yV7t/root/prefect_grace/packets/PKT/EVIDENCE/attempt-0001/PKT/execution_trace.jsonl",
+          "line": 1,
+          "message": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+          "evidence_id": "EV-TRACE-REPO-REL",
+          "route_to": "coder"
+        }
+      ],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-TRACE-REPO-REL",
+          "message": "Evidence EV-TRACE-REPO-REL not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "prefect_grace/packets/PKT/EVIDENCE/attempt-0001/PKT/execution_trace.jsonl",
+          "exists": true,
+          "size": 11,
+          "hash": "649efdc33bbfa46d1fbb3074e64d1dd884b6f01670f4593c09844ea788cfcccc"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+    "evidence_count": 1,
+    "contract_validation": {
+      "ok": false,
+      "errors": [
+        {
+          "code": "execution_trace_invalid_json",
+          "path": "/tmp/tmp.2kTkn2yV7t/root/prefect_grace/packets/PKT/EVIDENCE/attempt-0001/PKT/execution_trace.jsonl",
+          "line": 1,
+          "message": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+          "evidence_id": "EV-TRACE-REPO-REL",
+          "route_to": "coder"
+        }
+      ],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-TRACE-REPO-REL",
+          "message": "Evidence EV-TRACE-REPO-REL not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "prefect_grace/packets/PKT/EVIDENCE/attempt-0001/PKT/execution_trace.jsonl",
+          "exists": true,
+          "size": 11,
+          "hash": "649efdc33bbfa46d1fbb3074e64d1dd884b6f01670f4593c09844ea788cfcccc"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

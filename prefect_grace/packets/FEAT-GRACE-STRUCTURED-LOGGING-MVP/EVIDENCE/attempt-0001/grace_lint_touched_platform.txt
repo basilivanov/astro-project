@@ -1,0 +1,5 @@
+[GRACE-LINT] All modules in prefect_grace/platform/managed_packet_runner.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/single_astro_packet_pilot.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/prefect_native_submission.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/scope_guard.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/evidence_manifest.py comply with GRACE Canon Script Discipline.

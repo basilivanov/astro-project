@@ -1,0 +1,3 @@
+path=prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/EVIDENCE/attempt-0001/FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE/execution_trace.jsonl
+event_count=11
+validation_errors=[]

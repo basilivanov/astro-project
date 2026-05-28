@@ -8,7 +8,7 @@
 # inputs: Changed file paths, allowed scope patterns, frozen scope patterns, repo root.
 # returns: ScopeGuardResult with violations and validation status.
 # side_effects: None - pure validation, no state mutation.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Fail closed on invalid paths or pattern errors.
 # END_MODULE_CONTRACT
 
@@ -26,6 +26,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from prefect_grace.platform.structured_logger import log_event
 
 
 @dataclass(frozen=True)
@@ -214,9 +216,10 @@ def _matches_pattern(normalized_path: str, pattern: str) -> bool:
 #   allowed_scope: list[str] - List of allowed scope patterns.
 #   frozen_scope: list[str] - List of frozen scope patterns.
 #   repo_root: Path - Repository root directory.
+#   trace_context: Optional structured logging trace context.
 # returns: ScopeGuardResult - Validation result with violations.
 # side_effects: None - pure validation function.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Fail closed - invalid paths block validation.
 # END_FUNCTION_CONTRACT
 def validate_scope(
@@ -225,6 +228,7 @@ def validate_scope(
     frozen_scope: list[str],
     *,
     repo_root: Path,
+    trace_context: Any | None = None,
 ) -> ScopeGuardResult:
     """
     Validate changed files against allowed and frozen scope.
@@ -244,6 +248,25 @@ def validate_scope(
     Returns:
         ScopeGuardResult with validation status and violations.
     """
+    def _log(event: str, result: str = "ok", **extra: Any) -> None:
+        log_event(
+            trace_context,
+            module="M-GRACE-SCOPE-GUARD",
+            fn="validate_scope",
+            block="SCOPE_VALIDATION",
+            event=event,
+            result=result,
+            **extra,
+        )
+
+    _log(
+        "scope_check_started",
+        "ok",
+        changed_file_count=len(changed_files),
+        allowed_scope_count=len(allowed_scope),
+        frozen_scope_count=len(frozen_scope),
+    )
+
     invalid_paths: list[ScopeGuardViolation] = []
     frozen_violations: list[ScopeGuardViolation] = []
     outside_allowed: list[ScopeGuardViolation] = []
@@ -283,6 +306,7 @@ def validate_scope(
 
     # If there are invalid paths, fail immediately
     if invalid_paths:
+        _log("scope_violation_detected", "fail", invalid_path_count=len(invalid_paths))
         return ScopeGuardResult(
             ok=False,
             changed_files=sorted(changed_files),
@@ -344,6 +368,15 @@ def validate_scope(
         and len(frozen_violations) == 0
         and len(outside_allowed) == 0
     )
+    if ok:
+        _log("scope_check_passed", "ok", changed_file_count=len(normalized_changed))
+    else:
+        _log(
+            "scope_violation_detected",
+            "fail",
+            frozen_violation_count=len(frozen_violations),
+            outside_allowed_count=len(outside_allowed),
+        )
 
     return ScopeGuardResult(
         ok=ok,

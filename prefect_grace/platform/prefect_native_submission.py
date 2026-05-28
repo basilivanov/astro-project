@@ -8,7 +8,7 @@
 # inputs: ProjectAdapterConfig, dry_run flag, limit, execute_agent flag, submitter callable.
 # returns: NativeSubmissionResult with submission records and registry updates.
 # side_effects: Updates packet registry state on successful submission.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Returns structured errors in result objects.
 # END_MODULE_CONTRACT
 
@@ -28,6 +28,7 @@ from typing import Any, Callable, Literal
 
 from prefect_grace.platform.backlog_controller import BacklogController
 from prefect_grace.platform.state_store import PacketRegistryStore
+from prefect_grace.platform.structured_logger import log_event
 from prefect_grace.tasks.prefect_submitter import (
     E2E_PACKET_DEPLOYMENT_NAME,
     MANAGED_PACKET_DEPLOYMENT_NAME,
@@ -296,9 +297,10 @@ def _parameters_for_packet(
 #   continue_on_error: If True, continue submitting after failures.
 #   submitter: Optional callable for submission (for testing).
 #   runner_kind: Runner kind to submit, defaults to e2e.
+#   trace_context: Optional structured logging trace context.
 # returns: NativeSubmissionResult with submission records.
 # side_effects: Updates packet registry on successful submission.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl when trace_context is provided.
 # error_behavior: Returns structured errors in result.
 # END_FUNCTION_CONTRACT
 def submit_ready_packets_to_prefect(
@@ -314,7 +316,20 @@ def submit_ready_packets_to_prefect(
     continue_on_error: bool = False,
     submitter: Callable[..., dict[str, Any]] | None = None,
     runner_kind: Literal["e2e", "managed"] = "e2e",
+    trace_context: Any | None = None,
 ) -> NativeSubmissionResult:
+    def _log(event: str, result: str = "ok", **extra: Any) -> None:
+        log_event(
+            trace_context,
+            module="M-GRACE-PREFECT-NATIVE-SUBMISSION",
+            fn="submit_ready_packets_to_prefect",
+            block="PREFECT_SUBMISSION",
+            event=event,
+            result=result,
+            runner_kind=runner_kind,
+            **extra,
+        )
+
     if runner_kind not in {"e2e", "managed"}:
         raise ValueError(f"Unsupported runner_kind: {runner_kind}")
 
@@ -337,6 +352,7 @@ def submit_ready_packets_to_prefect(
 
     # If dry-run, return plan without submission
     if dry_run:
+        _log("submission_planned", "ok", packet_count=len(packets_planned), dry_run=True)
         for packet_id in packets_planned:
             packet_record = registry.load_packet(packet_id) or {}
             feature_id = str(packet_record.get("feature_id", "") or "")
@@ -379,6 +395,7 @@ def submit_ready_packets_to_prefect(
     for packet_id in packets_planned:
         packet_record = registry.load_packet(packet_id)
         if not packet_record:
+            _log("prefect_api_call_completed", "fail", packet_id_for_event=packet_id, error_code="PACKET_NOT_FOUND_IN_REGISTRY")
             error = {
                 "code": "PACKET_NOT_FOUND_IN_REGISTRY",
                 "packet_id": packet_id,
@@ -408,6 +425,7 @@ def submit_ready_packets_to_prefect(
 
         source_hash = packet_record.get("source_hash", "")
         if not source_hash:
+            _log("prefect_api_call_completed", "fail", packet_id_for_event=packet_id, error_code="MISSING_SOURCE_HASH")
             error = {
                 "code": "MISSING_SOURCE_HASH",
                 "packet_id": packet_id,
@@ -472,6 +490,7 @@ def submit_ready_packets_to_prefect(
 
         # Call submitter
         if submitter is None:
+            _log("prefect_api_call_completed", "fail", packet_id_for_event=packet_id, error_code="NO_SUBMITTER_PROVIDED")
             error = {
                 "code": "NO_SUBMITTER_PROVIDED",
                 "packet_id": packet_id,
@@ -500,6 +519,7 @@ def submit_ready_packets_to_prefect(
             continue
 
         try:
+            _log("prefect_api_call_started", "ok", packet_id_for_event=packet_id, deployment_name=_deployment_name_for_runner(runner_kind))
             submit_result = submitter(
                 parameters=parameters,
                 scheduled_for=scheduled_for,
@@ -515,6 +535,13 @@ def submit_ready_packets_to_prefect(
             deployment_name = submit_result.get("deployment_name", _deployment_name_for_runner(runner_kind))
             work_queue_name = submit_result.get("work_queue_name")
             url = submit_result.get("url")
+            _log(
+                "flow_run_created",
+                "ok" if flow_run_id else "fail",
+                packet_id_for_event=packet_id,
+                flow_run_id=flow_run_id,
+                flow_run_name=flow_run_name,
+            )
 
             # Update registry with submission info
             now = datetime.now(timezone.utc).isoformat()
@@ -550,8 +577,10 @@ def submit_ready_packets_to_prefect(
                 )
             )
             packets_submitted.append(packet_id)
+            _log("prefect_api_call_completed", "ok", packet_id_for_event=packet_id, flow_run_id=flow_run_id)
 
         except Exception as e:
+            _log("prefect_api_call_completed", "fail", packet_id_for_event=packet_id, error=str(e))
             error = {
                 "code": "SUBMISSION_FAILED",
                 "packet_id": packet_id,

@@ -21,15 +21,17 @@
 # ============================================================================
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from pathlib import Path
 import json
 
+from prefect_grace.platform.structured_logger import REQUIRED_ENVELOPE_FIELDS
+
 # START_MODULE_CONTRACT
 # Module: evidence_manifest
 # Purpose: Parse and validate evidence manifests from verifier output
-# Exports: EvidenceItem, EvidenceManifest, parse_evidence_manifest, validate_evidence_manifest
+# Exports: EvidenceItem, EvidenceManifest, parse_evidence_manifest, validate_evidence_manifest, validate_execution_trace_jsonl
 # Dependencies: evidence_contract (EvidenceContract, EvidenceContractValidation)
 # Constraints: No Prefect imports, deterministic validation, fail-closed
 # END_MODULE_CONTRACT
@@ -38,7 +40,7 @@ import json
 # Block: models - Evidence item and manifest dataclasses
 # Block: validation_constants - Allowed evidence statuses
 # Block: parser - Parse evidence manifest from JSON
-# Block: validator - Validate manifest against contract
+# Block: validator - Validate manifest against contract and structured trace artifacts
 # END_MODULE_MAP
 
 #START_BLOCK_MODELS
@@ -119,6 +121,7 @@ class EvidenceManifest:
     generated_by: str
     evidence: list[EvidenceItem] = field(default_factory=list)
     blockers: list[dict[str, Any]] = field(default_factory=list)
+    manifest_dir: str | None = field(default=None, repr=False, compare=False)
 
     # START_FUNCTION_CONTRACT
     # Function: to_dict
@@ -157,6 +160,7 @@ class EvidenceManifest:
             generated_by=data.get("generated_by", ""),
             evidence=[EvidenceItem.from_dict(item) for item in data.get("evidence", [])],
             blockers=data.get("blockers", []),
+            manifest_dir=data.get("manifest_dir"),
         )
 
 #END_BLOCK_MODELS
@@ -193,16 +197,144 @@ def parse_evidence_manifest(path: Path) -> "EvidenceManifest":
     """Load evidence manifest from JSON file."""
     with open(path, "r") as f:
         data = json.load(f)
-    return EvidenceManifest.from_dict(data)
+    manifest = EvidenceManifest.from_dict(data)
+    return replace(manifest, manifest_dir=str(path.parent))
 
 #END_BLOCK_PARSER
 #START_BLOCK_VALIDATOR
+# START_FUNCTION_CONTRACT
+# Function: validate_execution_trace_jsonl
+# Purpose: Validate structured execution trace JSONL envelope format
+# Args:
+#   - path: Path to execution_trace.jsonl
+# Returns: list[dict[str, Any]] validation errors
+# Inputs: Path
+# Side_effects: Reads JSONL trace file
+# Emitted_logs: None
+# Error_behavior: Returns errors for missing, invalid JSON, missing fields, or non-object lines
+# END_FUNCTION_CONTRACT
+def validate_execution_trace_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Validate structured execution trace JSONL envelope format."""
+    if not path.exists():
+        return [{
+            "code": "execution_trace_missing",
+            "path": str(path),
+            "message": f"execution_trace.jsonl not found: {path}",
+        }]
+
+    errors: list[dict[str, Any]] = []
+    required = set(REQUIRED_ENVELOPE_FIELDS) | {"packet_id", "attempt"}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except Exception as exc:
+        return [{
+            "code": "execution_trace_unreadable",
+            "path": str(path),
+            "message": str(exc),
+        }]
+
+    if not lines:
+        errors.append({
+            "code": "execution_trace_empty",
+            "path": str(path),
+            "message": "execution_trace.jsonl has no events",
+        })
+
+    for index, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError as exc:
+            errors.append({
+                "code": "execution_trace_invalid_json",
+                "path": str(path),
+                "line": index,
+                "message": str(exc),
+            })
+            continue
+        if not isinstance(entry, dict):
+            errors.append({
+                "code": "execution_trace_non_object",
+                "path": str(path),
+                "line": index,
+                "message": "Trace line must be a JSON object",
+            })
+            continue
+        missing = sorted(required - set(entry.keys()))
+        if missing:
+            errors.append({
+                "code": "execution_trace_missing_fields",
+                "path": str(path),
+                "line": index,
+                "fields": missing,
+                "message": f"Trace line missing fields: {', '.join(missing)}",
+            })
+        timestamp = entry.get("timestamp")
+        if not isinstance(timestamp, str) or not timestamp.endswith("Z"):
+            errors.append({
+                "code": "execution_trace_invalid_timestamp",
+                "path": str(path),
+                "line": index,
+                "message": "Trace timestamp must be ISO-8601 UTC with trailing Z",
+            })
+    return errors
+
+
+# START_FUNCTION_CONTRACT
+# Function: resolve_execution_trace_artifact
+# Purpose: Resolve trace artifact path through allowed artifact roots
+# Args:
+#   - artifact_path: Path string from evidence manifest
+#   - artifact_roots: allowed roots for manifest-local and artifact-root paths
+# Returns: Path or None
+# Inputs: artifact path and artifact roots
+# Side_effects: None
+# Emitted_logs: None
+# Error_behavior: Returns None for missing or traversal/outside-root paths
+# END_FUNCTION_CONTRACT
+def resolve_execution_trace_artifact(
+    artifact_path: str,
+    artifact_roots: list[Path],
+) -> Path | None:
+    """Resolve an execution trace artifact using artifact-validator roots."""
+    path = Path(artifact_path)
+    roots = [root.resolve() for root in artifact_roots]
+
+    if path.is_absolute():
+        try:
+            resolved = path.resolve()
+        except (OSError, RuntimeError):
+            return None
+        if not roots:
+            return resolved if resolved.exists() else None
+        for root in roots:
+            try:
+                resolved.relative_to(root)
+            except ValueError:
+                continue
+            return resolved if resolved.exists() else None
+        return None
+
+    for root in roots:
+        candidate = root / path
+        try:
+            resolved = candidate.resolve()
+            resolved.relative_to(root)
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if resolved.exists():
+            return resolved
+    return None
+
+
 # START_FUNCTION_CONTRACT
 # Function: validate_evidence_manifest
 # Purpose: Validate manifest against contract
 # Args:
 #   - manifest: EvidenceManifest to validate
 #   - contract: EvidenceContract to validate against
+#   - artifact_roots: Optional roots used to resolve execution_trace.jsonl artifacts
 # Returns: EvidenceContractValidation with errors and warnings
 # Inputs: EvidenceManifest, EvidenceContract
 # Side_effects: None (pure function)
@@ -218,6 +350,7 @@ def parse_evidence_manifest(path: Path) -> "EvidenceManifest":
 def validate_evidence_manifest(
     manifest: "EvidenceManifest",
     contract: Any,  # EvidenceContract
+    artifact_roots: list[Path] | None = None,
 ) -> Any:  # EvidenceContractValidation
     """Validate manifest against contract.
 
@@ -306,6 +439,26 @@ def validate_evidence_manifest(
                 "evidence_id": evidence_id,
                 "message": f"Evidence {evidence_id} not in contract",
             })
+
+    trace_roots = list(artifact_roots or [])
+    if not trace_roots and manifest.manifest_dir:
+        trace_roots.append(Path(manifest.manifest_dir))
+
+    # Validate structured trace artifacts through the same root model used by
+    # artifact validation. Missing traces remain artifact validation's job.
+    for evidence in manifest.evidence:
+        for artifact_path in evidence.artifact_paths:
+            if Path(artifact_path).name != "execution_trace.jsonl":
+                continue
+            path = resolve_execution_trace_artifact(artifact_path, trace_roots)
+            if path is None:
+                continue
+            for trace_error in validate_execution_trace_jsonl(path):
+                errors.append({
+                    **trace_error,
+                    "evidence_id": evidence.id,
+                    "route_to": "coder",
+                })
 
     return EvidenceContractValidation(
         ok=len(errors) == 0,

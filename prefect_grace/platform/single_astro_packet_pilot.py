@@ -8,7 +8,7 @@
 # inputs: Project config path, explicit temp roots, live-agent gates, and optional test hooks.
 # returns: SingleAstroPacketPilotResult with bounded submission and scope evidence.
 # side_effects: May submit one Prefect flow run after all gates; no Git mutation.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl for selected packet attempts.
 # error_behavior: Returns structured errors for gate, planning, submission, status, and scope failures.
 # END_MODULE_CONTRACT
 
@@ -37,6 +37,8 @@ from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.scope_guard import validate_scope
 from prefect_grace.platform.single_live_prefect_packet_pilot import create_bounded_prefect_status_reader
 from prefect_grace.platform.state_store import PacketRegistryStore
+from prefect_grace.platform.structured_logger import log_event
+from prefect_grace.platform.trace_context import create_trace_context
 from prefect_grace.tasks.prefect_submitter import MANAGED_PACKET_DEPLOYMENT_NAME
 
 MODE = "single_astro_packet_pilot"
@@ -369,10 +371,10 @@ def _is_low_risk_candidate(packet: dict[str, Any]) -> tuple[bool, str | None]:
 # START_FUNCTION_CONTRACT
 # name: run_single_astro_packet_pilot
 # purpose: Plan or run one low-risk real Astro packet through managed Prefect runner.
-# inputs: project_path (Path), state/worktree/packet roots (Path), dry_run (bool), execute_agent (bool), acknowledge_live_agent (bool), opt_in_token (str|None), timeout_seconds (int), packet_id (str|None), submitter (Callable|None), status_reader (Callable|None).
+# inputs: project_path (Path), state/worktree/packet roots (Path), dry_run (bool), execute_agent (bool), acknowledge_live_agent (bool), opt_in_token (str|None), timeout_seconds (int), packet_id (str|None), submitter (Callable|None), status_reader (Callable|None), trace_context (optional).
 # returns: SingleAstroPacketPilotResult with bounded submission and scope evidence.
 # side_effects: May submit one Prefect flow run after all gates; no Git mutation.
-# emitted_logs: None.
+# emitted_logs: structured execution_trace.jsonl for selected packet attempts.
 # error_behavior: Returns structured errors for gate, planning, submission, status, and scope failures.
 # END_FUNCTION_CONTRACT
 def run_single_astro_packet_pilot(
@@ -388,6 +390,7 @@ def run_single_astro_packet_pilot(
     packet_id: str | None = None,
     submitter: Callable | None = None,
     status_reader: Callable | None = None,
+    trace_context: Any | None = None,
 ) -> SingleAstroPacketPilotResult:
     """Run single Astro packet pilot.
 
@@ -404,6 +407,7 @@ def run_single_astro_packet_pilot(
         packet_id: Explicit packet ID to run (optional)
         submitter: Test hook for Prefect submission
         status_reader: Test hook for status reading
+        trace_context: Optional structured logging context
 
     Returns:
         SingleAstroPacketPilotResult with bounded evidence
@@ -414,6 +418,18 @@ def run_single_astro_packet_pilot(
     packet_root = Path(packet_root)
     errors: list[dict[str, Any]] = []
     warnings: list[dict[str, str]] = []
+    active_trace_context = trace_context
+
+    def _log(event: str, result: str = "ok", **extra: Any) -> None:
+        log_event(
+            active_trace_context,
+            module="M-GRACE-SINGLE-ASTRO-PACKET-PILOT",
+            fn="run_single_astro_packet_pilot",
+            block="SINGLE_ASTRO_PILOT",
+            event=event,
+            result=result,
+            **extra,
+        )
 
     try:
         base_adapter = load_project_adapter(project_path)
@@ -551,6 +567,16 @@ def run_single_astro_packet_pilot(
             registry_before=registry_before,
         )
 
+    if active_trace_context is None:
+        active_trace_context = create_trace_context(
+            packet_id=selected_packet_id,
+            attempt=1,
+            scenario_id="SCN-SINGLE-ASTRO-PILOT",
+            artifact_root=state_root / "artifacts",
+        )
+    _log("candidate_selection_started", "ok", explicit_packet=bool(packet_id))
+    _log("candidate_selected", "ok", selected_packet_id=selected_packet_id)
+
     submission_state_root = _write_selected_registry(
         state_root=state_root,
         selected_packet_id=selected_packet_id,
@@ -575,8 +601,10 @@ def run_single_astro_packet_pilot(
             worktree_root=worktree_root,
             submitter=None,
             runner_kind="managed",
+            trace_context=active_trace_context,
         )
     except Exception as exc:
+        _log("submission_planned", "fail", error=str(exc))
         return _empty_result(
             ok=False,
             project_key=project_key,
@@ -592,6 +620,12 @@ def run_single_astro_packet_pilot(
 
     submit_plan_dict = dry_submit.to_dict()
     submit_plan_dict["packets_to_submit"] = list(dry_submit.packets_planned)
+    _log(
+        "submission_planned",
+        "ok" if dry_submit.ok else "fail",
+        packets_planned=list(dry_submit.packets_planned),
+        error_count=len(dry_submit.errors),
+    )
     errors.extend(dry_submit.errors)
     warnings.extend(_error("SUBMISSION_PLAN_WARNING", warning) for warning in dry_submit.warnings)
 
@@ -623,6 +657,7 @@ def run_single_astro_packet_pilot(
             from prefect_grace.platform.runtime_adapter import ManagedPacketSubmitter
             submitter = ManagedPacketSubmitter()
         try:
+            _log("prefect_submitted", "ok", dry_run=False, submission_started=True)
             submit_result = submit_ready_packets_to_prefect(
                 project=submission_adapter,
                 dry_run=False,
@@ -632,8 +667,10 @@ def run_single_astro_packet_pilot(
                 worktree_root=worktree_root,
                 submitter=submitter,
                 runner_kind="managed",
+                trace_context=active_trace_context,
             )
         except Exception as exc:
+            _log("prefect_submitted", "fail", error=str(exc))
             errors.append(_error("SUBMISSION_FAILED", str(exc)))
         else:
             errors.extend(submit_result.errors)
@@ -656,6 +693,13 @@ def run_single_astro_packet_pilot(
                     errors.append(_error("ASTRO_NOT_SUBMITTED", record_data.get("error") or record_data.get("status") or "not submitted"))
                 if flow_run_id and record_data.get("status") == "submitted":
                     prefect_runs_created = 1
+                _log(
+                    "prefect_submitted",
+                    "ok" if prefect_runs_created == 1 else "fail",
+                    flow_run_id=flow_run_id,
+                    flow_run_name=flow_run_name,
+                    status=record_data.get("status"),
+                )
 
     domain_status = None
     scope_verdict = None
@@ -666,6 +710,7 @@ def run_single_astro_packet_pilot(
     if not dry_run and execute_agent and flow_run_id:
         try:
             reader = status_reader or create_bounded_prefect_status_reader(None)
+            _log("status_poll_started", "ok", flow_run_id=flow_run_id)
             status_result = _result_dict(
                 reader(
                     flow_run_id=flow_run_id,
@@ -681,9 +726,17 @@ def run_single_astro_packet_pilot(
             errors.extend(list(status_result.get("errors") or []))
             if not status_result.get("ok", False):
                 errors.append(_error("ASTRO_STATUS_NOT_OK", "Managed Prefect status reader did not return ok=true."))
+            _log(
+                "status_received",
+                "ok" if status_result.get("ok", False) else "fail",
+                domain_status=domain_status,
+                scope_verdict=scope_verdict,
+                poll_event_count=len(poll_events),
+            )
         except Exception as exc:
             errors.append(_error("STATUS_READ_FAILED", str(exc)))
             scope_verdict = "status_read_failed"
+            _log("status_received", "fail", error=str(exc))
 
     if changed_files:
         scope_result = validate_scope(
@@ -691,6 +744,14 @@ def run_single_astro_packet_pilot(
             list(selected_packet.get("allowed_write_scope") or []),
             list(selected_packet.get("frozen_scope") or []),
             repo_root=repo_root,
+            trace_context=active_trace_context,
+        )
+        _log(
+            "scope_validated",
+            "ok" if scope_result.ok else "fail",
+            changed_file_count=len(changed_files),
+            outside_allowed_count=len(scope_result.outside_allowed),
+            frozen_violation_count=len(scope_result.frozen_violations),
         )
         if not scope_result.ok:
             if domain_status is None:
@@ -729,6 +790,18 @@ def run_single_astro_packet_pilot(
             )
         )
     )
+    _log(
+        "domain_status_determined",
+        "ok" if final_ok else "fail",
+        domain_status=domain_status,
+        scope_verdict=scope_verdict,
+        error_count=len(errors),
+    )
+    if active_trace_context is not None:
+        try:
+            active_trace_context.flush()
+        except Exception:
+            pass
 
     return SingleAstroPacketPilotResult(
         ok=final_ok,

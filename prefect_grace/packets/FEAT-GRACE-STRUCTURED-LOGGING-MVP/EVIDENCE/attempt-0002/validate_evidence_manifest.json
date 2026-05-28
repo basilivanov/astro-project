@@ -1,0 +1,275 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+    "evidence_count": 8,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-REQUIRED-PYTEST",
+          "message": "Evidence EV-REWORK-0001-REQUIRED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-FOCUSED-PYTEST",
+          "message": "Evidence EV-REWORK-0001-FOCUSED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-INVALID-TRACE-CLI",
+          "message": "Evidence EV-REWORK-0001-INVALID-TRACE-CLI not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-COMPILE",
+          "message": "Evidence EV-REWORK-0001-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-GRACE-LINT",
+          "message": "Evidence EV-REWORK-0001-GRACE-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-PACKET-VALIDATION",
+          "message": "Evidence EV-REWORK-0001-PACKET-VALIDATION not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-EXECUTION-TRACE",
+          "message": "Evidence EV-REWORK-0001-EXECUTION-TRACE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-OBSERVABILITY-VERDICT",
+          "message": "Evidence EV-REWORK-0001-OBSERVABILITY-VERDICT not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "required_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "6b79e50904b90515468bd7fa34e91a65223e0cf116f4f0c876d7d5202c90acab"
+        },
+        {
+          "path": "focused_pytest.txt",
+          "exists": true,
+          "size": 179,
+          "hash": "5ae959866423ba423742ba8690e2ba511a9dd063b58730ae2be811ec56ad2880"
+        },
+        {
+          "path": "invalid_manifest_local_trace_cli.json",
+          "exists": true,
+          "size": 2192,
+          "hash": "6e78e4b2b923d49d64088d9388a0ce7d26c687b1e9a8be628e163034f66dffdd"
+        },
+        {
+          "path": "invalid_manifest_local_trace_cli.status",
+          "exists": true,
+          "size": 12,
+          "hash": "85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409"
+        },
+        {
+          "path": "compileall.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "grace_lint_structured_logger.txt",
+          "exists": true,
+          "size": 115,
+          "hash": "780948ee27db4cffecd2b9af03545325358c9cd24f476c0becf0ec39311f4d34"
+        },
+        {
+          "path": "grace_lint_trace_context.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "ca201a354762b8a79b6c32583224b3f99cf0b9f658666abca50e874d8b68e2be"
+        },
+        {
+          "path": "grace_lint_log_collector.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "efc8e32206a970404772c7e5d67fc9dbb0ed9e9e5b8707e58f0c119d585683e8"
+        },
+        {
+          "path": "grace_lint_touched_platform.txt",
+          "exists": true,
+          "size": 589,
+          "hash": "4f22477b0a1709c2ff49085b762fdf44cb307a68e039843f7ac59cb8b8331fd4"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 12712,
+          "hash": "cf7f211d56638055a19b7513f27549bf490247637771d32c1a6aad7cc2635c52"
+        },
+        {
+          "path": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE/execution_trace.jsonl",
+          "exists": true,
+          "size": 4283,
+          "hash": "8eae46eb1a0ec1e0c1e4e14f4f9f6dc86b7fdef0a1fa1e6c820ce7b5c4e6d330"
+        },
+        {
+          "path": "execution_trace_validation.txt",
+          "exists": true,
+          "size": 192,
+          "hash": "1fff7924046688e36aacb6cdbd8a260ca530521cbf3df43cbf5005d041074d5a"
+        },
+        {
+          "path": "observability_verdict.txt",
+          "exists": true,
+          "size": 577,
+          "hash": "862a4ebe3259193f135a0d4f5bba4e31e4e45c7dfa887976e8bec83b2f49416b"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+    "evidence_count": 8,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-REQUIRED-PYTEST",
+          "message": "Evidence EV-REWORK-0001-REQUIRED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-FOCUSED-PYTEST",
+          "message": "Evidence EV-REWORK-0001-FOCUSED-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-INVALID-TRACE-CLI",
+          "message": "Evidence EV-REWORK-0001-INVALID-TRACE-CLI not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-COMPILE",
+          "message": "Evidence EV-REWORK-0001-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-GRACE-LINT",
+          "message": "Evidence EV-REWORK-0001-GRACE-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-PACKET-VALIDATION",
+          "message": "Evidence EV-REWORK-0001-PACKET-VALIDATION not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-EXECUTION-TRACE",
+          "message": "Evidence EV-REWORK-0001-EXECUTION-TRACE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-REWORK-0001-OBSERVABILITY-VERDICT",
+          "message": "Evidence EV-REWORK-0001-OBSERVABILITY-VERDICT not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "required_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "6b79e50904b90515468bd7fa34e91a65223e0cf116f4f0c876d7d5202c90acab"
+        },
+        {
+          "path": "focused_pytest.txt",
+          "exists": true,
+          "size": 179,
+          "hash": "5ae959866423ba423742ba8690e2ba511a9dd063b58730ae2be811ec56ad2880"
+        },
+        {
+          "path": "invalid_manifest_local_trace_cli.json",
+          "exists": true,
+          "size": 2192,
+          "hash": "6e78e4b2b923d49d64088d9388a0ce7d26c687b1e9a8be628e163034f66dffdd"
+        },
+        {
+          "path": "invalid_manifest_local_trace_cli.status",
+          "exists": true,
+          "size": 12,
+          "hash": "85acfd2e79dd47df07d214334642196301332f72d792b52068cdfd8898755409"
+        },
+        {
+          "path": "compileall.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "grace_lint_structured_logger.txt",
+          "exists": true,
+          "size": 115,
+          "hash": "780948ee27db4cffecd2b9af03545325358c9cd24f476c0becf0ec39311f4d34"
+        },
+        {
+          "path": "grace_lint_trace_context.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "ca201a354762b8a79b6c32583224b3f99cf0b9f658666abca50e874d8b68e2be"
+        },
+        {
+          "path": "grace_lint_log_collector.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "efc8e32206a970404772c7e5d67fc9dbb0ed9e9e5b8707e58f0c119d585683e8"
+        },
+        {
+          "path": "grace_lint_touched_platform.txt",
+          "exists": true,
+          "size": 589,
+          "hash": "4f22477b0a1709c2ff49085b762fdf44cb307a68e039843f7ac59cb8b8331fd4"
+        },
+        {
+          "path": "validate_packet_strict.json",
+          "exists": true,
+          "size": 12712,
+          "hash": "cf7f211d56638055a19b7513f27549bf490247637771d32c1a6aad7cc2635c52"
+        },
+        {
+          "path": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE/execution_trace.jsonl",
+          "exists": true,
+          "size": 4283,
+          "hash": "8eae46eb1a0ec1e0c1e4e14f4f9f6dc86b7fdef0a1fa1e6c820ce7b5c4e6d330"
+        },
+        {
+          "path": "execution_trace_validation.txt",
+          "exists": true,
+          "size": 192,
+          "hash": "1fff7924046688e36aacb6cdbd8a260ca530521cbf3df43cbf5005d041074d5a"
+        },
+        {
+          "path": "observability_verdict.txt",
+          "exists": true,
+          "size": 577,
+          "hash": "862a4ebe3259193f135a0d4f5bba4e31e4e45c7dfa887976e8bec83b2f49416b"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

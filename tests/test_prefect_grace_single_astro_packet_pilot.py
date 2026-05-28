@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import subprocess
 
@@ -228,6 +229,12 @@ def test_dry_run_selects_low_risk_packet(tmp_path):
     assert result.prefect_runs_created == 0
     assert result.live_agents_started == 0
     assert not any(e["code"] == "REGISTRY_LOAD_FAILED" for e in result.errors)
+
+    trace_path = state_root / "artifacts" / SAFE_PACKET_ID / "execution_trace.jsonl"
+    rows = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
+    events = {row["event"] for row in rows}
+    assert {"candidate_selection_started", "candidate_selected", "submission_planned"}.issubset(events)
+    assert all(row["scenario_id"] == "SCN-SINGLE-ASTRO-PILOT" for row in rows)
 
 
 def test_missing_approval_blocks_execution(tmp_path):

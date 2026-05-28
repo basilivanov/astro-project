@@ -19,7 +19,7 @@ verification evidence through structured traces.
 - wave_id: `W01`
 - status: `ready`
 - phase: `PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP`
-- depends_on: `FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET, FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-ISOLATED-PACKET-RUNNER`
+- depends_on: `FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET, FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER`
 - feature_dir: `/opt/astro-project/prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP`
 
 ## Source Of Truth
@@ -48,12 +48,18 @@ GRACE Canon section 8: Structured logs и log-driven development
 - `/opt/astro-project/prefect_grace/platform/prefect_native_submission.py`
 - `/opt/astro-project/prefect_grace/platform/scope_guard.py`
 - `/opt/astro-project/prefect_grace/platform/evidence_manifest.py`
+- `/opt/astro-project/prefect_grace/cli_commands/evidence.py`
 - `/opt/astro-project/tests/test_prefect_grace_structured_logger.py`
 - `/opt/astro-project/tests/test_prefect_grace_trace_context.py`
 - `/opt/astro-project/tests/test_prefect_grace_log_collector.py`
 - `/opt/astro-project/tests/test_prefect_grace_managed_packet_runner.py`
 - `/opt/astro-project/tests/test_prefect_grace_single_astro_packet_pilot.py`
 - `/opt/astro-project/prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/**`
+
+Scope note: `prefect_grace/cli_commands/evidence.py` is included narrowly for
+the `validate-evidence-manifest` command to pass the same artifact roots into
+structured trace validation that artifact reference validation already uses.
+This CLI path is part of this packet's evidence acceptance criteria.
 
 ## Frozen Scope
 
