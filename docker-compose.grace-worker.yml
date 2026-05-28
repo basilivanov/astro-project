@@ -1,0 +1,46 @@
+services:
+  grace_worker:
+    build:
+      context: .
+      dockerfile: infra/grace-worker/Dockerfile
+      args:
+        ASTRO_UID: ${ASTRO_GRACE_WORKER_UID:-1001}
+        ASTRO_GID: ${ASTRO_GRACE_WORKER_GID:-1003}
+    restart: unless-stopped
+    profiles:
+      - grace-worker
+    group_add:
+      - "${GRACE_DOCKER_GID:-105}"
+    env_file:
+      - .env
+    environment:
+      GRACE_REPO_ROOT: /opt/astro-project
+      PREFECT_API_URL: ${GRACE_PREFECT_API_URL:-http://prefect-server:4200/api}
+      PREFECT_WORK_POOL: ${GRACE_PREFECT_WORK_POOL:-astro-process}
+      PREFECT_LIVE_QUEUE: ${GRACE_PREFECT_LIVE_QUEUE:-grace-live}
+      PREFECT_MONITORING_QUEUE: ${GRACE_PREFECT_MONITORING_QUEUE:-grace-monitoring}
+      PREFECT_WORKER_LIMIT: ${GRACE_PREFECT_WORKER_LIMIT:-1}
+      CODEX_HOME: /home/astro/.codex
+      GEMINI_HOME: /home/astro/.gemini
+      HOME: /home/astro
+      PYTHONPATH: /opt/astro-project
+      GRACE_GIT_USER_NAME: ${GRACE_GIT_USER_NAME:-GRACE Worker}
+      GRACE_GIT_USER_EMAIL: ${GRACE_GIT_USER_EMAIL:-grace-worker@local.invalid}
+    working_dir: /opt/astro-project
+    volumes:
+      - ./:/opt/astro-project
+      - /var/lib/grace-orchestrator/astro-project:/var/lib/grace-orchestrator/astro-project
+      - /opt/astro-project/.cache/codex-cliproxy-home:/home/astro/.codex
+      - /opt/kilocode/.gemini:/home/astro/.gemini:ro
+      - /home/astro/.ssh:/home/astro/.ssh:ro
+      - /usr/bin/docker:/usr/bin/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - default
+      - prefect
+    command: ["worker"]
+
+networks:
+  prefect:
+    external: true
+    name: prefect_default
