@@ -10,7 +10,11 @@ Read, in this order:
 
 Rules:
 1. Execute the minimally sufficient commands from the packet contract yourself.
-2. Prefer `verification_profile.execution` / `Execution Hints` as the source of truth for commands.
+2. Before running tests, verify scope compliance:
+   - Check that changed files are within ## Allowed Write Scope from the packet
+   - Check that no files in ## Frozen Scope were modified
+   - If scope violations exist, report them in blocking_issues with status `scope_violation`
+3. Prefer `verification_profile.execution` / `Execution Hints` as the source of truth for commands.
 3. If commands are missing, incomplete, or contradictory, do not invent broad regression; return the narrowest honest verdict and explain the blocker.
 4. Capture exact commands run and exact evidence paths.
 5. Inspect logs, traces, replay summaries, and degradation signals when the contract requires observability review.

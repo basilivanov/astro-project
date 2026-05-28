@@ -36,14 +36,18 @@ Rules:
 20. Blocker routing table:
     - `implementation_failed` → coder (code doesn't work)
     - `verification_failed` → coder (tests fail due to implementation)
+    - `scope_violation_accidental` → coder (accidental scope violation, needs bounded rework to stay within allowed scope)
+    - `scope_violation_intentional` → architect (scope expansion needed, packet requires broader scope than defined)
     - `evidence_contract_invalid` → architect (impossible/unowned/unprofiled evidence)
     - `missing_verification_profile` → architect (profile doesn't exist)
     - `artifact_reference_invalid` → verifier/pipeline (claimed path doesn't exist)
     - `evidence_not_generated` → verifier/pipeline (verifier didn't produce evidence)
     - `environment_blocker` → infra (infrastructure issue)
-    - `scope_violation` → architect (scope expansion needed)
     - `wave_final_evidence_pending` → none (not packet-blocking)
-21. Example verifier evidence manifest structure (from FINAL_VERIFIER_EVIDENCE_JSON):
+21. When routing scope violations, distinguish:
+    - **Accidental**: Coder created files in frozen scope by mistake, but implementation can be done within allowed scope → route to coder with `rework_mode=bounded_fresh`
+    - **Intentional**: Implementation genuinely requires modifying frozen files, packet scope is too narrow → route to architect with `requires_user_decision`
+22. Example verifier evidence manifest structure (from FINAL_VERIFIER_EVIDENCE_JSON):
     ```json
     {
       "packet_id": "PKT-001",
