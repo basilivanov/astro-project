@@ -547,6 +547,19 @@ def test_sync_packet_yaml_sidecar_cli_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_audit_packet_yaml_sidecars_cli_contract() -> None:
+    """Verify audit-packet-yaml-sidecars exposes read-only report flags."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "audit-packet-yaml-sidecars", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet-root" in result.stdout
+    assert "--json" in result.stdout
+    assert "--limit" in result.stdout
+
+
 def test_git_mutation_gate_cli_contract() -> None:
     """Verify git-mutation-gate CLI exposes independent guarded mutation flags."""
     result = subprocess.run(

@@ -95,6 +95,7 @@ from prefect_grace.cli_commands.evidence import (
     _cmd_write_rework,
     _cmd_check_scope,
     _cmd_sync_packet_yaml_sidecar,
+    _cmd_audit_packet_yaml_sidecars,
     _cmd_validate_evidence_contract,
     _cmd_validate_evidence_manifest,
 )
@@ -118,6 +119,13 @@ class NoDryRunAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, False)
         setattr(namespace, '_no_dry_run_explicit', True)
+
+
+def _audit_limit(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("--limit must be greater than or equal to 0")
+    return parsed
 
 
 def _register_legacy_feature_commands(subparsers) -> None:
@@ -695,6 +703,24 @@ def _register_evidence_commands(subparsers) -> None:
     sync_sidecar_mode.add_argument("--apply", action="store_true", help="Write adjacent EXECUTION_PACKET.yaml files")
     sync_sidecar.add_argument("--json", action="store_true", help="JSON output")
     sync_sidecar.set_defaults(func=_cmd_sync_packet_yaml_sidecar)
+
+    audit_sidecars = subparsers.add_parser(
+        "audit-packet-yaml-sidecars",
+        help="Audit canonical EXECUTION_PACKET.yaml sidecars without writing",
+    )
+    audit_sidecars.add_argument(
+        "--packet-root",
+        default="prefect_grace/packets",
+        help="Root to search for strict EXECUTION_PACKET.md files",
+    )
+    audit_sidecars.add_argument("--json", action="store_true", help="JSON output")
+    audit_sidecars.add_argument(
+        "--limit",
+        type=_audit_limit,
+        default=20,
+        help="Maximum examples/errors per class, capped at 100",
+    )
+    audit_sidecars.set_defaults(func=_cmd_audit_packet_yaml_sidecars)
 
     # validate-evidence-contract
     validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")

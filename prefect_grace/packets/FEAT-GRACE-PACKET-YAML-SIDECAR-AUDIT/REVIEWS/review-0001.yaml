@@ -1,0 +1,18 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT-W01-CORPUS-DRY-RUN-REPORT
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T20:15:51Z"
+summary: Packet YAML sidecar corpus audit accepted as read-only pre-migration report.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: clean
+  corpus_counts:
+    canonical: 2
+    no_sidecar: 64
+    stale_sidecar: 1
+    invalid_sidecar: 0
+    skipped: 2
