@@ -130,9 +130,12 @@ def _launch_codex_for_packet(
     heartbeat_interval_seconds: float = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     stall_timeout_seconds: float | None = None,
     workdir_override: str | Path | None = None,
+    runtime_state_root: str | Path | None = None,
 ) -> dict[str, Any]:
     config = load_agent_config()
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    # Use new registry format with fallback to old
+    from prefect_grace.tasks.state_store import find_packet_from_registry
+    packet = find_packet_from_registry(packet_id, runtime_state_root, project_root=ROOT_DIR)
     role = str(packet.get("role") or "coder")
     role_defaults = _role_defaults(config, role)
     execution_hints = dict(packet.get("execution_hints") or {})
@@ -433,20 +436,25 @@ def _launch_codex_for_packet(
             attempts=attempts,
         ).to_dict()
         break
-    update_record(
-        "packets",
-        "packets",
-        "packet_id",
-        packet_id,
-        {
-            "last_codex_run": result,
-            "last_execution_run": result,
-            "last_thread_id": thread_id,
-            "last_session_mode": session_mode,
-            "last_resume_strategy": resume_strategy,
-            "status": "review" if returncode == 0 else "blocked",
-        },
-    )
+    # Try to update old format state store (optional, may not exist in new registry format)
+    try:
+        update_record(
+            "packets",
+            "packets",
+            "packet_id",
+            packet_id,
+            {
+                "last_codex_run": result,
+                "last_execution_run": result,
+                "last_thread_id": thread_id,
+                "last_session_mode": session_mode,
+                "last_resume_strategy": resume_strategy,
+                "status": "review" if returncode == 0 else "blocked",
+            },
+        )
+    except KeyError:
+        # Packet not in old format state store, skip update (new registry format)
+        pass
 
     # Update registry with execution state for resume decision tracking
     if role == "coder" and thread_id:

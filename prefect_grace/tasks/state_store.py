@@ -85,6 +85,40 @@ def find_record(name: str, key: str, id_field: str, id_value: str) -> dict[str, 
     raise KeyError(f"No {name}.{key} record with {id_field}={id_value}")
 
 
+def find_packet_from_registry(
+    packet_id: str,
+    runtime_state_root: str | Path | None = None,
+    project_root: str | Path | None = None
+) -> dict[str, Any]:
+    """
+    Find packet in new packet_registry.yaml format.
+
+    New format: {packet_id: {packet_data}, ...}
+    Falls back to old format if new registry not found.
+    """
+    # Try new registry format first
+    if runtime_state_root:
+        registry_path = Path(runtime_state_root) / "state" / "packet_registry.yaml"
+        if registry_path.exists():
+            data = _read_yaml(registry_path)
+            if packet_id in data:
+                packet_data = dict(data[packet_id])
+                # Add packet_path from 'path' field if present
+                if "path" in packet_data and "packet_path" not in packet_data:
+                    # Convert relative path to absolute
+                    packet_path = Path(packet_data["path"])
+                    if not packet_path.is_absolute() and project_root:
+                        packet_path = Path(project_root) / packet_path
+                    packet_data["packet_path"] = str(packet_path)
+                return packet_data
+
+    # Fallback to old format: {packets: [{packet_id: ...}, ...]}
+    try:
+        return find_record("packets", "packets", "packet_id", packet_id)
+    except KeyError:
+        raise KeyError(f"No packet record with packet_id={packet_id}")
+
+
 def upsert_record(name: str, key: str, id_field: str, record: dict[str, Any]) -> dict[str, Any]:
     stored_record: dict[str, Any] = {}
 
