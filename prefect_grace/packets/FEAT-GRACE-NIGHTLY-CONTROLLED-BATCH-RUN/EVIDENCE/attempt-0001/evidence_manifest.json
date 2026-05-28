@@ -1,0 +1,87 @@
+{
+  "packet_id": "FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN-W01-CONCURRENCY-ONE-NO-MERGE",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "strict-validation-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["validate_packet_strict.json"],
+      "summary": "Strict packet validation passed with no legacy warnings."
+    },
+    {
+      "id": "targeted-pytest-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "pytest",
+      "artifact_paths": ["targeted_pytest.txt"],
+      "summary": "Targeted packet profile passed: 61 tests."
+    },
+    {
+      "id": "compile-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "compileall",
+      "artifact_paths": ["compile_output.txt"],
+      "summary": "Compileall passed for touched platform and CLI modules."
+    },
+    {
+      "id": "targeted-lint-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace_lint",
+      "artifact_paths": ["lint_output.txt"],
+      "summary": "Targeted GRACE lint passed for touched platform and CLI modules."
+    },
+    {
+      "id": "dry-run-cli-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["cli_dry_run.json"],
+      "summary": "Controlled dry-run created zero Prefect runs, zero agents, zero Git mutations, and released the lock."
+    },
+    {
+      "id": "missing-live-approval-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["missing_live_approval.json"],
+      "summary": "Live mode without acknowledgement/token blocked before recheck and execution with zero agents and zero Prefect runs."
+    },
+    {
+      "id": "injected-controlled-batch-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "pytest",
+      "artifact_paths": ["injected_controlled_batch_proof.txt"],
+      "summary": "Injected tests covered concurrency one, max packet count, timeout/max-failure delegation, stop conditions, branch push delegation, no merge, and lock release."
+    },
+    {
+      "id": "post-test-observability-verdict",
+      "status": "collected",
+      "stage": "audit",
+      "producer": "codex",
+      "artifact_paths": ["observability_verdict.txt"],
+      "summary": "Post-test observability verdict recorded as clean."
+    },
+    {
+      "id": "manifest-validation-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["validate_evidence_manifest.json"],
+      "summary": "Evidence manifest validation passed with all artifact references present."
+    },
+    {
+      "id": "scope-check-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["scope_check.json"],
+      "summary": "Scope check passed with no outside-allowed changes and no frozen-scope violations."
+    }
+  ],
+  "blockers": []
+}

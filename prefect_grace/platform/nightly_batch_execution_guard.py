@@ -60,12 +60,18 @@ class PacketExecutionSummary:
     dry_run: bool
     live_opt_in_confirmed: bool
     git_mutation_requested: bool
+    flow_run_id: str | None = None
+    agent_count: int = 0
+    domain_status: str | None = None
     managed_runner_status: str | None = None
     scope_status: str | None = None
     evidence_status: str | None = None
     review_status: str | None = None
     git_gate_status: str | None = None
+    branch_push_status: str | None = None
     blocker_reason: str | None = None
+    stop_reason: str | None = None
+    changed_files_sample: list[str] = field(default_factory=list)
     execution_time_seconds: float = 0.0
 
     # START_FUNCTION_CONTRACT
@@ -161,18 +167,31 @@ def _add_blocker(result: BatchExecutionResult, code: str, message: str, **extra:
 
 def _pilot_result_to_summary(pilot_result: SingleLivePacketPilotResult, execution_time: float) -> PacketExecutionSummary:
     """Convert pilot result to bounded summary."""
+    managed_payload = dict(getattr(pilot_result, "managed_runner_result", {}) or {})
+    git_payload = dict(getattr(pilot_result, "git_gate_result", {}) or {})
+    changed_files_sample = git_payload.get("changed_files_sample") or managed_payload.get("changed_files_sample")
+    if not changed_files_sample:
+        changed_files_sample = git_payload.get("changed_files") or managed_payload.get("changed_files") or []
+    if not isinstance(changed_files_sample, list):
+        changed_files_sample = []
     return PacketExecutionSummary(
         packet_id=pilot_result.packet_id,
         status=pilot_result.status,
         dry_run=pilot_result.dry_run,
         live_opt_in_confirmed=pilot_result.live_opt_in_confirmed,
         git_mutation_requested=pilot_result.git_mutation_requested,
+        flow_run_id=managed_payload.get("flow_run_id") or git_payload.get("flow_run_id"),
+        agent_count=int(getattr(pilot_result, "live_agents_started", 0) or 0),
+        domain_status=managed_payload.get("domain_status") or pilot_result.managed_runner_status,
         managed_runner_status=pilot_result.managed_runner_status,
         scope_status=pilot_result.scope_status,
         evidence_status=pilot_result.evidence_status,
         review_status=pilot_result.review_status,
         git_gate_status=pilot_result.git_gate_status,
+        branch_push_status=git_payload.get("status") or pilot_result.git_gate_status,
         blocker_reason=pilot_result.blocker_reason,
+        stop_reason=pilot_result.blocker_reason,
+        changed_files_sample=[str(path) for path in changed_files_sample[:5]],
         execution_time_seconds=execution_time,
     )
 
@@ -184,6 +203,28 @@ class TimeoutException(Exception):
 
 def _timeout_handler(signum, frame):
     raise TimeoutException("Packet execution timed out")
+
+
+def _is_unexpected_degradation(pilot_result: SingleLivePacketPilotResult) -> bool:
+    payloads = [
+        dict(getattr(pilot_result, "managed_runner_result", {}) or {}),
+        dict(getattr(pilot_result, "git_gate_result", {}) or {}),
+    ]
+    values: list[str] = [
+        str(getattr(pilot_result, "status", "") or ""),
+        str(getattr(pilot_result, "blocker_reason", "") or ""),
+    ]
+    for payload in payloads:
+        for key in (
+            "observability_verdict",
+            "post_test_observability_verdict",
+            "degradation_status",
+            "degradation_verdict",
+            "verdict",
+        ):
+            values.append(str(payload.get(key) or ""))
+    normalized = {value.lower().strip().replace("_", "-") for value in values if value}
+    return "unexpected-degradation" in normalized
 
 
 # START_FUNCTION_CONTRACT
@@ -208,6 +249,7 @@ def _timeout_handler(signum, frame):
 #   target_branch: Target branch for Git operations.
 #   remote: Remote name for Git push.
 #   pilot_runner: Optional test hook for single-packet pilot.
+#   lock_factory: Optional test hook for runtime lock.
 # returns: BatchExecutionResult with bounded per-packet summaries and aggregate status.
 # side_effects: Acquires/releases runtime lock, may execute packets through pilot when all gates pass.
 # emitted_logs: None.
@@ -233,6 +275,7 @@ def execute_batch_with_guard(
     target_branch: str = "master",
     remote: str = "origin",
     pilot_runner: Callable[..., Any] | None = None,
+    lock_factory: Callable[..., RuntimeLock] | None = None,
 ) -> BatchExecutionResult:
     """
     Execute safe batch of packets under strict limits with fail-closed opt-in.
@@ -265,6 +308,7 @@ def execute_batch_with_guard(
         target_branch: Target branch for Git operations
         remote: Remote name for Git push
         pilot_runner: Optional test hook for single-packet pilot
+        lock_factory: Optional test hook for runtime lock
 
     Returns:
         BatchExecutionResult with bounded per-packet summaries and aggregate status
@@ -292,7 +336,8 @@ def execute_batch_with_guard(
     )
 
     # Acquire runtime lock
-    lock = RuntimeLock(
+    lock_builder = lock_factory or RuntimeLock
+    lock = lock_builder(
         Path(project.repo_root) / project.runtime_state_root,
         name="nightly-batch-execution",
         max_age_seconds=7200,
@@ -306,6 +351,8 @@ def execute_batch_with_guard(
         _add_blocker(result, "LOCK_UNAVAILABLE", "Runtime lock unavailable")
         result.errors.extend(lock_result.errors)
         result.stop_reason = "lock_unavailable"
+        released = lock.release(lock_result)
+        result.lock_released = released.released or not lock_result.acquired
         result.execution_end = _utc_now().isoformat()
         result.execution_time_seconds = (_utc_now() - execution_start).total_seconds()
         return result
@@ -461,6 +508,25 @@ def execute_batch_with_guard(
             if pilot_result.git_gate_status in ("applied", "planned"):
                 result.git_mutations_count += 1
 
+            if stop_on_degradation and _is_unexpected_degradation(pilot_result):
+                result.stop_reason = "unexpected_degradation"
+                summary.status = "blocked"
+                summary.stop_reason = "unexpected_degradation"
+                result.failed_total += 1
+                failure_count += 1
+                _add_blocker(
+                    result,
+                    "UNEXPECTED_DEGRADATION",
+                    "Packet execution reported unexpected degradation",
+                    packet_id=packet_id,
+                )
+                result.errors.append(_error(
+                    "UNEXPECTED_DEGRADATION",
+                    "Packet execution reported unexpected degradation",
+                    packet_id=packet_id,
+                ))
+                break
+
             # Categorize result
             if pilot_result.status in ("completed", "applied", "planned"):
                 result.passed_total += 1
@@ -475,12 +541,6 @@ def execute_batch_with_guard(
                 result.failed_total += 1
                 failure_count += 1
 
-            if stop_on_degradation and _is_unexpected_degradation(pilot_result):
-                result.stop_reason = "unexpected_degradation"
-                if result.failed_total == 0:
-                    result.failed_total += 1
-                break
-
         # Determine final stop reason if not already set
         if not result.stop_reason:
             if result.executed_total >= result.selected_total:
@@ -491,7 +551,12 @@ def execute_batch_with_guard(
                 result.stop_reason = "execution_completed"
 
         # Success if we executed at least one packet without hitting blockers
-        result.ok = result.executed_total > 0 and len(result.blockers) == 0
+        result.ok = (
+            result.executed_total > 0
+            and len(result.blockers) == 0
+            and result.failed_total == 0
+            and result.stop_reason != "unexpected_degradation"
+        )
 
     finally:
         # Always release lock

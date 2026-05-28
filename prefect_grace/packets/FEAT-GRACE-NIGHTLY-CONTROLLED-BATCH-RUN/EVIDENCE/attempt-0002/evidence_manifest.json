@@ -1,0 +1,103 @@
+{
+  "packet_id": "FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN-W01-CONCURRENCY-ONE-NO-MERGE",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "strict-validation-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["validate_packet_strict.json"],
+      "summary": "Strict packet validation passed with no legacy warnings."
+    },
+    {
+      "id": "targeted-pytest-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "pytest",
+      "artifact_paths": ["targeted_pytest.txt"],
+      "summary": "Targeted rework profile passed: 64 tests."
+    },
+    {
+      "id": "compile-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "compileall",
+      "artifact_paths": ["compile_output.txt"],
+      "summary": "Compileall passed for touched platform and CLI modules."
+    },
+    {
+      "id": "targeted-lint-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace_lint",
+      "artifact_paths": ["lint_output.txt"],
+      "summary": "Targeted GRACE lint passed for touched platform and CLI modules."
+    },
+    {
+      "id": "dry-run-cli-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["cli_dry_run.json"],
+      "summary": "Controlled dry-run created zero Prefect runs, zero agents, zero Git mutations, and released the lock."
+    },
+    {
+      "id": "missing-live-approval-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["missing_live_approval.json"],
+      "summary": "Live mode without acknowledgement/token blocked before recheck and execution with zero agents and zero Prefect runs."
+    },
+    {
+      "id": "execute-dry-run-conflict-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["cli_execute_dry_run_conflict.txt"],
+      "summary": "The ambiguous --execute --dry-run CLI combination fails closed with parser exit code 2."
+    },
+    {
+      "id": "lock-unavailable-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "pytest",
+      "artifact_paths": ["lock_unavailable_proof.txt"],
+      "summary": "Injected tests verify no-op release is called and lock_released=True on lock acquisition failure."
+    },
+    {
+      "id": "degradation-proof",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "pytest",
+      "artifact_paths": ["degradation_proof.txt"],
+      "summary": "Injected test verifies unexpected degradation returns ok=False, not passed, and stops after one packet."
+    },
+    {
+      "id": "post-test-observability-verdict",
+      "status": "collected",
+      "stage": "audit",
+      "producer": "codex",
+      "artifact_paths": ["observability_verdict.txt"],
+      "summary": "Post-test observability verdict recorded as clean."
+    },
+    {
+      "id": "manifest-validation-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["validate_evidence_manifest.json"],
+      "summary": "Evidence manifest validation passed with all artifact references present."
+    },
+    {
+      "id": "scope-check-output",
+      "status": "collected",
+      "stage": "verification",
+      "producer": "grace-cli",
+      "artifact_paths": ["scope_check.json"],
+      "summary": "Scope check passed with no outside-allowed changes and no frozen-scope violations."
+    }
+  ],
+  "blockers": []
+}

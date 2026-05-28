@@ -405,6 +405,8 @@ def run_nightly_controlled_batch(
         result.blockers.append(_error("LOCK_UNAVAILABLE", "Runtime lock unavailable", blocker_class="lock"))
         result.errors.extend(lock_result.errors)
         result.stop_reason = "lock_unavailable"
+        released = lock.release(lock_result)
+        result.lock_released = released.released or not lock_result.acquired
         result.execution_end = _utc_now().isoformat()
         result.execution_time_seconds = (_utc_now() - execution_start).total_seconds()
         return result

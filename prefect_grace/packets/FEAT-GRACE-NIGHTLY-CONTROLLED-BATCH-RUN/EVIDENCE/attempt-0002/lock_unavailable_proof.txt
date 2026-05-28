@@ -1,0 +1,6 @@
+Injected pytest proof:
+- test_controlled_batch_lock_unavailable_calls_release
+- test_batch_execution_lock_unavailable_calls_release
+
+Result:
+Both controlled runner and execution guard call the injected lock release method on lock acquisition failure, mark lock_released=True, execute zero packets, and do not call recheck/execution/pilot runners.

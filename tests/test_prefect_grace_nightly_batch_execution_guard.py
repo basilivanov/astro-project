@@ -21,6 +21,7 @@ from prefect_grace.platform.nightly_batch_selection import (
 from prefect_grace.platform.single_live_packet_pilot import (
     SingleLivePacketPilotResult,
 )
+from prefect_grace.platform.runtime_lock import RuntimeLockResult
 
 
 def _fake_pilot_success(**kwargs) -> SingleLivePacketPilotResult:
@@ -87,6 +88,51 @@ def _fake_pilot_failed(**kwargs) -> SingleLivePacketPilotResult:
     )
 
 
+def _fake_pilot_unexpected_degradation(**kwargs) -> SingleLivePacketPilotResult:
+    """Fake pilot runner that reports unexpected post-test degradation."""
+    packet_id = kwargs.get("packet", Path("UNKNOWN")).parent.name
+    dry_run = kwargs.get("dry_run", True)
+
+    return SingleLivePacketPilotResult(
+        ok=True,
+        packet_id=packet_id,
+        status="completed",
+        dry_run=dry_run,
+        live_opt_in_confirmed=True,
+        git_mutation_requested=False,
+        managed_runner_status="passed",
+        scope_status="passed",
+        evidence_status="valid",
+        review_status="accepted",
+        managed_runner_result={
+            "domain_status": "passed",
+            "flow_run_id": f"flow-{packet_id}",
+            "observability_verdict": "unexpected-degradation",
+            "changed_files_sample": ["prefect_grace/platform/example.py"],
+        },
+    )
+
+
+class _UnavailableLock:
+    release_calls: list[RuntimeLockResult] = []
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def acquire(self) -> RuntimeLockResult:
+        return RuntimeLockResult(
+            path="/tmp/unavailable.lock",
+            acquired=False,
+            already_running=True,
+            errors=[{"code": "controller_already_running", "message": "busy"}],
+        )
+
+    def release(self, result: RuntimeLockResult) -> RuntimeLockResult:
+        self.release_calls.append(result)
+        result.released = True
+        return result
+
+
 def test_batch_execution_dry_run_default():
     """Test that dry-run is the default mode."""
     # Use real packet IDs that exist
@@ -145,6 +191,32 @@ def test_batch_execution_missing_live_approval():
     assert len(result.blockers) == 2
     assert any(b["code"] == "LIVE_BATCH_ACK_REQUIRED" for b in result.blockers)
     assert any(b["code"] == "LIVE_BATCH_TOKEN_REQUIRED" for b in result.blockers)
+
+
+def test_batch_execution_lock_unavailable_calls_release():
+    """Test that unavailable lock exits still call no-op release."""
+    _UnavailableLock.release_calls = []
+    batch_selection = BatchSelectionResult(
+        ok=True,
+        project_key="astro-project",
+        selected_packets=["FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE"],
+        selected_total=1,
+        batch_limits=BatchLimits(max_packets=10),
+    )
+
+    result = execute_batch_with_guard(
+        project_config=Path("/opt/astro-project/prefect_grace/project.yaml"),
+        batch_selection=batch_selection,
+        pilot_runner=_fake_pilot_success,
+        lock_factory=_UnavailableLock,
+    )
+
+    assert result.ok is False
+    assert result.stop_reason == "lock_unavailable"
+    assert result.lock_acquired is False
+    assert result.lock_released is True
+    assert len(_UnavailableLock.release_calls) == 1
+    assert result.executed_total == 0
 
 
 def test_batch_execution_live_with_approval():
@@ -276,6 +348,29 @@ def test_batch_execution_git_mutations_tracking():
     assert result.git_mutations_count == 2
 
 
+def test_batch_execution_merge_is_unreachable():
+    """Test that merge requests fail closed before packet execution."""
+    batch_selection = BatchSelectionResult(
+        ok=True,
+        project_key="astro-project",
+        selected_packets=["FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE"],
+        selected_total=1,
+        batch_limits=BatchLimits(max_packets=10),
+    )
+
+    result = execute_batch_with_guard(
+        project_config=Path("/opt/astro-project/prefect_grace/project.yaml"),
+        batch_selection=batch_selection,
+        allow_git_merge=True,
+        pilot_runner=_fake_pilot_success,
+    )
+
+    assert result.ok is False
+    assert result.executed_total == 0
+    assert result.stop_reason == "merge_blocked"
+    assert any(blocker["code"] == "MERGE_UNREACHABLE" for blocker in result.blockers)
+
+
 def test_batch_execution_bounded_output():
     """Test that output is bounded to MAX_PACKET_SUMMARIES."""
     # Create batch with more packets than the limit
@@ -391,6 +486,39 @@ def test_batch_execution_timing_tracked():
     assert result.execution_time_seconds > 0
     assert len(result.packet_summaries) == 1
     assert result.packet_summaries[0].execution_time_seconds >= 0
+
+
+def test_batch_execution_stops_on_unexpected_degradation():
+    """Test that unexpected degradation stops the guarded batch."""
+    batch_selection = BatchSelectionResult(
+        ok=True,
+        project_key="astro-project",
+        selected_packets=[
+            "FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE",
+            "FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT-W01-PREFECT-WORKTREE-GIT-GATE",
+        ],
+        selected_total=2,
+        batch_limits=BatchLimits(max_packets=10),
+    )
+
+    result = execute_batch_with_guard(
+        project_config=Path("/opt/astro-project/prefect_grace/project.yaml"),
+        batch_selection=batch_selection,
+        max_failures=10,
+        stop_on_degradation=True,
+        pilot_runner=_fake_pilot_unexpected_degradation,
+    )
+
+    assert result.executed_total == 1
+    assert result.ok is False
+    assert result.stop_reason == "unexpected_degradation"
+    assert result.failed_total == 1
+    assert result.passed_total == 0
+    assert len(result.packet_summaries) == 1
+    assert any(blocker["code"] == "UNEXPECTED_DEGRADATION" for blocker in result.blockers)
+    assert result.packet_summaries[0].flow_run_id.startswith("flow-")
+    assert result.packet_summaries[0].status == "blocked"
+    assert result.packet_summaries[0].changed_files_sample == ["prefect_grace/platform/example.py"]
 
 
 def test_batch_execution_result_serialization():

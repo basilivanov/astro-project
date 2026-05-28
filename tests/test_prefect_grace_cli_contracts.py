@@ -619,6 +619,7 @@ def test_cli_nightly_batch_execute_contract() -> None:
     assert "--no-stop-on-degradation" in result.stdout
     assert "--allow-git-commit" in result.stdout
     assert "--allow-git-push" in result.stdout
+    assert "--allow-git-merge" not in result.stdout
     assert "--base-ref" in result.stdout
     assert "--target-branch" in result.stdout
     assert "--remote" in result.stdout
@@ -627,6 +628,32 @@ def test_cli_nightly_batch_execute_contract() -> None:
     assert "--i-understand-live-batch" in result.stdout
     assert "--json" in result.stdout
     # Verify no merge flag exposed
+    assert "--merge" not in result.stdout
+    assert "--i-understand-merge" not in result.stdout
+
+
+def test_cli_run_nightly_controlled_batch_contract() -> None:
+    """Verify run-nightly-controlled-batch CLI follows controlled no-merge contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "run-nightly-controlled-batch", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--selection" in result.stdout
+    assert "--max-packets" in result.stdout
+    assert "--concurrency" in result.stdout
+    assert "--timeout-seconds-per-packet" in result.stdout
+    assert "--max-failures" in result.stdout
+    assert "--no-stop-on-degradation" in result.stdout
+    assert "--allow-git-commit" in result.stdout
+    assert "--allow-git-push" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--execute" in result.stdout
+    assert "--i-understand-live-batch" in result.stdout
+    assert "--json" in result.stdout
+    assert "--allow-git-merge" not in result.stdout
     assert "--merge" not in result.stdout
     assert "--i-understand-merge" not in result.stdout
 

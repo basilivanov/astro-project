@@ -1,0 +1,8 @@
+{
+  "command": "python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.md --repo-root /opt/astro-project --changed-file ... --json",
+  "ok": true,
+  "outside_allowed": [],
+  "frozen_violations": [],
+  "invalid_paths": [],
+  "changed_files_total": 20
+}

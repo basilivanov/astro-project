@@ -69,6 +69,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_nightly_select_batch,
     _cmd_nightly_recheck_batch,
     _cmd_nightly_batch_execute,
+    _cmd_run_nightly_controlled_batch,
 )
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,
@@ -426,7 +427,6 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     nightly_batch_execute.add_argument("--no-stop-on-degradation", action="store_true", help="Do not stop on degradation")
     nightly_batch_execute.add_argument("--allow-git-commit", action="store_true", help="Request guarded commit")
     nightly_batch_execute.add_argument("--allow-git-push", action="store_true", help="Request guarded push")
-    nightly_batch_execute.add_argument("--allow-git-merge", action="store_true", help="Request guarded merge to target branch")
     nightly_batch_execute.add_argument("--base-ref", default="origin/master", help="Git base reference")
     nightly_batch_execute.add_argument("--target-branch", default="master", help="Target branch")
     nightly_batch_execute.add_argument("--remote", default="origin", help="Remote name")
@@ -435,6 +435,23 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     nightly_batch_execute.add_argument("--i-understand-live-batch", action="store_true", help="Required for live execution")
     nightly_batch_execute.add_argument("--json", action="store_true")
     nightly_batch_execute.set_defaults(func=_cmd_nightly_batch_execute)
+
+    run_nightly_controlled_batch = subparsers.add_parser("run-nightly-controlled-batch")
+    run_nightly_controlled_batch.add_argument("--project")
+    run_nightly_controlled_batch.add_argument("--selection", help="Path to saved nightly selection JSON")
+    run_nightly_controlled_batch.add_argument("--max-packets", type=int, default=3, help="Maximum packets to execute")
+    run_nightly_controlled_batch.add_argument("--concurrency", type=int, default=1, help="Must be 1 for controlled batch")
+    run_nightly_controlled_batch.add_argument("--timeout-seconds-per-packet", type=int, default=1800, help="Bounded timeout per packet")
+    run_nightly_controlled_batch.add_argument("--max-failures", type=int, default=1, help="Stop after this many failures")
+    run_nightly_controlled_batch.add_argument("--no-stop-on-degradation", action="store_true", help="Do not stop on unexpected degradation")
+    run_nightly_controlled_batch.add_argument("--allow-git-commit", action="store_true", help="Delegate guarded packet branch commit")
+    run_nightly_controlled_batch.add_argument("--allow-git-push", action="store_true", help="Delegate guarded packet branch push")
+    controlled_mode = run_nightly_controlled_batch.add_mutually_exclusive_group()
+    controlled_mode.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (default)")
+    controlled_mode.add_argument("--execute", action="store_true", help="Execute packets (requires all live gates)")
+    run_nightly_controlled_batch.add_argument("--i-understand-live-batch", action="store_true", help="Required for live execution")
+    run_nightly_controlled_batch.add_argument("--json", action="store_true")
+    run_nightly_controlled_batch.set_defaults(func=_cmd_run_nightly_controlled_batch)
 
 
 def _register_worktrees_commands(subparsers) -> None:

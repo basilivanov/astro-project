@@ -1,0 +1,6 @@
+Command:
+python3 -m prefect_grace.cli run-nightly-controlled-batch --project /tmp/grace-nightly-controlled-batch-run/cli-proof/prefect_grace/project.yaml --execute --dry-run --json; test $? -eq 2
+
+Result:
+PASS. Argparse rejected the ambiguous live/safe-mode combination:
+argument --dry-run: not allowed with argument --execute

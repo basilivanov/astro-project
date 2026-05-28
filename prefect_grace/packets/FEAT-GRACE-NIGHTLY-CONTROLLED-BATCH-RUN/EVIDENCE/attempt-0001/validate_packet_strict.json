@@ -1,0 +1,7 @@
+{
+  "command": "python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.md --strict --json",
+  "ok": true,
+  "packet_id": "FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN-W01-CONCURRENCY-ONE-NO-MERGE",
+  "legacy_warnings": [],
+  "source_hash": "sha256:d250cdebdfed15ccb1461ef68df055723a750043fa8b6a2b6a5e8c7db37a612b"
+}
