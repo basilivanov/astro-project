@@ -28,6 +28,7 @@ from typing import Any, Callable
 from prefect_grace.platform.managed_packet_runner import run_managed_packet
 from prefect_grace.platform.git_mutation_gate import run_git_mutation_gate
 from prefect_grace.platform.packet_parser import parse_packet_markdown
+from prefect_grace.platform.project_adapter import load_project_adapter
 
 
 @dataclass
@@ -209,6 +210,12 @@ def run_single_live_packet_pilot(
         # Dry run or no agent execution - opt-in not required
         result.live_opt_in_confirmed = True
 
+    # Load project config to get runtime_state_root
+    try:
+        project = load_project_adapter()
+    except Exception:
+        project = None
+
     # Run managed packet runner
     if managed_runner is None:
         managed_runner = run_managed_packet
@@ -226,6 +233,7 @@ def run_single_live_packet_pilot(
             execute_agent=execute_agent,
             timeout_seconds=timeout_seconds,
             keep_worktree=True,
+            project=project,
         )
 
         # Convert to dict if it's a dataclass
