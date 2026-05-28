@@ -124,6 +124,56 @@ def update_dependent_packets(
     return updated
 
 #END_BLOCK_HELPERS
+def _is_unchanged_accepted_registry_record(
+    packet: dict[str, Any],
+    registry_record: dict[str, Any] | None,
+) -> bool:
+    return bool(
+        registry_record
+        and registry_record.get("registry_status") == RegistryStatus.ACCEPTED.value
+        and registry_record.get("source_hash") == packet.get("source_hash")
+    )
+
+
+def _is_accepted_registry_record(packet: dict[str, Any]) -> bool:
+    return packet.get("registry_status") == RegistryStatus.ACCEPTED.value
+
+
+def _visible_dag_warnings(
+    dag_warnings: list[str],
+    missing_dependencies: dict[str, list[str]],
+    suppressed_packet_ids: set[str],
+) -> list[str]:
+    visible_missing_count = len(
+        [
+            packet_id
+            for packet_id in missing_dependencies
+            if packet_id not in suppressed_packet_ids
+        ]
+    )
+    filtered = [
+        warning
+        for warning in dag_warnings
+        if "packet(s) have missing dependencies" not in warning
+    ]
+    if visible_missing_count:
+        filtered.append(f"{visible_missing_count} packet(s) have missing dependencies")
+    return filtered
+
+
+def _visible_cascading_blocked(
+    cascading_blocked: list[str],
+    missing_dependencies: dict[str, list[str]],
+    suppressed_packet_ids: set[str],
+) -> list[str]:
+    suppressible_missing = set(missing_dependencies).intersection(suppressed_packet_ids)
+    return [
+        packet_id
+        for packet_id in cascading_blocked
+        if packet_id not in suppressible_missing
+    ]
+
+
 #START_BLOCK_CONTROLLER
 class BacklogController:
     # START_FUNCTION_CONTRACT
@@ -219,9 +269,28 @@ class BacklogController:
         result.packets_total = len(packets_data)
 
         dag_result = validate_packet_dag(packets_data)
+        accepted_dag_suppressed = {
+            packet["packet_id"]
+            for packet in packets_data
+            if _is_unchanged_accepted_registry_record(
+                packet,
+                registry.load_packet(packet["packet_id"]),
+            )
+        }
+        visible_cascading_blocked = _visible_cascading_blocked(
+            dag_result.cascading_blocked,
+            dag_result.missing_dependencies,
+            accepted_dag_suppressed,
+        )
         result.cycles = dag_result.cycles
-        result.cascading_blocked = dag_result.cascading_blocked
-        result.warnings.extend(dag_result.warnings)
+        result.cascading_blocked = visible_cascading_blocked
+        result.warnings.extend(
+            _visible_dag_warnings(
+                dag_result.warnings,
+                dag_result.missing_dependencies,
+                accepted_dag_suppressed,
+            )
+        )
         result.errors.extend(dag_result.errors)
 
         # Helper to check if all dependencies are accepted in registry
@@ -240,7 +309,7 @@ class BacklogController:
             source_hash = packet["source_hash"]
             registry_record = registry.load_packet(packet_id)
 
-            if packet_id in dag_result.cascading_blocked:
+            if packet_id in visible_cascading_blocked:
                 result.blocked.append(packet_id)
                 if not dry_run:
                     registry.upsert_packet({
@@ -405,6 +474,16 @@ class BacklogController:
         # Validate DAG against full registry state, not just ready packets
         # This ensures we have complete dependency context
         dag_result = validate_packet_dag(all_packets)
+        accepted_dag_suppressed = {
+            packet["packet_id"]
+            for packet in all_packets
+            if _is_accepted_registry_record(packet)
+        }
+        visible_cascading_blocked = _visible_cascading_blocked(
+            dag_result.cascading_blocked,
+            dag_result.missing_dependencies,
+            accepted_dag_suppressed,
+        )
 
         # Filter to only runnable packets: ready status AND all dependencies accepted
         runnable_packets = []
@@ -423,7 +502,7 @@ class BacklogController:
                     )
                     break
 
-            if all_deps_accepted and packet_id not in dag_result.cascading_blocked:
+            if all_deps_accepted and packet_id not in visible_cascading_blocked:
                 runnable_packets.append(packet)
 
         plan.packets_to_submit = [p["packet_id"] for p in runnable_packets]
@@ -436,7 +515,13 @@ class BacklogController:
             plan.errors.extend(runnable_dag_result.errors)
 
         plan.blocked_packets = [p["packet_id"] for p in blocked_packets]
-        plan.warnings.extend(dag_result.warnings)
+        plan.warnings.extend(
+            _visible_dag_warnings(
+                dag_result.warnings,
+                dag_result.missing_dependencies,
+                accepted_dag_suppressed,
+            )
+        )
         plan.errors.extend(dag_result.errors)
 
         return plan
