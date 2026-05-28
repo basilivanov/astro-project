@@ -26,7 +26,10 @@ from typing import Any
 
 from prefect_grace.prefect_compat import flow, task
 from prefect_grace.platform.managed_packet_runner import run_managed_packet
-from prefect_grace.tasks.managed_packet_artifacts import publish_managed_packet_run_artifact
+from prefect_grace.tasks.managed_packet_artifacts import (
+    publish_managed_packet_run_artifact,
+    write_managed_result_payload,
+)
 
 
 # START_FUNCTION_CONTRACT
@@ -52,6 +55,7 @@ def run_managed_packet_task(
     execute_agent: bool = False,
     timeout_seconds: int = 3600,
     keep_worktree: bool = True,
+    runtime_state_root: str | None = None,
 ) -> dict[str, Any]:
     """
     Prefect task wrapper for run_managed_packet.
@@ -68,6 +72,7 @@ def run_managed_packet_task(
         execute_agent: Explicitly allow live agent execution
         timeout_seconds: Agent timeout
         keep_worktree: Preserve worktree after execution
+        runtime_state_root: Optional runtime state root for packet registry lookup
 
     Returns:
         Managed packet run result dict
@@ -84,6 +89,7 @@ def run_managed_packet_task(
         execute_agent=execute_agent,
         timeout_seconds=timeout_seconds,
         keep_worktree=keep_worktree,
+        runtime_state_root=runtime_state_root,
     )
     return result.to_dict()
 
@@ -143,6 +149,9 @@ def managed_packet_runner_flow(
     execute_agent: bool = False,
     timeout_seconds: int = 3600,
     keep_worktree: bool = True,
+    runtime_state_root: str | None = None,
+    managed_result_payload_path: str | None = None,
+    managed_result_payload_root: str | None = None,
 ) -> dict[str, Any]:
     """
     Prefect flow for managed packet execution with artifact publication.
@@ -162,6 +171,9 @@ def managed_packet_runner_flow(
         execute_agent: Explicitly allow live agent execution
         timeout_seconds: Agent timeout
         keep_worktree: Preserve worktree after execution
+        runtime_state_root: Optional runtime state root for packet registry lookup
+        managed_result_payload_path: Optional bounded JSON result payload path
+        managed_result_payload_root: Required root when managed_result_payload_path is set
 
     Returns:
         Managed packet run result dict with artifact_ids
@@ -179,6 +191,7 @@ def managed_packet_runner_flow(
         execute_agent=execute_agent,
         timeout_seconds=timeout_seconds,
         keep_worktree=keep_worktree,
+        runtime_state_root=runtime_state_root,
     )
 
     # Publish artifact (best-effort)
@@ -186,5 +199,12 @@ def managed_packet_runner_flow(
 
     # Add artifact_ids to result
     result["artifact_ids"] = artifact_ids
+    result_payload_path = write_managed_result_payload(
+        result,
+        payload_path=managed_result_payload_path,
+        payload_root=managed_result_payload_root,
+    )
+    if result_payload_path:
+        result["managed_result_payload_path"] = result_payload_path
 
     return result

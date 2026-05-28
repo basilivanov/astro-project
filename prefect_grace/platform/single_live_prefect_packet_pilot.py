@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Callable
@@ -236,6 +237,133 @@ def _submission_record_fields(record: Any) -> dict[str, Any]:
     return dict(record)
 
 
+def _pilot_idempotency_namespace(*, state_root: Path, worktree_root: Path, packet_root: Path) -> str:
+    seed = "|".join(
+        str(path.resolve(strict=False))
+        for path in (state_root, worktree_root, packet_root)
+    )
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+    return f"{MODE}-{digest}"
+
+
+def _prefect_state_type_name(value: Any) -> str | None:
+    if value is None:
+        return None
+    enum_value = getattr(value, "value", None)
+    if enum_value:
+        return str(enum_value)
+    enum_name = getattr(value, "name", None)
+    if enum_name:
+        return str(enum_name)
+    return str(value)
+
+
+def _flow_run_parameters(flow_run: Any) -> dict[str, Any]:
+    parameters = getattr(flow_run, "parameters", None)
+    if isinstance(parameters, dict):
+        return dict(parameters)
+    return {}
+
+
+def _coerce_status_payload(state_data: Any) -> dict[str, Any]:
+    if isinstance(state_data, dict):
+        return dict(state_data)
+    if hasattr(state_data, "__dict__"):
+        return dict(vars(state_data))
+    return {
+        "domain_status": getattr(state_data, "domain_status", None),
+        "scope_verdict": getattr(state_data, "scope_verdict", None),
+        "live_agents_started": getattr(state_data, "live_agents_started", 0),
+        "changed_files": getattr(state_data, "changed_files", []),
+    }
+
+
+def _status_from_payload(payload: dict[str, Any], poll_events: list[dict[str, Any]]) -> dict[str, Any]:
+    from prefect_grace.tasks.managed_packet_artifacts import (
+        managed_result_live_agents_started,
+        managed_result_scope_verdict,
+    )
+
+    domain_status = payload.get("domain_status")
+    scope_verdict = managed_result_scope_verdict(payload)
+    live_agents_started = managed_result_live_agents_started(payload)
+    changed_files = payload.get("changed_files") or []
+    payload_errors = payload.get("errors", [])
+
+    if not isinstance(changed_files, list):
+        changed_files = []
+    if payload_errors and not isinstance(payload_errors, list):
+        payload_errors = [payload_errors]
+
+    if domain_status is None or scope_verdict is None:
+        return {
+            "ok": False,
+            "domain_status": domain_status,
+            "scope_verdict": scope_verdict or "evidence_incomplete",
+            "live_agents_started": live_agents_started,
+            "changed_files": changed_files,
+            "poll_events": poll_events,
+            "errors": [{"code": "FLOW_RUN_EVIDENCE_INCOMPLETE", "message": "Flow run completed but domain/scope evidence is incomplete"}],
+        }
+
+    ok = (domain_status in ("accepted", "passed") and scope_verdict == "passed")
+    result = {
+        "ok": ok,
+        "domain_status": domain_status,
+        "scope_verdict": scope_verdict,
+        "live_agents_started": live_agents_started,
+        "changed_files": changed_files,
+        "poll_events": poll_events,
+    }
+    if payload_errors:
+        result["errors"] = payload_errors
+    return result
+
+
+def _status_from_managed_payload_file(flow_run: Any, poll_events: list[dict[str, Any]]) -> dict[str, Any]:
+    from prefect_grace.tasks.managed_packet_artifacts import read_managed_result_payload
+
+    parameters = _flow_run_parameters(flow_run)
+    payload_path = parameters.get("managed_result_payload_path") or parameters.get("result_payload_path")
+    payload_root = parameters.get("managed_result_payload_root")
+
+    if not payload_path:
+        return {
+            "ok": False,
+            "domain_status": None,
+            "scope_verdict": "payload_missing",
+            "live_agents_started": 0,
+            "changed_files": [],
+            "poll_events": poll_events,
+            "errors": [{"code": "MANAGED_RESULT_PAYLOAD_PATH_MISSING", "message": "Flow run completed without API payload and no managed result payload path parameter is available"}],
+        }
+
+    try:
+        payload = read_managed_result_payload(payload_path=str(payload_path), payload_root=str(payload_root or ""))
+    except FileNotFoundError as e:
+        return {
+            "ok": False,
+            "domain_status": None,
+            "scope_verdict": "payload_missing",
+            "live_agents_started": 0,
+            "changed_files": [],
+            "poll_events": poll_events,
+            "errors": [{"code": "MANAGED_RESULT_PAYLOAD_FILE_MISSING", "message": str(e)}],
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "domain_status": None,
+            "scope_verdict": "payload_read_failed",
+            "live_agents_started": 0,
+            "changed_files": [],
+            "poll_events": poll_events,
+            "errors": [{"code": "MANAGED_RESULT_PAYLOAD_READ_FAILED", "message": str(e)}],
+        }
+
+    return _status_from_payload(payload, poll_events)
+
+
 # START_FUNCTION_CONTRACT
 # Function: create_bounded_prefect_status_reader
 # Purpose: Create bounded status reader that polls Prefect flow run until completion or timeout
@@ -319,7 +447,7 @@ def create_bounded_prefect_status_reader(prefect_client: Any | None = None) -> C
                         "errors": [{"code": "FLOW_RUN_READ_FAILED", "message": str(e)}],
                     }
 
-                state_type = getattr(flow_run, "state_type", None)
+                state_type = _prefect_state_type_name(getattr(flow_run, "state_type", None))
                 state_name = getattr(flow_run, "state_name", None)
 
                 # Record poll event (bounded)
@@ -339,70 +467,13 @@ def create_bounded_prefect_status_reader(prefect_client: Any | None = None) -> C
                         state = getattr(flow_run, "state", None)
                         state_data = getattr(state, "data", None) if state else None
 
-                        # Fail closed if payload is missing or not inspectable
                         if state_data is None:
-                            return {
-                                "ok": False,
-                                "domain_status": None,
-                                "scope_verdict": "payload_missing",
-                                "live_agents_started": 0,
-                                "changed_files": [],
-                                "poll_events": poll_events,
-                                "errors": [{"code": "FLOW_RUN_PAYLOAD_MISSING", "message": "Flow run completed but state payload is not inspectable"}],
-                            }
+                            return _status_from_managed_payload_file(flow_run, poll_events)
 
                         # Extract domain/scope evidence from payload
                         try:
-                            # State data should be a dict with domain_status, scope_verdict, etc.
-                            if isinstance(state_data, dict):
-                                payload = state_data
-                            elif hasattr(state_data, "__dict__"):
-                                payload = vars(state_data)
-                            else:
-                                # Try to access as attributes
-                                payload = {
-                                    "domain_status": getattr(state_data, "domain_status", None),
-                                    "scope_verdict": getattr(state_data, "scope_verdict", None),
-                                    "live_agents_started": getattr(state_data, "live_agents_started", 0),
-                                    "changed_files": getattr(state_data, "changed_files", []),
-                                }
-
-                            domain_status = payload.get("domain_status")
-                            scope_verdict = payload.get("scope_verdict")
-                            live_agents_started = payload.get("live_agents_started", 0)
-                            changed_files = payload.get("changed_files", [])
-                            payload_errors = payload.get("errors", [])
-
-                            # Fail closed if domain/scope evidence is missing
-                            if domain_status is None or scope_verdict is None:
-                                return {
-                                    "ok": False,
-                                    "domain_status": domain_status,
-                                    "scope_verdict": scope_verdict or "evidence_incomplete",
-                                    "live_agents_started": live_agents_started,
-                                    "changed_files": changed_files,
-                                    "poll_events": poll_events,
-                                    "errors": [{"code": "FLOW_RUN_EVIDENCE_INCOMPLETE", "message": "Flow run completed but domain/scope evidence is incomplete"}],
-                                }
-
-                            # Accept both "accepted" and "passed" domain_status with "passed" scope_verdict
-                            # Aligns with managed_packet_runner.py:363 and pilot final gate logic
-                            ok = (domain_status in ("accepted", "passed") and scope_verdict == "passed")
-
-                            result = {
-                                "ok": ok,
-                                "domain_status": domain_status,
-                                "scope_verdict": scope_verdict,
-                                "live_agents_started": live_agents_started,
-                                "changed_files": changed_files,
-                                "poll_events": poll_events,
-                            }
-
-                            # Include errors if present
-                            if payload_errors:
-                                result["errors"] = payload_errors
-
-                            return result
+                            payload = _coerce_status_payload(state_data)
+                            return _status_from_payload(payload, poll_events)
 
                         except Exception as e:
                             return {
@@ -553,6 +624,11 @@ def run_single_live_prefect_packet_pilot(
 
     warnings: list[str] = []
     errors: list[dict[str, Any]] = []
+    idempotency_namespace = _pilot_idempotency_namespace(
+        state_root=state_root,
+        worktree_root=worktree_root,
+        packet_root=packet_root,
+    )
     _reset_temp_roots(state_root, worktree_root, packet_root)
     _ensure_synthetic_git_repo(packet_root)
     packet_path = _write_scratch_packet(packet_root, extra_ready_packet=extra_ready_packet)
@@ -586,6 +662,7 @@ def run_single_live_prefect_packet_pilot(
         worktree_root=worktree_root,
         submitter=None,
         runner_kind="managed",
+        idempotency_namespace=idempotency_namespace,
     )
     submit_plan = dry_submit.to_dict()
     submit_plan["packets_to_submit"] = list(dry_submit.packets_planned)
@@ -634,6 +711,7 @@ def run_single_live_prefect_packet_pilot(
             worktree_root=worktree_root,
             submitter=submitter,
             runner_kind="managed",
+            idempotency_namespace=idempotency_namespace,
         )
         errors.extend(submission.errors)
         if len(submission.records) != 1:

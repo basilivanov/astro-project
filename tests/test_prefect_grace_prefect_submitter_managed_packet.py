@@ -39,6 +39,7 @@ def test_managed_packet_flow_parameters():
         dry_run=False,
         execute_agent=True,
         timeout_seconds=3600,
+        runtime_state_root="/state",
     )
 
     assert params["packet_file"] == "/repo/packets/P1.md"
@@ -51,6 +52,7 @@ def test_managed_packet_flow_parameters():
     assert params["dry_run"] is False
     assert params["execute_agent"] is True
     assert params["timeout_seconds"] == 3600
+    assert params["runtime_state_root"] == "/state"
 
 
 def test_build_managed_packet_submission_request_structure():

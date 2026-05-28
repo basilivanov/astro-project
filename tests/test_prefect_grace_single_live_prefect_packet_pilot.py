@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from prefect_grace.platform.single_live_prefect_packet_pilot import (
@@ -19,6 +20,12 @@ def _roots(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 def _project_config() -> Path:
     return Path("prefect_grace/project.yaml")
+
+
+def test_grace_worker_requirements_include_importlib_metadata():
+    """Worker image rebuild includes Prefect 3.6.25 Python 3.12 runtime dependency."""
+    requirements = Path("infra/grace-worker/requirements.txt").read_text(encoding="utf-8")
+    assert "importlib_metadata" in requirements
 
 
 def test_dry_run_plans_one_managed_scratch_packet(tmp_path):
@@ -41,6 +48,38 @@ def test_dry_run_plans_one_managed_scratch_packet(tmp_path):
     assert result.live_agents_started == 0
     assert result.writes_outside_temp_roots == []
     assert result.errors == []
+    key = result.submit_plan["records"][0]["idempotency_key"]
+    assert ":namespace:single_live_prefect_packet_pilot-" in key
+
+
+def test_different_temp_roots_produce_distinct_pilot_idempotency_keys(tmp_path):
+    """Synthetic live-pilot proof runs avoid stale Prefect idempotency reuse."""
+    state_root_a, worktree_root_a, packet_root_a = _roots(tmp_path / "run-a")
+    state_root_b, worktree_root_b, packet_root_b = _roots(tmp_path / "run-b")
+
+    result_a = run_single_live_prefect_packet_pilot(
+        project_config=_project_config(),
+        state_root=state_root_a,
+        worktree_root=worktree_root_a,
+        packet_root=packet_root_a,
+        dry_run=True,
+    )
+    result_b = run_single_live_prefect_packet_pilot(
+        project_config=_project_config(),
+        state_root=state_root_b,
+        worktree_root=worktree_root_b,
+        packet_root=packet_root_b,
+        dry_run=True,
+    )
+
+    key_a = result_a.submit_plan["records"][0]["idempotency_key"]
+    key_b = result_b.submit_plan["records"][0]["idempotency_key"]
+
+    assert result_a.ok is True
+    assert result_b.ok is True
+    assert key_a != key_b
+    assert ":namespace:single_live_prefect_packet_pilot-" in key_a
+    assert ":namespace:single_live_prefect_packet_pilot-" in key_b
 
 
 def test_missing_opt_in_blocks_before_prefect_submission(tmp_path):
@@ -81,10 +120,17 @@ def test_injected_live_path_creates_one_prefect_run_and_agent(tmp_path):
 
     def submitter(**kwargs):
         submitter_calls.append(kwargs)
+        assert ":namespace:single_live_prefect_packet_pilot-" in kwargs["idempotency_key"]
         parameters = kwargs["parameters"]
         assert parameters["packet_id"] == PACKET_ID
         assert parameters["dry_run"] is False
         assert parameters["execute_agent"] is True
+        assert parameters["runtime_state_root"] == str(state_root)
+        payload_path = Path(parameters["managed_result_payload_path"])
+        payload_root = Path(parameters["managed_result_payload_root"])
+        assert payload_path.name == "result_payload.json"
+        assert payload_path.is_relative_to(payload_root)
+        assert payload_root.is_relative_to(state_root)
         return {
             "flow_run_id": "flow-run-001",
             "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
@@ -308,6 +354,7 @@ class FakePrefectClient:
         state_type = run_data.get("state_type", "PENDING")
         state_name = run_data.get("state_name", "Pending")
         state_data = run_data.get("state_data")
+        parameters = run_data.get("parameters", {})
 
         state = None
         if state_data is not None:
@@ -317,6 +364,7 @@ class FakePrefectClient:
             state_type=state_type,
             state_name=state_name,
             state=state,
+            parameters=parameters,
         )
 
 
@@ -405,7 +453,183 @@ def test_status_reader_completed_with_missing_payload_fails_closed():
 
     assert result["ok"] is False
     assert result["scope_verdict"] == "payload_missing"
-    assert any(e["code"] == "FLOW_RUN_PAYLOAD_MISSING" for e in result["errors"])
+    assert any(e["code"] == "MANAGED_RESULT_PAYLOAD_PATH_MISSING" for e in result["errors"])
+
+
+def test_status_reader_falls_back_to_managed_result_payload_file(tmp_path):
+    """Status reader: completed run with missing API payload reads bounded managed result file."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-PACKET" / "attempt-0001" / "result_payload.json"
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text(
+        json.dumps(
+            {
+                "domain_status": "passed",
+                "scope_verdict": "passed",
+                "live_agents_started": 1,
+                "changed_files": ["scratch/grace-single-live-prefect/result.txt"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakePrefectClient({
+        "flow-run-fallback": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(payload_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-fallback", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is True
+    assert result["domain_status"] == "passed"
+    assert result["scope_verdict"] == "passed"
+    assert result["live_agents_started"] == 1
+    assert result["changed_files"] == ["scratch/grace-single-live-prefect/result.txt"]
+
+
+def test_status_reader_fallback_scope_blocked_fails_closed(tmp_path):
+    """Status reader: fallback payload preserves scope_blocked fail-closed semantics."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-PACKET" / "attempt-0001" / "result_payload.json"
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text(
+        json.dumps(
+            {
+                "domain_status": "scope_blocked",
+                "scope_verdict": "blocked",
+                "live_agents_started": 1,
+                "changed_files": ["backend/forbidden.py"],
+                "errors": [{"code": "SCOPE_BLOCKED", "message": "backend write"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakePrefectClient({
+        "flow-run-scope-blocked-fallback": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(payload_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-scope-blocked-fallback", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is False
+    assert result["domain_status"] == "scope_blocked"
+    assert result["scope_verdict"] == "blocked"
+    assert any(e["code"] == "SCOPE_BLOCKED" for e in result["errors"])
+
+
+def test_status_reader_fallback_outside_root_fails_closed(tmp_path):
+    """Status reader: fallback payload path outside declared root fails closed."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    outside_path = tmp_path / "outside" / "result_payload.json"
+    client = FakePrefectClient({
+        "flow-run-outside-root": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(outside_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-outside-root", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is False
+    assert result["scope_verdict"] == "payload_read_failed"
+    assert any(e["code"] == "MANAGED_RESULT_PAYLOAD_READ_FAILED" for e in result["errors"])
+
+
+def test_status_reader_fallback_missing_file_fails_closed(tmp_path):
+    """Status reader: fallback path with no payload file fails closed."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-PACKET" / "attempt-0001" / "result_payload.json"
+    client = FakePrefectClient({
+        "flow-run-missing-file": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(payload_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-missing-file", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is False
+    assert result["scope_verdict"] == "payload_missing"
+    assert any(e["code"] == "MANAGED_RESULT_PAYLOAD_FILE_MISSING" for e in result["errors"])
+
+
+def test_status_reader_fallback_malformed_json_fails_closed(tmp_path):
+    """Status reader: unreadable fallback JSON fails closed."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-PACKET" / "attempt-0001" / "result_payload.json"
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text("{not-json", encoding="utf-8")
+    client = FakePrefectClient({
+        "flow-run-malformed-fallback": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(payload_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-malformed-fallback", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is False
+    assert result["scope_verdict"] == "payload_read_failed"
+    assert any(e["code"] == "MANAGED_RESULT_PAYLOAD_READ_FAILED" for e in result["errors"])
+
+
+def test_status_reader_fallback_incomplete_payload_fails_closed(tmp_path):
+    """Status reader: fallback payload missing scope evidence fails closed."""
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-PACKET" / "attempt-0001" / "result_payload.json"
+    payload_path.parent.mkdir(parents=True)
+    payload_path.write_text(json.dumps({"domain_status": "passed"}), encoding="utf-8")
+    client = FakePrefectClient({
+        "flow-run-incomplete-fallback": {
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "state_data": None,
+            "parameters": {
+                "managed_result_payload_path": str(payload_path),
+                "managed_result_payload_root": str(payload_root),
+            },
+        },
+    })
+
+    reader = create_bounded_prefect_status_reader(client)
+    result = reader(flow_run_id="flow-run-incomplete-fallback", packet_id="TEST-PACKET", timeout_seconds=30)
+
+    assert result["ok"] is False
+    assert result["scope_verdict"] == "evidence_incomplete"
+    assert any(e["code"] == "FLOW_RUN_EVIDENCE_INCOMPLETE" for e in result["errors"])
 
 
 def test_status_reader_completed_with_incomplete_evidence_fails_closed():

@@ -1,0 +1,14 @@
+{
+  "verdict": "clean",
+  "scope": "local GRACE unit/contract verification only",
+  "live_prefect_pilot_run": false,
+  "docker_image_rebuild_run": false,
+  "live_agents_started": 0,
+  "prefect_runs_created": 0,
+  "degradation_signals": [],
+  "notes": [
+    "No backend/frontend runtime flow was exercised.",
+    "No real Prefect live pilot was run because reviewer approval was not provided.",
+    "Targeted tests used fake Prefect clients and injected submitters only."
+  ]
+}

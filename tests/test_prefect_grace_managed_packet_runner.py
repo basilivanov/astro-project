@@ -541,6 +541,83 @@ Run tests.
     assert str(worktree_root) in received_workdir[0]
 
 
+def test_managed_packet_run_passes_runtime_and_project_roots_to_launcher(tmp_path):
+    """Verify live managed runner provides temp registry root and repo root without project object."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / ".git").mkdir()
+
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.invalid"], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_root, check=True)
+
+    (repo_root / "README.md").write_text("base\n")
+    subprocess.run(["git", "add", "README.md"], cwd=repo_root, check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], cwd=repo_root, check=True)
+
+    packet_file = tmp_path / "EXECUTION_PACKET.md"
+    packet_file.write_text("""# Test Packet
+
+- packet_id: TEST-W01-PACKET
+- feature_id: TEST-FEATURE
+- wave_id: W01
+- status: ready
+
+## Objective
+Test launcher root plumbing.
+
+## Allowed Write Scope
+- src/**
+
+## Frozen Scope
+- backend/**
+
+## Must Preserve
+- Existing tests pass
+
+## Verification
+Run tests.
+
+## Expected Evidence
+- Test output
+
+## Escalation Triggers
+- Tests fail
+""")
+
+    runtime_state_root = tmp_path / "runtime-state"
+    worktree_root = tmp_path / "worktrees"
+    launcher_kwargs = []
+
+    def fake_launcher(packet_id, **kwargs):
+        launcher_kwargs.append(kwargs)
+        return {
+            "returncode": 0,
+            "termination_reason": "completed",
+            "packet_id": packet_id,
+        }
+
+    result = run_managed_packet(
+        packet_file=packet_file,
+        repo_root=repo_root,
+        worktree_root=worktree_root,
+        project_key="test-project",
+        packet_id="TEST-W01-PACKET",
+        attempt=1,
+        base_ref="HEAD",
+        dry_run=False,
+        execute_agent=True,
+        runtime_state_root=runtime_state_root,
+        launcher=fake_launcher,
+    )
+
+    assert result.ok is True
+    assert launcher_kwargs[0]["runtime_state_root"] == runtime_state_root
+    assert launcher_kwargs[0]["project_root"] == repo_root
+    assert Path(launcher_kwargs[0]["workdir_override"]).is_relative_to(worktree_root)
+
+
 def test_managed_packet_run_to_dict_serialization(tmp_path):
     """Verify ManagedPacketRunResult.to_dict() works."""
     repo_root = tmp_path / "repo"

@@ -85,6 +85,21 @@ def test_build_idempotency_key_zero_padded():
     assert key == "grace-packet:test-project:TEST-W01-PACKET:attempt-0042:abc123"
 
 
+def test_build_idempotency_key_optional_namespace_preserves_default():
+    """Verify optional namespace only changes key when explicitly provided."""
+    default_key = build_idempotency_key("test-project", "TEST-W01-PACKET", 1, "abc123")
+    namespaced_key = build_idempotency_key(
+        "test-project",
+        "TEST-W01-PACKET",
+        1,
+        "abc123",
+        idempotency_namespace="proof-run-001",
+    )
+
+    assert default_key == "grace-packet:test-project:TEST-W01-PACKET:attempt-0001:abc123"
+    assert namespaced_key == "grace-packet:test-project:TEST-W01-PACKET:attempt-0001:abc123:namespace:proof-run-001"
+
+
 def test_e2e_packet_submitter_helpers_build_flow_request():
     """Verify E2E submitter helpers target the E2E deployment and tags."""
     params = e2e_packet_flow_parameters(
@@ -158,6 +173,7 @@ def test_submit_ready_packets_dry_run_returns_plan(tmp_path):
     assert result.records[0].runner_kind == "e2e"
     assert result.records[0].deployment_name == E2E_PACKET_DEPLOYMENT_NAME
     assert result.records[0].flow_run_name == "e2e-packet:TEST-W01-PACKET:attempt-1:Test Packet"
+    assert result.records[0].idempotency_key == "grace-packet:test-project:TEST-W01-PACKET:attempt-0001:abc123"
 
 
 def test_submit_ready_packets_execute_calls_submitter(tmp_path):
@@ -283,11 +299,71 @@ def test_submit_ready_packets_managed_runner_explicit_compatibility(tmp_path):
     call = submitted_calls[0]
     assert "packet_file" in call["parameters"]
     assert "packet_path" not in call["parameters"]
+    assert call["parameters"]["runtime_state_root"] == str(Path(project.runtime_state_root))
+    payload_path = Path(call["parameters"]["managed_result_payload_path"])
+    payload_root = Path(call["parameters"]["managed_result_payload_root"])
+    assert payload_path.name == "result_payload.json"
+    assert payload_path.is_relative_to(payload_root)
+    assert payload_root.is_relative_to(Path(project.runtime_state_root))
     assert "managed-runner" in call["tags"]
     assert "e2e" not in call["tags"]
     updated_packet = registry.load_packet("TEST-W01-PACKET")
     assert updated_packet["registry_reason"] == "prefect_flow_run_submitted"
     assert updated_packet["submission_runner_kind"] == "managed"
+
+
+def test_submit_ready_packets_idempotency_namespace_applies_to_plan_and_submit(tmp_path):
+    """Verify proof-run namespace is reflected in dry-run records and live submission call."""
+    project = _create_test_project(tmp_path)
+    state_root = Path(project.runtime_state_root) / "state"
+    state_root.mkdir(parents=True, exist_ok=True)
+    packet_file = _create_test_packet_file(tmp_path, "TEST-W01-PACKET")
+    registry = PacketRegistryStore(state_root)
+    packet_record = {
+        "packet_id": "TEST-W01-PACKET",
+        "project_key": "test-project",
+        "feature_id": "TEST-FEATURE",
+        "wave_id": "W01",
+        "title": "Test Packet",
+        "path": str(packet_file.relative_to(tmp_path / "repo")),
+        "source_hash": "abc123",
+        "registry_status": "ready",
+        "registry_reason": "test",
+        "depends_on": [],
+    }
+    registry.upsert_packet(packet_record)
+
+    dry_result = submit_ready_packets_to_prefect(
+        project=project,
+        dry_run=True,
+        runner_kind="managed",
+        idempotency_namespace="proof-run-001",
+    )
+
+    expected = "grace-packet:test-project:TEST-W01-PACKET:attempt-0001:abc123:namespace:proof-run-001"
+    assert dry_result.records[0].idempotency_key == expected
+
+    submitted_calls = []
+
+    def fake_submitter(**kwargs):
+        submitted_calls.append(kwargs)
+        return {
+            "flow_run_id": "fake-flow-run-managed",
+            "flow_run_name": f"packet:{kwargs['parameters']['packet_id']}",
+            "deployment_name": MANAGED_PACKET_DEPLOYMENT_NAME,
+            "work_queue_name": "default",
+        }
+
+    live_result = submit_ready_packets_to_prefect(
+        project=project,
+        dry_run=False,
+        submitter=fake_submitter,
+        runner_kind="managed",
+        idempotency_namespace="proof-run-001",
+    )
+
+    assert live_result.records[0].idempotency_key == expected
+    assert submitted_calls[0]["idempotency_key"] == expected
 
 
 def test_submit_ready_packets_no_submitter_fails(tmp_path):

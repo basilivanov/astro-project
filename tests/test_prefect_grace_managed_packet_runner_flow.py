@@ -214,6 +214,8 @@ Run tests.
 """)
 
     worktree_root = tmp_path / "worktrees"
+    payload_root = tmp_path / "state" / "managed-runner-results"
+    payload_path = payload_root / "TEST-W01-PACKET" / "attempt-0001" / "result_payload.json"
 
     result = managed_packet_runner_flow(
         packet_file=str(packet_file),
@@ -225,6 +227,8 @@ Run tests.
         base_ref="HEAD",
         dry_run=True,
         execute_agent=False,
+        managed_result_payload_path=str(payload_path),
+        managed_result_payload_root=str(payload_root),
     )
 
     assert isinstance(result, dict)
@@ -234,6 +238,8 @@ Run tests.
     assert result["attempt"] == 1
     assert "artifact_ids" in result
     assert isinstance(result["artifact_ids"], list)
+    assert result["managed_result_payload_path"] == str(payload_path)
+    assert payload_path.exists()
 
 
 def test_managed_packet_runner_flow_scope_blocked(tmp_path):

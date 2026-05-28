@@ -1,0 +1,58 @@
+{
+  "packet_id": "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL",
+  "generated_by": "worker-coder",
+  "evidence": [
+    {
+      "id": "EV-PAYLOAD-RETRIEVAL-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted pytest covered status reader fallback success/fail-closed cases, managed submission payload path generation, managed flow payload write, and worker dependency contract."
+    },
+    {
+      "id": "EV-PAYLOAD-RETRIEVAL-COMPILE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "compileall.txt"
+      ],
+      "summary": "Touched GRACE modules compile successfully."
+    },
+    {
+      "id": "EV-PAYLOAD-RETRIEVAL-GRACE-LINT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "grace_lint.txt"
+      ],
+      "summary": "Touched GRACE modules pass GRACE Canon Script Discipline lint."
+    },
+    {
+      "id": "EV-PAYLOAD-RETRIEVAL-OBSERVABILITY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "observability_gate.json"
+      ],
+      "summary": "Post-test gate is clean for local unit/contract verification; no live Prefect run or backend/frontend runtime was exercised."
+    },
+    {
+      "id": "EV-PAYLOAD-RETRIEVAL-PACKET-VALIDATION",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "packet_validation.txt",
+        "evidence_manifest_validation.txt"
+      ],
+      "summary": "Strict packet validation and evidence manifest validation passed."
+    }
+  ],
+  "blockers": []
+}

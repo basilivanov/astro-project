@@ -131,13 +131,15 @@ def _launch_codex_for_packet(
     stall_timeout_seconds: float | None = None,
     workdir_override: str | Path | None = None,
     runtime_state_root: str | Path | None = None,
+    project_root: str | Path | None = None,
 ) -> dict[str, Any]:
     config = load_agent_config()
     # Use new registry format with fallback to old
     from prefect_grace.tasks.state_store import find_packet_from_registry
-    packet = find_packet_from_registry(packet_id, runtime_state_root, project_root=ROOT_DIR)
+    registry_project_root = Path(project_root).resolve() if project_root is not None else ROOT_DIR
+    packet = find_packet_from_registry(packet_id, runtime_state_root, project_root=registry_project_root)
     # Add project_root to packet dict for path normalization in prompt builder
-    packet["project_root"] = str(ROOT_DIR)
+    packet["project_root"] = str(registry_project_root)
     role = str(packet.get("role") or "coder")
     role_defaults = _role_defaults(config, role)
     execution_hints = dict(packet.get("execution_hints") or {})
@@ -461,7 +463,8 @@ def _launch_codex_for_packet(
     # Update registry with execution state for resume decision tracking
     if role == "coder" and thread_id:
         try:
-            registry = PacketRegistryStore(STATE_ROOT)
+            registry_state_root = Path(runtime_state_root) / "state" if runtime_state_root else STATE_ROOT
+            registry = PacketRegistryStore(registry_state_root)
             packet_record = registry.load_packet(packet_id)
             if packet_record is not None:
                 current_source_hash = packet_record.get("source_hash")

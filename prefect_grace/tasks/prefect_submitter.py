@@ -236,6 +236,7 @@ def e2e_packet_flow_run_name(packet_id: str, attempt: int, title: str | None = N
 #   dry_run: Whether to run in dry-run mode (default False).
 #   execute_agent: Whether to execute live agents (default False).
 #   timeout_seconds: Flow timeout in seconds.
+#   runtime_state_root: Optional runtime state root for managed runner lookup.
 # returns: dict[str, Any] with all flow parameters.
 # side_effects: None.
 # emitted_logs: None.
@@ -253,8 +254,11 @@ def managed_packet_flow_parameters(
     dry_run: bool = False,
     execute_agent: bool = False,
     timeout_seconds: int = 3600,
+    runtime_state_root: str | None = None,
+    managed_result_payload_path: str | None = None,
+    managed_result_payload_root: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    parameters = {
         "packet_file": str(packet_file),
         "repo_root": str(repo_root),
         "worktree_root": str(worktree_root),
@@ -266,6 +270,12 @@ def managed_packet_flow_parameters(
         "execute_agent": bool(execute_agent),
         "timeout_seconds": int(timeout_seconds),
     }
+    if runtime_state_root:
+        parameters["runtime_state_root"] = str(runtime_state_root)
+    if managed_result_payload_path:
+        parameters["managed_result_payload_path"] = str(managed_result_payload_path)
+        parameters["managed_result_payload_root"] = str(managed_result_payload_root or "")
+    return parameters
 
 
 # START_FUNCTION_CONTRACT

@@ -22,7 +22,13 @@
 from __future__ import annotations
 
 import importlib
+import json
+import os
+from pathlib import Path
 from typing import Any, Callable
+
+
+MAX_MANAGED_RESULT_PAYLOAD_BYTES = 1024 * 1024
 
 
 # START_FUNCTION_CONTRACT
@@ -46,6 +52,184 @@ def _get_create_markdown_artifact() -> Callable[..., Any] | None:
         return getattr(prefect_artifacts, "create_markdown_artifact", None)
     except (ImportError, ModuleNotFoundError, AttributeError):
         return None
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _safe_payload_path(payload_path: str, payload_root: str) -> Path:
+    path = Path(payload_path)
+    root = Path(payload_root)
+    if not path.is_absolute() or not root.is_absolute():
+        raise ValueError("managed result payload path and root must be absolute")
+
+    resolved_path = path.resolve(strict=False)
+    resolved_root = root.resolve(strict=False)
+    if not _is_relative_to(resolved_path, resolved_root):
+        raise ValueError("managed result payload path is outside managed result payload root")
+    if resolved_path.name != "result_payload.json":
+        raise ValueError("managed result payload filename must be result_payload.json")
+    return resolved_path
+
+
+# START_FUNCTION_CONTRACT
+# name: managed_result_scope_verdict
+# purpose: Derive the pilot scope verdict from managed runner result fields.
+# inputs:
+#   result: Managed packet run result dictionary.
+# returns: Scope verdict string or None when unavailable.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: None.
+# END_FUNCTION_CONTRACT
+def managed_result_scope_verdict(result: dict[str, Any]) -> str | None:
+    scope_verdict = result.get("scope_verdict")
+    if scope_verdict:
+        return str(scope_verdict)
+
+    lifecycle = result.get("lifecycle_result")
+    lifecycle_status = lifecycle.get("status") if isinstance(lifecycle, dict) else None
+    if lifecycle_status == "passed":
+        return "passed"
+    if lifecycle_status == "scope_blocked":
+        return "blocked"
+    if lifecycle_status:
+        return str(lifecycle_status)
+    return None
+
+
+# START_FUNCTION_CONTRACT
+# name: managed_result_live_agents_started
+# purpose: Derive live-agent launch count from managed runner result fields.
+# inputs:
+#   result: Managed packet run result dictionary.
+# returns: Integer live-agent launch count.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Raises ValueError if explicit count is not integer-compatible.
+# END_FUNCTION_CONTRACT
+def managed_result_live_agents_started(result: dict[str, Any]) -> int:
+    explicit = result.get("live_agents_started", result.get("agent_launch_count"))
+    if explicit is not None:
+        return int(explicit)
+
+    agent_result = result.get("agent_result")
+    if not isinstance(agent_result, dict):
+        return 0
+    if agent_result.get("dry_run") is True:
+        return 0
+    if agent_result.get("termination_reason") in {"dry_run", "no_agent_execution"}:
+        return 0
+    return 1 if agent_result else 0
+
+
+# START_FUNCTION_CONTRACT
+# name: build_managed_result_payload
+# purpose: Build bounded status-reader evidence from a managed packet run result.
+# inputs:
+#   result: Managed packet run result dictionary.
+# returns: JSON-safe bounded payload dictionary.
+# side_effects: None.
+# emitted_logs: None.
+# error_behavior: Raises ValueError if live-agent count is invalid.
+# END_FUNCTION_CONTRACT
+def build_managed_result_payload(result: dict[str, Any]) -> dict[str, Any]:
+    """Build bounded status-reader evidence from a managed packet run result."""
+    payload_errors = result.get("errors")
+    if payload_errors is None:
+        payload_errors = []
+    if payload_errors and not isinstance(payload_errors, list):
+        payload_errors = [payload_errors]
+
+    return {
+        "schema_version": 1,
+        "ok": bool(result.get("ok", False)),
+        "domain_status": result.get("domain_status"),
+        "scope_verdict": managed_result_scope_verdict(result),
+        "packet_id": result.get("packet_id"),
+        "attempt": result.get("attempt"),
+        "live_agents_started": managed_result_live_agents_started(result),
+        "changed_files": list(result.get("changed_files") or []),
+        "errors": payload_errors,
+        "blocker_reason": result.get("blocker_reason"),
+        "artifact_ids": list(result.get("artifact_ids") or []),
+        "worktree_path": result.get("worktree_path"),
+        "branch_name": result.get("branch_name"),
+    }
+
+
+# START_FUNCTION_CONTRACT
+# name: write_managed_result_payload
+# purpose: Atomically write bounded managed runner evidence JSON under a declared root.
+# inputs:
+#   result: Managed packet run result dictionary.
+#   payload_path: Absolute output JSON path.
+#   payload_root: Absolute allowed root for payload_path.
+# returns: Written payload path string, or None when payload_path is absent.
+# side_effects: Creates parent directories and replaces payload file atomically.
+# emitted_logs: None.
+# error_behavior: Raises ValueError/OSError for invalid paths, oversized payloads, or write failures.
+# END_FUNCTION_CONTRACT
+def write_managed_result_payload(
+    result: dict[str, Any],
+    *,
+    payload_path: str | None,
+    payload_root: str | None,
+) -> str | None:
+    """Write managed runner evidence as bounded JSON using atomic replace."""
+    if not payload_path:
+        return None
+    if not payload_root:
+        raise ValueError("managed result payload root is required when payload path is set")
+
+    resolved_path = _safe_payload_path(payload_path, payload_root)
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = build_managed_result_payload(result)
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > MAX_MANAGED_RESULT_PAYLOAD_BYTES:
+        raise ValueError("managed result payload exceeds bounded size limit")
+
+    temp_path = resolved_path.with_name(f".{resolved_path.name}.{os.getpid()}.tmp")
+    temp_path.write_bytes(encoded)
+    os.replace(temp_path, resolved_path)
+    return str(resolved_path)
+
+
+# START_FUNCTION_CONTRACT
+# name: read_managed_result_payload
+# purpose: Read bounded managed runner evidence JSON from a validated path.
+# inputs:
+#   payload_path: Absolute JSON payload path.
+#   payload_root: Absolute allowed root for payload_path.
+# returns: Parsed payload dictionary.
+# side_effects: Reads payload file metadata and contents.
+# emitted_logs: None.
+# error_behavior: Raises ValueError/FileNotFoundError/JSONDecodeError for invalid or unreadable payloads.
+# END_FUNCTION_CONTRACT
+def read_managed_result_payload(
+    *,
+    payload_path: str | None,
+    payload_root: str | None,
+) -> dict[str, Any]:
+    """Read bounded managed runner evidence from a validated payload file."""
+    if not payload_path:
+        raise ValueError("managed result payload path is missing")
+    if not payload_root:
+        raise ValueError("managed result payload root is missing")
+
+    resolved_path = _safe_payload_path(payload_path, payload_root)
+    size = resolved_path.stat().st_size
+    if size > MAX_MANAGED_RESULT_PAYLOAD_BYTES:
+        raise ValueError("managed result payload exceeds bounded size limit")
+    payload = json.loads(resolved_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("managed result payload must be a JSON object")
+    return payload
 
 
 # START_FUNCTION_CONTRACT

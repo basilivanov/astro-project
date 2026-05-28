@@ -1,0 +1,5 @@
+Command:
+python3 -m compileall -q prefect_grace/flows/managed_packet_runner_flow.py prefect_grace/platform/single_live_prefect_packet_pilot.py prefect_grace/platform/prefect_native_submission.py prefect_grace/tasks/prefect_submitter.py prefect_grace/tasks/managed_packet_artifacts.py
+
+Result:
+PASS (no output)

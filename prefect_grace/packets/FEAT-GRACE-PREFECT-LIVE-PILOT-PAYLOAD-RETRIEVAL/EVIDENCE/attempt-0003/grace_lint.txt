@@ -1,0 +1,17 @@
+Commands:
+python3 scripts/grace_lint.py prefect_grace/platform/managed_packet_runner.py
+python3 scripts/grace_lint.py prefect_grace/tasks/codex_launcher.py
+python3 scripts/grace_lint.py prefect_grace/flows/managed_packet_runner_flow.py
+python3 scripts/grace_lint.py prefect_grace/platform/single_live_prefect_packet_pilot.py
+python3 scripts/grace_lint.py prefect_grace/platform/prefect_native_submission.py
+python3 scripts/grace_lint.py prefect_grace/tasks/prefect_submitter.py
+python3 scripts/grace_lint.py prefect_grace/tasks/managed_packet_artifacts.py
+
+Result:
+[GRACE-LINT] All modules in prefect_grace/platform/managed_packet_runner.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/tasks/codex_launcher.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/flows/managed_packet_runner_flow.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/single_live_prefect_packet_pilot.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/platform/prefect_native_submission.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/tasks/prefect_submitter.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/tasks/managed_packet_artifacts.py comply with GRACE Canon Script Discipline.

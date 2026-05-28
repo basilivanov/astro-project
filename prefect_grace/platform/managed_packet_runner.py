@@ -89,6 +89,7 @@ class ManagedPacketRunResult:
 #   execute_agent: Explicitly allow live agent execution.
 #   timeout_seconds: Agent timeout.
 #   keep_worktree: Preserve worktree after execution.
+#   runtime_state_root: Optional registry state root for launcher packet lookup.
 #   launcher: Optional launcher callable (default: launch_codex_for_packet).
 #   project: Optional project config for executor selection.
 #   trace_context: Optional structured logging trace context.
@@ -110,6 +111,7 @@ def run_managed_packet(
     execute_agent: bool = False,
     timeout_seconds: int = 3600,
     keep_worktree: bool = True,
+    runtime_state_root: str | Path | None = None,
     launcher: Callable[..., dict[str, Any]] | None = None,
     project: Any | None = None,
     trace_context: Any | None = None,
@@ -143,6 +145,7 @@ def run_managed_packet(
         execute_agent: Explicitly allow live agent execution
         timeout_seconds: Agent timeout
         keep_worktree: Preserve worktree after execution
+        runtime_state_root: Optional runtime state root for launcher registry lookup
         launcher: Optional launcher callable (default: launch_codex_for_packet)
         project: Optional project config for executor selection
 
@@ -296,17 +299,18 @@ def run_managed_packet(
     if execute_agent and not dry_run:
         try:
             _log("agent_started", "ok", dry_run=dry_run, execute_agent=execute_agent)
-            # Determine runtime_state_root from project or default
-            runtime_state_root = None
+            # Determine runtime_state_root from explicit flow parameter or project.
+            effective_runtime_state_root = runtime_state_root
             if project is not None:
-                runtime_state_root = getattr(project, 'runtime_state_root', None)
+                effective_runtime_state_root = effective_runtime_state_root or getattr(project, "runtime_state_root", None)
 
             agent_result = launcher(
                 packet_id,
                 dry_run=False,
                 timeout_seconds=timeout_seconds,
                 workdir_override=worktree_path,
-                runtime_state_root=runtime_state_root,
+                runtime_state_root=effective_runtime_state_root,
+                project_root=repo_root,
             )
             agent_ok = agent_result.get("returncode", 1) == 0
             _log(

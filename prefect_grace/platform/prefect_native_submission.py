@@ -131,15 +131,25 @@ class NativeSubmissionResult:
 #   packet_id: Packet identifier.
 #   attempt: Attempt number.
 #   source_hash: Source hash from packet registry.
+#   idempotency_namespace: Optional proof-run namespace for synthetic submissions.
 # returns: Idempotency key string.
 # side_effects: None.
 # emitted_logs: None.
 # error_behavior: None.
 # END_FUNCTION_CONTRACT
 def build_idempotency_key(
-    project_key: str, packet_id: str, attempt: int, source_hash: str
+    project_key: str,
+    packet_id: str,
+    attempt: int,
+    source_hash: str,
+    idempotency_namespace: str | None = None,
 ) -> str:
-    return f"grace-packet:{project_key}:{packet_id}:attempt-{attempt:04d}:{source_hash}"
+    base = f"grace-packet:{project_key}:{packet_id}:attempt-{attempt:04d}:{source_hash}"
+    if not idempotency_namespace:
+        return base
+    namespace = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in str(idempotency_namespace))
+    namespace = namespace[:96]
+    return f"{base}:namespace:{namespace}"
 
 
 # START_FUNCTION_CONTRACT
@@ -215,6 +225,18 @@ def _tags_for_packet(
     return tags
 
 
+def _managed_result_payload_paths(
+    *,
+    runtime_state_root: Path,
+    packet_id: str,
+    attempt: int,
+) -> tuple[Path, Path]:
+    root = runtime_state_root / "managed-runner-results"
+    safe_packet_id = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in packet_id)
+    payload_path = root / safe_packet_id / f"attempt-{int(attempt):04d}" / "result_payload.json"
+    return payload_path, root
+
+
 # START_FUNCTION_CONTRACT
 # name: _parameters_for_packet
 # purpose: Build Prefect flow parameters for the selected packet runner kind.
@@ -267,6 +289,11 @@ def _parameters_for_packet(
             keep_worktree=True,
         )
     if runner_kind == "managed":
+        payload_path, payload_root = _managed_result_payload_paths(
+            runtime_state_root=runtime_state_root,
+            packet_id=packet_id,
+            attempt=attempt,
+        )
         return managed_packet_flow_parameters(
             packet_file=str(packet_path),
             repo_root=str(repo_root),
@@ -278,6 +305,9 @@ def _parameters_for_packet(
             dry_run=dry_run,
             execute_agent=execute_agent,
             timeout_seconds=timeout_seconds,
+            runtime_state_root=str(runtime_state_root),
+            managed_result_payload_path=str(payload_path),
+            managed_result_payload_root=str(payload_root),
         )
     raise ValueError(f"Unsupported runner_kind: {runner_kind}")
 
@@ -297,6 +327,7 @@ def _parameters_for_packet(
 #   continue_on_error: If True, continue submitting after failures.
 #   submitter: Optional callable for submission (for testing).
 #   runner_kind: Runner kind to submit, defaults to e2e.
+#   idempotency_namespace: Optional namespace appended to idempotency keys.
 #   trace_context: Optional structured logging trace context.
 # returns: NativeSubmissionResult with submission records.
 # side_effects: Updates packet registry on successful submission.
@@ -316,6 +347,7 @@ def submit_ready_packets_to_prefect(
     continue_on_error: bool = False,
     submitter: Callable[..., dict[str, Any]] | None = None,
     runner_kind: Literal["e2e", "managed"] = "e2e",
+    idempotency_namespace: str | None = None,
     trace_context: Any | None = None,
 ) -> NativeSubmissionResult:
     def _log(event: str, result: str = "ok", **extra: Any) -> None:
@@ -366,7 +398,13 @@ def submit_ready_packets_to_prefect(
                     wave_id=wave_id,
                     attempt=1,
                     source_hash=source_hash,
-                    idempotency_key=build_idempotency_key(project_key, packet_id, 1, source_hash)
+                    idempotency_key=build_idempotency_key(
+                        project_key,
+                        packet_id,
+                        1,
+                        source_hash,
+                        idempotency_namespace=idempotency_namespace,
+                    )
                     if source_hash
                     else "",
                     flow_run_id=None,
@@ -461,7 +499,11 @@ def submit_ready_packets_to_prefect(
         attempt = 1
 
         idempotency_key = build_idempotency_key(
-            project_key, packet_id, attempt, source_hash
+            project_key,
+            packet_id,
+            attempt,
+            source_hash,
+            idempotency_namespace=idempotency_namespace,
         )
 
         packet_path = repo_root / packet_record.get("path", "")

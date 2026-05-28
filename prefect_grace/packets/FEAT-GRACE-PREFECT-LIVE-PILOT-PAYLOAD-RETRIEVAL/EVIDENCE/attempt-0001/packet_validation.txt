@@ -1,0 +1,5 @@
+Command:
+python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.md --strict --json
+
+Result:
+PASS ok=true
