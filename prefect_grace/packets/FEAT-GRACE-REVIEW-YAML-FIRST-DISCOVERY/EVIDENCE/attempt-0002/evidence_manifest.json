@@ -1,0 +1,17 @@
+{
+  "packet_id": "FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY-W01-LAYOUT-HELPERS",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "EV-YAML-FIRST-DISCOVERY-DEPENDENCY-REWORK",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "dependency_rework_summary.md"
+      ],
+      "summary": "Bounded evidence for review-blocker rework correcting depends_on packet ids."
+    }
+  ],
+  "blockers": []
+}

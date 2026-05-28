@@ -25,6 +25,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
+
+
+_REVIEW_STEM_RE = re.compile(r"^review-(\d+)$")
+_REVIEW_SUFFIX_RANK = {
+    ".yaml": 0,
+    ".yml": 1,
+    ".md": 2,
+}
 
 #START_BLOCK_MODELS
 @dataclass
@@ -67,20 +76,33 @@ def resolve_packet_layout(packet_dir: Path) -> PacketArtifactLayout:
 
 # START_FUNCTION_CONTRACT
 # name: latest_review
-# purpose: Find latest review file in REVIEWS/ directory.
+# purpose: Find latest review file in REVIEWS/ directory, preferring YAML artifacts.
 # inputs:
 #   layout: PacketArtifactLayout with resolved paths.
 # returns: Path to latest review file, or None if no reviews exist.
 # side_effects: None.
 # emitted_logs: None.
-# error_behavior: Returns None if REVIEWS/ does not exist or is empty.
+# error_behavior: Returns None if REVIEWS/ does not exist or has no numeric review artifacts.
 # END_FUNCTION_CONTRACT
 def latest_review(layout: PacketArtifactLayout) -> Path | None:
     if not layout.reviews_dir.exists():
         return None
 
-    review_files = sorted(layout.reviews_dir.glob("review-*.md"))
-    return review_files[-1] if review_files else None
+    candidates: list[tuple[int, int, Path]] = []
+    for path in layout.reviews_dir.glob("review-*"):
+        rank = _REVIEW_SUFFIX_RANK.get(path.suffix.lower())
+        if rank is None:
+            continue
+        match = _REVIEW_STEM_RE.match(path.stem)
+        if not match:
+            continue
+        candidates.append((int(match.group(1)), rank, path))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], item[1], item[2].name))
+    return candidates[0][2]
 
 
 # START_FUNCTION_CONTRACT

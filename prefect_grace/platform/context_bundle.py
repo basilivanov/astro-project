@@ -28,6 +28,9 @@ from prefect_grace.platform.packet_artifact_layout import (
     latest_rework,
 )
 
+
+_REVIEW_SUFFIXES = {".yaml", ".yml", ".md"}
+
 #START_BLOCK_CONTEXT_BUNDLE
 # START_FUNCTION_CONTRACT
 # name: build_context_bundle
@@ -61,7 +64,10 @@ def build_context_bundle(
     if mode == "audit":
         # Audit mode: include full history
         if layout.reviews_dir.exists():
-            bundle.extend(sorted(layout.reviews_dir.glob("review-*.md")))
+            bundle.extend(
+                path for path in sorted(layout.reviews_dir.glob("review-*"))
+                if path.suffix.lower() in _REVIEW_SUFFIXES
+            )
         if layout.evidence_dir.exists():
             for attempt_dir in sorted(layout.evidence_dir.glob("attempt-*")):
                 manifest = attempt_dir / "evidence_manifest.json"

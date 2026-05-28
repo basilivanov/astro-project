@@ -169,6 +169,34 @@ def test_check_review_yaml_sidecar_accepts_unquoted_timestamp(tmp_path):
     assert accepted
 
 
+def test_check_review_yaml_only_accepted(tmp_path):
+    packet_dir = tmp_path / "FEAT-TEST-W01"
+    packet_dir.mkdir()
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    packet_file = packet_dir / "EXECUTION_PACKET.md"
+    _write_review_check_packet(packet_file)
+    _write_review_yaml(packet_dir, status="accepted")
+
+    has_review, accepted = _check_review(packet_file)
+    assert has_review
+    assert accepted
+
+
+def test_check_review_yaml_only_packet_id_mismatch_fails_closed(tmp_path):
+    packet_dir = tmp_path / "FEAT-TEST-W01"
+    packet_dir.mkdir()
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    packet_file = packet_dir / "EXECUTION_PACKET.md"
+    _write_review_check_packet(packet_file)
+    _write_review_yaml(packet_dir, status="accepted", packet_id="FEAT-OTHER-W01")
+
+    has_review, accepted = _check_review(packet_file)
+    assert has_review
+    assert not accepted
+
+
 def test_check_review_yaml_packet_id_mismatch_fails_closed(tmp_path):
     packet_dir = tmp_path / "FEAT-TEST-W01"
     packet_dir.mkdir()

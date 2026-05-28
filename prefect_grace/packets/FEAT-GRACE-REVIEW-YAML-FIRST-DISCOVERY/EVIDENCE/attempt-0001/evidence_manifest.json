@@ -1,0 +1,17 @@
+{
+  "packet_id": "FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY-W01-LAYOUT-HELPERS",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "EV-YAML-FIRST-DISCOVERY-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "yaml_first_discovery_summary.md"
+      ],
+      "summary": "Bounded summary of YAML-first review discovery implementation and verification."
+    }
+  ],
+  "blockers": []
+}

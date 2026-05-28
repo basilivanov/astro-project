@@ -59,6 +59,22 @@ def _write_review(packet_dir: Path, accepted: bool = True) -> None:
     (reviews / "review-0001.md").write_text(f"status: {status}\n\n## Verdict\n{status}\n", encoding="utf-8")
 
 
+def _write_review_yaml(packet_dir: Path, *, status: str, packet_id: str) -> None:
+    reviews = packet_dir / "REVIEWS"
+    reviews.mkdir(parents=True, exist_ok=True)
+    (reviews / "review-0001.yaml").write_text(
+        f"""schema_version: 1
+artifact_type: review
+packet_id: {packet_id}
+status: {status}
+generated_by: pytest
+reviewed_at: 2026-05-28 12:34:56
+summary: merge steward yaml-only review
+""",
+        encoding="utf-8",
+    )
+
+
 def _write_evidence(packet_dir: Path, packet_id: str, valid: bool = True) -> None:
     evidence_dir = packet_dir / "EVIDENCE" / "attempt-0001"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -188,6 +204,31 @@ timestamp: "2026-05-28T10:00:00+00:00"
 """,
             encoding="utf-8",
         )
+
+        result = run_merge_steward(
+            repo_root=repo,
+            target_branch="main",
+            packet_branches=[BRANCH_1],
+            packet_paths=packet_paths,
+            dry_run=True,
+        )
+
+        assert result.ok is True
+        assert result.plan is not None
+        assert result.plan.candidates_total == 1
+        assert result.plan.excluded_total == 0
+
+
+def test_merge_steward_accepts_yaml_only_review() -> None:
+    """YAML-only accepted reviews are first-class review artifacts."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        repo, packet_paths = _setup_repo(tmp_path)
+        packet_dir = repo / "packets" / "FEAT-MERGE-TEST-A"
+        for review in (packet_dir / "REVIEWS").glob("review-*.md"):
+            review.unlink()
+        _write_review_yaml(packet_dir, status="accepted", packet_id=PACKET_ID_1)
 
         result = run_merge_steward(
             repo_root=repo,

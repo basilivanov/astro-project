@@ -30,6 +30,7 @@ from typing import Any
 from prefect_grace.platform.artifact_validator import validate_artifact_references
 from prefect_grace.platform.evidence_contract import parse_evidence_contract
 from prefect_grace.platform.evidence_manifest import parse_evidence_manifest, validate_evidence_manifest
+from prefect_grace.platform.packet_artifact_layout import latest_review, resolve_packet_layout
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
 from prefect_grace.platform.scope_guard import validate_scope
@@ -159,11 +160,10 @@ def _has_conflict_markers(worktree_path: Path, files: list[str]) -> list[str]:
 
 
 def _latest_review(packet_path: Path, *, expected_packet_id: str | None) -> tuple[bool, dict[str, Any]]:
-    reviews_dir = packet_path.parent / "REVIEWS"
-    reviews = sorted(reviews_dir.glob("review-*.md"))
-    if not reviews:
+    layout = resolve_packet_layout(packet_path.parent)
+    latest = latest_review(layout)
+    if latest is None:
         return False, {"present": False, "accepted": False, "path": None}
-    latest = reviews[-1]
     review_result = read_review_artifact_status(
         latest,
         expected_packet_id=expected_packet_id,

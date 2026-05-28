@@ -60,6 +60,65 @@ def test_latest_review_with_reviews(tmp_path):
     assert result == reviews_dir / "review-0003.md"
 
 
+def test_latest_review_yaml_only(tmp_path):
+    packet_dir = tmp_path / "packet"
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "review-0001.yaml").write_text("status: accepted")
+
+    result = latest_review(resolve_packet_layout(packet_dir))
+
+    assert result == reviews_dir / "review-0001.yaml"
+
+
+def test_latest_review_yml_only(tmp_path):
+    packet_dir = tmp_path / "packet"
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "review-0001.yml").write_text("status: accepted")
+
+    result = latest_review(resolve_packet_layout(packet_dir))
+
+    assert result == reviews_dir / "review-0001.yml"
+
+
+def test_latest_review_md_only(tmp_path):
+    packet_dir = tmp_path / "packet"
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "review-0001.md").write_text("status: accepted")
+
+    result = latest_review(resolve_packet_layout(packet_dir))
+
+    assert result == reviews_dir / "review-0001.md"
+
+
+def test_latest_review_prefers_yaml_for_same_stem(tmp_path):
+    packet_dir = tmp_path / "packet"
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "review-0001.md").write_text("status: rework_required")
+    (reviews_dir / "review-0001.yml").write_text("status: blocked")
+    (reviews_dir / "review-0001.yaml").write_text("status: accepted")
+
+    result = latest_review(resolve_packet_layout(packet_dir))
+
+    assert result == reviews_dir / "review-0001.yaml"
+
+
+def test_latest_review_uses_numeric_ordering(tmp_path):
+    packet_dir = tmp_path / "packet"
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir(parents=True)
+    (reviews_dir / "review-0009.md").write_text("status: accepted")
+    (reviews_dir / "review-0010.yaml").write_text("status: accepted")
+    (reviews_dir / "review-010.md").write_text("status: rework_required")
+
+    result = latest_review(resolve_packet_layout(packet_dir))
+
+    assert result == reviews_dir / "review-0010.yaml"
+
+
 def test_latest_evidence_manifest_no_evidence(tmp_path):
     packet_dir = tmp_path / "packet"
     packet_dir.mkdir()

@@ -30,6 +30,7 @@ from typing import Any
 from prefect_grace.platform.backlog_controller import BacklogController
 from prefect_grace.platform.controller_backlog_bootstrap import build_backlog_bootstrap_plan
 from prefect_grace.platform.nightly_dry_run_controller import run_nightly_dry_run
+from prefect_grace.platform.packet_artifact_layout import latest_review, resolve_packet_layout
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
@@ -192,13 +193,10 @@ def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
 
 def _check_review(packet_path: Path, *, expected_packet_id: str | None = None) -> tuple[bool, bool]:
     """Check if packet has review and if it's accepted."""
-    reviews_dir = packet_path.parent / "REVIEWS"
-    if not reviews_dir.exists():
+    layout = resolve_packet_layout(packet_path.parent)
+    latest = latest_review(layout)
+    if latest is None:
         return False, False
-    reviews = sorted(reviews_dir.glob("review-*.md"))
-    if not reviews:
-        return False, False
-    latest = reviews[-1]
     packet_id = expected_packet_id
     if packet_id is None:
         try:

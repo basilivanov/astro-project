@@ -99,6 +99,24 @@ def test_build_context_bundle_architect_normal_mode(tmp_path):
     assert rework_dir / "attempt-0001.md" in bundle
 
 
+def test_build_context_bundle_normal_mode_includes_latest_yaml_review(tmp_path):
+    packet_dir = tmp_path / "packet"
+    packet_dir.mkdir()
+
+    (packet_dir / "EXECUTION_PACKET.md").write_text("Source contract")
+    (packet_dir / "SUMMARY.md").write_text("Current state")
+
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    (reviews_dir / "review-0001.md").write_text("Review 1")
+    (reviews_dir / "review-0002.yaml").write_text("Review 2")
+
+    bundle = build_context_bundle(packet_dir, role="coder", mode="normal")
+
+    assert reviews_dir / "review-0002.yaml" in bundle
+    assert reviews_dir / "review-0001.md" not in bundle
+
+
 def test_build_context_bundle_audit_mode(tmp_path):
     packet_dir = tmp_path / "packet"
     packet_dir.mkdir()
@@ -138,6 +156,24 @@ def test_build_context_bundle_audit_mode(tmp_path):
     assert attempt2 / "evidence_manifest.json" in bundle
     assert rework_dir / "attempt-0001.md" in bundle
     assert rework_dir / "attempt-0002.md" in bundle
+
+
+def test_build_context_bundle_audit_mode_includes_yaml_reviews(tmp_path):
+    packet_dir = tmp_path / "packet"
+    packet_dir.mkdir()
+
+    (packet_dir / "EXECUTION_PACKET.md").write_text("Source contract")
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    (reviews_dir / "review-0001.md").write_text("Review 1")
+    (reviews_dir / "review-0001.yaml").write_text("Review 1 yaml")
+    (reviews_dir / "review-0002.yml").write_text("Review 2 yml")
+
+    bundle = build_context_bundle(packet_dir, role="coder", mode="audit")
+
+    assert reviews_dir / "review-0001.md" in bundle
+    assert reviews_dir / "review-0001.yaml" in bundle
+    assert reviews_dir / "review-0002.yml" in bundle
 
 
 def test_context_bundle_minimal_for_normal_mode(tmp_path):
