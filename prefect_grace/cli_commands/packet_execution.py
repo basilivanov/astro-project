@@ -550,7 +550,13 @@ def _cmd_run_single_live_prefect_packet_pilot(args: argparse.Namespace) -> None:
     try:
         from prefect_grace.platform.single_live_prefect_packet_pilot import (
             run_single_live_prefect_packet_pilot,
+            create_bounded_prefect_status_reader,
         )
+
+        # Create bounded status reader for live mode
+        status_reader = None
+        if not args.dry_run:
+            status_reader = create_bounded_prefect_status_reader()
 
         result = run_single_live_prefect_packet_pilot(
             project_config=Path(args.project),
@@ -562,6 +568,7 @@ def _cmd_run_single_live_prefect_packet_pilot(args: argparse.Namespace) -> None:
             acknowledge_live_agent=args.i_understand_live_agent,
             opt_in_token=os.environ.get("GRACE_LIVE_PREFECT_PACKET_OPT_IN"),
             timeout_seconds=args.timeout_seconds,
+            status_reader=status_reader,
         )
 
         if args.json:

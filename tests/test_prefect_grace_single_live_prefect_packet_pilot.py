@@ -195,3 +195,95 @@ def test_multiple_ready_packets_fail_closed(tmp_path):
     assert result.prefect_runs_created == 0
     assert result.live_agents_started == 0
     assert any(error["code"] == "LIVE_PREFECT_PACKET_COUNT_INVALID" for error in result.errors)
+
+
+def test_missing_deployment_fails_closed_before_submission(tmp_path):
+    """Missing deployment fails closed with zero flow runs and zero agents."""
+    state_root, worktree_root, packet_root = _roots(tmp_path)
+    submitter_calls = []
+
+    def submitter(**kwargs):
+        submitter_calls.append(kwargs)
+        # Simulate deployment not found error from Prefect
+        raise Exception("Deployment 'prefect-grace-managed-packet-runner/live-managed-packet-runner' not found")
+
+    result = run_single_live_prefect_packet_pilot(
+        project_config=_project_config(),
+        state_root=state_root,
+        worktree_root=worktree_root,
+        packet_root=packet_root,
+        dry_run=False,
+        execute_agent=True,
+        acknowledge_live_agent=True,
+        opt_in_token="single-live-prefect",
+        submitter=submitter,
+    )
+
+    assert result.ok is False
+    assert result.prefect_runs_created == 0
+    assert result.live_agents_started == 0
+    assert result.flow_run_id is None
+    assert len(submitter_calls) == 1  # Submitter was called but failed
+    assert any(error["code"] == "SUBMISSION_FAILED" for error in result.errors)
+
+
+def test_worker_timeout_fails_closed_with_bounded_events(tmp_path):
+    """Worker timeout fails closed with one submitted run, bounded poll events, and no writes outside scratch."""
+    state_root, worktree_root, packet_root = _roots(tmp_path)
+    submitter_calls = []
+    status_reader_calls = []
+
+    def submitter(**kwargs):
+        submitter_calls.append(kwargs)
+        return {
+            "flow_run_id": "flow-run-timeout",
+            "flow_run_name": "packet:SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-SCRATCH",
+            "deployment_name": MANAGED_PACKET_DEPLOYMENT_NAME,
+            "work_queue_name": "grace-live",
+            "url": "http://prefect.local/flow-runs/flow-run-timeout",
+            "status": "submitted",
+        }
+
+    def status_reader(**kwargs):
+        status_reader_calls.append(kwargs)
+        assert kwargs["flow_run_id"] == "flow-run-timeout"
+        # Simulate timeout with bounded poll events
+        return {
+            "ok": False,
+            "domain_status": "timeout",
+            "scope_verdict": "pending_timeout",
+            "live_agents_started": 0,  # Worker never started or timed out before reporting
+            "changed_files": [],
+            "poll_events": [
+                {"status": "scheduled", "timestamp": "2026-05-28T10:00:00Z"},
+                {"status": "pending", "timestamp": "2026-05-28T10:00:05Z"},
+                {"status": "running", "timestamp": "2026-05-28T10:00:10Z"},
+            ],
+            "errors": [{"code": "WORKER_TIMEOUT", "message": "Worker did not complete within timeout"}],
+        }
+
+    result = run_single_live_prefect_packet_pilot(
+        project_config=_project_config(),
+        state_root=state_root,
+        worktree_root=worktree_root,
+        packet_root=packet_root,
+        dry_run=False,
+        execute_agent=True,
+        acknowledge_live_agent=True,
+        opt_in_token="single-live-prefect",
+        timeout_seconds=30,
+        submitter=submitter,
+        status_reader=status_reader,
+    )
+
+    assert result.ok is False
+    assert result.prefect_runs_created == 1
+    assert result.flow_run_id == "flow-run-timeout"
+    assert result.domain_status == "timeout"
+    assert result.scope_verdict == "pending_timeout"
+    assert result.changed_files == []
+    assert result.writes_outside_temp_roots == []
+    assert len(result.poll_events) == 3  # Bounded events
+    assert len(submitter_calls) == 1
+    assert len(status_reader_calls) == 1
+    assert any(error["code"] == "WORKER_TIMEOUT" for error in result.errors)
