@@ -1,0 +1,259 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE",
+    "evidence_count": 10,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SUMMARY",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-PYTEST",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-COMPILE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-LINT",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STALE-DRY-RUN",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STALE-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-BULK-BLOCKED",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-BULK-BLOCKED not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STRICT-VALIDATE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-MANIFEST",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SCOPE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-DIFF",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1540,
+          "hash": "6d2e580d6a1a55c7a8c9f5e24fc3ec349d9d538b40f2f0262ea63bc5bfc84b15"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 80,
+          "hash": "fbdc38bb22ab9d4d108abbac2db93d82b0ba41432f10b852f0bcab0f5bdcf50b"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 5,
+          "hash": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 351,
+          "hash": "092123dc55fd456c3810ed234ee57bf10b12ebda07047957b0907e0949696581"
+        },
+        {
+          "path": "cli_stale_only_dry_run.json",
+          "exists": true,
+          "size": 3274,
+          "hash": "0c31641875cd6f5e4eddc874d556caf777e4febd47e7e7297c9efdaf435c4cdd"
+        },
+        {
+          "path": "cli_unfiltered_apply_blocked.json",
+          "exists": true,
+          "size": 2338,
+          "hash": "faf002adc2b585a43a328875c87471d6f52c943370924f7f058c8810f6b6c5fc"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 11550,
+          "hash": "5a586d1f5c67872ce167a7ff8b97835cb6fd4a06a072e2b06f9d000761f816b9"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 7766,
+          "hash": "c53f927c60bfcd4569a05b07c15b0c33edbaf627217079ba4ea25e51b2e2d98f"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 5,
+          "hash": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE",
+    "evidence_count": 10,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SUMMARY",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-PYTEST",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-COMPILE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-LINT",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STALE-DRY-RUN",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STALE-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-BULK-BLOCKED",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-BULK-BLOCKED not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STRICT-VALIDATE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-MANIFEST",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SCOPE",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-DIFF",
+          "message": "Evidence EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1540,
+          "hash": "6d2e580d6a1a55c7a8c9f5e24fc3ec349d9d538b40f2f0262ea63bc5bfc84b15"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 80,
+          "hash": "fbdc38bb22ab9d4d108abbac2db93d82b0ba41432f10b852f0bcab0f5bdcf50b"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 5,
+          "hash": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 351,
+          "hash": "092123dc55fd456c3810ed234ee57bf10b12ebda07047957b0907e0949696581"
+        },
+        {
+          "path": "cli_stale_only_dry_run.json",
+          "exists": true,
+          "size": 3274,
+          "hash": "0c31641875cd6f5e4eddc874d556caf777e4febd47e7e7297c9efdaf435c4cdd"
+        },
+        {
+          "path": "cli_unfiltered_apply_blocked.json",
+          "exists": true,
+          "size": 2338,
+          "hash": "faf002adc2b585a43a328875c87471d6f52c943370924f7f058c8810f6b6c5fc"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 11550,
+          "hash": "5a586d1f5c67872ce167a7ff8b97835cb6fd4a06a072e2b06f9d000761f816b9"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 7766,
+          "hash": "c53f927c60bfcd4569a05b07c15b0c33edbaf627217079ba4ea25e51b2e2d98f"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 5,
+          "hash": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

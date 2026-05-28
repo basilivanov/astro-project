@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -369,6 +370,60 @@ def _cmd_plan_packet_yaml_sidecar_migration(args: argparse.Namespace) -> None:
             ))
         else:
             print(f"Plan packet YAML sidecar migration failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _cmd_apply_packet_yaml_sidecar_migration(args: argparse.Namespace) -> None:
+    command = "apply-packet-yaml-sidecar-migration"
+    try:
+        from prefect_grace.platform.packet_yaml_sidecar_migration_apply import (
+            APPROVAL_ENV_NAME,
+            apply_packet_yaml_sidecar_migration,
+        )
+
+        result = apply_packet_yaml_sidecar_migration(
+            getattr(args, "packet_root", "prefect_grace/packets"),
+            project=getattr(args, "project", "prefect_grace/project.yaml"),
+            stale_only=bool(getattr(args, "stale_only", False)),
+            packet_ids=getattr(args, "packet_id", None) or [],
+            apply=bool(getattr(args, "apply", False)),
+            limit=getattr(args, "limit", None),
+            understand_source_hash_change=bool(getattr(args, "i_understand_source_hash_change", False)),
+            approval_token=os.environ.get(APPROVAL_ENV_NAME),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            mode = "apply" if result.apply else "dry-run"
+            print(f"Packet YAML sidecar migration apply ({mode}): {'OK' if result.ok else 'FAILED'}")
+            print(f"  packet_root: {result.packet_root}")
+            print(f"  project: {result.project}")
+            print(f"  selected_count: {result.selected_count}")
+            print(f"  source_hash_change_count: {result.source_hash_change_count}")
+            for write_path in result.writes:
+                print(f"  wrote: {write_path}")
+            if result.warnings:
+                print(f"  warnings: {len(result.warnings)}", file=sys.stderr)
+            if result.errors:
+                print(f"  errors: {len(result.errors)}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "APPLY_PACKET_YAML_SIDECAR_MIGRATION_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Apply packet YAML sidecar migration failed: {e}", file=sys.stderr)
         sys.exit(2)
 
 

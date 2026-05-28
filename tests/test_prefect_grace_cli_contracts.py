@@ -183,6 +183,24 @@ def test_cli_plan_packet_yaml_sidecar_migration_contract() -> None:
     assert "--apply" not in result.stdout
 
 
+def test_cli_apply_packet_yaml_sidecar_migration_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "apply-packet-yaml-sidecar-migration", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet-root" in result.stdout
+    assert "--project" in result.stdout
+    assert "--stale-only" in result.stdout
+    assert "--packet-id" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--limit" in result.stdout
+    assert "--i-understand-source-hash-change" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_registry_bootstrap_apply_contract() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "prefect_grace.cli", "registry-bootstrap-apply", "--help"],

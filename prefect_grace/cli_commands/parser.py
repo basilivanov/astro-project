@@ -97,6 +97,7 @@ from prefect_grace.cli_commands.evidence import (
     _cmd_sync_packet_yaml_sidecar,
     _cmd_audit_packet_yaml_sidecars,
     _cmd_plan_packet_yaml_sidecar_migration,
+    _cmd_apply_packet_yaml_sidecar_migration,
     _cmd_validate_evidence_contract,
     _cmd_validate_evidence_manifest,
 )
@@ -745,6 +746,47 @@ def _register_evidence_commands(subparsers) -> None:
         help="Maximum displayed plan items/findings, capped at 100",
     )
     migration_plan.set_defaults(func=_cmd_plan_packet_yaml_sidecar_migration)
+
+    migration_apply = subparsers.add_parser(
+        "apply-packet-yaml-sidecar-migration",
+        help="Plan or apply selected EXECUTION_PACKET.yaml sidecar migrations with source-hash gates",
+    )
+    migration_apply.add_argument(
+        "--packet-root",
+        default="prefect_grace/packets",
+        help="Root to search for strict EXECUTION_PACKET.md files",
+    )
+    migration_apply.add_argument(
+        "--project",
+        default="prefect_grace/project.yaml",
+        help="Project config path used to read runtime registry status",
+    )
+    migration_apply.add_argument(
+        "--stale-only",
+        action="store_true",
+        help="Select only stale EXECUTION_PACKET.yaml sidecars; combines with --packet-id as a filter",
+    )
+    migration_apply.add_argument(
+        "--packet-id",
+        action="append",
+        help="Explicit packet id to select (repeatable)",
+    )
+    migration_apply_mode = migration_apply.add_mutually_exclusive_group()
+    migration_apply_mode.add_argument("--dry-run", action="store_true", help="Plan only; default")
+    migration_apply_mode.add_argument("--apply", action="store_true", help="Write selected adjacent sidecars")
+    migration_apply.add_argument(
+        "--limit",
+        type=_audit_limit,
+        default=None,
+        help="Dry-run display limit or apply hard item limit; apply max is 10",
+    )
+    migration_apply.add_argument(
+        "--i-understand-source-hash-change",
+        action="store_true",
+        help="Acknowledge source-hash-changing sidecar writes",
+    )
+    migration_apply.add_argument("--json", action="store_true", help="JSON output")
+    migration_apply.set_defaults(func=_cmd_apply_packet_yaml_sidecar_migration)
 
     # validate-evidence-contract
     validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")

@@ -1,0 +1,109 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Implemented bounded operator-gated stale-only/explicit-packet YAML sidecar migration apply path.",
+  "evidence": [
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "SUMMARY.md"
+      ],
+      "summary": "Implementation summary, safety gates, corpus dry-run counts, and observability verdict."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "targeted_pytest.txt"
+      ],
+      "summary": "Targeted migration apply tests and CLI contract tests passed."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-COMPILE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pipeline",
+      "artifact_paths": [
+        "compile_output.txt"
+      ],
+      "summary": "Touched Python modules compile successfully."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-LINT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pipeline",
+      "artifact_paths": [
+        "lint_output.txt"
+      ],
+      "summary": "Touched Python modules pass targeted GRACE lint."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STALE-DRY-RUN",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_stale_only_dry_run.json"
+      ],
+      "summary": "Real corpus stale-only dry-run selected one stale accepted source-hash-changing sidecar with zero writes."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-BULK-BLOCKED",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "cli_unfiltered_apply_blocked.json"
+      ],
+      "summary": "Unfiltered apply is rejected with SELECTION_REQUIRED and zero writes/runs/agents."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-STRICT-VALIDATE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "strict_validate_packet.json"
+      ],
+      "summary": "Strict packet validation passes for the source packet."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-MANIFEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "Evidence manifest validation output."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-SCOPE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Changed files are within allowed write scope with no frozen violations."
+    },
+    {
+      "id": "EV-PACKET-YAML-SIDECAR-MIGRATION-APPLY-DIFF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git",
+      "artifact_paths": [
+        "diff_check.txt"
+      ],
+      "summary": "git diff whitespace check passed."
+    }
+  ],
+  "blockers": []
+}

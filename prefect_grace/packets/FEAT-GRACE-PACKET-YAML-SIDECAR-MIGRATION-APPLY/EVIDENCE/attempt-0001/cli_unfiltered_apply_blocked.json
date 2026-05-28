@@ -1,0 +1,90 @@
+{
+  "ok": false,
+  "project_key": null,
+  "command": "apply-packet-yaml-sidecar-migration",
+  "result": {
+    "ok": false,
+    "dry_run": false,
+    "apply": true,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "stale_only": false,
+    "packet_ids": [],
+    "limit": 1,
+    "apply_limit": 10,
+    "packets_total": 71,
+    "plan_count": 65,
+    "selected_count": 0,
+    "selected_items": [],
+    "selected_items_truncated": false,
+    "selected_risk_counts": {},
+    "source_hash_change_count": 0,
+    "source_hash_change_approval_required": false,
+    "plan_counts": {
+      "canonical": 4,
+      "no_sidecar": 64,
+      "stale_sidecar": 1,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "warnings": [],
+    "errors": [
+      {
+        "code": "SELECTION_REQUIRED",
+        "message": "Select --stale-only or at least one --packet-id; unfiltered migration apply is forbidden"
+      }
+    ],
+    "writes": [],
+    "source_mutations": [],
+    "markdown_mutations": [],
+    "registry_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "data": {
+    "ok": false,
+    "dry_run": false,
+    "apply": true,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "stale_only": false,
+    "packet_ids": [],
+    "limit": 1,
+    "apply_limit": 10,
+    "packets_total": 71,
+    "plan_count": 65,
+    "selected_count": 0,
+    "selected_items": [],
+    "selected_items_truncated": false,
+    "selected_risk_counts": {},
+    "source_hash_change_count": 0,
+    "source_hash_change_approval_required": false,
+    "plan_counts": {
+      "canonical": 4,
+      "no_sidecar": 64,
+      "stale_sidecar": 1,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "warnings": [],
+    "errors": [
+      {
+        "code": "SELECTION_REQUIRED",
+        "message": "Select --stale-only or at least one --packet-id; unfiltered migration apply is forbidden"
+      }
+    ],
+    "writes": [],
+    "source_mutations": [],
+    "markdown_mutations": [],
+    "registry_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "SELECTION_REQUIRED",
+      "message": "Select --stale-only or at least one --packet-id; unfiltered migration apply is forbidden"
+    }
+  ]
+}
