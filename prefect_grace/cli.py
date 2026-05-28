@@ -79,6 +79,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_run_prefect_e2e_batch_smoke,
     _cmd_run_prefect_e2e_real_dry_run_smoke,
     _cmd_run_nightly,
+    _cmd_nightly_recheck_batch,
 )
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,

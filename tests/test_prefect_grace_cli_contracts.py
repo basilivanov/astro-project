@@ -586,6 +586,23 @@ def test_cli_nightly_select_batch_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_nightly_recheck_batch_contract() -> None:
+    """Verify nightly-recheck-batch CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "nightly-recheck-batch", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--selection" in result.stdout
+    assert "--max-packets" in result.stdout
+    assert "--max-cost" in result.stdout
+    assert "--allow-conflicts" in result.stdout
+    assert "--allow-risky" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_cli_nightly_batch_execute_contract() -> None:
     """Verify nightly-batch-execute CLI follows contract."""
     result = subprocess.run(

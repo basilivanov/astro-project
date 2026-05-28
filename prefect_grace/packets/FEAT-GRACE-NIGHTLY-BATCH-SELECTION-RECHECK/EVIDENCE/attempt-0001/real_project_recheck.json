@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "nightly-recheck-batch",
+  "result": {
+    "ok": true,
+    "project_key": "astro-project",
+    "mode": "nightly_batch_recheck",
+    "dry_run": true,
+    "preflight_status": "ready",
+    "selected_total": 0,
+    "confirmed_total": 0,
+    "blocked_total": 0,
+    "blocker_classes": [],
+    "packet_samples": [],
+    "packet_samples_total": 0,
+    "plan_hash": "sha256:869b7abc4767a73d960ce93c77a9253e91aceaaa2b7fc45788f97ea3d2c30e64",
+    "recheck_hash": "sha256:517eb48dd456edf3d3a2361adf0f2488164cc5df11465c016dd2b1e227314729",
+    "batch_limits": {
+      "max_packets": 2,
+      "max_cost": "live_required",
+      "allow_conflicts": false,
+      "allow_risky": false,
+      "current_max_packets": 2,
+      "current_max_cost": "live_required"
+    },
+    "lock_status": {
+      "acquired": true,
+      "released": true,
+      "ephemeral": false,
+      "already_running": false
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "worktrees_created": 0,
+      "git_mutations_count": 0
+    },
+    "warnings": [],
+    "errors": [],
+    "blockers": []
+  },
+  "data": {
+    "ok": true,
+    "project_key": "astro-project",
+    "mode": "nightly_batch_recheck",
+    "dry_run": true,
+    "preflight_status": "ready",
+    "selected_total": 0,
+    "confirmed_total": 0,
+    "blocked_total": 0,
+    "blocker_classes": [],
+    "packet_samples": [],
+    "packet_samples_total": 0,
+    "plan_hash": "sha256:869b7abc4767a73d960ce93c77a9253e91aceaaa2b7fc45788f97ea3d2c30e64",
+    "recheck_hash": "sha256:517eb48dd456edf3d3a2361adf0f2488164cc5df11465c016dd2b1e227314729",
+    "batch_limits": {
+      "max_packets": 2,
+      "max_cost": "live_required",
+      "allow_conflicts": false,
+      "allow_risky": false,
+      "current_max_packets": 2,
+      "current_max_cost": "live_required"
+    },
+    "lock_status": {
+      "acquired": true,
+      "released": true,
+      "ephemeral": false,
+      "already_running": false
+    },
+    "side_effects": {
+      "registry_updates": 0,
+      "prefect_runs_created": 0,
+      "live_agents_started": 0,
+      "worktrees_created": 0,
+      "git_mutations_count": 0
+    },
+    "warnings": [],
+    "errors": [],
+    "blockers": []
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -67,6 +67,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_run_nightly,
     _cmd_nightly_preflight_risk_report,
     _cmd_nightly_select_batch,
+    _cmd_nightly_recheck_batch,
     _cmd_nightly_batch_execute,
 )
 from prefect_grace.cli_commands.worktrees import (
@@ -405,6 +406,16 @@ def _register_prefect_smokes_commands(subparsers) -> None:
     nightly_select_batch.add_argument("--allow-risky", action="store_true", help="Allow risky packets")
     nightly_select_batch.add_argument("--json", action="store_true")
     nightly_select_batch.set_defaults(func=_cmd_nightly_select_batch)
+
+    nightly_recheck_batch = subparsers.add_parser("nightly-recheck-batch")
+    nightly_recheck_batch.add_argument("--project")
+    nightly_recheck_batch.add_argument("--selection", help="Path to saved nightly selection JSON")
+    nightly_recheck_batch.add_argument("--max-packets", type=int, default=10, help="Current maximum packets")
+    nightly_recheck_batch.add_argument("--max-cost", default="live_required", help="Current maximum cost level")
+    nightly_recheck_batch.add_argument("--allow-conflicts", action="store_true", help="Allow conflicts when generating selection")
+    nightly_recheck_batch.add_argument("--allow-risky", action="store_true", help="Allow risky packets when generating selection")
+    nightly_recheck_batch.add_argument("--json", action="store_true")
+    nightly_recheck_batch.set_defaults(func=_cmd_nightly_recheck_batch)
 
     nightly_batch_execute = subparsers.add_parser("nightly-batch-execute")
     nightly_batch_execute.add_argument("--project")

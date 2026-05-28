@@ -17,6 +17,7 @@
 #   - dataclass: BatchSelectionResult
 #   - dataclass: ExcludedPacket
 #   - dataclass: BatchLimits
+#   - dataclass: SelectedPacketFact
 #   - function: select_safe_batch
 # END_MODULE_MAP
 
@@ -32,6 +33,7 @@ from prefect_grace.platform.nightly_preflight_risk_report import (
     PacketRiskSummary,
     generate_nightly_preflight_risk_report,
 )
+from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.status_model import RegistryStatus
@@ -94,11 +96,45 @@ class BatchLimits:
 
 
 @dataclass
+class SelectedPacketFact:
+    packet_id: str
+    source_hash: str = ""
+    registry_status: str = ""
+    source_status: str = ""
+    depends_on: list[str] = field(default_factory=list)
+    review_status: str = ""
+    evidence_status: str = ""
+    cost_estimate: str = "unknown"
+
+    # START_FUNCTION_CONTRACT
+    # name: to_dict
+    # purpose: Serialize selected packet facts for stale-safe recheck.
+    # inputs: none.
+    # returns: compact dict with bounded dependency list.
+    # side_effects: none.
+    # emitted_logs: none.
+    # error_behavior: none.
+    # END_FUNCTION_CONTRACT
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "packet_id": self.packet_id,
+            "source_hash": self.source_hash,
+            "registry_status": self.registry_status,
+            "source_status": self.source_status,
+            "depends_on": self.depends_on[:MAX_ITEMS],
+            "review_status": self.review_status,
+            "evidence_status": self.evidence_status,
+            "cost_estimate": self.cost_estimate,
+        }
+
+
+@dataclass
 class BatchSelectionResult:
     ok: bool
     project_key: str
     mode: str = "nightly_batch_selection"
     selected_packets: list[str] = field(default_factory=list)
+    selected_packet_facts: list[SelectedPacketFact] = field(default_factory=list)
     selected_total: int = 0
     excluded_packets: list[ExcludedPacket] = field(default_factory=list)
     excluded_total: int = 0
@@ -125,6 +161,7 @@ class BatchSelectionResult:
             "project_key": self.project_key,
             "mode": self.mode,
             "selected_packets": self.selected_packets[:MAX_ITEMS],
+            "selected_packet_facts": [fact.to_dict() for fact in self.selected_packet_facts[:MAX_ITEMS]],
             "selected_total": self.selected_total,
             "excluded_packets": [ep.to_dict() for ep in self.excluded_packets[:MAX_ITEMS]],
             "excluded_total": self.excluded_total,
@@ -173,6 +210,61 @@ def _estimate_batch_cost(costs: list[str]) -> str:
             continue
 
     return max_cost
+
+
+def _packet_path_from_record(
+    *,
+    repo_root: Path,
+    packets_dir: Path,
+    packet_id: str,
+    registry_record: dict[str, Any] | None,
+) -> Path:
+    record_path = str((registry_record or {}).get("path") or "")
+    if record_path:
+        candidate = Path(record_path)
+        return candidate if candidate.is_absolute() else repo_root / candidate
+
+    feature_id = packet_id.split("-W", 1)[0] if "-W" in packet_id else packet_id
+    return packets_dir / feature_id / "EXECUTION_PACKET.md"
+
+
+def _fact_from_selected_summary(
+    *,
+    summary: PacketRiskSummary,
+    registry_record: dict[str, Any] | None,
+    repo_root: Path,
+    packets_dir: Path,
+) -> SelectedPacketFact:
+    source_hash = str((registry_record or {}).get("source_hash") or "")
+    packet_path = _packet_path_from_record(
+        repo_root=repo_root,
+        packets_dir=packets_dir,
+        packet_id=summary.packet_id,
+        registry_record=registry_record,
+    )
+    if packet_path.exists():
+        try:
+            parsed = parse_packet_markdown(packet_path, mode="lenient")
+            source_hash = parsed.source_hash
+        except Exception:
+            pass
+
+    evidence_status = "valid"
+    if summary.risk_flags.evidence_missing:
+        evidence_status = "missing"
+    elif summary.risk_flags.evidence_invalid:
+        evidence_status = "invalid"
+
+    return SelectedPacketFact(
+        packet_id=summary.packet_id,
+        source_hash=source_hash,
+        registry_status=str((registry_record or {}).get("registry_status") or summary.registry_status),
+        source_status=summary.source_status,
+        depends_on=list((registry_record or {}).get("depends_on") or []),
+        review_status="missing" if summary.risk_flags.review_missing else "accepted",
+        evidence_status=evidence_status,
+        cost_estimate=summary.cost_estimate,
+    )
 
 
 def _topological_sort(
@@ -458,6 +550,17 @@ def select_safe_batch(
 
         # Populate result
         result.selected_packets = [s.packet_id for s in selected]
+        repo_root = Path(project.repo_root)
+        packets_dir = repo_root / project.packets_dir
+        result.selected_packet_facts = [
+            _fact_from_selected_summary(
+                summary=s,
+                registry_record=registry.load_packet(s.packet_id),
+                repo_root=repo_root,
+                packets_dir=packets_dir,
+            )
+            for s in selected
+        ]
         result.selected_total = len(selected)
         result.excluded_packets = excluded
         result.excluded_total = len(excluded)

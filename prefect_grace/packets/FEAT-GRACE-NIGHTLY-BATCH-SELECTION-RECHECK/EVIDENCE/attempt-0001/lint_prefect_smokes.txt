@@ -1,0 +1,1 @@
+[GRACE-LINT] All modules in prefect_grace/cli_commands/prefect_smokes.py comply with GRACE Canon Script Discipline.

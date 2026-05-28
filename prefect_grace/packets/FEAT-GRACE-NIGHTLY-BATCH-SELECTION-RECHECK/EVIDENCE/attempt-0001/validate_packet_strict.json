@@ -1,0 +1,187 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "result": {
+    "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+    "feature_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+    "objective": "Add a final recheck gate for nightly batch selection immediately before any\ncontrolled batch run.\n\nThe existing nightly selector can build a safe dry-run plan. This packet makes\nthat plan stale-safe: before execution, the controller must re-read source\npackets, runtime registry, dependency state, Prefect binding status, and recent\nreview/evidence state, then either confirm the saved plan or produce a bounded\nblocker report.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION-W01-SAFE-BATCH-PLAN",
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+      "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET"
+    ],
+    "modules": [
+      "M-GRACE-NIGHTLY-BATCH-RECHECK",
+      "M-GRACE-NIGHTLY-BATCH-SELECTION",
+      "M-GRACE-PREFECT-WORKER-BINDING",
+      "M-GRACE-BACKLOG-CONTROLLER",
+      "M-GRACE-RUNTIME-LOCK",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/nightly_batch_recheck.py",
+      "/opt/astro-project/prefect_grace/platform/nightly_batch_selection.py",
+      "/opt/astro-project/prefect_grace/cli_commands/prefect_smokes.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_nightly_batch_recheck.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_nightly_batch_recheck.py",
+      "/opt/astro-project/tests/test_prefect_grace_nightly_batch_selection.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/prefect_grace/flows/**",
+      "/opt/astro-project/prefect_grace/tasks/**",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet",
+      "/opt/astro-project/.worktrees/**"
+    ],
+    "must_preserve": [
+      "Recheck is read-only and dry-run only.",
+      "It starts no agents, creates no Prefect runs, creates no worktrees, applies",
+      "It must reject stale plans where packet source hash, registry status,",
+      "Output is bounded and keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_nightly_batch_recheck.py \\\n  tests/test_prefect_grace_cli_nightly_batch_recheck.py \\\n  tests/test_prefect_grace_nightly_batch_selection.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, and real project dry-run\nrecheck proof.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Clean recheck proof.",
+      "Stale plan blocked proof.",
+      "Lock release proof.",
+      "Confirmation zero Prefect runs, zero live agents, zero registry writes, zero"
+    ],
+    "escalation_triggers": [
+      "Recheck mutates state.",
+      "Stale selected packets are allowed through.",
+      "Lock leaks.",
+      "Output requires unbounded logs or full registry dumps."
+    ],
+    "source_hash": "sha256:29d95f8020fe2eb21758849334c115a777c4be00120d5d7553514f739d5e18ad",
+    "section_lines": {
+      "execution packet: feat-grace-nightly-batch-selection-recheck-w01-preflight-recheck": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 37,
+      "allowed write scope": 46,
+      "frozen scope": 59,
+      "must preserve": 71,
+      "required design decisions": 81,
+      "1. saved plan input": 83,
+      "2. staleness rules": 88,
+      "3. bounded output": 100,
+      "implementation requirements": 106,
+      "acceptance criteria": 114,
+      "verification": 122,
+      "expected evidence": 137,
+      "escalation triggers": 149
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.md"
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+    "feature_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+    "objective": "Add a final recheck gate for nightly batch selection immediately before any\ncontrolled batch run.\n\nThe existing nightly selector can build a safe dry-run plan. This packet makes\nthat plan stale-safe: before execution, the controller must re-read source\npackets, runtime registry, dependency state, Prefect binding status, and recent\nreview/evidence state, then either confirm the saved plan or produce a bounded\nblocker report.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION-W01-SAFE-BATCH-PLAN",
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+      "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET"
+    ],
+    "modules": [
+      "M-GRACE-NIGHTLY-BATCH-RECHECK",
+      "M-GRACE-NIGHTLY-BATCH-SELECTION",
+      "M-GRACE-PREFECT-WORKER-BINDING",
+      "M-GRACE-BACKLOG-CONTROLLER",
+      "M-GRACE-RUNTIME-LOCK",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/nightly_batch_recheck.py",
+      "/opt/astro-project/prefect_grace/platform/nightly_batch_selection.py",
+      "/opt/astro-project/prefect_grace/cli_commands/prefect_smokes.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_nightly_batch_recheck.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_nightly_batch_recheck.py",
+      "/opt/astro-project/tests/test_prefect_grace_nightly_batch_selection.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/**",
+      "/opt/astro-project/frontend/**",
+      "/opt/astro-project/prefect_grace/flows/**",
+      "/opt/astro-project/prefect_grace/tasks/**",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet",
+      "/opt/astro-project/.worktrees/**"
+    ],
+    "must_preserve": [
+      "Recheck is read-only and dry-run only.",
+      "It starts no agents, creates no Prefect runs, creates no worktrees, applies",
+      "It must reject stale plans where packet source hash, registry status,",
+      "Output is bounded and keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_nightly_batch_recheck.py \\\n  tests/test_prefect_grace_cli_nightly_batch_recheck.py \\\n  tests/test_prefect_grace_nightly_batch_selection.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, and real project dry-run\nrecheck proof.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Clean recheck proof.",
+      "Stale plan blocked proof.",
+      "Lock release proof.",
+      "Confirmation zero Prefect runs, zero live agents, zero registry writes, zero"
+    ],
+    "escalation_triggers": [
+      "Recheck mutates state.",
+      "Stale selected packets are allowed through.",
+      "Lock leaks.",
+      "Output requires unbounded logs or full registry dumps."
+    ],
+    "source_hash": "sha256:29d95f8020fe2eb21758849334c115a777c4be00120d5d7553514f739d5e18ad",
+    "section_lines": {
+      "execution packet: feat-grace-nightly-batch-selection-recheck-w01-preflight-recheck": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 37,
+      "allowed write scope": 46,
+      "frozen scope": 59,
+      "must preserve": 71,
+      "required design decisions": 81,
+      "1. saved plan input": 83,
+      "2. staleness rules": 88,
+      "3. bounded output": 100,
+      "implementation requirements": 106,
+      "acceptance criteria": 114,
+      "verification": 122,
+      "expected evidence": 137,
+      "escalation triggers": 149
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.md"
+  },
+  "warnings": [],
+  "errors": []
+}

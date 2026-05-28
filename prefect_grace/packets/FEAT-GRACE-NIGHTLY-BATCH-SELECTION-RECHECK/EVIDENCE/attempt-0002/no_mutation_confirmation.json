@@ -1,0 +1,27 @@
+{
+  "blocked_total": 0,
+  "blocker_classes": [],
+  "bounded_output": true,
+  "confirmed_total": 0,
+  "git_branch_unchanged": true,
+  "git_head_unchanged": true,
+  "packet_samples_count": 0,
+  "preflight_status": "ready",
+  "real_project_recheck_exit_code": 0,
+  "registry_file_hash_unchanged": true,
+  "selected_total": 0,
+  "side_effects": {
+    "git_mutations_count": 0,
+    "live_agents_started": 0,
+    "prefect_runs_created": 0,
+    "registry_updates": 0,
+    "worktrees_created": 0
+  },
+  "tracked_status_hash_unchanged": true,
+  "worktree_listing_hash_unchanged": true,
+  "zero_git_mutations_count": true,
+  "zero_live_agents": true,
+  "zero_prefect_runs": true,
+  "zero_registry_updates": true,
+  "zero_worktrees_created": true
+}

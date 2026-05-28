@@ -500,6 +500,53 @@ def _cmd_nightly_select_batch(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_nightly_recheck_batch(args: argparse.Namespace) -> None:
+    command = "nightly-recheck-batch"
+    try:
+        from prefect_grace.platform.nightly_batch_recheck import recheck_nightly_batch
+
+        result_obj = recheck_nightly_batch(
+            project_config=getattr(args, "project", None),
+            selection_path=getattr(args, "selection", None),
+            max_packets=int(getattr(args, "max_packets", 10)),
+            max_cost=getattr(args, "max_cost", "live_required"),
+            allow_conflicts=bool(getattr(args, "allow_conflicts", False)),
+            allow_risky=bool(getattr(args, "allow_risky", False)),
+        )
+        result = result_obj.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result_obj.ok,
+                command=command,
+                project_key=result_obj.project_key or None,
+                result=result,
+                warnings=result_obj.warnings,
+                errors=result_obj.errors,
+            ))
+        else:
+            print(f"Nightly batch recheck for {result_obj.project_key}: {result_obj.preflight_status}")
+            print(f"  Selected: {result_obj.selected_total}")
+            print(f"  Confirmed: {result_obj.confirmed_total}")
+            print(f"  Blocked: {result_obj.blocked_total}")
+            print(f"  Blocker classes: {', '.join(result_obj.blocker_classes) or '-'}")
+            print(f"  Plan hash: {result_obj.plan_hash or '-'}")
+            print(f"  Recheck hash: {result_obj.recheck_hash or '-'}")
+            print(f"  Lock acquired: {result_obj.lock_status.get('acquired')}")
+            print(f"  Lock released: {result_obj.lock_status.get('released')}")
+        if not result_obj.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "NIGHTLY_BATCH_RECHECK_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Nightly batch recheck failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _cmd_nightly_batch_execute(args: argparse.Namespace) -> None:
     command = "nightly-batch-execute"
     try:
