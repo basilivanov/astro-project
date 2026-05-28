@@ -430,3 +430,100 @@ def _cmd_run_handoff(args: argparse.Namespace) -> None:
         else:
             print(f"Run handoff failed: {e}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_run_single_live_packet_pilot(args: argparse.Namespace) -> None:
+    """Run single live packet pilot with managed runner and Git mutation gate."""
+    command = "run-single-live-packet-pilot"
+
+    # Safety check: fail closed on unsafe flag combinations
+    if args.execute_agent and not hasattr(args, '_no_dry_run_explicit'):
+        error_msg = "Live agent execution requires explicit --no-dry-run flag. Use: --execute-agent --no-dry-run"
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "MISSING_EXPLICIT_NO_DRY_RUN", "message": error_msg}],
+            ))
+        else:
+            print(f"Error: {error_msg}", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        from prefect_grace.platform.single_live_packet_pilot import run_single_live_packet_pilot
+
+        result = run_single_live_packet_pilot(
+            packet=Path(args.packet),
+            repo_root=Path(args.repo_root),
+            worktree_root=Path(args.worktree_root),
+            project_key=args.project_key,
+            attempt=args.attempt,
+            base_ref=args.base_ref,
+            target_branch=args.target_branch,
+            remote=args.remote,
+            dry_run=args.dry_run,
+            execute_agent=args.execute_agent,
+            acknowledge_live_agent=args.i_understand_live_agent,
+            opt_in_token=None,  # Read from environment
+            commit=args.commit,
+            push=args.push,
+            apply_git_mutations=args.apply_git_mutations,
+            timeout_seconds=args.timeout_seconds,
+        )
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=args.project_key,
+                result=result.to_dict(),
+            ))
+        else:
+            # Text mode
+            print(f"Single live packet pilot: {result.status.upper()}")
+            print(f"  Packet: {result.packet_id}")
+            print(f"  Attempt: {args.attempt}")
+            print(f"  Dry run: {result.dry_run}")
+            print(f"  Live opt-in confirmed: {result.live_opt_in_confirmed}")
+            print(f"  Git mutation requested: {result.git_mutation_requested}")
+            print(f"  Live agents started: {result.live_agents_started}")
+            print(f"  Prefect runs created: {result.prefect_runs_created}")
+
+            if result.worktree_path:
+                print(f"\n  Worktree: {result.worktree_path}")
+                print(f"  Branch: {result.branch_name}")
+
+            if result.managed_runner_status:
+                print(f"\n  Managed runner status: {result.managed_runner_status}")
+            if result.scope_status:
+                print(f"  Scope status: {result.scope_status}")
+            if result.evidence_status:
+                print(f"  Evidence status: {result.evidence_status}")
+            if result.review_status:
+                print(f"  Review status: {result.review_status}")
+            if result.git_gate_status:
+                print(f"  Git gate status: {result.git_gate_status}")
+
+            if result.blockers:
+                print(f"\n  Blockers ({len(result.blockers)}):")
+                for blocker in result.blockers[:5]:
+                    print(f"    - {blocker['code']}: {blocker['message']}")
+
+        # Exit codes: 0=ok, 1=blocked, 2=error
+        if result.ok:
+            sys.exit(0)
+        elif result.status == "blocked":
+            sys.exit(1)
+        else:
+            sys.exit(2)
+
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_SINGLE_LIVE_PACKET_PILOT_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run single live packet pilot failed: {e}", file=sys.stderr)
+        sys.exit(2)

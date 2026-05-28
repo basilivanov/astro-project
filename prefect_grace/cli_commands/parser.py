@@ -78,6 +78,7 @@ from prefect_grace.cli_commands.packet_execution import (
     _cmd_run_e2e_packet,
     _cmd_run_e2e_packet_flow,
     _cmd_run_handoff,
+    _cmd_run_single_live_packet_pilot,
 )
 from prefect_grace.cli_commands.evidence import (
     _cmd_review,
@@ -500,6 +501,26 @@ def _register_packet_execution_commands(subparsers) -> None:
     run_handoff.add_argument("--fake-reviewer-output", type=Path, help="Path to fake reviewer output file (required in dry-run)")
     run_handoff.add_argument("--json", action="store_true", help="JSON output")
     run_handoff.set_defaults(func=_cmd_run_handoff)
+
+    run_single_live_packet_pilot = subparsers.add_parser("run-single-live-packet-pilot", help="Run single live packet pilot with managed runner and Git mutation gate")
+    run_single_live_packet_pilot.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    run_single_live_packet_pilot.add_argument("--repo-root", type=Path, required=True, help="Repository root")
+    run_single_live_packet_pilot.add_argument("--worktree-root", type=Path, required=True, help="Worktree root directory")
+    run_single_live_packet_pilot.add_argument("--project-key", required=True, help="Project key")
+    run_single_live_packet_pilot.add_argument("--attempt", type=int, default=1, help="Attempt number (default: 1)")
+    run_single_live_packet_pilot.add_argument("--base-ref", required=True, help="Base git ref")
+    run_single_live_packet_pilot.add_argument("--target-branch", required=True, help="Target branch for merge (not used in pilot)")
+    run_single_live_packet_pilot.add_argument("--remote", default="origin", help="Remote name for push (default: origin)")
+    run_single_live_packet_pilot.add_argument("--dry-run", action="store_true", default=True, help="Dry run mode (no agent execution, no Git mutations, default)")
+    run_single_live_packet_pilot.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run (required with --execute-agent)")
+    run_single_live_packet_pilot.add_argument("--execute-agent", action="store_true", help="Explicitly allow live agent execution")
+    run_single_live_packet_pilot.add_argument("--i-understand-live-agent", action="store_true", help="Required acknowledgement for live agent execution")
+    run_single_live_packet_pilot.add_argument("--commit", action="store_true", help="Request guarded commit")
+    run_single_live_packet_pilot.add_argument("--push", action="store_true", help="Request guarded push")
+    run_single_live_packet_pilot.add_argument("--apply-git-mutations", action="store_true", help="Allow Git mutations to be applied (requires evidence and review)")
+    run_single_live_packet_pilot.add_argument("--timeout-seconds", type=int, default=3600, help="Agent timeout in seconds (default: 3600)")
+    run_single_live_packet_pilot.add_argument("--json", action="store_true", help="JSON output")
+    run_single_live_packet_pilot.set_defaults(func=_cmd_run_single_live_packet_pilot)
 
 
 def _register_evidence_commands(subparsers) -> None:
