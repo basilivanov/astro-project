@@ -275,11 +275,17 @@ def run_managed_packet(
     agent_ok = True
     if execute_agent and not dry_run:
         try:
+            # Determine runtime_state_root from project or default
+            runtime_state_root = None
+            if project is not None:
+                runtime_state_root = getattr(project, 'runtime_state_root', None)
+
             agent_result = launcher(
                 packet_id,
                 dry_run=False,
                 timeout_seconds=timeout_seconds,
                 workdir_override=worktree_path,
+                runtime_state_root=runtime_state_root,
             )
             agent_ok = agent_result.get("returncode", 1) == 0
         except Exception as e:
