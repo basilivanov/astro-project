@@ -1,0 +1,66 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03-CODEX-LAUNCHER-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T22:59:55Z"
+summary: >
+  Accepted. The package applies exactly one missing canonical EXECUTION_PACKET.yaml
+  sidecar for the already-accepted Codex launcher module split packet, using the
+  existing scoped sidecar migration command only.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: degraded_but_expected_target_source_hash_reconcile_pending
+  verification:
+    preflight_explicit_packet_dry_run: passed
+    apply_one_sidecar: passed
+    post_sidecar_audit: passed
+    post_migration_plan: passed
+    sync_packets_after_apply: passed_with_expected_target_changed_after_acceptance
+    target_packet_status_before_reconcile: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    scope_check: passed
+    git_diff_check: passed
+  target:
+    packet_id: FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT
+    sidecar_path: prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    planned_action: create
+    previous_runtime_source_hash: sha256:fecfbd8664f05851b779a869c4e7c6815ac44385aa7346840ce13fa57f4678e9
+    planned_source_hash: sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4
+    risk: accepted_source_hash_change
+  apply:
+    selected_count: 1
+    writes:
+      - prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    source_mutations:
+      - prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml
+    markdown_mutations: []
+    registry_mutations: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  post_state:
+    sidecar_counts:
+      canonical: 15
+      no_sidecar: 61
+      stale_sidecar: 0
+      invalid_sidecar: 0
+      skipped: 2
+    plan_count: 61
+    changed_after_acceptance:
+      - FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03-CODEX-LAUNCHER-SIDECAR
+notes:
+  - >
+    The target packet remains in changed_after_acceptance by design because
+    this package only creates the YAML sidecar. Runtime source-hash
+    reconciliation belongs to the next package.
+  - >
+    The only ready item before reviewer bootstrap is this newly-created W03
+    package itself, which is expected until this accepted review is applied to
+    the runtime registry.
+blockers: []
