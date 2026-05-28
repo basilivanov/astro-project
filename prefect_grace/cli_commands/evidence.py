@@ -245,6 +245,46 @@ def _cmd_check_scope(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_sync_packet_yaml_sidecar(args: argparse.Namespace) -> None:
+    command = "sync-packet-yaml-sidecar"
+    try:
+        from prefect_grace.platform.packet_yaml_sidecar_sync import sync_packet_yaml_sidecars
+
+        result = sync_packet_yaml_sidecars(
+            getattr(args, "packet", None) or [],
+            apply=bool(getattr(args, "apply", False)),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                result=payload,
+                errors=result.errors,
+            ))
+        else:
+            mode = "apply" if result.apply else "dry-run"
+            print(f"Packet YAML sidecar sync ({mode}): {'OK' if result.ok else 'FAILED'}")
+            for item in result.results:
+                print(f"  - {item['planned_action']}: {item['packet']}")
+                if item.get("error"):
+                    print(f"    error: {item['error']['message']}", file=sys.stderr)
+            for write_path in result.writes:
+                print(f"  wrote: {write_path}")
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "SYNC_PACKET_YAML_SIDECAR_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Sync packet YAML sidecar failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def _cmd_validate_evidence_contract(args: argparse.Namespace) -> None:
     """Validate evidence contract from packet."""
     command = "validate-evidence-contract"

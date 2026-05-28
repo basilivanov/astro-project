@@ -16,6 +16,9 @@
 # mapping:
 #   - class: ParsedPacket
 #   - function: compute_normalized_source_hash
+#   - function: packet_to_canonical_sidecar_payload
+#   - function: dump_packet_sidecar_payload
+#   - function: load_packet_sidecar_payload
 #   - function: parse_packet_markdown
 # END_MODULE_MAP
 
@@ -236,6 +239,77 @@ def _load_packet_sidecar(sidecar_path: Path | None) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid YAML sidecar {sidecar_path}: top-level payload must be a mapping")
     return _normalize_packet_sidecar_payload(payload, sidecar_path)
+
+
+# START_FUNCTION_CONTRACT
+# name: packet_to_canonical_sidecar_payload
+# purpose: Convert a parsed packet to the canonical EXECUTION_PACKET.yaml payload.
+# inputs:
+#   parsed: ParsedPacket instance produced from markdown packet metadata.
+# returns: Ordered dict containing only canonical sidecar fields.
+# side_effects: none.
+# emitted_logs: none.
+# error_behavior: Propagates attribute access errors if parsed is malformed.
+# END_FUNCTION_CONTRACT
+def packet_to_canonical_sidecar_payload(parsed: ParsedPacket) -> dict[str, Any]:
+    return {
+        "schema_version": "1",
+        "artifact_type": PACKET_SIDECAR_ARTIFACT_TYPE,
+        "packet_id": parsed.packet_id,
+        "feature_id": parsed.feature_id,
+        "wave_id": parsed.wave_id,
+        "title": parsed.title,
+        "objective": parsed.objective,
+        "status": parsed.status,
+        "phase": parsed.phase,
+        "depends_on": list(parsed.depends_on),
+        "modules": list(parsed.modules),
+        "allowed_write_scope": list(parsed.allowed_write_scope),
+        "frozen_scope": list(parsed.frozen_scope),
+        "must_preserve": list(parsed.must_preserve),
+        "verification": parsed.verification,
+        "expected_evidence": list(parsed.expected_evidence),
+        "escalation_triggers": list(parsed.escalation_triggers),
+    }
+
+
+# START_FUNCTION_CONTRACT
+# name: dump_packet_sidecar_payload
+# purpose: Serialize a canonical packet sidecar payload with stable field order.
+# inputs:
+#   payload: canonical sidecar mapping.
+# returns: YAML string ending with a newline.
+# side_effects: none.
+# emitted_logs: none.
+# error_behavior: Propagates yaml serialization errors.
+# END_FUNCTION_CONTRACT
+def dump_packet_sidecar_payload(payload: dict[str, Any]) -> str:
+    ordered_payload = {
+        field_name: payload[field_name]
+        for field_name in PACKET_SIDECAR_CANONICAL_FIELDS
+        if field_name in payload
+    }
+    return yaml.safe_dump(
+        ordered_payload,
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+    )
+
+
+# START_FUNCTION_CONTRACT
+# name: load_packet_sidecar_payload
+# purpose: Load and normalize an EXECUTION_PACKET.yaml sidecar using parser validation rules.
+# inputs:
+#   sidecar_path: Path to EXECUTION_PACKET.yaml.
+# returns: Normalized canonical-field mapping.
+# side_effects: Reads sidecar file.
+# emitted_logs: none.
+# error_behavior: Raises ValueError for malformed, non-mapping, or unknown-field sidecars.
+# END_FUNCTION_CONTRACT
+def load_packet_sidecar_payload(sidecar_path: Path) -> dict[str, Any]:
+    loaded = _load_packet_sidecar(sidecar_path)
+    return loaded or {}
 
 
 def _parse_sections(content: str) -> tuple[dict[str, list[str]], dict[str, int], str]:

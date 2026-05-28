@@ -533,6 +533,20 @@ def test_validate_evidence_manifest_cli_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_sync_packet_yaml_sidecar_cli_contract() -> None:
+    """Verify sync-packet-yaml-sidecar exposes guarded dry-run/apply flags."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "sync-packet-yaml-sidecar", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--json" in result.stdout
+
+
 def test_git_mutation_gate_cli_contract() -> None:
     """Verify git-mutation-gate CLI exposes independent guarded mutation flags."""
     result = subprocess.run(

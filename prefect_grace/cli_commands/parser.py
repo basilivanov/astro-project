@@ -94,6 +94,7 @@ from prefect_grace.cli_commands.evidence import (
     _cmd_write_evidence,
     _cmd_write_rework,
     _cmd_check_scope,
+    _cmd_sync_packet_yaml_sidecar,
     _cmd_validate_evidence_contract,
     _cmd_validate_evidence_manifest,
 )
@@ -678,6 +679,22 @@ def _register_evidence_commands(subparsers) -> None:
     check_scope.add_argument("--repo-root", type=Path, default=Path.cwd(), help="Repository root")
     check_scope.add_argument("--json", action="store_true", help="JSON output")
     check_scope.set_defaults(func=_cmd_check_scope)
+
+    sync_sidecar = subparsers.add_parser(
+        "sync-packet-yaml-sidecar",
+        help="Plan or apply canonical EXECUTION_PACKET.yaml sidecar sync",
+    )
+    sync_sidecar.add_argument(
+        "--packet",
+        action="append",
+        required=True,
+        help="Path to EXECUTION_PACKET.md (repeatable)",
+    )
+    sync_sidecar_mode = sync_sidecar.add_mutually_exclusive_group()
+    sync_sidecar_mode.add_argument("--dry-run", action="store_true", help="Plan only; default")
+    sync_sidecar_mode.add_argument("--apply", action="store_true", help="Write adjacent EXECUTION_PACKET.yaml files")
+    sync_sidecar.add_argument("--json", action="store_true", help="JSON output")
+    sync_sidecar.set_defaults(func=_cmd_sync_packet_yaml_sidecar)
 
     # validate-evidence-contract
     validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")
