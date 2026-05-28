@@ -101,6 +101,9 @@ from prefect_grace.cli_commands.git_mutation import (
     _cmd_git_mutation_gate,
     _cmd_merge_steward,
 )
+from prefect_grace.cli_commands.prefect_worker_binding import (
+    _cmd_prefect_worker_binding,
+)
 
 
 class NoDryRunAction(argparse.Action):
@@ -677,6 +680,18 @@ def _register_git_mutation_commands(subparsers) -> None:
     merge_steward.set_defaults(func=_cmd_merge_steward)
 
 
+def _register_prefect_worker_binding_commands(subparsers) -> None:
+    """Register Prefect worker binding commands."""
+    prefect_binding = subparsers.add_parser("prefect-worker-binding", help="Validate Prefect infrastructure readiness")
+    prefect_binding.add_argument("--project", type=Path, required=True, help="Path to grace.yaml project config")
+    prefect_binding.add_argument("--dry-run", action="store_true", default=True, help="Dry-run mode (default)")
+    prefect_binding.add_argument("--apply-deployment", action="store_true", help="Apply deployment registration (requires approval)")
+    prefect_binding.add_argument("--i-understand-prefect-mutation", action="store_true", help="Acknowledge Prefect mutation")
+    prefect_binding.add_argument("--run-worker-smoke", action="store_true", help="Run worker runtime smoke test")
+    prefect_binding.add_argument("--json", action="store_true", help="JSON output")
+    prefect_binding.set_defaults(func=_cmd_prefect_worker_binding)
+
+
 # START_FUNCTION_CONTRACT
 # name: build_parser
 # purpose: Assemble and return the complete argument parser.
@@ -699,5 +714,6 @@ def build_parser() -> argparse.ArgumentParser:
     _register_evidence_commands(subparsers)
     _register_executors_commands(subparsers)
     _register_git_mutation_commands(subparsers)
+    _register_prefect_worker_binding_commands(subparsers)
 
     return parser

@@ -493,3 +493,108 @@ def create_runtime(runtime_type: str, config: dict[str, Any] | None = None) -> W
         raise ValueError(f"Unknown runtime type: {runtime_type}")
 
 # END_BLOCK: factory
+
+# START_BLOCK: prefect_client_helper
+
+# START_FUNCTION_CONTRACT
+# name: create_prefect_sync_client
+# purpose: Create a synchronous Prefect client for infrastructure validation.
+# inputs: None.
+# returns: Prefect sync client context manager (entered) or None if unavailable.
+# side_effects: Creates Prefect client connection.
+# emitted_logs: None.
+# error_behavior: Returns None if Prefect unavailable or client creation fails.
+# END_FUNCTION_CONTRACT
+def create_prefect_sync_client() -> Any | None:
+    """Create a synchronous Prefect client for infrastructure validation.
+
+    Returns None if Prefect is not available (fail-closed).
+    Caller is responsible for exiting the context manager if needed.
+    """
+    try:
+        from prefect.client.orchestration import get_client
+        return get_client(sync_client=True).__enter__()
+    except (ImportError, Exception):
+        return None
+
+# END_BLOCK: prefect_client_helper
+
+# START_BLOCK: deployment_helper
+
+# START_FUNCTION_CONTRACT
+# name: apply_managed_packet_deployment_helper
+# purpose: Apply the managed packet runner deployment to Prefect.
+# inputs:
+#   - prefect_client: Prefect sync client
+#   - api_url: Prefect API URL
+#   - work_pool_name: Work pool name
+#   - work_queue_name: Work queue name
+# returns: Tuple of (success: bool, deployment_id: str | None, errors: list)
+# side_effects: Creates or updates Prefect deployment.
+# emitted_logs: None.
+# error_behavior: Returns (False, None, [error]) on failure.
+# END_FUNCTION_CONTRACT
+def apply_managed_packet_deployment_helper(
+    prefect_client: Any,
+    api_url: str,
+    work_pool_name: str,
+    work_queue_name: str,
+) -> tuple[bool, str | None, list[dict[str, Any]]]:
+    """Apply the managed packet runner deployment.
+
+    Returns (success, deployment_id, errors).
+    """
+    try:
+        from prefect_grace.tasks.prefect_submitter import MANAGED_PACKET_DEPLOYMENT_NAME
+        from prefect.deployments.runner import RunnerDeployment
+        from prefect.client.schemas.actions import DeploymentUpdate
+        import os
+
+        # Get deployment name parts
+        flow_name, deployment_name = MANAGED_PACKET_DEPLOYMENT_NAME.split("/")
+
+        # Create deployment from entrypoint
+        deployment = RunnerDeployment.from_entrypoint(
+            entrypoint="prefect_grace/flows/managed_packet_runner.py:managed_packet_runner",
+            name=deployment_name,
+            work_pool_name=work_pool_name,
+            work_queue_name=work_queue_name,
+            description="GRACE managed packet runner for live execution",
+            tags=["grace", "managed", "packet-runner"],
+        )
+
+        # Set API URL and apply
+        old_api_url = os.environ.get("PREFECT_API_URL")
+        try:
+            os.environ["PREFECT_API_URL"] = api_url
+            deployment_id = str(deployment.apply(work_pool_name=work_pool_name))
+
+            # Update deployment with working directory
+            from prefect_grace.runtime_config import load_runtime_config
+            runtime = load_runtime_config()
+
+            prefect_client.update_deployment(
+                deployment_id=deployment_id,
+                deployment=DeploymentUpdate(
+                    pull_steps=[
+                        {
+                            "prefect.deployments.steps.set_working_directory": {
+                                "directory": runtime.working_directory,
+                            }
+                        }
+                    ],
+                    path=None,
+                ),
+            )
+
+            return True, deployment_id, []
+        finally:
+            if old_api_url is not None:
+                os.environ["PREFECT_API_URL"] = old_api_url
+            else:
+                os.environ.pop("PREFECT_API_URL", None)
+
+    except Exception as e:
+        return False, None, [{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}]
+
+# END_BLOCK: deployment_helper
