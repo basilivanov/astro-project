@@ -569,3 +569,23 @@ def test_cli_nightly_batch_execute_contract() -> None:
     # Verify no merge flag exposed
     assert "--merge" not in result.stdout
     assert "--i-understand-merge" not in result.stdout
+
+
+def test_merge_steward_cli_contract() -> None:
+    """Verify merge-steward CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "merge-steward", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--repo-root" in result.stdout
+    assert "--target-branch" in result.stdout
+    assert "--packet-branch" in result.stdout
+    assert "--packet-path" in result.stdout
+    assert "--remote" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--apply" in result.stdout
+    assert "--merge" in result.stdout
+    assert "--i-understand-merge" in result.stdout
+    assert "--json" in result.stdout

@@ -99,6 +99,7 @@ from prefect_grace.cli_commands.executors import (
 )
 from prefect_grace.cli_commands.git_mutation import (
     _cmd_git_mutation_gate,
+    _cmd_merge_steward,
 )
 
 
@@ -659,6 +660,19 @@ def _register_git_mutation_commands(subparsers) -> None:
     git_gate.add_argument("--i-understand-merge", action="store_true", help="Required for merge apply")
     git_gate.add_argument("--json", action="store_true", help="JSON output")
     git_gate.set_defaults(func=_cmd_git_mutation_gate)
+
+    merge_steward = subparsers.add_parser("merge-steward", help="Plan or apply operator-approved fast-forward merges")
+    merge_steward.add_argument("--repo-root", type=Path, required=True, help="Target repository root")
+    merge_steward.add_argument("--target-branch", required=True, help="Target branch for merges")
+    merge_steward.add_argument("--packet-branch", action="append", dest="packet_branches", help="Packet branch name (repeatable)")
+    merge_steward.add_argument("--packet-path", action="append", help="Branch:path mapping (e.g., branch:path/to/EXECUTION_PACKET.md)")
+    merge_steward.add_argument("--remote", default="origin", help="Remote name")
+    merge_steward.add_argument("--dry-run", action="store_true", help="Plan only; default when --apply is omitted")
+    merge_steward.add_argument("--apply", action="store_true", help="Allow merge application")
+    merge_steward.add_argument("--merge", action="store_true", help="Request merge operation")
+    merge_steward.add_argument("--i-understand-merge", action="store_true", help="Required for merge apply")
+    merge_steward.add_argument("--json", action="store_true", help="JSON output")
+    merge_steward.set_defaults(func=_cmd_merge_steward)
 
 
 # START_FUNCTION_CONTRACT
