@@ -201,7 +201,8 @@ def _check_review(packet_path: Path) -> tuple[bool, bool]:
     latest = reviews[-1]
     try:
         text = latest.read_text(encoding="utf-8", errors="ignore").lower()
-        accepted = bool(re.search(r"(^|\n)\s*(status|verdict)\s*:\s*accepted\b", text))
+        # Match "verdict: accepted" or "**verdict**: accepted" or "status: accepted"
+        accepted = bool(re.search(r"(status|verdict)\*{0,2}\s*:\s*accepted\b", text))
         return True, accepted
     except Exception:
         return True, False
