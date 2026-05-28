@@ -338,19 +338,88 @@ def create_bounded_prefect_status_reader(prefect_client: Any | None = None) -> C
 
                 # Check if terminal state
                 if state_type in ("COMPLETED", "FAILED", "CANCELLED", "CRASHED", "CANCELLING"):
-                    # Extract result from flow run
-                    # For now, return basic status - real implementation would read
-                    # final evidence from flow run result or state store
+                    # Extract result from flow run state
                     if state_type == "COMPLETED":
-                        return {
-                            "ok": True,
-                            "domain_status": "accepted",  # Placeholder - should read from flow result
-                            "scope_verdict": "passed",
-                            "live_agents_started": 1,
-                            "changed_files": [],  # Placeholder - should read from flow result
-                            "poll_events": poll_events,
-                        }
+                        # Read payload from flow run state
+                        state = getattr(flow_run, "state", None)
+                        state_data = getattr(state, "data", None) if state else None
+
+                        # Fail closed if payload is missing or not inspectable
+                        if state_data is None:
+                            return {
+                                "ok": False,
+                                "domain_status": None,
+                                "scope_verdict": "payload_missing",
+                                "live_agents_started": 0,
+                                "changed_files": [],
+                                "poll_events": poll_events,
+                                "errors": [{"code": "FLOW_RUN_PAYLOAD_MISSING", "message": "Flow run completed but state payload is not inspectable"}],
+                            }
+
+                        # Extract domain/scope evidence from payload
+                        try:
+                            # State data should be a dict with domain_status, scope_verdict, etc.
+                            if isinstance(state_data, dict):
+                                payload = state_data
+                            elif hasattr(state_data, "__dict__"):
+                                payload = vars(state_data)
+                            else:
+                                # Try to access as attributes
+                                payload = {
+                                    "domain_status": getattr(state_data, "domain_status", None),
+                                    "scope_verdict": getattr(state_data, "scope_verdict", None),
+                                    "live_agents_started": getattr(state_data, "live_agents_started", 0),
+                                    "changed_files": getattr(state_data, "changed_files", []),
+                                }
+
+                            domain_status = payload.get("domain_status")
+                            scope_verdict = payload.get("scope_verdict")
+                            live_agents_started = payload.get("live_agents_started", 0)
+                            changed_files = payload.get("changed_files", [])
+                            payload_errors = payload.get("errors", [])
+
+                            # Fail closed if domain/scope evidence is missing
+                            if domain_status is None or scope_verdict is None:
+                                return {
+                                    "ok": False,
+                                    "domain_status": domain_status,
+                                    "scope_verdict": scope_verdict or "evidence_incomplete",
+                                    "live_agents_started": live_agents_started,
+                                    "changed_files": changed_files,
+                                    "poll_events": poll_events,
+                                    "errors": [{"code": "FLOW_RUN_EVIDENCE_INCOMPLETE", "message": "Flow run completed but domain/scope evidence is incomplete"}],
+                                }
+
+                            # Only accept explicit accepted/passed
+                            ok = (domain_status == "accepted" and scope_verdict == "passed")
+
+                            result = {
+                                "ok": ok,
+                                "domain_status": domain_status,
+                                "scope_verdict": scope_verdict,
+                                "live_agents_started": live_agents_started,
+                                "changed_files": changed_files,
+                                "poll_events": poll_events,
+                            }
+
+                            # Include errors if present
+                            if payload_errors:
+                                result["errors"] = payload_errors
+
+                            return result
+
+                        except Exception as e:
+                            return {
+                                "ok": False,
+                                "domain_status": None,
+                                "scope_verdict": "payload_read_failed",
+                                "live_agents_started": 0,
+                                "changed_files": [],
+                                "poll_events": poll_events,
+                                "errors": [{"code": "FLOW_RUN_PAYLOAD_READ_FAILED", "message": f"Failed to read flow run payload: {e}"}],
+                            }
                     else:
+                        # Non-completed terminal states
                         return {
                             "ok": False,
                             "domain_status": "failed",
