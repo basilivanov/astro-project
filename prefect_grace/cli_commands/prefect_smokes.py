@@ -498,3 +498,71 @@ def _cmd_nightly_select_batch(args: argparse.Namespace) -> None:
         else:
             print(f"Nightly batch selection failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_nightly_batch_execute(args: argparse.Namespace) -> None:
+    command = "nightly-batch-execute"
+    try:
+        from prefect_grace.platform.nightly_batch_execution_guard import execute_batch_with_guard
+
+        # Determine dry_run mode
+        dry_run = not bool(getattr(args, "execute", False))
+
+        result_obj = execute_batch_with_guard(
+            project_config=getattr(args, "project", None),
+            max_packets=int(getattr(args, "max_packets", 10)),
+            concurrency=int(getattr(args, "concurrency", 1)),
+            timeout_seconds_per_packet=int(getattr(args, "timeout_seconds_per_packet", 3600)),
+            max_failures=int(getattr(args, "max_failures", 3)),
+            stop_on_degradation=not bool(getattr(args, "no_stop_on_degradation", False)),
+            allow_git_commit=bool(getattr(args, "allow_git_commit", False)),
+            allow_git_push=bool(getattr(args, "allow_git_push", False)),
+            dry_run=dry_run,
+            execute=bool(getattr(args, "execute", False)),
+            acknowledge_live_batch=bool(getattr(args, "i_understand_live_batch", False)),
+            opt_in_token=None,  # Read from environment
+            base_ref=getattr(args, "base_ref", "origin/master"),
+            target_branch=getattr(args, "target_branch", "master"),
+            remote=getattr(args, "remote", "origin"),
+        )
+        result = result_obj.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result_obj.ok,
+                command=command,
+                project_key=result_obj.project_key or None,
+                result=result,
+                warnings=result_obj.warnings,
+                errors=result_obj.errors,
+            ))
+        else:
+            print(f"Nightly batch execution for {result_obj.project_key}:")
+            print(f"  Mode: {'live' if not result_obj.dry_run else 'dry-run'}")
+            print(f"  Selected: {result_obj.selected_total}")
+            print(f"  Executed: {result_obj.executed_total}")
+            print(f"  Passed: {result_obj.passed_total}")
+            print(f"  Blocked: {result_obj.blocked_total}")
+            print(f"  Failed: {result_obj.failed_total}")
+            print(f"  Skipped: {result_obj.skipped_total}")
+            print(f"  Stop reason: {result_obj.stop_reason}")
+            print(f"  Lock acquired: {result_obj.lock_acquired}")
+            print(f"  Lock released: {result_obj.lock_released}")
+            print(f"  Live agents started: {result_obj.live_agents_started}")
+            print(f"  Git mutations: {result_obj.git_mutations_count}")
+            print(f"  Execution time: {result_obj.execution_time_seconds:.2f}s")
+            if result_obj.packet_summaries:
+                print(f"  Packet summaries (showing first 10):")
+                for summary in result_obj.packet_summaries[:10]:
+                    print(f"    - {summary.packet_id}: {summary.status}")
+        if result_obj.errors or not result_obj.ok:
+            sys.exit(1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "BATCH_EXECUTION_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Nightly batch execution failed: {e}", file=sys.stderr)
+        sys.exit(1)

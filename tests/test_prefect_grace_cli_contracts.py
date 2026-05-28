@@ -541,3 +541,31 @@ def test_cli_nightly_select_batch_contract() -> None:
     assert "--allow-conflicts" in result.stdout
     assert "--allow-risky" in result.stdout
     assert "--json" in result.stdout
+
+
+def test_cli_nightly_batch_execute_contract() -> None:
+    """Verify nightly-batch-execute CLI follows contract."""
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "nightly-batch-execute", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--project" in result.stdout
+    assert "--max-packets" in result.stdout
+    assert "--concurrency" in result.stdout
+    assert "--timeout-seconds-per-packet" in result.stdout
+    assert "--max-failures" in result.stdout
+    assert "--no-stop-on-degradation" in result.stdout
+    assert "--allow-git-commit" in result.stdout
+    assert "--allow-git-push" in result.stdout
+    assert "--base-ref" in result.stdout
+    assert "--target-branch" in result.stdout
+    assert "--remote" in result.stdout
+    assert "--dry-run" in result.stdout
+    assert "--execute" in result.stdout
+    assert "--i-understand-live-batch" in result.stdout
+    assert "--json" in result.stdout
+    # Verify no merge flag exposed
+    assert "--merge" not in result.stdout
+    assert "--i-understand-merge" not in result.stdout
