@@ -1,0 +1,12 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS-W01-GIT-NIGHTLY-GATES
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T17:36:41Z"
+summary: Git and nightly safety gates now consume canonical YAML review status.
+metadata:
+  attempt: attempt-0002
+  observability_verdict: degraded-but-expected

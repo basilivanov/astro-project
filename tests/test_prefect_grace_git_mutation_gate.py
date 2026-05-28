@@ -56,6 +56,22 @@ def _write_review(packet_dir: Path, accepted: bool = True) -> None:
     (reviews / "review-0001.md").write_text(f"status: {status}\n\n## Verdict\n{status}\n", encoding="utf-8")
 
 
+def _write_review_yaml(packet_dir: Path, *, status: str, packet_id: str = PACKET_ID) -> None:
+    reviews = packet_dir / "REVIEWS"
+    reviews.mkdir(parents=True, exist_ok=True)
+    (reviews / "review-0001.yaml").write_text(
+        f"""schema_version: 1
+artifact_type: review
+packet_id: {packet_id}
+status: {status}
+generated_by: pytest
+reviewed_at: 2026-05-28 12:34:56
+summary: git mutation gate review sidecar
+""",
+        encoding="utf-8",
+    )
+
+
 def _write_evidence(packet_dir: Path, valid: bool = True) -> None:
     evidence_dir = packet_dir / "EVIDENCE" / "attempt-0001"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -250,6 +266,51 @@ def test_git_mutation_gate_missing_accepted_review_blocks_mutation(tmp_path: Pat
     result = _run(packet, repo, worktree_root, worktree, dry_run=False, apply=True, commit=True)
 
     assert result.ok is False
+    assert any(blocker["code"] == "missing_accepted_review" for blocker in result.blockers)
+
+
+def test_git_mutation_gate_yaml_rework_overrides_markdown_accepted(tmp_path: Path) -> None:
+    repo, worktree_root, worktree, packet = _fixture(tmp_path)
+    _write_review_yaml(packet.parent, status="rework_required")
+    (worktree / "allowed" / "change.txt").write_text("change\n", encoding="utf-8")
+
+    result = _run(packet, repo, worktree_root, worktree, dry_run=True, commit=True)
+
+    assert result.ok is False
+    assert result.review["present"] is True
+    assert result.review["accepted"] is False
+    assert result.review["source"] == "yaml"
+    assert result.review["path"].endswith("review-0001.yaml")
+    assert any(blocker["code"] == "missing_accepted_review" for blocker in result.blockers)
+
+
+def test_git_mutation_gate_yaml_accepted_overrides_markdown_rework(tmp_path: Path) -> None:
+    repo, worktree_root, worktree, packet = _fixture(tmp_path)
+    _write_review(packet.parent, accepted=False)
+    _write_review_yaml(packet.parent, status="accepted")
+    (worktree / "allowed" / "change.txt").write_text("change\n", encoding="utf-8")
+
+    result = _run(packet, repo, worktree_root, worktree, dry_run=True, commit=True)
+
+    assert result.ok is True
+    assert result.review["present"] is True
+    assert result.review["accepted"] is True
+    assert result.review["source"] == "yaml"
+    assert result.review["path"].endswith("review-0001.yaml")
+
+
+def test_git_mutation_gate_yaml_packet_id_mismatch_blocks_review(tmp_path: Path) -> None:
+    repo, worktree_root, worktree, packet = _fixture(tmp_path)
+    _write_review_yaml(packet.parent, status="accepted", packet_id="FEAT-OTHER-W01-PACKET")
+    (worktree / "allowed" / "change.txt").write_text("change\n", encoding="utf-8")
+
+    result = _run(packet, repo, worktree_root, worktree, dry_run=True, commit=True)
+
+    assert result.ok is False
+    assert result.review["present"] is True
+    assert result.review["accepted"] is False
+    assert result.review["source"] == "yaml"
+    assert "invalid_packet_id_mismatch" in result.review["errors"]
     assert any(blocker["code"] == "missing_accepted_review" for blocker in result.blockers)
 
 

@@ -22,6 +22,55 @@ from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.status_model import RegistryStatus
 
 
+def _write_review_check_packet(packet_file: Path, packet_id: str = "FEAT-TEST-W01") -> None:
+    packet_file.write_text(
+        f"""# Execution Packet: {packet_id}
+
+## Objective
+Test packet.
+
+## Slice
+- packet_id: `{packet_id}`
+- feature_id: `FEAT-TEST`
+- wave_id: `W01`
+- status: `ready`
+
+## Allowed Write Scope
+- test.py
+
+## Frozen Scope
+- frozen.py
+
+## Must Preserve
+- Keep tests.
+
+## Verification
+pytest
+
+## Expected Evidence
+- test output
+
+## Escalation Triggers
+- none
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_review_yaml(packet_dir: Path, *, status: str, packet_id: str = "FEAT-TEST-W01") -> None:
+    (packet_dir / "REVIEWS" / "review-0001.yaml").write_text(
+        f"""schema_version: 1
+artifact_type: review
+packet_id: {packet_id}
+status: {status}
+generated_by: pytest
+reviewed_at: 2026-05-28 12:34:56
+summary: nightly preflight review sidecar
+""",
+        encoding="utf-8",
+    )
+
+
 def test_estimate_cost_unit():
     assert _estimate_cost("pytest -q tests/test_foo.py", "unit test") == "targeted"
     assert _estimate_cost("pytest tests/", "run all tests") == "unit"
@@ -67,7 +116,7 @@ def test_check_review_present_not_accepted(tmp_path):
     review_file.write_text("# Review\n\nStatus: rework_required")
 
     packet_file = packet_dir / "EXECUTION_PACKET.md"
-    packet_file.write_text("# Test")
+    _write_review_check_packet(packet_file)
 
     has_review, accepted = _check_review(packet_file)
     assert has_review
@@ -83,11 +132,56 @@ def test_check_review_accepted(tmp_path):
     review_file.write_text("# Review\n\nStatus: accepted")
 
     packet_file = packet_dir / "EXECUTION_PACKET.md"
-    packet_file.write_text("# Test")
+    _write_review_check_packet(packet_file)
 
     has_review, accepted = _check_review(packet_file)
     assert has_review
     assert accepted
+
+
+def test_check_review_yaml_sidecar_overrides_markdown(tmp_path):
+    packet_dir = tmp_path / "FEAT-TEST-W01"
+    packet_dir.mkdir()
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    (reviews_dir / "review-0001.md").write_text("# Review\n\nStatus: accepted", encoding="utf-8")
+    packet_file = packet_dir / "EXECUTION_PACKET.md"
+    _write_review_check_packet(packet_file)
+    _write_review_yaml(packet_dir, status="rework_required")
+
+    has_review, accepted = _check_review(packet_file)
+    assert has_review
+    assert not accepted
+
+
+def test_check_review_yaml_sidecar_accepts_unquoted_timestamp(tmp_path):
+    packet_dir = tmp_path / "FEAT-TEST-W01"
+    packet_dir.mkdir()
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    (reviews_dir / "review-0001.md").write_text("# Review\n\nStatus: rework_required", encoding="utf-8")
+    packet_file = packet_dir / "EXECUTION_PACKET.md"
+    _write_review_check_packet(packet_file)
+    _write_review_yaml(packet_dir, status="accepted")
+
+    has_review, accepted = _check_review(packet_file)
+    assert has_review
+    assert accepted
+
+
+def test_check_review_yaml_packet_id_mismatch_fails_closed(tmp_path):
+    packet_dir = tmp_path / "FEAT-TEST-W01"
+    packet_dir.mkdir()
+    reviews_dir = packet_dir / "REVIEWS"
+    reviews_dir.mkdir()
+    (reviews_dir / "review-0001.md").write_text("# Review\n\nStatus: accepted", encoding="utf-8")
+    packet_file = packet_dir / "EXECUTION_PACKET.md"
+    _write_review_check_packet(packet_file)
+    _write_review_yaml(packet_dir, status="accepted", packet_id="FEAT-OTHER-W01")
+
+    has_review, accepted = _check_review(packet_file)
+    assert has_review
+    assert not accepted
 
 
 def test_check_evidence_missing(tmp_path):

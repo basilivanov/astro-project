@@ -1,0 +1,32 @@
+{
+  "packet_id": "FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS-W01-GIT-NIGHTLY-GATES",
+  "status": "implemented",
+  "summary": "Git mutation and nightly safety gates now consume canonical YAML review status through the shared review artifact helper. YAML sidecars override markdown, and YAML packet_id mismatch fails closed.",
+  "changed_files": [
+    "prefect_grace/platform/git_mutation_gate.py",
+    "prefect_grace/platform/nightly_preflight_risk_report.py",
+    "tests/test_prefect_grace_git_mutation_gate.py",
+    "tests/test_prefect_grace_nightly_preflight_risk_report.py",
+    "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EXECUTION_PACKET.md",
+    "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EVIDENCE/attempt-0001/evidence_manifest.json",
+    "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EVIDENCE/attempt-0001/bounded_summary.json"
+  ],
+  "verification": {
+    "targeted_pytest": "59 passed",
+    "compileall": "pass",
+    "grace_lint": "pass",
+    "validate_packet_strict": "ok=true",
+    "validate_evidence_manifest": "ok=true",
+    "git_diff_check": "pass"
+  },
+  "safety": {
+    "runtime_registry_apply": false,
+    "commits": false,
+    "pushes": false,
+    "live_agents": false,
+    "docker": false,
+    "backend_frontend_services": false,
+    "playwright": false
+  },
+  "observability_verdict": "degraded-but-expected"
+}

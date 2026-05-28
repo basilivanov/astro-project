@@ -25,7 +25,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-import re
 from typing import Any
 
 from prefect_grace.platform.backlog_controller import BacklogController
@@ -33,6 +32,7 @@ from prefect_grace.platform.controller_backlog_bootstrap import build_backlog_bo
 from prefect_grace.platform.nightly_dry_run_controller import run_nightly_dry_run
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.project_adapter import load_project_adapter
+from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.status_model import RegistryStatus
 
@@ -190,7 +190,7 @@ def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
-def _check_review(packet_path: Path) -> tuple[bool, bool]:
+def _check_review(packet_path: Path, *, expected_packet_id: str | None = None) -> tuple[bool, bool]:
     """Check if packet has review and if it's accepted."""
     reviews_dir = packet_path.parent / "REVIEWS"
     if not reviews_dir.exists():
@@ -199,11 +199,21 @@ def _check_review(packet_path: Path) -> tuple[bool, bool]:
     if not reviews:
         return False, False
     latest = reviews[-1]
+    packet_id = expected_packet_id
+    if packet_id is None:
+        try:
+            parsed = parse_packet_markdown(packet_path, mode="lenient")
+            packet_id = parsed.packet_id
+        except Exception:
+            return True, False
+        if not packet_id:
+            return True, False
     try:
-        text = latest.read_text(encoding="utf-8", errors="ignore").lower()
-        # Match "verdict: accepted" or "**verdict**: accepted" or "status: accepted"
-        accepted = bool(re.search(r"(status|verdict)\*{0,2}\s*:\s*accepted\b", text))
-        return True, accepted
+        review_result = read_review_artifact_status(
+            latest,
+            expected_packet_id=packet_id,
+        )
+        return True, review_result.ok and review_result.status == "accepted"
     except Exception:
         return True, False
 
@@ -259,7 +269,7 @@ def _classify_risk_flags(
             flags.source_runtime_mismatch = True
 
     # Check review and evidence
-    has_review, review_accepted = _check_review(packet_path)
+    has_review, review_accepted = _check_review(packet_path, expected_packet_id=parsed.packet_id)
     has_evidence, evidence_valid = _check_evidence(packet_path)
 
     if not has_review or not review_accepted:

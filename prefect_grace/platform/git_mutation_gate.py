@@ -31,6 +31,7 @@ from prefect_grace.platform.artifact_validator import validate_artifact_referenc
 from prefect_grace.platform.evidence_contract import parse_evidence_contract
 from prefect_grace.platform.evidence_manifest import parse_evidence_manifest, validate_evidence_manifest
 from prefect_grace.platform.packet_parser import parse_packet_markdown
+from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
 from prefect_grace.platform.scope_guard import validate_scope
 
 
@@ -157,15 +158,24 @@ def _has_conflict_markers(worktree_path: Path, files: list[str]) -> list[str]:
     return markers[:MAX_ITEMS]
 
 
-def _latest_review(packet_path: Path) -> tuple[bool, dict[str, Any]]:
+def _latest_review(packet_path: Path, *, expected_packet_id: str | None) -> tuple[bool, dict[str, Any]]:
     reviews_dir = packet_path.parent / "REVIEWS"
     reviews = sorted(reviews_dir.glob("review-*.md"))
     if not reviews:
         return False, {"present": False, "accepted": False, "path": None}
     latest = reviews[-1]
-    text = latest.read_text(encoding="utf-8", errors="ignore").lower()
-    accepted = bool(re.search(r"(^|\n)\s*(status|verdict)\s*:\s*accepted\b", text))
-    return accepted, {"present": True, "accepted": accepted, "path": str(latest)}
+    review_result = read_review_artifact_status(
+        latest,
+        expected_packet_id=expected_packet_id,
+    )
+    accepted = review_result.ok and review_result.status == "accepted"
+    return accepted, {
+        "present": True,
+        "accepted": accepted,
+        "path": str(review_result.path or latest),
+        "source": review_result.source,
+        "errors": list(review_result.errors),
+    }
 
 
 def _latest_evidence(packet_path: Path, contract: Any) -> tuple[bool, dict[str, Any]]:
@@ -349,7 +359,7 @@ def run_git_mutation_gate(
         if not evidence_ok:
             _add_blocker(result, "invalid_evidence_manifest", "Required verification evidence is missing or invalid")
 
-        review_ok, review_summary = _latest_review(packet_path)
+        review_ok, review_summary = _latest_review(packet_path, expected_packet_id=parsed.packet_id)
         result.review = review_summary
         if not review_ok:
             _add_blocker(result, "missing_accepted_review", "Latest packet review is missing or not accepted")
