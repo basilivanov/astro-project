@@ -517,6 +517,7 @@ def _cmd_nightly_batch_execute(args: argparse.Namespace) -> None:
             stop_on_degradation=not bool(getattr(args, "no_stop_on_degradation", False)),
             allow_git_commit=bool(getattr(args, "allow_git_commit", False)),
             allow_git_push=bool(getattr(args, "allow_git_push", False)),
+            allow_git_merge=bool(getattr(args, "allow_git_merge", False)),
             dry_run=dry_run,
             execute=bool(getattr(args, "execute", False)),
             acknowledge_live_batch=bool(getattr(args, "i_understand_live_batch", False)),

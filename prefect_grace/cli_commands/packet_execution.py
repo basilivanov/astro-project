@@ -467,6 +467,7 @@ def _cmd_run_single_live_packet_pilot(args: argparse.Namespace) -> None:
             opt_in_token=None,  # Read from environment
             commit=args.commit,
             push=args.push,
+            merge=args.merge,
             apply_git_mutations=args.apply_git_mutations,
             timeout_seconds=args.timeout_seconds,
         )

@@ -199,6 +199,7 @@ def _timeout_handler(signum, frame):
 #   stop_on_degradation: Stop if unexpected degradation detected.
 #   allow_git_commit: Request guarded commit for packets.
 #   allow_git_push: Request guarded push for packets.
+#   allow_git_merge: Request guarded merge to target branch for packets.
 #   dry_run: Safe default, no execution.
 #   execute: Explicitly allow execution.
 #   acknowledge_live_batch: Required operator acknowledgement flag.
@@ -223,6 +224,7 @@ def execute_batch_with_guard(
     stop_on_degradation: bool = True,
     allow_git_commit: bool = False,
     allow_git_push: bool = False,
+    allow_git_merge: bool = False,
     dry_run: bool = True,
     execute: bool = False,
     acknowledge_live_batch: bool = False,
@@ -254,6 +256,7 @@ def execute_batch_with_guard(
         stop_on_degradation: Stop if unexpected degradation detected
         allow_git_commit: Request guarded commit for packets
         allow_git_push: Request guarded push for packets
+        allow_git_merge: Request guarded merge to target branch for packets
         dry_run: Safe default, no execution
         execute: Explicitly allow execution
         acknowledge_live_batch: Required operator acknowledgement flag
@@ -408,6 +411,7 @@ def execute_batch_with_guard(
                     opt_in_token=opt_in_token,
                     commit=allow_git_commit,
                     push=allow_git_push,
+                    merge=allow_git_merge,
                     apply_git_mutations=not dry_run,
                     timeout_seconds=timeout_seconds_per_packet,
                 )

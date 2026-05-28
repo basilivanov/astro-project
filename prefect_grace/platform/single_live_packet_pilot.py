@@ -97,6 +97,7 @@ def _add_blocker(result: SingleLivePacketPilotResult, code: str, message: str, *
 #   opt_in_token: Required token value or None to read GRACE_LIVE_AGENT_OPT_IN.
 #   commit: Request guarded commit.
 #   push: Request guarded push.
+#   merge: Request guarded merge to target branch.
 #   apply_git_mutations: Allow Git mutations to be applied.
 #   timeout_seconds: Agent timeout.
 #   managed_runner: Optional test hook for managed runner.
@@ -122,6 +123,7 @@ def run_single_live_packet_pilot(
     opt_in_token: str | None = None,
     commit: bool = False,
     push: bool = False,
+    merge: bool = False,
     apply_git_mutations: bool = False,
     timeout_seconds: int = 3600,
     managed_runner: Callable[..., Any] | None = None,
@@ -145,7 +147,7 @@ def run_single_live_packet_pilot(
         project_key: Project identifier
         attempt: Execution attempt number
         base_ref: Git base reference
-        target_branch: Target branch for merge (not used in pilot)
+        target_branch: Target branch for merge
         remote: Remote name for push
         dry_run: Safe default, no agent execution or Git mutations
         execute_agent: Explicitly allow live agent execution
@@ -153,6 +155,7 @@ def run_single_live_packet_pilot(
         opt_in_token: Required token value or None to read GRACE_LIVE_AGENT_OPT_IN
         commit: Request guarded commit
         push: Request guarded push
+        merge: Request guarded merge to target branch
         apply_git_mutations: Allow Git mutations to be applied
         timeout_seconds: Agent timeout
         managed_runner: Optional test hook for managed runner
@@ -176,7 +179,7 @@ def run_single_live_packet_pilot(
             status="blocked",
             dry_run=dry_run,
             live_opt_in_confirmed=False,
-            git_mutation_requested=commit or push,
+            git_mutation_requested=commit or push or merge,
             blocker_reason="packet_parse_failed",
         )
         _add_blocker(result, "packet_parse_failed", f"Failed to parse packet: {e}")
@@ -188,7 +191,7 @@ def run_single_live_packet_pilot(
         status="planned" if dry_run else "blocked",
         dry_run=dry_run,
         live_opt_in_confirmed=False,
-        git_mutation_requested=commit or push,
+        git_mutation_requested=commit or push or merge,
     )
 
     # Check live agent opt-in gates
@@ -298,8 +301,8 @@ def run_single_live_packet_pilot(
             apply=apply_git_mutations and not dry_run,
             commit=commit,
             push=push,
-            merge=False,  # Merge not exposed in pilot
-            understand_merge=False,
+            merge=merge,
+            understand_merge=merge,  # Pass through merge flag as understand_merge
         )
 
         # Convert to dict if it's a dataclass
