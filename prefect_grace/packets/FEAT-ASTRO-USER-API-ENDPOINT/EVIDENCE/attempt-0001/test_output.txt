@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /tmp/grace-live-test/worktrees/FEAT-ASTRO-USER-API-ENDPOINT-W01-USER-CRUD-attempt-0001/backend
+plugins: anyio-4.2.0
+collecting ... collected 15 items
+
+tests/test_api_users.py::test_create_user_success PASSED                 [  6%]
+tests/test_api_users.py::test_create_user_rejects_invalid_username PASSED [ 13%]
+tests/test_api_users.py::test_create_user_rejects_invalid_email PASSED   [ 20%]
+tests/test_api_users.py::test_create_user_rejects_duplicate_username PASSED [ 26%]
+tests/test_api_users.py::test_create_user_rejects_duplicate_email PASSED [ 33%]
+tests/test_api_users.py::test_get_user_by_id_success PASSED              [ 40%]
+tests/test_api_users.py::test_get_user_by_id_returns_400_for_invalid_uuid PASSED [ 46%]
+tests/test_api_users.py::test_get_user_by_id_returns_404_for_missing_user PASSED [ 53%]
+tests/test_api_users.py::test_list_users_without_filter_returns_all_users PASSED [ 60%]
+tests/test_api_users.py::test_list_users_filters_by_active_status PASSED [ 66%]
+tests/test_api_users.py::test_update_user_success PASSED                 [ 73%]
+tests/test_api_users.py::test_update_user_rejects_invalid_email PASSED   [ 80%]
+tests/test_api_users.py::test_update_user_rejects_duplicate_email PASSED [ 86%]
+tests/test_api_users.py::test_update_user_rejects_unsupported_fields PASSED [ 93%]
+tests/test_api_users.py::test_delete_user_soft_deletes_account PASSED    [100%]
+
+============================== 15 passed in 0.31s ==============================
