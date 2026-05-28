@@ -1,0 +1,111 @@
+Bounded Deployment Apply Metadata Proof
+========================================
+
+This document proves that the deployment apply implementation returns bounded
+before/after metadata as required by the packet contract.
+
+## DeploymentApplyResult Structure
+
+The apply helper now returns a structured DeploymentApplyResult dataclass with
+the following bounded fields:
+
+- success: bool - whether apply succeeded
+- deployment_name: str - full deployment name
+- deployment_id: str | None - Prefect deployment UUID
+- work_pool_name: str - target work pool
+- work_queue_name: str - target work queue
+- entrypoint: str - flow entrypoint path
+- working_directory: str - deployment working directory
+- created: bool - True if created, False if updated
+- prefect_runs_created: int - always 0 (no flow runs)
+- live_agents_started: int - always 0 (no agents)
+- errors: list[dict] - structured error list
+
+## Test Coverage
+
+### test_preflight_apply_success_rereads_deployment
+Verifies successful apply returns:
+- deployment_apply_result is not None
+- deployment_apply_result["success"] is True
+- deployment_apply_result["deployment_id"] == "dep-123"
+- deployment_apply_result["created"] is True
+- deployment_apply_result["prefect_runs_created"] == 0
+- deployment_apply_result["live_agents_started"] == 0
+
+### test_preflight_apply_failure
+Verifies failed apply returns:
+- deployment_apply_result is not None
+- deployment_apply_result["success"] is False
+- deployment_apply_result["deployment_id"] is None
+
+### test_preflight_apply_created_vs_updated
+Verifies created vs updated distinction:
+- When deployment doesn't exist before apply: created=True
+- When deployment exists before apply: created=False (updated)
+- Warning message reflects "created" vs "updated"
+
+### test_preflight_invalid_entrypoint_blocks_apply
+Verifies invalid entrypoint fails closed:
+- Entrypoint validation happens before apply
+- Returns INVALID_ENTRYPOINT error
+- deployment_apply_result["success"] is False
+- No apply call is made
+
+## Implementation Details
+
+### Entrypoint Validation
+Before calling RunnerDeployment.from_entrypoint, the helper:
+1. Splits entrypoint into path and function
+2. Checks if entrypoint file exists using Path.exists()
+3. Returns failure result if file not found
+4. Only proceeds to apply if validation passes
+
+### Created vs Updated Detection
+The helper:
+1. Checks if deployment exists before apply via read_deployment_by_name
+2. Sets deployment_exists_before flag
+3. After successful apply, sets created = not deployment_exists_before
+4. Returns bounded result with correct created/updated status
+
+### Bounded Metadata in Result
+PrefectWorkerBindingResult now includes:
+- deployment_apply_result: dict[str, Any] | None
+- Serialized via DeploymentApplyResult.to_dict()
+- Available in JSON output for operator audit
+- None when no apply was performed
+
+## JSON Output Example
+
+When deployment apply succeeds, the CLI JSON output includes:
+
+```json
+{
+  "deployment_apply_result": {
+    "success": true,
+    "deployment_name": "prefect-grace-managed-packet-runner/live-managed-packet-runner",
+    "deployment_id": "abc-123-def-456",
+    "work_pool_name": "astro-process",
+    "work_queue_name": "grace-live",
+    "entrypoint": "prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+    "working_directory": "/opt/astro-project",
+    "created": true,
+    "prefect_runs_created": 0,
+    "live_agents_started": 0,
+    "errors": []
+  }
+}
+```
+
+## Audit Trail
+
+The bounded metadata provides a complete audit trail:
+- What deployment was created/updated (deployment_name, deployment_id)
+- Where it routes (work_pool_name, work_queue_name)
+- What it runs (entrypoint, working_directory)
+- Whether it was created or updated (created)
+- Confirmation of zero side effects (prefect_runs_created, live_agents_started)
+
+This satisfies the packet requirement for bounded before/after deployment
+metadata that an operator or reviewer can audit.
+
+Verified: 2026-05-28

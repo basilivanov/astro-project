@@ -27,6 +27,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 # START_BLOCK: runtime_interface
@@ -521,6 +522,41 @@ def create_prefect_sync_client() -> Any | None:
 
 # START_BLOCK: deployment_helper
 
+@dataclass
+class DeploymentApplyResult:
+    """Result of deployment apply operation with bounded before/after metadata."""
+    success: bool
+    deployment_name: str
+    deployment_id: str | None
+    work_pool_name: str
+    work_queue_name: str
+    entrypoint: str
+    working_directory: str
+    created: bool  # True if created, False if updated
+    prefect_runs_created: int
+    live_agents_started: int
+    errors: list[dict[str, Any]]
+    entrypoint_not_inspectable: bool = False  # True if entrypoint cannot be verified from existing deployment
+    working_directory_not_inspectable: bool = False  # True if working_directory cannot be verified from existing deployment
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict for JSON output."""
+        return {
+            "success": self.success,
+            "deployment_name": self.deployment_name,
+            "deployment_id": self.deployment_id,
+            "work_pool_name": self.work_pool_name,
+            "work_queue_name": self.work_queue_name,
+            "entrypoint": self.entrypoint,
+            "working_directory": self.working_directory,
+            "created": self.created,
+            "prefect_runs_created": self.prefect_runs_created,
+            "live_agents_started": self.live_agents_started,
+            "entrypoint_not_inspectable": self.entrypoint_not_inspectable,
+            "working_directory_not_inspectable": self.working_directory_not_inspectable,
+            "errors": self.errors,
+        }
+
 # START_FUNCTION_CONTRACT
 # name: apply_managed_packet_deployment_helper
 # purpose: Apply the managed packet runner deployment to Prefect.
@@ -529,33 +565,67 @@ def create_prefect_sync_client() -> Any | None:
 #   - api_url: Prefect API URL
 #   - work_pool_name: Work pool name
 #   - work_queue_name: Work queue name
-# returns: Tuple of (success: bool, deployment_id: str | None, errors: list)
+# returns: DeploymentApplyResult with bounded before/after metadata
 # side_effects: Creates or updates Prefect deployment.
 # emitted_logs: None.
-# error_behavior: Returns (False, None, [error]) on failure.
+# error_behavior: Returns result with success=False and errors on failure.
 # END_FUNCTION_CONTRACT
 def apply_managed_packet_deployment_helper(
     prefect_client: Any,
     api_url: str,
     work_pool_name: str,
     work_queue_name: str,
-) -> tuple[bool, str | None, list[dict[str, Any]]]:
+) -> DeploymentApplyResult:
     """Apply the managed packet runner deployment.
 
-    Returns (success, deployment_id, errors).
+    Returns DeploymentApplyResult with bounded before/after metadata.
     """
+    from prefect_grace.tasks.prefect_submitter import MANAGED_PACKET_DEPLOYMENT_NAME
+    from prefect_grace.runtime_config import load_runtime_config
+
+    entrypoint = "prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow"
+    runtime = load_runtime_config()
+    working_directory = runtime.working_directory
+
     try:
-        from prefect_grace.tasks.prefect_submitter import MANAGED_PACKET_DEPLOYMENT_NAME
         from prefect.deployments.runner import RunnerDeployment
         from prefect.client.schemas.actions import DeploymentUpdate
         import os
+
+        # Check if deployment exists before apply
+        deployment_exists_before = False
+        try:
+            existing = prefect_client.read_deployment_by_name(MANAGED_PACKET_DEPLOYMENT_NAME)
+            deployment_exists_before = existing is not None
+        except Exception:
+            deployment_exists_before = False
+
+        # Validate entrypoint before apply
+        entrypoint_path, entrypoint_func = entrypoint.split(":")
+        entrypoint_file = Path(entrypoint_path)
+        if not entrypoint_file.exists():
+            return DeploymentApplyResult(
+                success=False,
+                deployment_name=MANAGED_PACKET_DEPLOYMENT_NAME,
+                deployment_id=None,
+                work_pool_name=work_pool_name,
+                work_queue_name=work_queue_name,
+                entrypoint=entrypoint,
+                working_directory=working_directory,
+                created=False,
+                prefect_runs_created=0,
+                live_agents_started=0,
+                entrypoint_not_inspectable=True,
+                working_directory_not_inspectable=True,
+                errors=[{"type": "INVALID_ENTRYPOINT", "message": f"Entrypoint file not found: {entrypoint_path}"}],
+            )
 
         # Get deployment name parts
         flow_name, deployment_name = MANAGED_PACKET_DEPLOYMENT_NAME.split("/")
 
         # Create deployment from entrypoint
         deployment = RunnerDeployment.from_entrypoint(
-            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            entrypoint=entrypoint,
             name=deployment_name,
             work_pool_name=work_pool_name,
             work_queue_name=work_queue_name,
@@ -570,16 +640,13 @@ def apply_managed_packet_deployment_helper(
             deployment_id = str(deployment.apply(work_pool_name=work_pool_name))
 
             # Update deployment with working directory
-            from prefect_grace.runtime_config import load_runtime_config
-            runtime = load_runtime_config()
-
             prefect_client.update_deployment(
                 deployment_id=deployment_id,
                 deployment=DeploymentUpdate(
                     pull_steps=[
                         {
                             "prefect.deployments.steps.set_working_directory": {
-                                "directory": runtime.working_directory,
+                                "directory": working_directory,
                             }
                         }
                     ],
@@ -587,7 +654,21 @@ def apply_managed_packet_deployment_helper(
                 ),
             )
 
-            return True, deployment_id, []
+            return DeploymentApplyResult(
+                success=True,
+                deployment_name=MANAGED_PACKET_DEPLOYMENT_NAME,
+                deployment_id=deployment_id,
+                work_pool_name=work_pool_name,
+                work_queue_name=work_queue_name,
+                entrypoint=entrypoint,
+                working_directory=working_directory,
+                created=not deployment_exists_before,
+                prefect_runs_created=0,
+                live_agents_started=0,
+                entrypoint_not_inspectable=True,  # Prefect API does not reliably expose entrypoint
+                working_directory_not_inspectable=True,  # Prefect API does not reliably expose working_directory
+                errors=[],
+            )
         finally:
             if old_api_url is not None:
                 os.environ["PREFECT_API_URL"] = old_api_url
@@ -595,6 +676,20 @@ def apply_managed_packet_deployment_helper(
                 os.environ.pop("PREFECT_API_URL", None)
 
     except Exception as e:
-        return False, None, [{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}]
+        return DeploymentApplyResult(
+            success=False,
+            deployment_name=MANAGED_PACKET_DEPLOYMENT_NAME,
+            deployment_id=None,
+            work_pool_name=work_pool_name,
+            work_queue_name=work_queue_name,
+            entrypoint=entrypoint,
+            working_directory=working_directory,
+            created=False,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            entrypoint_not_inspectable=True,
+            working_directory_not_inspectable=True,
+            errors=[{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}],
+        )
 
 # END_BLOCK: deployment_helper

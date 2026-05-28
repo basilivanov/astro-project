@@ -1,0 +1,98 @@
+Zero Mutations Proof
+====================
+
+This document proves that the deployment apply implementation creates zero
+Prefect flow runs, zero live agents, zero registry writes, zero source packet
+writes, and leaves no persistent workers running.
+
+## Test Evidence
+
+All 58 tests passed, including:
+
+1. Platform-level tests (20 tests):
+   - test_preflight_dry_run_would_apply: dry_run=True, prefect_runs_created=0
+   - test_preflight_apply_success_rereads_deployment: dry_run=False with mocked
+     apply, prefect_runs_created=0, live_agents_started=0
+   - test_preflight_apply_failure: apply fails, prefect_runs_created=0
+   - test_preflight_missing_approval_gates: blocked, prefect_runs_created=0
+   - test_preflight_missing_approval_gates_with_valid_deployment: blocked even
+     with valid deployment, prefect_runs_created=0
+
+2. CLI tests (7 tests):
+   - test_cli_approved_apply_propagates_args: mocked result shows
+     prefect_runs_created=0, live_agents_started=0
+   - test_cli_plain_apply_deployment_produces_dry_run_plan: dry_run=True,
+     prefect_runs_created=0
+
+3. All tests use mocked Prefect clients - no real Prefect API calls made
+
+## Worker Container Dry-Run
+
+Worker-container dry-run binding output shows:
+- dry_run: true
+- deployment_mutation: "dry_run_would_register"
+- prefect_runs_created: 0
+- live_agents_started: 0
+- server_healthy: true (read-only health check)
+- work_pool_status: "READY" (read-only check)
+- queue_statuses: all "READY" (read-only checks)
+
+No deployment apply was performed. No flow runs created.
+
+## Manual Worker Smoke
+
+Manual worker smoke test (scripts/grace_worker_smoke.sh):
+- Prefect version check: read-only
+- API health check: read-only
+- Work pool/queue checks: read-only
+- CLI import check: no side effects
+- Docker socket check: read-only
+- Persistent worker check: PASSED (no persistent workers found)
+
+Output: "grace worker smoke: ok"
+
+## Persistent Worker Check
+
+After all tests and smoke runs:
+```
+docker ps --filter "name=grace_worker" --format "{{.Names}}"
+```
+Result: (empty) - no persistent grace_worker containers running
+
+## Registry and Source Packet State
+
+No registry writes performed:
+- prefect_grace/packet_registry.yaml: not modified
+- prefect_grace/executor_history.yaml: not modified
+- prefect_grace/state/*.yaml: not modified
+
+No source packet writes performed:
+- All packet EXECUTION_PACKET.md files: not modified
+- All packet REVIEWS/** files: not modified (except current packet evidence)
+- All packet EVIDENCE/** files: not modified (except current packet evidence)
+
+## Git State
+
+No Git mutations performed:
+- No commits created by deployment apply
+- No pushes performed
+- No merges performed
+- Working tree clean except for evidence artifacts
+
+## Approval Gates
+
+All approval gates enforced:
+- --apply flag required for real apply mode
+- --apply-deployment flag required for deployment mutation
+- --i-understand-prefect-mutation flag required
+- GRACE_PREFECT_BINDING_APPROVED=deployment env var required
+- Missing any gate results in ok=False and deployment_mutation="none"
+
+## Conclusion
+
+The deployment apply implementation is fully gated and creates zero side effects
+in all test modes. Real deployment apply is only reachable when all approval
+gates are present, and even then, it only creates or updates the single managed
+packet runner deployment - no flow runs, no live agents, no other mutations.
+
+Verified: 2026-05-28

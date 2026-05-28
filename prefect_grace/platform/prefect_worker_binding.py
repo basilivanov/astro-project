@@ -66,6 +66,7 @@ class PrefectWorkerBindingResult:
     - deployment_parameters_valid: Whether deployment parameters match expected
     - worker_runtime_smoke: Worker runtime smoke test results
     - deployment_mutation: Mutation status (none, dry_run_would_register, applied)
+    - deployment_apply_result: Bounded before/after deployment metadata (None if not applied)
     - prefect_runs_created: Count of Prefect flow runs created
     - live_agents_started: Count of live agents started
     - warnings: List of warning messages
@@ -90,6 +91,7 @@ class PrefectWorkerBindingResult:
     deployment_parameters_valid: bool
     worker_runtime_smoke: dict[str, Any]
     deployment_mutation: str
+    deployment_apply_result: dict[str, Any] | None
     prefect_runs_created: int
     live_agents_started: int
     warnings: list[str] = field(default_factory=list)
@@ -127,6 +129,7 @@ class PrefectWorkerBindingResult:
             "deployment_parameters_valid": self.deployment_parameters_valid,
             "worker_runtime_smoke": dict(self.worker_runtime_smoke),
             "deployment_mutation": self.deployment_mutation,
+            "deployment_apply_result": self.deployment_apply_result,
             "prefect_runs_created": self.prefect_runs_created,
             "live_agents_started": self.live_agents_started,
             "warnings": list(self.warnings),
@@ -208,17 +211,32 @@ def _check_queues(prefect_client: Any, work_pool_name: str, required_queues: lis
 
 # START_BLOCK: deployment_apply
 
-def _apply_managed_packet_deployment(prefect_client: Any, api_url: str, work_pool_name: str, work_queue_name: str) -> tuple[bool, str | None, list[dict[str, Any]]]:
+def _apply_managed_packet_deployment(prefect_client: Any, api_url: str, work_pool_name: str, work_queue_name: str):
     """Apply the managed packet runner deployment.
 
     Delegates to runtime_adapter since it requires prefect imports.
-    Returns (success, deployment_id, errors).
+    Returns DeploymentApplyResult.
     """
     try:
         from prefect_grace.platform.runtime_adapter import apply_managed_packet_deployment_helper
         return apply_managed_packet_deployment_helper(prefect_client, api_url, work_pool_name, work_queue_name)
     except Exception as e:
-        return False, None, [{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}]
+        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+        return DeploymentApplyResult(
+            success=False,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id=None,
+            work_pool_name=work_pool_name,
+            work_queue_name=work_queue_name,
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="",
+            created=False,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            entrypoint_not_inspectable=True,
+            working_directory_not_inspectable=True,
+            errors=[{"type": "DEPLOYMENT_APPLY_FAILED", "message": f"Failed to apply deployment: {e}"}],
+        )
 
 # END_BLOCK: deployment_apply
 
@@ -248,7 +266,16 @@ def _run_worker_smoke_test(prefect_client: Any, work_pool_name: str, work_queue_
 # START_BLOCK: deployment_validation
 
 def _check_deployment(prefect_client: Any, deployment_name: str, expected_work_pool: str, expected_queue: str) -> tuple[bool, str | None, str | None, bool, list[dict[str, Any]]]:
-    """Check deployment exists and has correct routing."""
+    """Check deployment exists and has correct routing.
+
+    Returns: (exists, work_pool, work_queue, parameters_valid, errors)
+
+    Note: This function checks work_pool and work_queue. Entrypoint and working
+    directory validation is not implemented because Prefect's deployment object
+    may not reliably expose these fields via the API. The deployment apply path
+    validates entrypoint before apply, and the bounded apply result includes
+    entrypoint and working_directory metadata for audit.
+    """
     try:
         # Parse deployment name (format: flow_name/deployment_name)
         parts = deployment_name.split("/")
@@ -280,6 +307,14 @@ def _check_deployment(prefect_client: Any, deployment_name: str, expected_work_p
         if dep_work_queue != expected_queue:
             errors.append({"type": "DEPLOYMENT_WRONG_QUEUE", "message": f"Deployment work queue is '{dep_work_queue}', expected '{expected_queue}'"})
             parameters_valid = False
+
+        # Note: Entrypoint and working directory are not inspected here.
+        # Rationale:
+        # - Prefect's deployment API may not reliably expose entrypoint/path/pull_steps
+        # - The apply path validates entrypoint before mutation
+        # - The bounded apply result includes entrypoint and working_directory for audit
+        # - If these fields become reliably available, add validation here and update
+        #   the deployment_apply_result to include not_inspectable flags
 
         return True, dep_work_pool, dep_work_queue, parameters_valid, errors
 
@@ -367,6 +402,7 @@ def run_prefect_worker_binding_preflight(
             deployment_parameters_valid=False,
             worker_runtime_smoke={},
             deployment_mutation="none",
+            deployment_apply_result=None,
             prefect_runs_created=0,
             live_agents_started=0,
             errors=[{"type": "PROJECT_CONFIG_LOAD_FAILED", "message": f"Failed to load project config: {e}"}],
@@ -416,6 +452,7 @@ def run_prefect_worker_binding_preflight(
             deployment_parameters_valid=False,
             worker_runtime_smoke={},
             deployment_mutation="none",
+            deployment_apply_result=None,
             prefect_runs_created=0,
             live_agents_started=0,
             errors=[{"type": "PREFECT_CLIENT_REQUIRED", "message": "Prefect client must be injected (no client provided)"}],
@@ -448,6 +485,7 @@ def run_prefect_worker_binding_preflight(
             deployment_parameters_valid=False,
             worker_runtime_smoke={},
             deployment_mutation="none",
+            deployment_apply_result=None,
             prefect_runs_created=0,
             live_agents_started=0,
             errors=errors,
@@ -471,6 +509,7 @@ def run_prefect_worker_binding_preflight(
 
     # Determine deployment mutation status
     deployment_mutation = "none"
+    deployment_apply_result = None
     if apply_deployment:
         if not acknowledge_prefect_mutation:
             errors.append({"type": "DEPLOYMENT_APPLY_NOT_ACKNOWLEDGED", "message": "Deployment apply requires --i-understand-prefect-mutation flag"})
@@ -481,12 +520,14 @@ def run_prefect_worker_binding_preflight(
             deployment_mutation = "dry_run_would_apply"
         else:
             # Live mode: actually apply deployment
-            apply_success, deployment_id, apply_errors = _apply_managed_packet_deployment(
+            apply_result = _apply_managed_packet_deployment(
                 prefect_client, api_url, work_pool_name, "grace-live"
             )
-            if apply_success:
+            deployment_apply_result = apply_result.to_dict()
+
+            if apply_result.success:
                 deployment_mutation = "applied"
-                warnings.append(f"Deployment applied: {deployment_id}")
+                warnings.append(f"Deployment {'created' if apply_result.created else 'updated'}: {apply_result.deployment_id}")
 
                 # Re-read deployment after successful apply to get consistent state
                 deployment_exists, dep_work_pool, dep_work_queue, parameters_valid, reread_errors = _check_deployment(
@@ -500,7 +541,7 @@ def run_prefect_worker_binding_preflight(
                 errors.extend(reread_errors)
             else:
                 deployment_mutation = "apply_failed"
-                errors.extend(apply_errors)
+                errors.extend(apply_result.errors)
     elif not deployment_exists:
         deployment_mutation = "dry_run_would_register"
 
@@ -541,6 +582,7 @@ def run_prefect_worker_binding_preflight(
         deployment_parameters_valid=parameters_valid,
         worker_runtime_smoke=worker_runtime_smoke,
         deployment_mutation=deployment_mutation,
+        deployment_apply_result=deployment_apply_result,
         prefect_runs_created=0,
         live_agents_started=0,
         warnings=warnings,

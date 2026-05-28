@@ -327,8 +327,24 @@ class TestPreflightApplyPath:
 
         # Mock apply helper to succeed
         from unittest.mock import patch
+        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+
+        mock_apply_result = DeploymentApplyResult(
+            success=True,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id="dep-123",
+            work_pool_name="astro-process",
+            work_queue_name="grace-live",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="/opt/astro-project",
+            created=True,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            errors=[],
+        )
+
         with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
-            mock_apply.return_value = (True, "dep-123", [])
+            mock_apply.return_value = mock_apply_result
 
             # Run preflight in apply mode
             result = run_prefect_worker_binding_preflight(
@@ -359,6 +375,14 @@ class TestPreflightApplyPath:
         # Should not have DEPLOYMENT_NOT_FOUND error
         assert not any(e["type"] == "DEPLOYMENT_NOT_FOUND" for e in result.errors)
 
+        # Should have deployment_apply_result
+        assert result.deployment_apply_result is not None
+        assert result.deployment_apply_result["success"] is True
+        assert result.deployment_apply_result["deployment_id"] == "dep-123"
+        assert result.deployment_apply_result["created"] is True
+        assert result.deployment_apply_result["prefect_runs_created"] == 0
+        assert result.deployment_apply_result["live_agents_started"] == 0
+
         # Should be ok
         assert result.ok is True
 
@@ -387,8 +411,24 @@ class TestPreflightApplyPath:
 
         # Mock apply helper to fail
         from unittest.mock import patch
+        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+
+        mock_apply_result = DeploymentApplyResult(
+            success=False,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id=None,
+            work_pool_name="astro-process",
+            work_queue_name="grace-live",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="/opt/astro-project",
+            created=False,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            errors=[{"type": "DEPLOYMENT_APPLY_FAILED", "message": "Apply failed"}],
+        )
+
         with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
-            mock_apply.return_value = (False, None, [{"type": "DEPLOYMENT_APPLY_FAILED", "message": "Apply failed"}])
+            mock_apply.return_value = mock_apply_result
 
             # Run preflight in apply mode
             result = run_prefect_worker_binding_preflight(
@@ -410,8 +450,179 @@ class TestPreflightApplyPath:
         # Should have apply failure error
         assert any(e["type"] == "DEPLOYMENT_APPLY_FAILED" for e in result.errors)
 
+        # Should have deployment_apply_result
+        assert result.deployment_apply_result is not None
+        assert result.deployment_apply_result["success"] is False
+        assert result.deployment_apply_result["deployment_id"] is None
+
         # Should not be ok
         assert result.ok is False
+
+    def test_preflight_invalid_entrypoint_blocks_apply(self, tmp_path, monkeypatch):
+        """Test invalid entrypoint fails closed before apply."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        # Mock deployment - not found
+        mock_client.read_deployment_by_name = Mock(return_value=None)
+
+        # Mock the apply helper to return invalid entrypoint error
+        from unittest.mock import patch
+        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+
+        mock_apply_result = DeploymentApplyResult(
+            success=False,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id=None,
+            work_pool_name="astro-process",
+            work_queue_name="grace-live",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="/opt/astro-project",
+            created=False,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            errors=[{"type": "INVALID_ENTRYPOINT", "message": "Entrypoint file not found: prefect_grace/flows/managed_packet_runner_flow.py"}],
+        )
+
+        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
+            mock_apply.return_value = mock_apply_result
+
+            # Run preflight in apply mode
+            result = run_prefect_worker_binding_preflight(
+                project_config=project_config,
+                dry_run=False,
+                apply_deployment=True,
+                acknowledge_prefect_mutation=True,
+                approval_token="deployment",
+                run_worker_smoke=False,
+                prefect_client=mock_client,
+            )
+
+        # Should report apply_failed (not applied)
+        assert result.dry_run is False
+        assert result.deployment_mutation == "apply_failed"
+        assert result.prefect_runs_created == 0
+        assert result.live_agents_started == 0
+
+        # Should have INVALID_ENTRYPOINT error
+        assert any(e["type"] == "INVALID_ENTRYPOINT" for e in result.errors)
+
+        # Should have deployment_apply_result showing failure
+        assert result.deployment_apply_result is not None
+        assert result.deployment_apply_result["success"] is False
+        assert result.deployment_apply_result["deployment_id"] is None
+
+        # Should not be ok
+        assert result.ok is False
+
+    def test_preflight_apply_created_vs_updated(self, tmp_path, monkeypatch):
+        """Test apply correctly reports created vs updated."""
+        project_config = tmp_path / "grace.yaml"
+        project_config.write_text("project_key: test-project\n")
+
+        # Mock Prefect client
+        mock_client = Mock()
+        mock_client.api_healthcheck = Mock()
+
+        # Mock work pool
+        mock_pool = Mock()
+        mock_pool.type = "process"
+        mock_pool.is_paused = False
+        mock_client.read_work_pool = Mock(return_value=mock_pool)
+
+        # Mock queues
+        mock_queue = Mock()
+        mock_queue.is_paused = False
+        mock_client.read_work_queue_by_name = Mock(return_value=mock_queue)
+
+        from unittest.mock import patch
+        from prefect_grace.platform.runtime_adapter import DeploymentApplyResult
+
+        # Test case 1: deployment doesn't exist -> created=True
+        mock_deployment = Mock()
+        mock_deployment.work_pool_name = "astro-process"
+        mock_deployment.work_queue_name = "grace-live"
+        mock_client.read_deployment_by_name = Mock(side_effect=[None, mock_deployment])
+
+        mock_apply_result_created = DeploymentApplyResult(
+            success=True,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id="dep-123",
+            work_pool_name="astro-process",
+            work_queue_name="grace-live",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="/opt/astro-project",
+            created=True,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            errors=[],
+        )
+
+        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
+            mock_apply.return_value = mock_apply_result_created
+
+            result = run_prefect_worker_binding_preflight(
+                project_config=project_config,
+                dry_run=False,
+                apply_deployment=True,
+                acknowledge_prefect_mutation=True,
+                approval_token="deployment",
+                run_worker_smoke=False,
+                prefect_client=mock_client,
+            )
+
+        assert result.deployment_mutation == "applied"
+        assert result.deployment_apply_result["created"] is True
+        assert "created" in result.warnings[0].lower()
+
+        # Test case 2: deployment exists -> created=False (updated)
+        mock_client.read_deployment_by_name = Mock(side_effect=[mock_deployment, mock_deployment])
+
+        mock_apply_result_updated = DeploymentApplyResult(
+            success=True,
+            deployment_name="prefect-grace-managed-packet-runner/live-managed-packet-runner",
+            deployment_id="dep-456",
+            work_pool_name="astro-process",
+            work_queue_name="grace-live",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
+            working_directory="/opt/astro-project",
+            created=False,
+            prefect_runs_created=0,
+            live_agents_started=0,
+            errors=[],
+        )
+
+        with patch("prefect_grace.platform.prefect_worker_binding._apply_managed_packet_deployment") as mock_apply:
+            mock_apply.return_value = mock_apply_result_updated
+
+            result = run_prefect_worker_binding_preflight(
+                project_config=project_config,
+                dry_run=False,
+                apply_deployment=True,
+                acknowledge_prefect_mutation=True,
+                approval_token="deployment",
+                run_worker_smoke=False,
+                prefect_client=mock_client,
+            )
+
+        assert result.deployment_mutation == "applied"
+        assert result.deployment_apply_result["created"] is False
+        assert "updated" in result.warnings[0].lower()
 
     def test_preflight_missing_approval_gates(self, tmp_path):
         """Test apply without approval gates is blocked."""
