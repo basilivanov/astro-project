@@ -227,26 +227,21 @@ def _apply_managed_packet_deployment(prefect_client: Any, api_url: str, work_poo
 def _run_worker_smoke_test(prefect_client: Any, work_pool_name: str, work_queue_name: str) -> dict[str, Any]:
     """Run worker runtime smoke test.
 
-    Returns dict with smoke_ran, ok, and optional error fields.
+    This is a placeholder that fails closed. A full implementation would:
+    - Run scripts/grace_worker_smoke.sh or equivalent one-shot container
+    - Verify image built/present, Prefect version, API health, work pool/queues
+    - Check CLI import, Docker socket, persistent worker count
+    - Return bounded summary with no flow runs, no live agents
+
+    For now, this fails closed to prevent false positives.
+
+    Returns dict with smoke_ran, ok, and error fields.
     """
-    try:
-        # For now, just verify we can read the work pool and queue
-        # A full smoke test would start a worker process and verify it can pick up work
-        # But that's beyond the scope of a preflight check
-
-        work_pool = prefect_client.read_work_pool(work_pool_name)
-        if not work_pool:
-            return {"smoke_ran": True, "ok": False, "error": "Work pool not found"}
-
-        queue = prefect_client.read_work_queue_by_name(work_queue_name, work_pool_name)
-        if not queue:
-            return {"smoke_ran": True, "ok": False, "error": "Work queue not found"}
-
-        # Basic smoke passed: infrastructure is readable
-        return {"smoke_ran": True, "ok": True}
-
-    except Exception as e:
-        return {"smoke_ran": True, "ok": False, "error": f"Smoke test failed: {e}"}
+    return {
+        "smoke_ran": False,
+        "ok": False,
+        "error": "Worker runtime smoke not implemented. Use scripts/grace_worker_smoke.sh for manual validation."
+    }
 
 # END_BLOCK: worker_smoke
 

@@ -232,3 +232,22 @@ class TestDeployment:
         assert not valid
         assert len(errors) == 1
         assert errors[0]["type"] == "DEPLOYMENT_WRONG_QUEUE"
+
+    def test_deployment_entrypoint_exists(self):
+        """Test that the managed packet runner flow entrypoint exists."""
+        from pathlib import Path
+        import importlib.util
+
+        # Check file exists
+        flow_file = Path("prefect_grace/flows/managed_packet_runner_flow.py")
+        assert flow_file.exists(), f"Flow file not found: {flow_file}"
+
+        # Check module can be imported
+        spec = importlib.util.spec_from_file_location("managed_packet_runner_flow", flow_file)
+        assert spec is not None, "Could not load module spec"
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Check function exists
+        assert hasattr(module, "managed_packet_runner_flow"), "Flow function not found in module"
+        assert callable(module.managed_packet_runner_flow), "managed_packet_runner_flow is not callable"

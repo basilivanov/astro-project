@@ -555,7 +555,7 @@ def apply_managed_packet_deployment_helper(
 
         # Create deployment from entrypoint
         deployment = RunnerDeployment.from_entrypoint(
-            entrypoint="prefect_grace/flows/managed_packet_runner.py:managed_packet_runner",
+            entrypoint="prefect_grace/flows/managed_packet_runner_flow.py:managed_packet_runner_flow",
             name=deployment_name,
             work_pool_name=work_pool_name,
             work_queue_name=work_queue_name,
