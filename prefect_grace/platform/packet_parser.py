@@ -425,6 +425,15 @@ def _infer_wave_from_packet(packet_id: str) -> str:
     return w_match.group(1) if w_match else ""
 
 
+def _looks_like_packet_id(candidate: str) -> bool:
+    candidate = candidate.strip().strip("`'\"")
+    if not candidate or " " in candidate:
+        return False
+    if not re.match(r"^[A-Z0-9]+(?:-[A-Z0-9]+)*$", candidate):
+        return False
+    return bool(re.search(r"(?:^|-)W\d+[A-Z]?(?:\.\d+[A-Z]?)?(?:-|$)", candidate))
+
+
 # START_FUNCTION_CONTRACT
 # name: parse_packet_markdown
 # purpose: Parses packet markdown file/content and performs structural validation.
@@ -465,9 +474,11 @@ def parse_packet_markdown(
             re.IGNORECASE,
         )
         if id_match:
-            packet_id = id_match.group(1).strip()
-            markdown_packet_ids.append(packet_id)
             title = first_heading.split(":", 1)[1].strip()
+            h1_packet_id = id_match.group(1).strip()
+            if _looks_like_packet_id(h1_packet_id):
+                packet_id = h1_packet_id
+                markdown_packet_ids.append(packet_id)
         else:
             controller_match = re.match(
                 r"^Controller\s+Packet\s+[—-]\s*([^:]+)\s*:\s*(.+)$",
@@ -475,9 +486,11 @@ def parse_packet_markdown(
                 re.IGNORECASE,
             )
             if controller_match:
-                packet_id = controller_match.group(1).strip()
-                markdown_packet_ids.append(packet_id)
-                wave_id = packet_id
+                h1_packet_id = controller_match.group(1).strip()
+                if _looks_like_packet_id(h1_packet_id):
+                    packet_id = h1_packet_id
+                    markdown_packet_ids.append(packet_id)
+                    wave_id = packet_id
                 title = controller_match.group(2).strip()
             else:
                 title = first_heading

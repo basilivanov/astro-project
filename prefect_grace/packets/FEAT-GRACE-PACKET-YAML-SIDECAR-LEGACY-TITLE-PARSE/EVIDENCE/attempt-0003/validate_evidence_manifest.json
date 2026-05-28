@@ -1,0 +1,193 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+    "evidence_count": 7,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SUMMARY",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-PREVIOUS-PYTEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-PREVIOUS-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-STRICT-VALIDATE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SELF-SIDECAR",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SELF-SIDECAR not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-MANIFEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SCOPE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-DIFF",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 844,
+          "hash": "0cbb87a0b906bd3e2831cdd77d53d66876408205965a10316989c8e1ef86f3f7"
+        },
+        {
+          "path": "previous_targeted_pytest.txt",
+          "exists": true,
+          "size": 152,
+          "hash": "22e651049f5aed640556990b813b6583ff372c65fce7f6af77fce4afd45f7f5d"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 9738,
+          "hash": "a2e57741bf3a2a213324a902587da7e6fbeffe2618799ee2eb34fd87130fedb4"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1395,
+          "hash": "406904f425f811bf9c27c365d8ce067ba33ef857c7d7c279e540e98b6c8946b4"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 15594,
+          "hash": "ac0c132fc943fe20040aa444b59e7c4b1335c6c96e84e1161d527119d8f6d462"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+    "evidence_count": 7,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SUMMARY",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-PREVIOUS-PYTEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-PREVIOUS-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-STRICT-VALIDATE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SELF-SIDECAR",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SELF-SIDECAR not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-MANIFEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SCOPE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-DIFF",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-DAG-REWORK-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 844,
+          "hash": "0cbb87a0b906bd3e2831cdd77d53d66876408205965a10316989c8e1ef86f3f7"
+        },
+        {
+          "path": "previous_targeted_pytest.txt",
+          "exists": true,
+          "size": 152,
+          "hash": "22e651049f5aed640556990b813b6583ff372c65fce7f6af77fce4afd45f7f5d"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 9738,
+          "hash": "a2e57741bf3a2a213324a902587da7e6fbeffe2618799ee2eb34fd87130fedb4"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1395,
+          "hash": "406904f425f811bf9c27c365d8ce067ba33ef857c7d7c279e540e98b6c8946b4"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 15594,
+          "hash": "ac0c132fc943fe20040aa444b59e7c4b1335c6c96e84e1161d527119d8f6d462"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,259 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+    "evidence_count": 10,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SUMMARY",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-PYTEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-COMPILE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-LINT",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-AUDIT",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SYNC",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-STRICT-VALIDATE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-MANIFEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SCOPE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-DIFF",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1255,
+          "hash": "71f523f41b9d5ed12331a1b2d3297890cf78ecc00b9b88e56a6687215b86e1ec"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "d4edf3b5485f87f9ef40fcf36d6b54861b41b480a7069178b4ed04d33107501c"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "9760b87e3517b7c356aef537bce8ae379f81c78736063a237a68dc4e56817382"
+        },
+        {
+          "path": "cli_audit_sidecars.json",
+          "exists": true,
+          "size": 66257,
+          "hash": "7c56b65aa16b39a8c9cfcd10eacb934f9e25e9891079eedcc2e0d06b4a86de21"
+        },
+        {
+          "path": "sync_packets_dry_run.json",
+          "exists": true,
+          "size": 11758,
+          "hash": "7ebf3f182f565badea8d331a632acc6c2929765bd3557a19b11f07b0f7ec0e43"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 9994,
+          "hash": "e9d014602188e608162786e5ad513ae308dbdde970bed3668da4e4bafe13102d"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 12574,
+          "hash": "2b98f984116c195d8d39b4b3cc86fd6b1f59ed18c8bbda55b4e3ee80dc8ad0b5"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+    "evidence_count": 10,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SUMMARY",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-PYTEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-PYTEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-COMPILE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-COMPILE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-LINT",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-LINT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-AUDIT",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SYNC",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-STRICT-VALIDATE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-MANIFEST",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-SCOPE",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-LEGACY-TITLE-PARSE-REWORK-DIFF",
+          "message": "Evidence EV-LEGACY-TITLE-PARSE-REWORK-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1255,
+          "hash": "71f523f41b9d5ed12331a1b2d3297890cf78ecc00b9b88e56a6687215b86e1ec"
+        },
+        {
+          "path": "targeted_pytest.txt",
+          "exists": true,
+          "size": 99,
+          "hash": "d4edf3b5485f87f9ef40fcf36d6b54861b41b480a7069178b4ed04d33107501c"
+        },
+        {
+          "path": "compile_output.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "lint_output.txt",
+          "exists": true,
+          "size": 111,
+          "hash": "9760b87e3517b7c356aef537bce8ae379f81c78736063a237a68dc4e56817382"
+        },
+        {
+          "path": "cli_audit_sidecars.json",
+          "exists": true,
+          "size": 66257,
+          "hash": "7c56b65aa16b39a8c9cfcd10eacb934f9e25e9891079eedcc2e0d06b4a86de21"
+        },
+        {
+          "path": "sync_packets_dry_run.json",
+          "exists": true,
+          "size": 11758,
+          "hash": "7ebf3f182f565badea8d331a632acc6c2929765bd3557a19b11f07b0f7ec0e43"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 9994,
+          "hash": "e9d014602188e608162786e5ad513ae308dbdde970bed3668da4e4bafe13102d"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 12574,
+          "hash": "2b98f984116c195d8d39b4b3cc86fd6b1f59ed18c8bbda55b4e3ee80dc8ad0b5"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

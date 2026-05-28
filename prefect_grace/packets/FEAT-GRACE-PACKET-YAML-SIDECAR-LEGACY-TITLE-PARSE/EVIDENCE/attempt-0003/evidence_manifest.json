@@ -1,0 +1,79 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Reworked packet DAG metadata so this prerequisite depends on the accepted source-hash reconcile packet and unblocks missing-sidecar rework.",
+  "evidence": [
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "SUMMARY.md"
+      ],
+      "summary": "DAG metadata rework summary and verification verdict."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-PREVIOUS-PYTEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "previous_targeted_pytest.txt"
+      ],
+      "summary": "Previous attempt-0002 targeted pytest result retained because attempt-0003 changed only packet metadata."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-STRICT-VALIDATE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "strict_validate_packet.json"
+      ],
+      "summary": "Strict packet validation output after dependency metadata update."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SELF-SIDECAR",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "self_sidecar_sync_dry_run.json"
+      ],
+      "summary": "Self sidecar sync dry-run proves the adjacent YAML sidecar is already canonical."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-MANIFEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "Evidence manifest validation output."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-SCOPE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Changed files are within allowed packet scope with no frozen violations."
+    },
+    {
+      "id": "EV-LEGACY-TITLE-PARSE-DAG-REWORK-DIFF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git",
+      "artifact_paths": [
+        "diff_check.txt"
+      ],
+      "summary": "git diff whitespace check output."
+    }
+  ],
+  "blockers": []
+}

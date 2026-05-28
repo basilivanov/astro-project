@@ -50,6 +50,16 @@ def _write_packet_with_sidecar(tmp_path: Path, sidecar: dict) -> Path:
     return packet_path
 
 
+def _write_packet_content_with_sidecar(tmp_path: Path, content: str, sidecar: dict) -> Path:
+    packet_path = tmp_path / "EXECUTION_PACKET.md"
+    packet_path.write_text(content, encoding="utf-8")
+    packet_path.with_name("EXECUTION_PACKET.yaml").write_text(
+        yaml.safe_dump(sidecar, sort_keys=False),
+        encoding="utf-8",
+    )
+    return packet_path
+
+
 def test_parse_strict_packet_success() -> None:
     content = """# Execution Packet: FEAT-GRACE-ORCHESTRATOR-MVP-W01-TEST
 
@@ -96,6 +106,174 @@ Run pytest tests/test_core.py.
     assert parsed.expected_evidence == ["test results", "git diff"]
     assert parsed.escalation_triggers == ["Any test failures."]
     assert parsed.source_hash != ""
+
+
+def test_descriptive_execution_packet_h1_uses_explicit_packet_id_with_sidecar(tmp_path: Path) -> None:
+    content = """# Execution Packet: GRACE Agent API Failure Classification MVP
+
+## Slice
+- packet_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+- feature_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP
+- wave_id: W01
+
+## Objective
+Classify agent API failures.
+
+## Allowed Write Scope
+- prefect_grace/platform/agent_failure_classifier.py
+
+## Frozen Scope
+- backend/**
+
+## Must Preserve
+- No live provider calls.
+
+## Verification
+Run focused tests.
+
+## Expected Evidence
+- targeted pytest
+
+## Escalation Triggers
+- Sidecar id mismatch.
+"""
+    packet_path = _write_packet_content_with_sidecar(
+        tmp_path,
+        content,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER",
+        },
+    )
+
+    parsed = parse_packet_markdown(packet_path, mode="strict")
+
+    assert parsed.packet_id == (
+        "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER"
+    )
+    assert parsed.title == "GRACE Agent API Failure Classification MVP"
+
+
+def test_feature_like_execution_packet_h1_uses_explicit_packet_id_with_sidecar(tmp_path: Path) -> None:
+    content = """# Execution Packet: FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL
+
+## Slice
+- packet_id: FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL-W01-PAYLOAD
+- feature_id: FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL
+- wave_id: W01
+
+## Objective
+Retrieve pilot payload metadata.
+
+## Allowed Write Scope
+- prefect_grace/platform/prefect_live_pilot.py
+
+## Frozen Scope
+- backend/**
+
+## Must Preserve
+- No live provider calls.
+
+## Verification
+Run focused tests.
+
+## Expected Evidence
+- targeted pytest
+
+## Escalation Triggers
+- Sidecar id mismatch.
+"""
+    packet_path = _write_packet_content_with_sidecar(
+        tmp_path,
+        content,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL-W01-PAYLOAD",
+        },
+    )
+
+    parsed = parse_packet_markdown(packet_path, mode="strict")
+
+    assert parsed.packet_id == "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL-W01-PAYLOAD"
+    assert parsed.title == "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL"
+
+
+def test_sidecar_mismatch_against_explicit_packet_id_still_fails(tmp_path: Path) -> None:
+    content = """# Execution Packet: GRACE Agent API Failure Classification MVP
+
+## Slice
+- packet_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+- feature_id: FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP
+- wave_id: W01
+
+## Objective
+Classify agent API failures.
+
+## Allowed Write Scope
+- prefect_grace/platform/agent_failure_classifier.py
+
+## Frozen Scope
+- backend/**
+
+## Must Preserve
+- No live provider calls.
+
+## Verification
+Run focused tests.
+
+## Expected Evidence
+- targeted pytest
+
+## Escalation Triggers
+- Sidecar id mismatch.
+"""
+    packet_path = _write_packet_content_with_sidecar(
+        tmp_path,
+        content,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-WRONG-ID",
+        },
+    )
+
+    with pytest.raises(ValueError, match="YAML sidecar packet_id does not match markdown packet_id"):
+        parse_packet_markdown(packet_path, mode="strict")
+
+
+def test_h1_packet_id_without_explicit_packet_id_still_parses() -> None:
+    content = """# Execution Packet: FEAT-GRACE-H1-PACKET-ID-W01-PARSER-GUARD
+
+## Slice
+- feature_id: FEAT-GRACE-H1-PACKET-ID
+- wave_id: W01
+
+## Objective
+Keep H1 packet id parsing for strict packets.
+
+## Allowed Write Scope
+- prefect_grace/platform/packet_parser.py
+
+## Frozen Scope
+- backend/**
+
+## Must Preserve
+- H1 packet id parsing.
+
+## Verification
+Run focused tests.
+
+## Expected Evidence
+- targeted pytest
+
+## Escalation Triggers
+- Missing packet id.
+"""
+    parsed = parse_packet_markdown(content, mode="strict")
+
+    assert parsed.packet_id == "FEAT-GRACE-H1-PACKET-ID-W01-PARSER-GUARD"
 
 
 def test_parse_strict_packet_failure() -> None:
