@@ -1,0 +1,9 @@
+$ python3 scripts/grace_lint.py prefect_grace/platform/packet_parser.py
+[GRACE-LINT] All modules in prefect_grace/platform/packet_parser.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/platform/packet_yaml_sidecar_migration_plan.py
+[GRACE-LINT] All modules in prefect_grace/platform/packet_yaml_sidecar_migration_plan.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/cli_commands/evidence.py
+[GRACE-LINT] All modules in prefect_grace/cli_commands/evidence.py comply with GRACE Canon Script Discipline.
+$ python3 scripts/grace_lint.py prefect_grace/cli_commands/parser.py
+[GRACE-LINT] All modules in prefect_grace/cli_commands/parser.py comply with GRACE Canon Script Discipline.
+exit_code=0

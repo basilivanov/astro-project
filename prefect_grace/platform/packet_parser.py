@@ -16,6 +16,7 @@
 # mapping:
 #   - class: ParsedPacket
 #   - function: compute_normalized_source_hash
+#   - function: compute_packet_source_hash
 #   - function: packet_to_canonical_sidecar_payload
 #   - function: dump_packet_sidecar_payload
 #   - function: load_packet_sidecar_payload
@@ -108,6 +109,24 @@ def compute_normalized_source_hash(content: str) -> str:
     normalized_content = _normalized_markdown_source(content)
     digest = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
+
+
+# START_FUNCTION_CONTRACT
+# name: compute_packet_source_hash
+# purpose: Computes the parser-equivalent packet source hash for markdown plus optional sidecar payload.
+# inputs:
+#   content: raw markdown content.
+#   sidecar_payload: normalized sidecar payload, or None for markdown-only hashing.
+# returns: sha256-prefixed source hash string.
+# side_effects: none.
+# emitted_logs: none.
+# error_behavior: Propagates YAML serialization errors for non-serializable sidecar payloads.
+# END_FUNCTION_CONTRACT
+def compute_packet_source_hash(
+    content: str,
+    sidecar_payload: dict[str, Any] | None = None,
+) -> str:
+    return _compute_packet_source_hash(content, sidecar_payload)
 
 
 def _normalized_markdown_source(content: str) -> str:

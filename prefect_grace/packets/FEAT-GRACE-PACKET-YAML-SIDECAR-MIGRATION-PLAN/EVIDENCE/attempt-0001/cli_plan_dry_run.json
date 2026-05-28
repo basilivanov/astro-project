@@ -1,0 +1,323 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "plan-packet-yaml-sidecar-migration",
+  "result": {
+    "ok": true,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "project_key": "astro-project",
+    "registry_loaded": true,
+    "packets_total": 70,
+    "limit": 10,
+    "counts": {
+      "canonical": 3,
+      "no_sidecar": 64,
+      "stale_sidecar": 1,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "plan_count": 65,
+    "full_item_count": 65,
+    "risk_counts": {
+      "accepted_source_hash_change": 65
+    },
+    "items": [
+      {
+        "packet_id": "FEAT-ASTRO-CACHE-MANAGER-W01-LRU-CACHE",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0c5162ac97a249121e79c67980b575c6eb05da3b91d2cd7f7a57a3433b09aefe",
+        "planned_source_hash": "sha256:f777ba3ba3896405786e93aab322d2033b09981ef36897b84debd157e666a2de",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-DATA-VALIDATOR-W01-SCHEMA-VALIDATION",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:385e20b2bc3c7cc69ea5ddffde957f09ee28954611e01f1207a4673b845df145",
+        "planned_source_hash": "sha256:db4e6e6cfea33145c37d8de2c3ef8d47668070864f8c3ff6cdd9b4adc308f33c",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-DATE-FORMATTER-TEST-W01-ISO-DATE-UTILS",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:e41e260b44c0d861cbec85aec947e00154da2ba991479abe0dd7ba764bc6eb02",
+        "planned_source_hash": "sha256:aa7680aaf10be55c4bd06ed2d31486c4eb7cb7788582480a3a2589da1d18dd08",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:a73433431f30b33711ded7932cc7ca2d9f2845b805e75a2ea863fa25b1e9e4c4",
+        "planned_source_hash": "sha256:6bf3985bb71b09a6c55807d0af3f6d9882ae339e5174d8c8a44f72c4caf83cbf",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-USER-API-ENDPOINT-W01-USER-CRUD",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:26431cfe7dcbdbeea6f8493044bd15959239ddc05475dfeed799de95e8cea516",
+        "planned_source_hash": "sha256:c21dcd44e4baad5256ed909e21a9f6588f1fa658479e7b80be8d018f671b69c8",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:760c9c28f6576401349adc7e85aa42394902acbd7c2fe7beda9d1ba358e58ec6",
+        "planned_source_hash": "sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3",
+        "planned_source_hash": "sha256:91ade763366cbab5aaf25e269c22aa6c3c0f2e18b0fd09e8c3737590c64ec1f5",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:fecfbd8664f05851b779a869c4e7c6815ac44385aa7346840ce13fa57f4678e9",
+        "planned_source_hash": "sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:c4aa60b4a66a770e231c1523e750606257b90d1d9b6304a198d4a162a2351a56",
+        "planned_source_hash": "sha256:94943b7634282df8529b537df5a425dbd624546754e8a977e9de97ac2fe8f3a6",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:da80f844b235fe9541905d760e042e37c893e380196602b10813b0c8eeed01bb",
+        "planned_source_hash": "sha256:ff72a18fee6aa415a6b087edffdc5e2d79a7a5dee962e6061371f7dd062079df",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      }
+    ],
+    "items_truncated": true,
+    "findings": [
+      {
+        "classification": "skipped",
+        "packet_id": "",
+        "packet_path": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.yaml",
+        "reason": "Strict packet validation failed: Missing core fields/sections: feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+      },
+      {
+        "classification": "skipped",
+        "packet_id": "",
+        "packet_path": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.yaml",
+        "reason": "Strict packet validation failed: Missing core fields/sections: feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+      }
+    ],
+    "full_finding_count": 2,
+    "findings_truncated": false,
+    "warnings": [],
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "data": {
+    "ok": true,
+    "packet_root": "prefect_grace/packets",
+    "project": "prefect_grace/project.yaml",
+    "project_key": "astro-project",
+    "registry_loaded": true,
+    "packets_total": 70,
+    "limit": 10,
+    "counts": {
+      "canonical": 3,
+      "no_sidecar": 64,
+      "stale_sidecar": 1,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "plan_count": 65,
+    "full_item_count": 65,
+    "risk_counts": {
+      "accepted_source_hash_change": 65
+    },
+    "items": [
+      {
+        "packet_id": "FEAT-ASTRO-CACHE-MANAGER-W01-LRU-CACHE",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0c5162ac97a249121e79c67980b575c6eb05da3b91d2cd7f7a57a3433b09aefe",
+        "planned_source_hash": "sha256:f777ba3ba3896405786e93aab322d2033b09981ef36897b84debd157e666a2de",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-DATA-VALIDATOR-W01-SCHEMA-VALIDATION",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:385e20b2bc3c7cc69ea5ddffde957f09ee28954611e01f1207a4673b845df145",
+        "planned_source_hash": "sha256:db4e6e6cfea33145c37d8de2c3ef8d47668070864f8c3ff6cdd9b4adc308f33c",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-DATE-FORMATTER-TEST-W01-ISO-DATE-UTILS",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:e41e260b44c0d861cbec85aec947e00154da2ba991479abe0dd7ba764bc6eb02",
+        "planned_source_hash": "sha256:aa7680aaf10be55c4bd06ed2d31486c4eb7cb7788582480a3a2589da1d18dd08",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:a73433431f30b33711ded7932cc7ca2d9f2845b805e75a2ea863fa25b1e9e4c4",
+        "planned_source_hash": "sha256:6bf3985bb71b09a6c55807d0af3f6d9882ae339e5174d8c8a44f72c4caf83cbf",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-ASTRO-USER-API-ENDPOINT-W01-USER-CRUD",
+        "packet_path": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:26431cfe7dcbdbeea6f8493044bd15959239ddc05475dfeed799de95e8cea516",
+        "planned_source_hash": "sha256:c21dcd44e4baad5256ed909e21a9f6588f1fa658479e7b80be8d018f671b69c8",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:760c9c28f6576401349adc7e85aa42394902acbd7c2fe7beda9d1ba358e58ec6",
+        "planned_source_hash": "sha256:f967a5db6ee0b8abb6ce779278b460e0942387c641640ee9309f3830f74f9e6f",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:0051515021fba7d381b81ed5a9ec95b37ef5f380ae778a18c31331ae5b2fd7d3",
+        "planned_source_hash": "sha256:91ade763366cbab5aaf25e269c22aa6c3c0f2e18b0fd09e8c3737590c64ec1f5",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:fecfbd8664f05851b779a869c4e7c6815ac44385aa7346840ce13fa57f4678e9",
+        "planned_source_hash": "sha256:3fdc7de8b47e0f390a03b80d8025a70d5aeafd67d36353dd1d6a89b3b008e6a4",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:c4aa60b4a66a770e231c1523e750606257b90d1d9b6304a198d4a162a2351a56",
+        "planned_source_hash": "sha256:94943b7634282df8529b537df5a425dbd624546754e8a977e9de97ac2fe8f3a6",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      },
+      {
+        "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+        "packet_path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.yaml",
+        "planned_action": "create",
+        "registry_status": "accepted",
+        "current_source_hash": "sha256:da80f844b235fe9541905d760e042e37c893e380196602b10813b0c8eeed01bb",
+        "planned_source_hash": "sha256:ff72a18fee6aa415a6b087edffdc5e2d79a7a5dee962e6061371f7dd062079df",
+        "source_hash_changes": true,
+        "risk": "accepted_source_hash_change"
+      }
+    ],
+    "items_truncated": true,
+    "findings": [
+      {
+        "classification": "skipped",
+        "packet_id": "",
+        "packet_path": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.yaml",
+        "reason": "Strict packet validation failed: Missing core fields/sections: feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+      },
+      {
+        "classification": "skipped",
+        "packet_id": "",
+        "packet_path": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.md",
+        "sidecar_path": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.yaml",
+        "reason": "Strict packet validation failed: Missing core fields/sections: feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+      }
+    ],
+    "full_finding_count": 2,
+    "findings_truncated": false,
+    "warnings": [],
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "warnings": [],
+  "errors": []
+}

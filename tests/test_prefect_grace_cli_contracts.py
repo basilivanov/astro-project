@@ -169,6 +169,20 @@ def test_cli_registry_source_integrity_audit_contract() -> None:
     assert "--json" in result.stdout
 
 
+def test_cli_plan_packet_yaml_sidecar_migration_contract() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "prefect_grace.cli", "plan-packet-yaml-sidecar-migration", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "--packet-root" in result.stdout
+    assert "--project" in result.stdout
+    assert "--json" in result.stdout
+    assert "--limit" in result.stdout
+    assert "--apply" not in result.stdout
+
+
 def test_cli_registry_bootstrap_apply_contract() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "prefect_grace.cli", "registry-bootstrap-apply", "--help"],

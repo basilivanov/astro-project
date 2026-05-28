@@ -324,6 +324,54 @@ def _cmd_audit_packet_yaml_sidecars(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _cmd_plan_packet_yaml_sidecar_migration(args: argparse.Namespace) -> None:
+    command = "plan-packet-yaml-sidecar-migration"
+    try:
+        from prefect_grace.platform.packet_yaml_sidecar_migration_plan import (
+            plan_packet_yaml_sidecar_migration,
+        )
+
+        result = plan_packet_yaml_sidecar_migration(
+            getattr(args, "packet_root", "prefect_grace/packets"),
+            project=getattr(args, "project", "prefect_grace/project.yaml"),
+            limit=int(getattr(args, "limit", 20)),
+        )
+        payload = result.to_dict()
+
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"Packet YAML sidecar migration plan: {'OK' if result.ok else 'FAILED'}")
+            print(f"  packet_root: {result.packet_root}")
+            print(f"  project: {result.project}")
+            print(f"  packets_total: {result.packets_total}")
+            print(f"  plan_count: {result.plan_count}")
+            for class_name, count in result.counts.items():
+                print(f"  {class_name}: {count}")
+            if result.warnings:
+                print(f"  warnings: {len(result.warnings)}", file=sys.stderr)
+            if result.errors:
+                print(f"  errors: {len(result.errors)}", file=sys.stderr)
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "PLAN_PACKET_YAML_SIDECAR_MIGRATION_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Plan packet YAML sidecar migration failed: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
 def _cmd_validate_evidence_contract(args: argparse.Namespace) -> None:
     """Validate evidence contract from packet."""
     command = "validate-evidence-contract"

@@ -96,6 +96,7 @@ from prefect_grace.cli_commands.evidence import (
     _cmd_check_scope,
     _cmd_sync_packet_yaml_sidecar,
     _cmd_audit_packet_yaml_sidecars,
+    _cmd_plan_packet_yaml_sidecar_migration,
     _cmd_validate_evidence_contract,
     _cmd_validate_evidence_manifest,
 )
@@ -721,6 +722,29 @@ def _register_evidence_commands(subparsers) -> None:
         help="Maximum examples/errors per class, capped at 100",
     )
     audit_sidecars.set_defaults(func=_cmd_audit_packet_yaml_sidecars)
+
+    migration_plan = subparsers.add_parser(
+        "plan-packet-yaml-sidecar-migration",
+        help="Plan canonical EXECUTION_PACKET.yaml sidecar migration source-hash impact without writing",
+    )
+    migration_plan.add_argument(
+        "--packet-root",
+        default="prefect_grace/packets",
+        help="Root to search for strict EXECUTION_PACKET.md files",
+    )
+    migration_plan.add_argument(
+        "--project",
+        default="prefect_grace/project.yaml",
+        help="Project config path used to read runtime registry status",
+    )
+    migration_plan.add_argument("--json", action="store_true", help="JSON output")
+    migration_plan.add_argument(
+        "--limit",
+        type=_audit_limit,
+        default=20,
+        help="Maximum displayed plan items/findings, capped at 100",
+    )
+    migration_plan.set_defaults(func=_cmd_plan_packet_yaml_sidecar_migration)
 
     # validate-evidence-contract
     validate_contract = subparsers.add_parser("validate-evidence-contract", help="Validate evidence contract from packet")
