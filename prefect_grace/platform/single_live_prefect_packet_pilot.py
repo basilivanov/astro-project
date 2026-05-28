@@ -59,7 +59,7 @@ FROZEN_SCOPE = [
 ]
 
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class SingleLivePrefectPacketPilotResult:
     """Bounded result for the managed Prefect scratch packet pilot."""
@@ -107,8 +107,8 @@ class SingleLivePrefectPacketPilotResult:
         return asdict(self)
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_HELPERS
+#END_BLOCK_MODELS
+#START_BLOCK_HELPERS
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"code": code, "message": message, **extra}
 
@@ -474,8 +474,8 @@ def _status_reader_result(
     )
 
 
-# END_BLOCK_HELPERS
-# START_BLOCK_PILOT
+#END_BLOCK_HELPERS
+#START_BLOCK_PILOT
 # START_FUNCTION_CONTRACT
 # name: run_single_live_prefect_packet_pilot
 # purpose: Plan or run one synthetic scratch packet through managed Prefect submission.
@@ -745,4 +745,4 @@ def run_single_live_prefect_packet_pilot(
     )
 
 
-# END_BLOCK_PILOT
+#END_BLOCK_PILOT

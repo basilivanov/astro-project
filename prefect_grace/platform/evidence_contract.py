@@ -43,7 +43,7 @@ import re
 # Block: validator - Validate evidence contract schema
 # END_MODULE_MAP
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class EvidenceRequirement:
     """Typed evidence requirement specification.
@@ -159,8 +159,8 @@ class EvidenceContractValidation:
             "warnings": list(self.warnings),
         }
 
-# END_BLOCK_MODELS
-# START_BLOCK_VALIDATION_CONSTANTS
+#END_BLOCK_MODELS
+#START_BLOCK_VALIDATION_CONSTANTS
 # Allowed evidence kinds
 ALLOWED_KINDS = {
     "test",
@@ -200,8 +200,8 @@ ALLOWED_PRODUCERS = {
     "pipeline",
 }
 
-# END_BLOCK_VALIDATION_CONSTANTS
-# START_BLOCK_PARSER
+#END_BLOCK_VALIDATION_CONSTANTS
+#START_BLOCK_PARSER
 # START_FUNCTION_CONTRACT
 # Function: parse_evidence_contract
 # Purpose: Parse evidence requirements from packet markdown
@@ -257,8 +257,8 @@ def _parse_yaml_requirement(yaml_data: dict[str, Any]) -> EvidenceRequirement:
         artifact_patterns=yaml_data.get("artifact_patterns", []),
     )
 
-# END_BLOCK_PARSER
-# START_BLOCK_VALIDATOR
+#END_BLOCK_PARSER
+#START_BLOCK_VALIDATOR
 # START_FUNCTION_CONTRACT
 # Function: validate_evidence_contract
 # Purpose: Validate evidence contract schema
@@ -409,4 +409,4 @@ def validate_evidence_contract(
         warnings=warnings,
     )
 
-# END_BLOCK_VALIDATOR
+#END_BLOCK_VALIDATOR

@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-# START_BLOCK_LINE_LIMIT_GUARD
+#START_BLOCK_LINE_LIMIT_GUARD
 # Line limit thresholds
 RECOMMENDED_MAX_LINES = 400
 WARNING_THRESHOLD = 600
@@ -89,4 +89,4 @@ def check_line_limit(
         },
     }
 
-# END_BLOCK_LINE_LIMIT_GUARD
+#END_BLOCK_LINE_LIMIT_GUARD

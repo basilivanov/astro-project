@@ -24,7 +24,7 @@ from typing import Any
 
 import yaml
 
-# START_BLOCK_PROFILES_LOADER
+#START_BLOCK_PROFILES_LOADER
 REQUIRED_PROFILES = {
     "docs",
     "backend_quick",
@@ -78,4 +78,4 @@ def load_verification_profiles(config_path: Path | str | None = None) -> dict[st
 
     return profiles
 
-# END_BLOCK_PROFILES_LOADER
+#END_BLOCK_PROFILES_LOADER

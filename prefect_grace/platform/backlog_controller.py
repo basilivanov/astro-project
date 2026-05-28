@@ -40,7 +40,7 @@ from prefect_grace.platform.status_model import (
     is_runnable_registry_status,
 )
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass
 class BacklogSyncResult:
     project_key: str
@@ -66,8 +66,8 @@ class BacklogSubmissionPlan:
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
-# END_BLOCK_MODELS
-# START_BLOCK_HELPERS
+#END_BLOCK_MODELS
+#START_BLOCK_HELPERS
 # START_FUNCTION_CONTRACT
 # name: update_dependent_packets
 # purpose: Update cascading status when a dependency changes state.
@@ -123,8 +123,8 @@ def update_dependent_packets(
 
     return updated
 
-# END_BLOCK_HELPERS
-# START_BLOCK_CONTROLLER
+#END_BLOCK_HELPERS
+#START_BLOCK_CONTROLLER
 class BacklogController:
     # START_FUNCTION_CONTRACT
     # name: sync
@@ -441,4 +441,4 @@ class BacklogController:
 
         return plan
 
-# END_BLOCK_CONTROLLER
+#END_BLOCK_CONTROLLER

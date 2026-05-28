@@ -29,7 +29,7 @@ from typing import Any
 
 import yaml
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass
 class ParsedPacket:
     packet_id: str
@@ -51,8 +51,8 @@ class ParsedPacket:
     section_lines: dict[str, int] = field(default_factory=dict)
     legacy_warnings: list[str] = field(default_factory=list)
 
-# END_BLOCK_MODELS
-# START_BLOCK_PARSER_CORE
+#END_BLOCK_MODELS
+#START_BLOCK_PARSER_CORE
 # Sections to exclude from source hash computation
 EXCLUDED_SECTIONS_RE = re.compile(
     r"^#+\s+(evidence|reviewer\s+notes|review|runtime|artifacts)\b",
@@ -363,4 +363,4 @@ def parse_packet_markdown(
         legacy_warnings=legacy_warnings,
     )
 
-# END_BLOCK_PARSER_CORE
+#END_BLOCK_PARSER_CORE

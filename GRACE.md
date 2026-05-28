@@ -335,15 +335,15 @@ SHOULD иметь function contract.
 
 Пример:
 ```python
-# START_BLOCK_VALIDATION
+#START_BLOCK_VALIDATION
 def validate_packet(packet_data):
     ...
-# END_BLOCK_VALIDATION
+#END_BLOCK_VALIDATION
 
-# START_BLOCK_SUBMISSION
+#START_BLOCK_SUBMISSION
 def submit_to_prefect(packet_id):
     ...
-# END_BLOCK_SUBMISSION
+#END_BLOCK_SUBMISSION
 ```
 
 ### 7.6 Size guardrails

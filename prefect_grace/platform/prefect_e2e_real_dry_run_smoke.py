@@ -46,7 +46,7 @@ FAILURE_STATE_TYPES = {"failed", "crashed", "cancelled"}
 SUCCESS_DOMAIN_STATUSES = {"accepted", "check_passed"}
 
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PrefectE2ERealDryRunSmokeResult:
     ok: bool
@@ -106,8 +106,8 @@ class _SmokeProject:
     packets_dir: str
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_HELPERS
+#END_BLOCK_MODELS
+#START_BLOCK_HELPERS
 # START_FUNCTION_CONTRACT
 # name: _result
 # purpose: Build a real dry-run smoke result with stable defaults.
@@ -382,8 +382,8 @@ def _wait_for_flow_run(
         sleep_fn(max(min(poll_interval_seconds, max(deadline - time.monotonic(), 0)), 0))
 
 
-# END_BLOCK_HELPERS
-# START_BLOCK_SMOKE
+#END_BLOCK_HELPERS
+#START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_prefect_e2e_real_dry_run_smoke
 # purpose: Submit exactly one scratch-only E2E dry-run packet to real Prefect and optionally wait for status.
@@ -561,4 +561,4 @@ def run_prefect_e2e_real_dry_run_smoke(
     )
 
 
-# END_BLOCK_SMOKE
+#END_BLOCK_SMOKE

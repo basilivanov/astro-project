@@ -29,7 +29,7 @@ from prefect_grace.platform.packet_artifact_layout import (
     latest_rework,
 )
 
-# START_BLOCK_SUMMARY_WRITER
+#START_BLOCK_SUMMARY_WRITER
 # START_FUNCTION_CONTRACT
 # name: write_summary
 # purpose: Write or update SUMMARY.md with current packet state.
@@ -121,4 +121,4 @@ def write_summary(packet_dir: Path, status: dict[str, Any]) -> Path:
 
     return layout.summary
 
-# END_BLOCK_SUMMARY_WRITER
+#END_BLOCK_SUMMARY_WRITER

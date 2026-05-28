@@ -39,7 +39,7 @@ from typing import Any
 # Block: classifier - classify_agent_failure function
 # END_MODULE_MAP
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class AgentFailureClassification:
     """
@@ -82,8 +82,8 @@ class AgentFailureClassification:
             "matched_pattern": self.matched_pattern,
         }
 
-# END_BLOCK_MODELS
-# START_BLOCK_PATTERNS
+#END_BLOCK_MODELS
+#START_BLOCK_PATTERNS
 # Pattern definitions for each failure category
 # Priority order: rate_limit > auth_failed > quota_exceeded > network_timeout > provider_unavailable
 
@@ -134,8 +134,8 @@ PROVIDER_UNAVAILABLE_PATTERNS = [
     "temporarily unavailable",
 ]
 
-# END_BLOCK_PATTERNS
-# START_BLOCK_CLASSIFIER
+#END_BLOCK_PATTERNS
+#START_BLOCK_CLASSIFIER
 # START_FUNCTION_CONTRACT
 # Function: classify_agent_failure
 # Purpose: Classify agent/API provider failure from stderr/stdout/exit_code
@@ -263,4 +263,4 @@ def classify_agent_failure(
         matched_pattern=None,
     )
 
-# END_BLOCK_CLASSIFIER
+#END_BLOCK_CLASSIFIER

@@ -37,7 +37,7 @@ from prefect_grace.platform.packet_parser import ParsedPacket, parse_packet_mark
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.status_model import RegistryStatus, normalize_source_status
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass
 class BacklogBootstrapCandidate:
     packet_id: str
@@ -76,8 +76,8 @@ class _ArtifactInference:
     warnings: list[str] = field(default_factory=list)
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_SERIALIZATION
+#END_BLOCK_MODELS
+#START_BLOCK_SERIALIZATION
 # START_FUNCTION_CONTRACT
 # name: dataclass_to_dict
 # purpose: Convert bootstrap dataclass instances into JSON-safe dictionaries.
@@ -92,8 +92,8 @@ def dataclass_to_dict(obj: Any) -> dict[str, Any]:
     return asdict(obj)
 
 
-# END_BLOCK_SERIALIZATION
-# START_BLOCK_WARNING_SUMMARY
+#END_BLOCK_SERIALIZATION
+#START_BLOCK_WARNING_SUMMARY
 def _classify_skip_warning(warning: str) -> str:
     if "missing packet_id=" in warning:
         return "missing_controller_ids"
@@ -147,8 +147,8 @@ def summarize_skip_warnings(
     return summary
 
 
-# END_BLOCK_WARNING_SUMMARY
-# START_BLOCK_SCANNING
+#END_BLOCK_WARNING_SUMMARY
+#START_BLOCK_SCANNING
 def _relative_path(path: Path, root: Path) -> str:
     try:
         return str(path.relative_to(root))
@@ -212,8 +212,8 @@ def _scan_strict_packets(project: Any) -> tuple[list[_StrictPacketRecord], list[
     return records, summarize_skip_warnings(warnings), errors
 
 
-# END_BLOCK_SCANNING
-# START_BLOCK_ARTIFACT_INFERENCE
+#END_BLOCK_SCANNING
+#START_BLOCK_ARTIFACT_INFERENCE
 TERMINAL_REGISTRY_STATUSES = {
     RegistryStatus.ACCEPTED.value,
     RegistryStatus.BLOCKED.value,
@@ -392,8 +392,8 @@ def _infer_from_artifacts(packet_dir: Path, repo_root: Path) -> _ArtifactInferen
     )
 
 
-# END_BLOCK_ARTIFACT_INFERENCE
-# START_BLOCK_BOOTSTRAP
+#END_BLOCK_ARTIFACT_INFERENCE
+#START_BLOCK_BOOTSTRAP
 def _packet_registry_record(
     record: _StrictPacketRecord,
     status: str,
@@ -554,4 +554,4 @@ def build_backlog_bootstrap_plan(project: Any, *, dry_run: bool = True) -> Backl
     return plan
 
 
-# END_BLOCK_BOOTSTRAP
+#END_BLOCK_BOOTSTRAP

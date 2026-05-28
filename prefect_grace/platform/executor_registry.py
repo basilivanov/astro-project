@@ -35,7 +35,7 @@ from prefect_grace.platform.status_model import DomainStatus, is_failure_domain_
 
 from prefect_grace.platform.state_store import ExecutorHistoryStore
 
-# START_BLOCK_DATA_MODELS
+#START_BLOCK_DATA_MODELS
 @dataclass(frozen=True)
 class ExecutorSpec:
     """Executor specification with metadata for selection and execution."""
@@ -107,8 +107,8 @@ class ExecutorSelection:
             "warnings": list(self.warnings),
         }
 
-# END_BLOCK_DATA_MODELS
-# START_BLOCK_LOAD_SPECS
+#END_BLOCK_DATA_MODELS
+#START_BLOCK_LOAD_SPECS
 # START_FUNCTION_CONTRACT
 # name: load_executor_specs
 # purpose: Load executor specs from project config with backward compatibility.
@@ -201,8 +201,8 @@ def load_executor_specs(project: Any) -> list[ExecutorSpec]:
         )
     ]
 
-# END_BLOCK_LOAD_SPECS
-# START_BLOCK_FAILURE_DETECTION
+#END_BLOCK_LOAD_SPECS
+#START_BLOCK_FAILURE_DETECTION
 # START_FUNCTION_CONTRACT
 # name: _is_executor_failure
 # purpose: Determine if execution record represents executor failure.
@@ -323,8 +323,8 @@ def _count_consecutive_failures(
 
     return count
 
-# END_BLOCK_FAILURE_DETECTION
-# START_BLOCK_SELECTION
+#END_BLOCK_FAILURE_DETECTION
+#START_BLOCK_SELECTION
 # START_FUNCTION_CONTRACT
 # name: select_executor_for_packet
 # purpose: Select executor for packet with deterministic rotation logic.
@@ -476,8 +476,8 @@ def select_executor_for_packet(
         warnings=[f"All {len(candidates)} candidates exceeded max_consecutive_failures"],
     )
 
-# END_BLOCK_SELECTION
-# START_BLOCK_RECORDING
+#END_BLOCK_SELECTION
+#START_BLOCK_RECORDING
 # START_FUNCTION_CONTRACT
 # name: record_executor_attempt
 # purpose: Record executor attempt to history store.
@@ -534,4 +534,4 @@ def record_executor_attempt(
 
     return record
 
-# END_BLOCK_RECORDING
+#END_BLOCK_RECORDING

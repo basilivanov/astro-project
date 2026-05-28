@@ -28,7 +28,7 @@ from prefect_grace.platform.packet_artifact_layout import (
     latest_rework,
 )
 
-# START_BLOCK_CONTEXT_BUNDLE
+#START_BLOCK_CONTEXT_BUNDLE
 # START_FUNCTION_CONTRACT
 # name: build_context_bundle
 # purpose: Build minimal file list for a role's context.
@@ -100,4 +100,4 @@ def build_context_bundle(
 
     return bundle
 
-# END_BLOCK_CONTEXT_BUNDLE
+#END_BLOCK_CONTEXT_BUNDLE

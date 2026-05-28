@@ -326,6 +326,11 @@ def execute_batch_with_guard(
 
         result.selected_total = batch_selection.selected_total
 
+        if allow_git_merge:
+            _add_blocker(result, "MERGE_UNREACHABLE", "Nightly batch execution cannot request or apply merge")
+            result.stop_reason = "merge_blocked"
+            return result
+
         if batch_selection.selected_total == 0:
             result.ok = True
             result.stop_reason = "no_packets_selected"
@@ -469,6 +474,12 @@ def execute_batch_with_guard(
             else:
                 result.failed_total += 1
                 failure_count += 1
+
+            if stop_on_degradation and _is_unexpected_degradation(pilot_result):
+                result.stop_reason = "unexpected_degradation"
+                if result.failed_total == 0:
+                    result.failed_total += 1
+                break
 
         # Determine final stop reason if not already set
         if not result.stop_reason:

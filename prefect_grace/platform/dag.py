@@ -25,7 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass
 class DAGValidationResult:
     packets_total: int
@@ -37,8 +37,8 @@ class DAGValidationResult:
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
-# END_BLOCK_MODELS
-# START_BLOCK_DAG_CORE
+#END_BLOCK_MODELS
+#START_BLOCK_DAG_CORE
 # START_FUNCTION_CONTRACT
 # name: detect_cycles
 # purpose: Detect dependency cycles using depth-first search.
@@ -204,4 +204,4 @@ def validate_packet_dag(packets: list[dict[str, Any]]) -> DAGValidationResult:
 
     return result
 
-# END_BLOCK_DAG_CORE
+#END_BLOCK_DAG_CORE

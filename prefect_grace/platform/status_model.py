@@ -44,7 +44,7 @@ from typing import Optional
 # Block: predicates - is_terminal_registry_status, is_runnable_registry_status, is_failure_domain_status, is_scope_domain_status
 # END_MODULE_MAP
 
-# START_BLOCK_STATUS_ENUMS
+#START_BLOCK_STATUS_ENUMS
 class SourcePacketStatus(str, Enum):
     """Status values that appear in source EXECUTION_PACKET.md files."""
     DRAFT = "draft"
@@ -79,8 +79,8 @@ class DomainStatus(str, Enum):
     HANDOFF_ERROR = "handoff_error"
     CHECK_PASSED = "passed"  # compatibility alias for local gates only
 
-# END_BLOCK_STATUS_ENUMS
-# START_BLOCK_STATUS_TRANSITION
+#END_BLOCK_STATUS_ENUMS
+#START_BLOCK_STATUS_TRANSITION
 @dataclass
 class StatusTransition:
     """Result of applying a domain status to registry state."""
@@ -89,8 +89,8 @@ class StatusTransition:
     is_terminal: bool
     is_failure: bool
 
-# END_BLOCK_STATUS_TRANSITION
-# START_BLOCK_NORMALIZATION
+#END_BLOCK_STATUS_TRANSITION
+#START_BLOCK_NORMALIZATION
 # START_FUNCTION_CONTRACT
 # Function: normalize_source_status
 # Purpose: Normalize source packet status from string or enum to SourcePacketStatus
@@ -240,8 +240,8 @@ def normalize_domain_status(
     # Unknown string defaults to RUNNER_ERROR (safe fallback)
     return DomainStatus.RUNNER_ERROR
 
-# END_BLOCK_NORMALIZATION
-# START_BLOCK_TRANSITION_HELPERS
+#END_BLOCK_NORMALIZATION
+#START_BLOCK_TRANSITION_HELPERS
 # START_FUNCTION_CONTRACT
 # Function: apply_domain_result_to_registry
 # Purpose: Map domain execution result to registry status transition
@@ -392,8 +392,8 @@ def apply_domain_result_to_registry(
         is_failure=True,
     )
 
-# END_BLOCK_TRANSITION_HELPERS
-# START_BLOCK_PREDICATES
+#END_BLOCK_TRANSITION_HELPERS
+#START_BLOCK_PREDICATES
 # START_FUNCTION_CONTRACT
 # Function: is_terminal_registry_status
 # Purpose: Check if registry status is terminal (no further execution)
@@ -488,4 +488,4 @@ def is_scope_domain_status(status: DomainStatus | str) -> bool:
     status_enum = normalize_domain_status(status)
     return status_enum == DomainStatus.SCOPE_BLOCKED
 
-# END_BLOCK_PREDICATES
+#END_BLOCK_PREDICATES

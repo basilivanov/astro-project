@@ -33,7 +33,7 @@ from prefect_grace.platform.prefect_native_submission import submit_ready_packet
 from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.state_store import PacketRegistryStore
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class RegistryApplySmokeCase:
     name: str
@@ -105,8 +105,8 @@ class RegistryApplySmokeResult:
         }
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_FIXTURES
+#END_BLOCK_MODELS
+#START_BLOCK_FIXTURES
 PACKET_PARENT_ACCEPTED = "SMOKE-PARENT-ACCEPTED-W01-PACKET"
 PACKET_DEP_READY = "SMOKE-DEPENDENT-READY-W01-PACKET"
 PACKET_MISSING_DEP = "SMOKE-MISSING-DEPENDENCY-W01-PACKET"
@@ -205,8 +205,8 @@ def _write_smoke_fixtures(repo_root: Path) -> dict[str, Path]:
     return packet_paths
 
 
-# END_BLOCK_FIXTURES
-# START_BLOCK_HELPERS
+#END_BLOCK_FIXTURES
+#START_BLOCK_HELPERS
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"code": code, "message": message, **extra}
 
@@ -288,8 +288,8 @@ def _case(
     )
 
 
-# END_BLOCK_HELPERS
-# START_BLOCK_SMOKE
+#END_BLOCK_HELPERS
+#START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_registry_apply_smoke
 # purpose: Run isolated bootstrap apply, sync dry-run, and submit dry-run smoke against temporary state.
@@ -503,4 +503,4 @@ def run_registry_apply_smoke(
     )
 
 
-# END_BLOCK_SMOKE
+#END_BLOCK_SMOKE

@@ -55,7 +55,7 @@ FROZEN_SCOPE = [
 ]
 
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class LiveOptInSingleScratchResult:
     ok: bool
@@ -98,8 +98,8 @@ class LiveOptInSingleScratchResult:
         return asdict(self)
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_HELPERS
+#END_BLOCK_MODELS
+#START_BLOCK_HELPERS
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"code": code, "message": message, **extra}
 
@@ -336,8 +336,8 @@ def _opt_in_errors(*, execute_agent: bool, acknowledge_live_agent: bool, opt_in_
     return errors
 
 
-# END_BLOCK_HELPERS
-# START_BLOCK_SMOKE
+#END_BLOCK_HELPERS
+#START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_live_opt_in_single_scratch_packet
 # purpose: Execute a fail-closed live-agent smoke for exactly one synthetic scratch packet.
@@ -603,4 +603,4 @@ def run_live_opt_in_single_scratch_packet(
     )
 
 
-# END_BLOCK_SMOKE
+#END_BLOCK_SMOKE

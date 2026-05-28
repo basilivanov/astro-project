@@ -57,7 +57,7 @@ PACKET_COMMAND_PASSED = "COMMAND-STATUS-PASSED"
 MISSING_DEPENDENCY_ID = "MISSING-DEPENDENCY"
 
 
-# START_BLOCK_MODELS
+#START_BLOCK_MODELS
 @dataclass(frozen=True)
 class PrefectRealDryRunSeededSmokeResult:
     ok: bool
@@ -102,8 +102,8 @@ class PrefectRealDryRunSeededSmokeResult:
         return asdict(self)
 
 
-# END_BLOCK_MODELS
-# START_BLOCK_FIXTURE_BUILDING
+#END_BLOCK_MODELS
+#START_BLOCK_FIXTURE_BUILDING
 def _packet_markdown(packet_id: str, *, status: str = "ready", depends_on: list[str] | None = None) -> str:
     dependency_line = ""
     if depends_on:
@@ -217,8 +217,8 @@ def _write_smoke_fixtures(packet_root: Path) -> dict[str, Path]:
     return packet_paths
 
 
-# END_BLOCK_FIXTURE_BUILDING
-# START_BLOCK_HELPERS
+#END_BLOCK_FIXTURE_BUILDING
+#START_BLOCK_HELPERS
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     return {"code": code, "message": message, **extra}
 
@@ -414,8 +414,8 @@ def _seeded_wait_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return mapped
 
 
-# END_BLOCK_HELPERS
-# START_BLOCK_SMOKE
+#END_BLOCK_HELPERS
+#START_BLOCK_SMOKE
 # START_FUNCTION_CONTRACT
 # name: run_prefect_real_dry_run_seeded_smoke
 # purpose: Seed a temp registry and submit exactly one runnable child to real Prefect in dry-run agent mode.
@@ -724,4 +724,4 @@ def run_prefect_real_dry_run_seeded_smoke(
     )
 
 
-# END_BLOCK_SMOKE
+#END_BLOCK_SMOKE
