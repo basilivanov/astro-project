@@ -1,0 +1,87 @@
+{
+  "packet_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "strict-validation-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": ["strict_validate_packet.json"],
+      "summary": "Strict packet validation returned ok=true."
+    },
+    {
+      "id": "targeted-pytest-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["targeted_pytest.txt"],
+      "summary": "Targeted pytest profile passed."
+    },
+    {
+      "id": "compile-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": ["compileall.txt"],
+      "summary": "compileall passed for platform and CLI modules."
+    },
+    {
+      "id": "targeted-lint-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": ["targeted_lint.txt"],
+      "summary": "GRACE lint passed for changed platform and CLI modules."
+    },
+    {
+      "id": "dry-run-candidate-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["dry_run_candidate_proof.txt"],
+      "summary": "Regression proves real dry-run registry loading selects one managed packet without REGISTRY_LOAD_FAILED."
+    },
+    {
+      "id": "missing-approval-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["missing_approval_proof.txt"],
+      "summary": "Missing live approval blocks before agents or Prefect runs."
+    },
+    {
+      "id": "injected-live-success-scope-blocked-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["injected_live_scope_proof.txt"],
+      "summary": "Injected live success and injected scope-blocked regressions passed."
+    },
+    {
+      "id": "missing-review-evidence-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["missing_review_evidence_proof.txt"],
+      "summary": "Blocked review metadata and missing final evidence both fail closed."
+    },
+    {
+      "id": "no-git-mutation-proof",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": ["no_git_mutation_proof.txt", "no_mutation_confirmation.txt"],
+      "summary": "Dry-run no Git mutation regression passed; no commit, push, merge, registry apply, live Prefect, Docker, Playwright, backend, frontend, or provider calls were executed."
+    },
+    {
+      "id": "scope-check-output",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": ["changed_files_scope.txt", "scope_check.json"],
+      "summary": "Changed-file scope check passed for this rework and bounded evidence."
+    }
+  ],
+  "blockers": []
+}

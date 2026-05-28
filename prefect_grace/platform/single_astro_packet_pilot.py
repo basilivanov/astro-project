@@ -26,18 +26,17 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
-from prefect_grace.platform.backlog_controller import BacklogController
-from prefect_grace.platform.controller_backlog_bootstrap import build_backlog_bootstrap_plan
 from prefect_grace.platform.live_opt_in_single_scratch_packet import (
     _load_registry_map,
     _paths_outside_roots,
-    _sync_result_to_dict,
     _validate_roots,
 )
 from prefect_grace.platform.prefect_native_submission import submit_ready_packets_to_prefect
+from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.project_adapter import load_project_adapter
 from prefect_grace.platform.scope_guard import validate_scope
 from prefect_grace.platform.single_live_prefect_packet_pilot import create_bounded_prefect_status_reader
+from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.tasks.prefect_submitter import MANAGED_PACKET_DEPLOYMENT_NAME
 
 MODE = "single_astro_packet_pilot"
@@ -79,6 +78,248 @@ class SingleAstroPacketPilotResult:
     bootstrap_apply_count: int = 0
     sync_plan: dict[str, Any] = field(default_factory=dict)
 
+    # START_FUNCTION_CONTRACT
+    # name: to_dict
+    # purpose: Serialize pilot result to a JSON-safe dictionary.
+    # inputs:
+    #   self: SingleAstroPacketPilotResult instance.
+    # returns: dict[str, Any] with bounded result fields.
+    # side_effects: None.
+    # emitted_logs: None.
+    # error_behavior: None.
+    # END_FUNCTION_CONTRACT
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["registry_before"] = _ensure_registry_summary(self.registry_before, self.selected_packet_id)
+        data["registry_after"] = _ensure_registry_summary(self.registry_after, self.selected_packet_id)
+        data["submit_plan"] = _bounded_submit_plan(self.submit_plan)
+        data["plan_count"] = _plan_count(self.submit_plan)
+        return data
+
+
+def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
+    return {"code": code, "message": message, **extra}
+
+
+def _packet_status(packet: dict[str, Any]) -> str:
+    return str(packet.get("registry_status") or packet.get("status") or "unknown")
+
+
+def _selected_packet_summary(
+    registry: dict[str, Any],
+    selected_packet_id: str | None,
+) -> dict[str, Any] | None:
+    if not selected_packet_id:
+        return None
+
+    packet = registry.get(selected_packet_id)
+    if not isinstance(packet, dict):
+        return {"packet_id": selected_packet_id, "found": False}
+
+    allowed_scope = packet.get("allowed_write_scope") or []
+    return {
+        "packet_id": selected_packet_id,
+        "found": True,
+        "status": _packet_status(packet),
+        "source_hash": packet.get("source_hash"),
+        "path": packet.get("path"),
+        "allowed_scope_count": len(allowed_scope) if isinstance(allowed_scope, list) else 0,
+    }
+
+
+def _registry_summary(
+    registry: dict[str, Any],
+    selected_packet_id: str | None,
+) -> dict[str, Any]:
+    status_counts: dict[str, int] = {}
+    for packet in registry.values():
+        if not isinstance(packet, dict):
+            status = "unknown"
+        else:
+            status = _packet_status(packet)
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    return {
+        "total_packets": len(registry),
+        "status_counts": dict(sorted(status_counts.items())),
+        "selected_packet": _selected_packet_summary(registry, selected_packet_id),
+        "records_included": False,
+    }
+
+
+def _is_registry_summary(value: dict[str, Any]) -> bool:
+    return (
+        "total_packets" in value
+        and "status_counts" in value
+        and "selected_packet" in value
+        and value.get("records_included") is False
+    )
+
+
+def _ensure_registry_summary(
+    registry: dict[str, Any],
+    selected_packet_id: str | None,
+) -> dict[str, Any]:
+    if _is_registry_summary(registry):
+        return dict(registry)
+    return _registry_summary(registry, selected_packet_id)
+
+
+def _plan_count(submit_plan: dict[str, Any]) -> int:
+    planned = submit_plan.get("packets_planned") or submit_plan.get("packets_to_submit") or []
+    return len(planned) if isinstance(planned, list) else 0
+
+
+def _bounded_submit_plan(submit_plan: dict[str, Any]) -> dict[str, Any]:
+    bounded = dict(submit_plan)
+    records = bounded.get("records")
+    if isinstance(records, list):
+        bounded["records_count"] = len(records)
+        bounded["records"] = records[:1]
+    bounded["plan_count"] = _plan_count(submit_plan)
+    return bounded
+
+
+def _empty_result(
+    *,
+    ok: bool,
+    project_key: str,
+    dry_run: bool,
+    opt_in_confirmed: bool,
+    state_root: Path,
+    worktree_root: Path,
+    packet_root: Path,
+    errors: list[dict[str, Any]],
+    warnings: list[dict[str, str]] | None = None,
+    selected_packet_id: str | None = None,
+    registry_before: dict[str, Any] | None = None,
+) -> SingleAstroPacketPilotResult:
+    return SingleAstroPacketPilotResult(
+        ok=ok,
+        project_key=project_key,
+        mode=MODE,
+        dry_run=dry_run,
+        opt_in_confirmed=opt_in_confirmed,
+        state_root=str(state_root),
+        worktree_root=str(worktree_root),
+        packet_root=str(packet_root),
+        selected_packet_id=selected_packet_id,
+        registry_before=_registry_summary(registry_before or {}, selected_packet_id),
+        registry_after=_registry_summary(registry_before or {}, selected_packet_id),
+        submit_plan={},
+        deployment_name=None,
+        work_queue_name=None,
+        flow_run_id=None,
+        flow_run_name=None,
+        flow_run_url=None,
+        prefect_runs_created=0,
+        live_agents_started=0,
+        domain_status=None,
+        scope_verdict=None,
+        changed_files=[],
+        writes_outside_temp_roots=[],
+        poll_events=[],
+        warnings=warnings or [],
+        errors=errors,
+    )
+
+
+def _result_dict(value: Any) -> dict[str, Any]:
+    if hasattr(value, "to_dict"):
+        converted = value.to_dict()
+        return converted if isinstance(converted, dict) else {}
+    if hasattr(value, "__dataclass_fields__"):
+        return asdict(value)
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _submission_record_fields(record: Any) -> dict[str, Any]:
+    if hasattr(record, "to_dict"):
+        converted = record.to_dict()
+        return converted if isinstance(converted, dict) else {}
+    if hasattr(record, "__dataclass_fields__"):
+        return asdict(record)
+    if isinstance(record, dict):
+        return dict(record)
+    return dict(record)
+
+
+def _packet_contract_fields(adapter: Any, record: dict[str, Any]) -> dict[str, Any]:
+    path_value = record.get("path")
+    if not path_value:
+        return {"strict_packet_contract_ok": False}
+
+    packet_path = Path(path_value)
+    if not packet_path.is_absolute():
+        packet_path = Path(adapter.repo_root) / packet_path
+
+    try:
+        parsed = parse_packet_markdown(packet_path, mode="strict")
+    except Exception as exc:
+        return {
+            "strict_packet_contract_ok": False,
+            "strict_packet_contract_error": str(exc),
+        }
+
+    return {
+        "packet_id": parsed.packet_id,
+        "feature_id": parsed.feature_id,
+        "wave_id": parsed.wave_id,
+        "status": parsed.status,
+        "allowed_write_scope": parsed.allowed_write_scope,
+        "frozen_scope": parsed.frozen_scope,
+        "source_hash": parsed.source_hash,
+        "strict_packet_contract_ok": True,
+    }
+
+
+def _load_project_registry_map(adapter: Any, state_root: Path) -> dict[str, Any]:
+    registry_map = _load_registry_map(state_root)
+    if not registry_map:
+        registry_map = _load_registry_map(Path(adapter.runtime_state_root))
+
+    enriched: dict[str, Any] = {}
+    for packet_id, record in registry_map.items():
+        packet = dict(record or {})
+        packet.setdefault("packet_id", packet_id)
+        contract_fields = _packet_contract_fields(adapter, packet)
+        for key, value in contract_fields.items():
+            if value or key not in packet:
+                packet[key] = value
+        enriched[packet_id] = packet
+    return enriched
+
+
+def _candidate_gate(packet: dict[str, Any]) -> tuple[bool, str | None]:
+    if not packet.get("source_hash"):
+        return False, f"Packet {packet.get('packet_id', '')} is missing source_hash"
+    if packet.get("strict_packet_contract_ok") is False:
+        return False, f"Packet {packet.get('packet_id', '')} is missing strict packet contract"
+    review_status = str(packet.get("latest_review_status") or packet.get("review_status") or "").lower()
+    if review_status in {"blocked", "rework_required"}:
+        return False, f"Packet {packet.get('packet_id', '')} has existing blocked review: {review_status}"
+    return _is_low_risk_candidate(packet)
+
+
+def _write_selected_registry(
+    *,
+    state_root: Path,
+    selected_packet_id: str,
+    selected_packet: dict[str, Any],
+) -> Path:
+    submission_root = state_root / "single_astro_submission"
+    registry = PacketRegistryStore(submission_root / "state")
+    registry.upsert_packet(
+        {
+            **selected_packet,
+            "packet_id": selected_packet_id,
+            "registry_status": "ready",
+        }
+    )
+    return submission_root
+
 
 def _is_low_risk_candidate(packet: dict[str, Any]) -> tuple[bool, str | None]:
     """Check if packet is a low-risk candidate for first Astro pilot.
@@ -86,11 +327,11 @@ def _is_low_risk_candidate(packet: dict[str, Any]) -> tuple[bool, str | None]:
     Returns (is_low_risk, rejection_reason).
     """
     packet_id = packet.get("packet_id", "")
-    status = packet.get("status", "")
+    status = packet.get("registry_status") or packet.get("status", "")
     allowed_scope = packet.get("allowed_write_scope", [])
 
     # Must be ready
-    if status != "ready":
+    if status not in {"ready", "ready_for_retry"}:
         return False, f"Packet {packet_id} status is {status}, not ready"
 
     # Must have allowed scope
@@ -162,12 +403,33 @@ def run_single_astro_packet_pilot(
     state_root = Path(state_root)
     worktree_root = Path(worktree_root)
     packet_root = Path(packet_root)
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, str]] = []
 
-    errors = []
-    warnings = []
+    try:
+        base_adapter = load_project_adapter(project_path)
+        repo_root = Path(base_adapter.repo_root)
+        adapter = load_project_adapter(
+            project_path,
+            overrides={
+                "runtime_state_root": str(state_root),
+                "artifact_root": str(state_root / "artifacts"),
+                "worktree_root": str(worktree_root),
+            },
+        )
+        project_key = adapter.project_key
+    except Exception as exc:
+        return _empty_result(
+            ok=False,
+            project_key="",
+            dry_run=dry_run,
+            opt_in_confirmed=False,
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
+            errors=[_error("PROJECT_LOAD_FAILED", str(exc))],
+        )
 
-    # Validate roots
-    repo_root = Path.cwd()
     root_validation_errors = _validate_roots(
         state_root=state_root,
         worktree_root=worktree_root,
@@ -175,298 +437,164 @@ def run_single_astro_packet_pilot(
         repo_root=repo_root,
     )
     if root_validation_errors:
-        return SingleAstroPacketPilotResult(
+        return _empty_result(
             ok=False,
-            project_key="",
-            mode=MODE,
+            project_key=project_key,
             dry_run=dry_run,
             opt_in_confirmed=False,
-            state_root=str(state_root),
-            worktree_root=str(worktree_root),
-            packet_root=str(packet_root),
-            selected_packet_id=None,
-            registry_before={},
-            registry_after={},
-            submit_plan={},
-            deployment_name=None,
-            work_queue_name=None,
-            flow_run_id=None,
-            flow_run_name=None,
-            flow_run_url=None,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            domain_status=None,
-            scope_verdict=None,
-            changed_files=[],
-            writes_outside_temp_roots=[],
-            poll_events=[],
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
             errors=root_validation_errors,
         )
 
-    # Load project
-    try:
-        adapter = load_project_adapter(project_path)
-        project_key = adapter.project_key
-    except Exception as e:
-        return SingleAstroPacketPilotResult(
-            ok=False,
-            project_key="",
-            mode=MODE,
-            dry_run=dry_run,
-            opt_in_confirmed=False,
-            state_root=str(state_root),
-            worktree_root=str(worktree_root),
-            packet_root=str(packet_root),
-            selected_packet_id=None,
-            registry_before={},
-            registry_after={},
-            submit_plan={},
-            deployment_name=None,
-            work_queue_name=None,
-            flow_run_id=None,
-            flow_run_name=None,
-            flow_run_url=None,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            domain_status=None,
-            scope_verdict=None,
-            changed_files=[],
-            writes_outside_temp_roots=[],
-            poll_events=[],
-            errors=[{"code": "PROJECT_LOAD_FAILED", "message": str(e)}],
-        )
-
-    # Check opt-in gates for live execution
+    token = opt_in_token if opt_in_token is not None else os.environ.get("GRACE_ASTRO_PACKET_OPT_IN")
     opt_in_confirmed = True
-    if not dry_run and execute_agent:
+    if not dry_run:
+        if not execute_agent:
+            errors.append(_error("LIVE_AGENT_EXECUTE_REQUIRED", "--execute-agent is required for live Astro packet execution."))
+            opt_in_confirmed = False
         if not acknowledge_live_agent:
-            errors.append({"code": "LIVE_AGENT_NOT_ACKNOWLEDGED", "message": "Live agent execution requires --i-understand-live-agent"})
+            errors.append(_error("LIVE_AGENT_NOT_ACKNOWLEDGED", "Live agent execution requires --i-understand-live-agent."))
             opt_in_confirmed = False
-
-        expected_token = os.environ.get("GRACE_ASTRO_PACKET_OPT_IN", "")
-        if expected_token != OPT_IN_TOKEN:
-            errors.append({"code": "OPT_IN_TOKEN_MISMATCH", "message": f"Expected GRACE_ASTRO_PACKET_OPT_IN={OPT_IN_TOKEN}"})
-            opt_in_confirmed = False
-
-        if opt_in_token != OPT_IN_TOKEN:
-            errors.append({"code": "CLI_OPT_IN_MISMATCH", "message": f"CLI opt-in token must be {OPT_IN_TOKEN}"})
+        if token != OPT_IN_TOKEN:
+            errors.append(_error("OPT_IN_TOKEN_MISMATCH", f"Required Astro packet opt-in token is {OPT_IN_TOKEN}."))
             opt_in_confirmed = False
 
     if not opt_in_confirmed:
-        return SingleAstroPacketPilotResult(
+        return _empty_result(
             ok=False,
             project_key=project_key,
-            mode=MODE,
             dry_run=dry_run,
             opt_in_confirmed=False,
-            state_root=str(state_root),
-            worktree_root=str(worktree_root),
-            packet_root=str(packet_root),
-            selected_packet_id=None,
-            registry_before={},
-            registry_after={},
-            submit_plan={},
-            deployment_name=None,
-            work_queue_name=None,
-            flow_run_id=None,
-            flow_run_name=None,
-            flow_run_url=None,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            domain_status=None,
-            scope_verdict=None,
-            changed_files=[],
-            writes_outside_temp_roots=[],
-            poll_events=[],
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
             errors=errors,
         )
 
-    # Load registry
     try:
-        registry_map = _load_registry_map(adapter)
-    except Exception as e:
-        return SingleAstroPacketPilotResult(
+        registry_map = _load_project_registry_map(base_adapter, state_root)
+    except Exception as exc:
+        return _empty_result(
             ok=False,
             project_key=project_key,
-            mode=MODE,
             dry_run=dry_run,
             opt_in_confirmed=opt_in_confirmed,
-            state_root=str(state_root),
-            worktree_root=str(worktree_root),
-            packet_root=str(packet_root),
-            selected_packet_id=None,
-            registry_before={},
-            registry_after={},
-            submit_plan={},
-            deployment_name=None,
-            work_queue_name=None,
-            flow_run_id=None,
-            flow_run_name=None,
-            flow_run_url=None,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            domain_status=None,
-            scope_verdict=None,
-            changed_files=[],
-            writes_outside_temp_roots=[],
-            poll_events=[],
-            errors=[{"code": "REGISTRY_LOAD_FAILED", "message": str(e)}],
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
+            errors=[_error("REGISTRY_LOAD_FAILED", str(exc))],
         )
 
-    registry_before = {k: v for k, v in registry_map.items()}
+    registry_before = {packet_key: dict(packet_value) for packet_key, packet_value in registry_map.items()}
 
-    # Select candidate packet
     selected_packet_id = None
+    selected_packet: dict[str, Any] | None = None
     if packet_id:
-        # Explicit packet ID
-        if packet_id not in registry_map:
-            return SingleAstroPacketPilotResult(
+        selected_packet = registry_map.get(packet_id)
+        if selected_packet is None:
+            return _empty_result(
                 ok=False,
                 project_key=project_key,
-                mode=MODE,
                 dry_run=dry_run,
                 opt_in_confirmed=opt_in_confirmed,
-                state_root=str(state_root),
-                worktree_root=str(worktree_root),
-                packet_root=str(packet_root),
+                state_root=state_root,
+                worktree_root=worktree_root,
+                packet_root=packet_root,
+                errors=[_error("PACKET_NOT_FOUND", f"Packet {packet_id} not in registry")],
                 selected_packet_id=packet_id,
                 registry_before=registry_before,
-                registry_after=registry_before,
-                submit_plan={},
-                deployment_name=None,
-                work_queue_name=None,
-                flow_run_id=None,
-                flow_run_name=None,
-                flow_run_url=None,
-                prefect_runs_created=0,
-                live_agents_started=0,
-                domain_status=None,
-                scope_verdict=None,
-                changed_files=[],
-                writes_outside_temp_roots=[],
-                poll_events=[],
-                errors=[{"code": "PACKET_NOT_FOUND", "message": f"Packet {packet_id} not in registry"}],
             )
-
-        packet = registry_map[packet_id]
-        is_low_risk, rejection_reason = _is_low_risk_candidate(packet)
-        if not is_low_risk:
-            return SingleAstroPacketPilotResult(
+        ok_candidate, rejection_reason = _candidate_gate(selected_packet)
+        if not ok_candidate:
+            return _empty_result(
                 ok=False,
                 project_key=project_key,
-                mode=MODE,
                 dry_run=dry_run,
                 opt_in_confirmed=opt_in_confirmed,
-                state_root=str(state_root),
-                worktree_root=str(worktree_root),
-                packet_root=str(packet_root),
+                state_root=state_root,
+                worktree_root=worktree_root,
+                packet_root=packet_root,
+                errors=[_error("PACKET_NOT_LOW_RISK", rejection_reason or "Packet is not a low-risk candidate.")],
                 selected_packet_id=packet_id,
                 registry_before=registry_before,
-                registry_after=registry_before,
-                submit_plan={},
-                deployment_name=None,
-                work_queue_name=None,
-                flow_run_id=None,
-                flow_run_name=None,
-                flow_run_url=None,
-                prefect_runs_created=0,
-                live_agents_started=0,
-                domain_status=None,
-                scope_verdict=None,
-                changed_files=[],
-                writes_outside_temp_roots=[],
-                poll_events=[],
-                errors=[{"code": "PACKET_NOT_LOW_RISK", "message": rejection_reason}],
             )
-
         selected_packet_id = packet_id
     else:
-        # Auto-select first low-risk ready packet
-        for pid, packet in registry_map.items():
-            is_low_risk, _ = _is_low_risk_candidate(packet)
-            if is_low_risk:
-                selected_packet_id = pid
+        for candidate_id, candidate in registry_map.items():
+            ok_candidate, _ = _candidate_gate(candidate)
+            if ok_candidate:
+                selected_packet_id = candidate_id
+                selected_packet = candidate
                 break
 
-        if not selected_packet_id:
-            return SingleAstroPacketPilotResult(
-                ok=False,
-                project_key=project_key,
-                mode=MODE,
-                dry_run=dry_run,
-                opt_in_confirmed=opt_in_confirmed,
-                state_root=str(state_root),
-                worktree_root=str(worktree_root),
-                packet_root=str(packet_root),
-                selected_packet_id=None,
-                registry_before=registry_before,
-                registry_after=registry_before,
-                submit_plan={},
-                deployment_name=None,
-                work_queue_name=None,
-                flow_run_id=None,
-                flow_run_name=None,
-                flow_run_url=None,
-                prefect_runs_created=0,
-                live_agents_started=0,
-                domain_status=None,
-                scope_verdict=None,
-                changed_files=[],
-                writes_outside_temp_roots=[],
-                poll_events=[],
-                errors=[{"code": "NO_LOW_RISK_CANDIDATE", "message": "No low-risk ready packets found in registry"}],
-            )
-
-    # Submit to Prefect
-    try:
-        if submitter:
-            # Test hook
-            submit_result = submitter(
-                project_key=project_key,
-                packet_ids=[selected_packet_id],
-                dry_run=dry_run,
-            )
-        else:
-            # Real submission
-            submit_result = submit_ready_packets_to_prefect(
-                project_key=project_key,
-                packet_ids=[selected_packet_id],
-                deployment_name=MANAGED_PACKET_DEPLOYMENT_NAME,
-                work_queue_name=None,
-                dry_run=dry_run,
-            )
-    except Exception as e:
-        return SingleAstroPacketPilotResult(
+    if selected_packet_id is None or selected_packet is None:
+        return _empty_result(
             ok=False,
             project_key=project_key,
-            mode=MODE,
             dry_run=dry_run,
             opt_in_confirmed=opt_in_confirmed,
-            state_root=str(state_root),
-            worktree_root=str(worktree_root),
-            packet_root=str(packet_root),
-            selected_packet_id=selected_packet_id,
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
+            errors=[_error("NO_LOW_RISK_CANDIDATE", "No low-risk ready packets found in registry.")],
             registry_before=registry_before,
-            registry_after=registry_before,
-            submit_plan={},
-            deployment_name=None,
-            work_queue_name=None,
-            flow_run_id=None,
-            flow_run_name=None,
-            flow_run_url=None,
-            prefect_runs_created=0,
-            live_agents_started=0,
-            domain_status=None,
-            scope_verdict=None,
-            changed_files=[],
-            writes_outside_temp_roots=[],
-            poll_events=[],
-            errors=[{"code": "SUBMISSION_FAILED", "message": str(e)}],
         )
 
-    submit_plan_dict = asdict(submit_result) if hasattr(submit_result, "__dataclass_fields__") else submit_result
+    submission_state_root = _write_selected_registry(
+        state_root=state_root,
+        selected_packet_id=selected_packet_id,
+        selected_packet=selected_packet,
+    )
+    submission_adapter = load_project_adapter(
+        project_path,
+        overrides={
+            "runtime_state_root": str(submission_state_root),
+            "artifact_root": str(submission_state_root / "artifacts"),
+            "worktree_root": str(worktree_root),
+        },
+    )
 
-    # Extract flow run info
+    try:
+        dry_submit = submit_ready_packets_to_prefect(
+            project=submission_adapter,
+            dry_run=True,
+            limit=1,
+            execute_agent=execute_agent,
+            timeout_seconds=timeout_seconds,
+            worktree_root=worktree_root,
+            submitter=None,
+            runner_kind="managed",
+        )
+    except Exception as exc:
+        return _empty_result(
+            ok=False,
+            project_key=project_key,
+            dry_run=dry_run,
+            opt_in_confirmed=opt_in_confirmed,
+            state_root=state_root,
+            worktree_root=worktree_root,
+            packet_root=packet_root,
+            errors=[_error("SUBMISSION_PLAN_FAILED", str(exc))],
+            selected_packet_id=selected_packet_id,
+            registry_before=registry_before,
+        )
+
+    submit_plan_dict = dry_submit.to_dict()
+    submit_plan_dict["packets_to_submit"] = list(dry_submit.packets_planned)
+    errors.extend(dry_submit.errors)
+    warnings.extend(_error("SUBMISSION_PLAN_WARNING", warning) for warning in dry_submit.warnings)
+
+    if dry_submit.packets_planned != [selected_packet_id]:
+        errors.append(
+            _error(
+                "ASTRO_PACKET_COUNT_INVALID",
+                "Managed Prefect dry-run plan must select exactly the selected Astro packet.",
+                packets_planned=list(dry_submit.packets_planned),
+            )
+        )
+
     flow_run_id = None
     flow_run_name = None
     flow_run_url = None
@@ -474,58 +602,124 @@ def run_single_astro_packet_pilot(
     work_queue_name = None
     prefect_runs_created = 0
 
-    if submit_result.ok and submit_result.records:
-        record = submit_result.records[0]
-        flow_run_id = record.get("flow_run_id")
-        flow_run_name = record.get("flow_run_name")
-        flow_run_url = record.get("url")
-        if flow_run_id:
-            prefect_runs_created = 1
+    if dry_submit.records:
+        record_data = _submission_record_fields(dry_submit.records[0])
+        deployment_name = record_data.get("deployment_name")
+        work_queue_name = record_data.get("work_queue_name")
+        flow_run_name = record_data.get("flow_run_name")
 
-    # Poll status if live execution
+    submit_result = dry_submit
+    if not dry_run and not errors:
+        if submitter is None:
+            from prefect_grace.platform.runtime_adapter import ManagedPacketSubmitter
+            submitter = ManagedPacketSubmitter()
+        try:
+            submit_result = submit_ready_packets_to_prefect(
+                project=submission_adapter,
+                dry_run=False,
+                limit=1,
+                execute_agent=execute_agent,
+                timeout_seconds=timeout_seconds,
+                worktree_root=worktree_root,
+                submitter=submitter,
+                runner_kind="managed",
+            )
+        except Exception as exc:
+            errors.append(_error("SUBMISSION_FAILED", str(exc)))
+        else:
+            errors.extend(submit_result.errors)
+            submit_plan_dict = submit_result.to_dict()
+            submit_plan_dict["packets_to_submit"] = list(submit_result.packets_planned)
+            if len(submit_result.records) != 1:
+                errors.append(_error("ASTRO_SUBMISSION_COUNT_INVALID", f"Expected one submission record; got {len(submit_result.records)}."))
+            elif not submit_result.errors:
+                record_data = _submission_record_fields(submit_result.records[0])
+                deployment_name = record_data.get("deployment_name")
+                work_queue_name = record_data.get("work_queue_name")
+                flow_run_id = record_data.get("flow_run_id")
+                flow_run_name = record_data.get("flow_run_name")
+                flow_run_url = record_data.get("url")
+                if record_data.get("packet_id") != selected_packet_id:
+                    errors.append(_error("ASTRO_WRONG_PACKET_SUBMITTED", f"Expected {selected_packet_id}; got {record_data.get('packet_id')}."))
+                if record_data.get("deployment_name") != MANAGED_PACKET_DEPLOYMENT_NAME:
+                    errors.append(_error("ASTRO_UNEXPECTED_DEPLOYMENT", f"Expected {MANAGED_PACKET_DEPLOYMENT_NAME}; got {record_data.get('deployment_name')}."))
+                if record_data.get("status") != "submitted":
+                    errors.append(_error("ASTRO_NOT_SUBMITTED", record_data.get("error") or record_data.get("status") or "not submitted"))
+                if flow_run_id and record_data.get("status") == "submitted":
+                    prefect_runs_created = 1
+
     domain_status = None
     scope_verdict = None
-    changed_files = []
-    poll_events = []
+    changed_files: list[str] = []
+    poll_events: list[dict[str, Any]] = []
     live_agents_started = 0
 
     if not dry_run and execute_agent and flow_run_id:
         try:
-            if status_reader:
-                # Test hook
-                status_result = status_reader(
+            reader = status_reader or create_bounded_prefect_status_reader(None)
+            status_result = _result_dict(
+                reader(
                     flow_run_id=flow_run_id,
                     packet_id=selected_packet_id,
                     timeout_seconds=timeout_seconds,
                 )
-            else:
-                # Real status reader - use bounded reader with None client
-                # The bounded reader will fail gracefully if client is needed
-                reader = create_bounded_prefect_status_reader(None)
-                status_result = reader(
-                    flow_run_id=flow_run_id,
-                    packet_id=selected_packet_id,
-                    timeout_seconds=timeout_seconds,
-                )
-
+            )
             domain_status = status_result.get("domain_status")
             scope_verdict = status_result.get("scope_verdict")
-            changed_files = status_result.get("changed_files", [])
-            poll_events = status_result.get("poll_events", [])
-            live_agents_started = status_result.get("live_agents_started", 0)
-
-            if not status_result.get("ok"):
-                errors.extend(status_result.get("errors", []))
-        except Exception as e:
-            errors.append({"code": "STATUS_READ_FAILED", "message": str(e)})
-            domain_status = None
+            changed_files = list(status_result.get("changed_files") or [])
+            poll_events = list(status_result.get("poll_events") or [])
+            live_agents_started = int(status_result.get("live_agents_started") or status_result.get("agent_launch_count") or 0)
+            errors.extend(list(status_result.get("errors") or []))
+            if not status_result.get("ok", False):
+                errors.append(_error("ASTRO_STATUS_NOT_OK", "Managed Prefect status reader did not return ok=true."))
+        except Exception as exc:
+            errors.append(_error("STATUS_READ_FAILED", str(exc)))
             scope_verdict = "status_read_failed"
 
-    # Check writes outside temp roots
-    writes_outside_temp_roots = _paths_outside_roots(changed_files, [str(state_root), str(worktree_root), str(packet_root)])
+    if changed_files:
+        scope_result = validate_scope(
+            changed_files,
+            list(selected_packet.get("allowed_write_scope") or []),
+            list(selected_packet.get("frozen_scope") or []),
+            repo_root=repo_root,
+        )
+        if not scope_result.ok:
+            if domain_status is None:
+                domain_status = "scope_blocked"
+            if scope_verdict is None or scope_verdict == "passed":
+                scope_verdict = "blocked"
+            errors.append(
+                _error(
+                    "ASTRO_CHANGED_FILES_OUTSIDE_ALLOWED_SCOPE",
+                    "Managed Prefect pilot changed files outside the selected packet scope.",
+                    scope_result=scope_result.to_dict(),
+                )
+            )
 
-    # Final ok status
-    final_ok = submit_result.ok and (dry_run or (domain_status in ("accepted", "passed") and scope_verdict == "passed"))
+    touched_paths = [
+        state_root / "single_astro_submission" / "state" / "packet_registry.yaml",
+        worktree_root,
+        packet_root,
+    ]
+    writes_outside_temp_roots = _paths_outside_roots(touched_paths, [state_root, worktree_root, packet_root])
+    if writes_outside_temp_roots:
+        errors.append(_error("WRITE_OUTSIDE_TEMP_ROOTS", "Pilot detected writes outside temp roots."))
+
+    registry_after = _load_project_registry_map(base_adapter, state_root)
+    final_ok = (
+        not errors
+        and submit_result.ok
+        and dry_submit.packets_planned == [selected_packet_id]
+        and (
+            dry_run
+            or (
+                prefect_runs_created == 1
+                and live_agents_started == 1
+                and domain_status in {"accepted", "passed"}
+                and scope_verdict == "passed"
+            )
+        )
+    )
 
     return SingleAstroPacketPilotResult(
         ok=final_ok,
@@ -537,8 +731,8 @@ def run_single_astro_packet_pilot(
         worktree_root=str(worktree_root),
         packet_root=str(packet_root),
         selected_packet_id=selected_packet_id,
-        registry_before=registry_before,
-        registry_after=registry_before,
+        registry_before=_registry_summary(registry_before, selected_packet_id),
+        registry_after=_registry_summary(registry_after, selected_packet_id),
         submit_plan=submit_plan_dict,
         deployment_name=deployment_name,
         work_queue_name=work_queue_name,

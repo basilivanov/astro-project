@@ -83,6 +83,7 @@ from prefect_grace.cli_commands.packet_execution import (
     _cmd_run_handoff,
     _cmd_run_single_live_packet_pilot,
     _cmd_run_single_live_prefect_packet_pilot,
+    _cmd_run_single_astro_packet_pilot,
 )
 from prefect_grace.cli_commands.evidence import (
     _cmd_review,
@@ -580,6 +581,23 @@ def _register_packet_execution_commands(subparsers) -> None:
     run_single_live_prefect_packet_pilot.add_argument("--timeout-seconds", type=int, default=1800, help="Submission/status timeout seconds")
     run_single_live_prefect_packet_pilot.add_argument("--json", action="store_true", help="JSON output")
     run_single_live_prefect_packet_pilot.set_defaults(func=_cmd_run_single_live_prefect_packet_pilot)
+
+    run_single_astro_packet_pilot = subparsers.add_parser(
+        "run-single-astro-packet-pilot",
+        help="Run one low-risk Astro packet through managed Prefect submission",
+    )
+    run_single_astro_packet_pilot.add_argument("--project", required=True, help="Project config path")
+    run_single_astro_packet_pilot.add_argument("--state-root", type=Path, required=True, help="Pilot state root")
+    run_single_astro_packet_pilot.add_argument("--worktree-root", type=Path, required=True, help="Pilot worktree root")
+    run_single_astro_packet_pilot.add_argument("--packet-root", type=Path, required=True, help="Pilot packet temp root")
+    run_single_astro_packet_pilot.add_argument("--packet", help="Explicit packet ID to select")
+    run_single_astro_packet_pilot.add_argument("--dry-run", action="store_true", default=True, help="Plan only, default")
+    run_single_astro_packet_pilot.add_argument("--no-dry-run", dest="dry_run", action=NoDryRunAction, nargs=0, help="Disable dry run")
+    run_single_astro_packet_pilot.add_argument("--execute-agent", action="store_true", help="Allow live managed runner agent execution")
+    run_single_astro_packet_pilot.add_argument("--i-understand-live-agent", action="store_true", help="Required live-agent acknowledgement gate")
+    run_single_astro_packet_pilot.add_argument("--timeout-seconds", type=int, default=1800, help="Submission/status timeout seconds")
+    run_single_astro_packet_pilot.add_argument("--json", action="store_true", help="JSON output")
+    run_single_astro_packet_pilot.set_defaults(func=_cmd_run_single_astro_packet_pilot)
 
 
 def _register_evidence_commands(subparsers) -> None:

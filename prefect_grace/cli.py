@@ -94,6 +94,7 @@ from prefect_grace.cli_commands.packet_execution import (
     _cmd_run_handoff,
     _cmd_run_single_live_packet_pilot,
     _cmd_run_single_live_prefect_packet_pilot,
+    _cmd_run_single_astro_packet_pilot,
 )
 from prefect_grace.cli_commands.evidence import (
     _cmd_review,

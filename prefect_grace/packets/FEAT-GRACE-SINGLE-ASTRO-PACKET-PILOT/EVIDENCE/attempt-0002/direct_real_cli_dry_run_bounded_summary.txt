@@ -1,0 +1,12 @@
+ok=True
+command=run-single-astro-packet-pilot
+result_equals_data=True
+selected_packet_id=FEAT-ASTRO-CACHE-MANAGER-W01-LRU-CACHE
+prefect_runs_created=0
+live_agents_started=0
+output_lines=205
+output_bytes=7321
+registry_before_records_included=False
+registry_after_records_included=False
+registry_total_packets=48
+plan_count=1

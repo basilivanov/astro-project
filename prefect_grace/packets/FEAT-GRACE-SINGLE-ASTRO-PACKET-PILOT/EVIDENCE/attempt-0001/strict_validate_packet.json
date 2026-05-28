@@ -1,0 +1,197 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "result": {
+    "packet_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+    "feature_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+    "objective": "Run one small real Astro packet through the GRACE Prefect-managed pipeline after\nthe synthetic scratch pilot is accepted.\n\nThis packet is the first real product-training step. It should use a low-risk\nAstro packet with narrow allowed scope, submit exactly one managed packet flow\nrun, execute one agent in an isolated worktree, collect bounded evidence and\nreview, and stop before commit/push/merge unless a later Git packet explicitly\nallows branch push.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY"
+    ],
+    "modules": [
+      "M-GRACE-SINGLE-ASTRO-PACKET-PILOT",
+      "M-GRACE-PREFECT-NATIVE-SUBMISSION",
+      "M-GRACE-MANAGED-PACKET-RUNNER",
+      "M-GRACE-SCOPE-GUARD",
+      "M-GRACE-EVIDENCE",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/single_astro_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/single_live_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_execution.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_single_astro_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_single_astro_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/**",
+      "/tmp/grace-single-astro-packet-pilot/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/** outside selected packet allowed scope",
+      "/opt/astro-project/frontend/** outside selected packet allowed scope",
+      "/opt/astro-project/prefect_grace/** outside this packet and existing runner commands",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/docker-compose*.yml",
+      "/opt/astro-project/.env",
+      "/opt/astro-project/.worktrees/**",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet"
+    ],
+    "must_preserve": [
+      "Exactly one real Astro packet is selected.",
+      "The selected packet must have narrow allowed scope and no approval-required",
+      "Dry-run default has zero Prefect runs and zero live agents.",
+      "Real execution requires explicit operator approval and env token.",
+      "Commit, push, and merge are not performed in this packet.",
+      "Backend/frontend services, Docker, Playwright, and deployment are not started",
+      "Evidence is bounded.",
+      "CLI JSON envelope keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_single_astro_packet_pilot.py \\\n  tests/test_prefect_grace_cli_single_astro_packet_pilot.py \\\n  tests/test_prefect_grace_single_live_packet_pilot.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, and dry-run proof. Real\nlive Astro execution requires explicit Architect approval.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Dry-run candidate proof.",
+      "Missing approval blocked proof.",
+      "Injected live success/scope-blocked proof.",
+      "Confirmation no Git mutation, registry apply, product merge, backend,"
+    ],
+    "escalation_triggers": [
+      "Candidate selection picks broad product scope.",
+      "Main checkout is modified.",
+      "Commit/push/merge appears.",
+      "Scope blocker is counted as executor failure.",
+      "Output includes unbounded logs or secrets."
+    ],
+    "source_hash": "sha256:3ceefd97e17f636c6c8b49326fc885c9aa6d319917dd94c1758fccc4a1ef6ed9",
+    "section_lines": {
+      "execution packet: feat-grace-single-astro-packet-pilot-w01-one-safe-astro-packet": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 38,
+      "allowed write scope": 47,
+      "frozen scope": 60,
+      "must preserve": 73,
+      "required design decisions": 87,
+      "1. candidate selection": 89,
+      "2. product safety": 95,
+      "3. stop before git mutation": 101,
+      "implementation requirements": 106,
+      "acceptance criteria": 116,
+      "verification": 124,
+      "expected evidence": 139,
+      "escalation triggers": 151
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.md"
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+    "feature_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT",
+    "wave_id": "W01",
+    "title": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+    "objective": "Run one small real Astro packet through the GRACE Prefect-managed pipeline after\nthe synthetic scratch pilot is accepted.\n\nThis packet is the first real product-training step. It should use a low-risk\nAstro packet with narrow allowed scope, submit exactly one managed packet flow\nrun, execute one agent in an isolated worktree, collect bounded evidence and\nreview, and stop before commit/push/merge unless a later Git packet explicitly\nallows branch push.",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+      "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY"
+    ],
+    "modules": [
+      "M-GRACE-SINGLE-ASTRO-PACKET-PILOT",
+      "M-GRACE-PREFECT-NATIVE-SUBMISSION",
+      "M-GRACE-MANAGED-PACKET-RUNNER",
+      "M-GRACE-SCOPE-GUARD",
+      "M-GRACE-EVIDENCE",
+      "M-GRACE-OPERATOR-JSON"
+    ],
+    "allowed_write_scope": [
+      "/opt/astro-project/prefect_grace/platform/single_astro_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/platform/single_live_packet_pilot.py",
+      "/opt/astro-project/prefect_grace/cli_commands/packet_execution.py",
+      "/opt/astro-project/prefect_grace/cli_commands/parser.py",
+      "/opt/astro-project/prefect_grace/cli.py",
+      "/opt/astro-project/tests/test_prefect_grace_single_astro_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_single_astro_packet_pilot.py",
+      "/opt/astro-project/tests/test_prefect_grace_cli_contracts.py",
+      "/opt/astro-project/prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/**",
+      "/tmp/grace-single-astro-packet-pilot/**"
+    ],
+    "frozen_scope": [
+      "/opt/astro-project/backend/** outside selected packet allowed scope",
+      "/opt/astro-project/frontend/** outside selected packet allowed scope",
+      "/opt/astro-project/prefect_grace/** outside this packet and existing runner commands",
+      "/opt/astro-project/scripts/pipeline.py",
+      "/opt/astro-project/scripts/run_e2e.sh",
+      "/opt/astro-project/docker-compose*.yml",
+      "/opt/astro-project/.env",
+      "/opt/astro-project/.worktrees/**",
+      "/opt/astro-project/prefect_grace/state/*.yaml",
+      "/opt/astro-project/prefect_grace/packets/** outside current packet"
+    ],
+    "must_preserve": [
+      "Exactly one real Astro packet is selected.",
+      "The selected packet must have narrow allowed scope and no approval-required",
+      "Dry-run default has zero Prefect runs and zero live agents.",
+      "Real execution requires explicit operator approval and env token.",
+      "Commit, push, and merge are not performed in this packet.",
+      "Backend/frontend services, Docker, Playwright, and deployment are not started",
+      "Evidence is bounded.",
+      "CLI JSON envelope keeps `result == data`."
+    ],
+    "verification": "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_single_astro_packet_pilot.py \\\n  tests/test_prefect_grace_cli_single_astro_packet_pilot.py \\\n  tests/test_prefect_grace_single_live_packet_pilot.py \\\n  tests/test_prefect_grace_cli_contracts.py\n```\n\nRun compile, targeted lint, strict packet validation, and dry-run proof. Real\nlive Astro execution requires explicit Architect approval.",
+    "expected_evidence": [
+      "Strict validation output.",
+      "Targeted pytest output.",
+      "Compile output.",
+      "Targeted lint output.",
+      "Dry-run candidate proof.",
+      "Missing approval blocked proof.",
+      "Injected live success/scope-blocked proof.",
+      "Confirmation no Git mutation, registry apply, product merge, backend,"
+    ],
+    "escalation_triggers": [
+      "Candidate selection picks broad product scope.",
+      "Main checkout is modified.",
+      "Commit/push/merge appears.",
+      "Scope blocker is counted as executor failure.",
+      "Output includes unbounded logs or secrets."
+    ],
+    "source_hash": "sha256:3ceefd97e17f636c6c8b49326fc885c9aa6d319917dd94c1758fccc4a1ef6ed9",
+    "section_lines": {
+      "execution packet: feat-grace-single-astro-packet-pilot-w01-one-safe-astro-packet": 1,
+      "objective": 3,
+      "slice": 14,
+      "source of truth": 26,
+      "impacted modules": 38,
+      "allowed write scope": 47,
+      "frozen scope": 60,
+      "must preserve": 73,
+      "required design decisions": 87,
+      "1. candidate selection": 89,
+      "2. product safety": 95,
+      "3. stop before git mutation": 101,
+      "implementation requirements": 106,
+      "acceptance criteria": 116,
+      "verification": 124,
+      "expected evidence": 139,
+      "escalation triggers": 151
+    },
+    "legacy_warnings": [],
+    "path": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.md"
+  },
+  "warnings": [],
+  "errors": []
+}

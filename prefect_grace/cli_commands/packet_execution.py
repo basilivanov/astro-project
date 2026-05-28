@@ -605,3 +605,80 @@ def _cmd_run_single_live_prefect_packet_pilot(args: argparse.Namespace) -> None:
         else:
             print(f"Run single live Prefect packet pilot failed: {e}", file=sys.stderr)
         sys.exit(2)
+
+
+def _cmd_run_single_astro_packet_pilot(args: argparse.Namespace) -> None:
+    """Run one low-risk Astro packet through managed Prefect submission."""
+    command = "run-single-astro-packet-pilot"
+
+    if args.execute_agent and not hasattr(args, '_no_dry_run_explicit'):
+        error_msg = "Astro packet pilot requires explicit --no-dry-run flag. Use: --execute-agent --no-dry-run"
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "MISSING_EXPLICIT_NO_DRY_RUN", "message": error_msg}],
+            ))
+        else:
+            print(f"Error: {error_msg}", file=sys.stderr)
+        sys.exit(2)
+
+    try:
+        from prefect_grace.platform.single_astro_packet_pilot import (
+            run_single_astro_packet_pilot,
+            create_bounded_prefect_status_reader,
+        )
+
+        status_reader = None
+        if not args.dry_run:
+            status_reader = create_bounded_prefect_status_reader()
+
+        result = run_single_astro_packet_pilot(
+            project_path=Path(args.project),
+            state_root=Path(args.state_root),
+            worktree_root=Path(args.worktree_root),
+            packet_root=Path(args.packet_root),
+            dry_run=args.dry_run,
+            execute_agent=args.execute_agent,
+            acknowledge_live_agent=args.i_understand_live_agent,
+            opt_in_token=os.environ.get("GRACE_ASTRO_PACKET_OPT_IN"),
+            timeout_seconds=args.timeout_seconds,
+            packet_id=args.packet,
+            status_reader=status_reader,
+        )
+
+        payload = result.to_dict()
+        if args.json:
+            _print_json(_json_envelope(
+                ok=result.ok,
+                command=command,
+                project_key=result.project_key,
+                result=payload,
+                warnings=result.warnings,
+                errors=result.errors,
+            ))
+        else:
+            print(f"Single Astro packet pilot: {'OK' if result.ok else 'FAILED'}")
+            print(f"  Project: {result.project_key}")
+            print(f"  Dry run: {result.dry_run}")
+            print(f"  Selected packet: {result.selected_packet_id or '-'}")
+            print(f"  Deployment: {result.deployment_name or '-'}")
+            print(f"  Flow run: {result.flow_run_id or '-'}")
+            print(f"  Prefect runs created: {result.prefect_runs_created}")
+            print(f"  Live agents started: {result.live_agents_started}")
+            print(f"  Domain status: {result.domain_status or '-'}")
+            print(f"  Scope verdict: {result.scope_verdict or '-'}")
+            for error in result.errors[:8]:
+                print(f"ERROR: {error}", file=sys.stderr)
+
+        sys.exit(0 if result.ok else 1)
+    except Exception as e:
+        if args.json:
+            _print_json(_json_envelope(
+                ok=False,
+                command=command,
+                errors=[{"code": "RUN_SINGLE_ASTRO_PACKET_PILOT_FAILED", "message": str(e)}],
+            ))
+        else:
+            print(f"Run single Astro packet pilot failed: {e}", file=sys.stderr)
+        sys.exit(2)

@@ -1,0 +1,17 @@
+prefect_grace/platform/single_astro_packet_pilot.py
+prefect_grace/cli_commands/packet_execution.py
+prefect_grace/cli_commands/parser.py
+prefect_grace/cli.py
+tests/test_prefect_grace_single_astro_packet_pilot.py
+tests/test_prefect_grace_cli_single_astro_packet_pilot.py
+tests/test_prefect_grace_cli_contracts.py
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/targeted_pytest.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/compileall.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/targeted_lint.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/strict_validate_packet.json
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/dry_run_candidate_proof.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/missing_approval_proof.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/injected_live_scope_proof.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/missing_review_evidence_proof.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/no_git_mutation_proof.txt
+prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EVIDENCE/attempt-0001/evidence_manifest.json

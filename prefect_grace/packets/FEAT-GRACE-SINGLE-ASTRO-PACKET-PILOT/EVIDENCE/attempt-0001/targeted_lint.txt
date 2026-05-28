@@ -1,0 +1,4 @@
+[GRACE-LINT] All modules in prefect_grace/platform/single_astro_packet_pilot.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/cli_commands/packet_execution.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/cli_commands/parser.py comply with GRACE Canon Script Discipline.
+[GRACE-LINT] All modules in prefect_grace/cli.py comply with GRACE Canon Script Discipline.
