@@ -1,0 +1,17 @@
+{
+  "packet_id": "FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT-W01-STRUCTURED-REVIEW-ARTIFACTS",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "EV-REVIEW-YAML-TIMESTAMP-002",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "verification_summary.txt"
+      ],
+      "summary": "Regression for unquoted YAML timestamp scalar normalization passed with targeted review contract profile."
+    }
+  ],
+  "blockers": []
+}

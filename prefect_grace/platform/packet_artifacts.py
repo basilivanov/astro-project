@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from prefect_grace.platform.packet_artifact_layout import resolve_packet_layout
 
 #START_BLOCK_ARTIFACT_WRITERS
@@ -58,6 +60,7 @@ def write_review(
 
     # Build review content
     timestamp = datetime.now(timezone.utc).isoformat()
+    safe_metadata = _json_safe_metadata(metadata or {})
     lines = [
         f"# Review {next_num:04d}",
         "",
@@ -66,10 +69,10 @@ def write_review(
         "",
     ]
 
-    if metadata:
+    if safe_metadata:
         lines.append("## Metadata")
         lines.append("")
-        for key, value in metadata.items():
+        for key, value in safe_metadata.items():
             lines.append(f"- **{key}:** `{value}`")
         lines.append("")
 
@@ -82,8 +85,65 @@ def write_review(
 
     review_content = "\n".join(lines)
     review_file.write_text(review_content, encoding="utf-8")
+    review_file.with_suffix(".yaml").write_text(
+        yaml.safe_dump(
+            _review_contract_payload(
+                next_num=next_num,
+                verdict=verdict,
+                timestamp=timestamp,
+                metadata=safe_metadata,
+            ),
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
 
     return review_file
+
+
+def _review_contract_payload(
+    *,
+    next_num: int,
+    verdict: str,
+    timestamp: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    generated_by = str(
+        metadata.get("generated_by")
+        or "prefect_grace.platform.packet_artifacts.write_review"
+    )
+    reviewer = metadata.get("reviewer")
+    packet_id = metadata.get("packet_id")
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "artifact_type": "review",
+        "review_id": f"review-{next_num:04d}",
+        "status": _canonical_review_status(verdict),
+        "verdict": _canonical_review_status(verdict),
+        "reviewed_at": timestamp,
+        "generated_by": generated_by,
+    }
+    if reviewer:
+        payload["reviewer"] = str(reviewer)
+    if packet_id:
+        payload["packet_id"] = str(packet_id)
+    if metadata:
+        payload["metadata"] = metadata
+    return payload
+
+
+def _canonical_review_status(verdict: str) -> str:
+    return str(verdict or "").strip().lower().replace("-", "_")
+
+
+def _json_safe_metadata(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe_metadata(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_metadata(item) for item in value]
+    return str(value)
 
 
 # START_FUNCTION_CONTRACT

@@ -1,0 +1,17 @@
+{
+  "packet_id": "FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT-W01-STRUCTURED-REVIEW-ARTIFACTS",
+  "generated_by": "codex",
+  "evidence": [
+    {
+      "id": "EV-REVIEW-YAML-CONTRACT-001",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "pytest",
+      "artifact_paths": [
+        "verification_summary.txt"
+      ],
+      "summary": "Targeted parser, writer, bootstrap, audit, and merge steward regressions passed."
+    }
+  ],
+  "blockers": []
+}

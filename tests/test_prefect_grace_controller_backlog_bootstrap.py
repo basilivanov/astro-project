@@ -214,6 +214,35 @@ def test_bootstrap_conflicting_terminal_evidence_waits(tmp_path: Path) -> None:
     assert any("Conflicting terminal bootstrap evidence" in warning for warning in candidate.warnings)
 
 
+def test_bootstrap_review_yaml_sidecar_overrides_markdown_guess(tmp_path: Path) -> None:
+    packets_dir = tmp_path / "packets"
+    state_root = tmp_path / "runtime"
+    packet_path = _write_strict_packet(packets_dir, "FEAT-YAML-REVIEW", "FEAT-YAML-REVIEW-W01-PACKET")
+    (packet_path.parent / "REVIEWS").mkdir()
+    review = packet_path.parent / "REVIEWS" / "review-0001.md"
+    review.write_text(
+        "verdict: accepted\n",
+        encoding="utf-8",
+    )
+    review.with_suffix(".yaml").write_text(
+        """schema_version: 1
+artifact_type: review
+packet_id: FEAT-YAML-REVIEW-W01-PACKET
+status: rework_required
+generated_by: pytest
+timestamp: "2026-05-28T10:00:00+00:00"
+""",
+        encoding="utf-8",
+    )
+
+    project = MockProjectAdapter(tmp_path, "packets", state_root)
+    plan = build_backlog_bootstrap_plan(project, dry_run=True)
+
+    candidate = plan.candidates[0]
+    assert candidate.inferred_status == "blocked"
+    assert candidate.inference_reason == "latest_review:packets/FEAT-YAML-REVIEW/REVIEWS/review-0001.yaml"
+
+
 def test_bootstrap_parses_real_attempt_summary_markdown(tmp_path: Path) -> None:
     packets_dir = tmp_path / "packets"
     state_root = tmp_path / "runtime"

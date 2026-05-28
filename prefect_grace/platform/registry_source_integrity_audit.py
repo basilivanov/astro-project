@@ -25,7 +25,6 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
-import re
 import subprocess
 
 from prefect_grace.platform.artifact_validator import validate_artifact_references
@@ -41,6 +40,7 @@ from prefect_grace.platform.packet_artifact_layout import (
 )
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.project_adapter import load_project_adapter
+from prefect_grace.platform.review_artifact_contract import read_review_status
 from prefect_grace.platform.state_store import PacketRegistryStore
 
 BLOCKING_ISSUES = {
@@ -272,7 +272,10 @@ def _audit_record(
     review_path = latest_review(layout)
     if review_path:
         summary["latest_review_path"] = _display_path(review_path, repo_root)
-        summary["latest_review_status"] = _read_review_status(review_path)
+        summary["latest_review_status"] = read_review_status(
+            review_path,
+            expected_packet_id=packet_id,
+        )
 
     manifest_path = latest_evidence_manifest(layout)
     if manifest_path:
@@ -360,27 +363,6 @@ def _validate_latest_manifest(
     if artifact_validation.missing_artifacts:
         messages.append("missing_artifacts")
     return False, ", ".join(messages) or "evidence manifest validation failed"
-
-
-def _read_review_status(path: Path) -> str:
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore").lower()
-    except Exception:
-        return "unreadable"
-    label_match = re.search(
-        r"(?im)^\s*(?:[-*]\s*)?(?:\*\*)?(status|verdict)(?:\*\*)?\s*:\s*(?:\*\*)?\s*`?([a-z0-9_\-]+)`?\b",
-        text,
-    )
-    if label_match:
-        return label_match.group(2)
-
-    section_match = re.search(
-        r"(?ims)^#{1,6}\s+verdict\s*$\s*`?([a-z0-9_\-]+)`?\.?\b",
-        text,
-    )
-    if section_match:
-        return section_match.group(1)
-    return "unknown"
 
 
 def _issue(code: str, severity: str, packet_id: str, message: str) -> dict[str, Any]:

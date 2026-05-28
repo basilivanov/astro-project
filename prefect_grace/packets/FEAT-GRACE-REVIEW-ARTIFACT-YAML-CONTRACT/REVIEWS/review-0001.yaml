@@ -1,0 +1,12 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT-W01-STRUCTURED-REVIEW-ARTIFACTS
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-28T17:19:25Z"
+summary: Canonical YAML review contract package accepted after timestamp scalar rework.
+metadata:
+  attempt: attempt-0002
+  observability_verdict: clean

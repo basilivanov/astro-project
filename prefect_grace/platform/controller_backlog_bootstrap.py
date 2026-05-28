@@ -34,6 +34,7 @@ from prefect_grace.platform.packet_artifact_layout import (
     resolve_packet_layout,
 )
 from prefect_grace.platform.packet_parser import ParsedPacket, parse_packet_markdown
+from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
 from prefect_grace.platform.state_store import PacketRegistryStore
 from prefect_grace.platform.status_model import RegistryStatus, normalize_source_status
 
@@ -316,7 +317,20 @@ def _latest_evidence_files(layout: Any) -> list[tuple[Path, str]]:
     return [(path, kind) for path, kind in candidates if path.exists()]
 
 
-def _infer_from_artifacts(packet_dir: Path, repo_root: Path) -> _ArtifactInference:
+def _review_status_to_registry_status(status: str | None) -> str | None:
+    if status == "accepted":
+        return RegistryStatus.ACCEPTED.value
+    if status in {"blocked", "rework_required"}:
+        return RegistryStatus.BLOCKED.value
+    return None
+
+
+def _infer_from_artifacts(
+    packet_dir: Path,
+    repo_root: Path,
+    *,
+    expected_packet_id: str | None,
+) -> _ArtifactInference:
     layout = resolve_packet_layout(packet_dir)
     statuses: list[tuple[str, str, str]] = []
     evidence_paths: list[str] = []
@@ -334,14 +348,19 @@ def _infer_from_artifacts(packet_dir: Path, repo_root: Path) -> _ArtifactInferen
 
     review_path = latest_review(layout)
     if review_path:
-        rel = _relative_path(review_path, repo_root)
+        review_result = read_review_artifact_status(
+            review_path,
+            expected_packet_id=expected_packet_id,
+        )
+        rel = _relative_path(review_result.path or review_path, repo_root)
         evidence_paths.append(rel)
-        try:
-            status = _read_text_status(review_path, keys={"verdict", "status"}, verdict_section=True)
-            if status in {RegistryStatus.ACCEPTED.value, RegistryStatus.BLOCKED.value}:
-                statuses.append((status, "latest_review", rel))
-        except Exception as exc:
-            warnings.append(f"Failed to read review artifact {rel}: {exc}")
+        status = _review_status_to_registry_status(review_result.status)
+        if review_result.ok and status in {RegistryStatus.ACCEPTED.value, RegistryStatus.BLOCKED.value}:
+            statuses.append((status, "latest_review", rel))
+        else:
+            warnings.append(
+                f"Review artifact has no valid terminal status: {rel}"
+            )
 
     for evidence_path, evidence_kind in _latest_evidence_files(layout):
         rel = _relative_path(evidence_path, repo_root)
@@ -482,7 +501,11 @@ def build_backlog_bootstrap_plan(project: Any, *, dry_run: bool = True) -> Backl
     artifact_inferences: dict[str, _ArtifactInference] = {}
 
     for record in records:
-        artifact_inference = _infer_from_artifacts(record.source_path.parent, repo_root)
+        artifact_inference = _infer_from_artifacts(
+            record.source_path.parent,
+            repo_root,
+            expected_packet_id=record.parsed.packet_id,
+        )
         artifact_inferences[record.parsed.packet_id] = artifact_inference
         if artifact_inference.status in {RegistryStatus.ACCEPTED.value, RegistryStatus.BLOCKED.value}:
             inferred[record.parsed.packet_id] = artifact_inference.status

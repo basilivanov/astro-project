@@ -170,6 +170,39 @@ def test_merge_steward_dry_run_plan() -> None:
         assert result.merged_count == 0
 
 
+def test_merge_steward_accepts_review_from_yaml_sidecar() -> None:
+    """YAML sidecar is canonical for accepted-review checks."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        repo, packet_paths = _setup_repo(tmp_path)
+        review = repo / "packets" / "FEAT-MERGE-TEST-A" / "REVIEWS" / "review-0001.md"
+        review.write_text("status: rework_required\n", encoding="utf-8")
+        review.with_suffix(".yaml").write_text(
+            f"""schema_version: 1
+artifact_type: review
+packet_id: {PACKET_ID_1}
+status: accepted
+generated_by: pytest
+timestamp: "2026-05-28T10:00:00+00:00"
+""",
+            encoding="utf-8",
+        )
+
+        result = run_merge_steward(
+            repo_root=repo,
+            target_branch="main",
+            packet_branches=[BRANCH_1],
+            packet_paths=packet_paths,
+            dry_run=True,
+        )
+
+        assert result.ok is True
+        assert result.plan is not None
+        assert result.plan.candidates_total == 1
+        assert result.plan.excluded_total == 0
+
+
 def test_merge_steward_missing_approval_blocks() -> None:
     """Test missing approval flags block merge."""
     import tempfile

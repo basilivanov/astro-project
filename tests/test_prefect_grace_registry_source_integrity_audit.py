@@ -192,6 +192,35 @@ Accepted.
     assert result.packets[0]["latest_review_status"] == "accepted"
 
 
+def test_yaml_review_status_overrides_markdown_in_full_audit(tmp_path: Path) -> None:
+    project = _write_project(tmp_path)
+    packet_id = "FEAT-YAML-REVIEW-W01-PACKET"
+    source, source_hash = _write_packet(tmp_path, packet_id)
+    review = source.parent / "REVIEWS" / "review-0002.md"
+    review.write_text("verdict: accepted\n", encoding="utf-8")
+    review.with_suffix(".yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "artifact_type": "review",
+                "packet_id": packet_id,
+                "status": "rework_required",
+                "generated_by": "pytest",
+                "timestamp": "2026-05-28T10:00:00+00:00",
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    _write_registry(tmp_path, _accepted_record(tmp_path, packet_id, source, source_hash))
+
+    result = audit_registry_source_integrity(project_config=project, git_tracking_checker=_tracked)
+
+    assert result.ok is True
+    assert result.packets[0]["latest_review_path"].endswith("REVIEWS/review-0002.md")
+    assert result.packets[0]["latest_review_status"] == "rework_required"
+
+
 def test_source_missing_is_blocking(tmp_path: Path) -> None:
     project = _write_project(tmp_path)
     packet_id = "FEAT-MISSING-W01-PACKET"

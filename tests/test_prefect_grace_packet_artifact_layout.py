@@ -1,5 +1,6 @@
 import pytest
 import json
+import yaml
 from pathlib import Path
 from prefect_grace.platform.packet_artifact_layout import (
     PacketArtifactLayout,
@@ -154,7 +155,7 @@ def test_write_review(tmp_path):
         packet_dir,
         verdict="rework_required",
         body="Fix the bug in module X.",
-        metadata={"reviewer": "test-reviewer"},
+        metadata={"packet_id": "FEAT-TEST-W01-PACKET", "reviewer": "test-reviewer"},
     )
 
     assert review_path.exists()
@@ -163,6 +164,13 @@ def test_write_review(tmp_path):
     assert "rework_required" in content
     assert "Fix the bug" in content
     assert "test-reviewer" in content
+    sidecar = review_path.with_suffix(".yaml")
+    assert sidecar.exists()
+    loaded = json.loads(json.dumps(yaml.safe_load(sidecar.read_text())))
+    assert loaded["packet_id"] == "FEAT-TEST-W01-PACKET"
+    assert loaded["status"] == "rework_required"
+    assert loaded["reviewer"] == "test-reviewer"
+    assert loaded["reviewed_at"]
 
 
 def test_write_evidence(tmp_path):

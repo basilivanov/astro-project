@@ -32,6 +32,7 @@ from prefect_grace.platform.artifact_validator import validate_artifact_referenc
 from prefect_grace.platform.evidence_contract import parse_evidence_contract
 from prefect_grace.platform.evidence_manifest import parse_evidence_manifest, validate_evidence_manifest
 from prefect_grace.platform.packet_parser import parse_packet_markdown
+from prefect_grace.platform.review_artifact_contract import read_review_artifact_status
 
 
 MAX_ITEMS = 25
@@ -152,7 +153,7 @@ def _add_warning(result: MergeStewardResult, code: str, message: str, **extra: A
     result.warnings.append(_block(code, message, **extra))
 
 
-def _latest_review(packet_path: Path) -> tuple[bool, dict[str, Any]]:
+def _latest_review(packet_path: Path, *, expected_packet_id: str | None) -> tuple[bool, dict[str, Any]]:
     """Check if packet has accepted review."""
     reviews_dir = packet_path.parent / "REVIEWS"
     if not reviews_dir.exists():
@@ -161,9 +162,17 @@ def _latest_review(packet_path: Path) -> tuple[bool, dict[str, Any]]:
     if not reviews:
         return False, {"present": False, "accepted": False, "path": None}
     latest = reviews[-1]
-    text = latest.read_text(encoding="utf-8", errors="ignore").lower()
-    accepted = bool(re.search(r"(^|\n)\s*(status|verdict)\s*:\s*accepted\b", text))
-    return accepted, {"present": True, "accepted": accepted, "path": str(latest)}
+    result = read_review_artifact_status(
+        latest,
+        expected_packet_id=expected_packet_id,
+    )
+    accepted = result.ok and result.status == "accepted"
+    return accepted, {
+        "present": True,
+        "accepted": accepted,
+        "path": str(result.path or latest),
+        "source": result.source,
+    }
 
 
 def _latest_evidence(packet_path: Path, contract: Any) -> tuple[bool, dict[str, Any]]:
@@ -215,7 +224,7 @@ def _validate_candidate(
     except Exception:
         return False, "packet_parse_failed"
 
-    review_ok, _ = _latest_review(packet_path)
+    review_ok, _ = _latest_review(packet_path, expected_packet_id=parsed.packet_id)
     if not review_ok:
         return False, "missing_accepted_review"
 
