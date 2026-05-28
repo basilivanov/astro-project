@@ -49,6 +49,51 @@ def _compact_text(text: str, *, limit: int = DEFAULT_PROMPT_DIGEST_MAX_CHARS) ->
         + stripped[-tail:].lstrip()
     )
 
+def _normalize_paths_in_packet(packet_text: str, repo_root: str | Path) -> str:
+    """
+    Normalize absolute paths in packet text to repo-relative paths.
+
+    This ensures agents work with relative paths regardless of where they execute,
+    enabling proper worktree isolation.
+
+    Args:
+        packet_text: Raw packet markdown text
+        repo_root: Repository root path (e.g., /opt/astro-project)
+
+    Returns:
+        Packet text with absolute paths converted to relative paths
+    """
+    repo_root_str = str(Path(repo_root).resolve())
+
+    # Replace absolute paths with relative paths
+    # Match patterns like: /opt/astro-project/backend/... or `/opt/astro-project/backend/...`
+    # Replace with: backend/... or `backend/...`
+
+    # Pattern 1: Backtick-quoted paths: `/opt/astro-project/path`
+    packet_text = re.sub(
+        rf'`{re.escape(repo_root_str)}/([^`]+)`',
+        r'`\1`',
+        packet_text
+    )
+
+    # Pattern 2: Unquoted paths at start of line or after whitespace: /opt/astro-project/path
+    packet_text = re.sub(
+        rf'(^|\s){re.escape(repo_root_str)}/(\S+)',
+        r'\1\2',
+        packet_text,
+        flags=re.MULTILINE
+    )
+
+    # Pattern 3: Paths in markdown lists: - /opt/astro-project/path
+    packet_text = re.sub(
+        rf'^(\s*[-*]\s+){re.escape(repo_root_str)}/(.+)$',
+        r'\1\2',
+        packet_text,
+        flags=re.MULTILINE
+    )
+
+    return packet_text
+
 def _bullet_digest(text: str, *, max_lines: int = 24, max_chars: int = DEFAULT_PROMPT_DIGEST_MAX_CHARS) -> str:
     lines = [line.rstrip() for line in text.splitlines() if line.strip()]
     selected: list[str] = []
@@ -312,6 +357,11 @@ def build_packet_prompt(packet: dict[str, Any], role_prompt: str) -> str:
     role = str(packet.get("role") or "")
     packet_path = packet.get("packet_path") or ""
     packet_text = _read_text(packet_path)
+
+    # Normalize absolute paths to relative paths for worktree isolation
+    repo_root = packet.get("project_root") or Path(__file__).resolve().parents[2]
+    packet_text = _normalize_paths_in_packet(packet_text, repo_root)
+
     execution_hints = dict(packet.get("execution_hints") or {})
     packet_type = str(packet.get("packet_type") or "").strip().lower().replace("-", "_")
     parent_packet_id = str(packet.get("parent_packet_id") or "").strip()

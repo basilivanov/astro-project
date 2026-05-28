@@ -136,6 +136,8 @@ def _launch_codex_for_packet(
     # Use new registry format with fallback to old
     from prefect_grace.tasks.state_store import find_packet_from_registry
     packet = find_packet_from_registry(packet_id, runtime_state_root, project_root=ROOT_DIR)
+    # Add project_root to packet dict for path normalization in prompt builder
+    packet["project_root"] = str(ROOT_DIR)
     role = str(packet.get("role") or "coder")
     role_defaults = _role_defaults(config, role)
     execution_hints = dict(packet.get("execution_hints") or {})
