@@ -1,7 +1,53 @@
 from pathlib import Path
 
 import pytest
-from prefect_grace.platform.packet_parser import parse_packet_markdown
+import yaml
+
+from prefect_grace.platform.packet_parser import compute_normalized_source_hash, parse_packet_markdown
+
+
+STRICT_PACKET_MARKDOWN = """# Execution Packet: FEAT-TEST-W01-PACKET
+
+## Slice
+- packet_id: FEAT-TEST-W01-PACKET
+- feature_id: FEAT-TEST
+- wave_id: W01
+- depends_on: MARKDOWN-DEP-W01-PACKET
+
+## Objective
+Markdown objective.
+
+## Impacted Modules
+- markdown-module
+
+## Allowed Write Scope
+- markdown/**
+
+## Frozen Scope
+- frozen/**
+
+## Must Preserve
+- Markdown preserve.
+
+## Verification
+Markdown verification.
+
+## Expected Evidence
+- markdown evidence
+
+## Escalation Triggers
+- markdown trigger
+"""
+
+
+def _write_packet_with_sidecar(tmp_path: Path, sidecar: dict) -> Path:
+    packet_path = tmp_path / "EXECUTION_PACKET.md"
+    packet_path.write_text(STRICT_PACKET_MARKDOWN, encoding="utf-8")
+    packet_path.with_name("EXECUTION_PACKET.yaml").write_text(
+        yaml.safe_dump(sidecar, sort_keys=False),
+        encoding="utf-8",
+    )
+    return packet_path
 
 
 def test_parse_strict_packet_success() -> None:
@@ -139,3 +185,134 @@ Validate hash stability.
     content_modified = content_base.replace("src/**", "src/modified/**")
     parsed_modified = parse_packet_markdown(content_modified, mode="strict")
     assert parsed_base.source_hash != parsed_modified.source_hash
+
+
+def test_yaml_sidecar_overrides_markdown_fields_and_lists(tmp_path: Path) -> None:
+    packet_path = _write_packet_with_sidecar(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-TEST-W01-PACKET",
+            "feature_id": "FEAT-TEST-YAML",
+            "wave_id": "W02",
+            "title": "YAML title",
+            "objective": "YAML objective.",
+            "status": "ready_for_review",
+            "phase": "PHASE-YAML",
+            "depends_on": ["YAML-DEP-A", "YAML-DEP-B"],
+            "modules": "yaml-module-a, yaml-module-b",
+            "allowed_write_scope": ["yaml/src/**", "yaml/tests/**"],
+            "frozen_scope": "backend/**\n- frontend/**",
+            "must_preserve": ["YAML preserve."],
+            "verification": "YAML verification text.",
+            "expected_evidence": "yaml evidence a, yaml evidence b",
+            "escalation_triggers": ["yaml trigger"],
+        },
+    )
+
+    parsed = parse_packet_markdown(packet_path, mode="strict")
+
+    assert parsed.packet_id == "FEAT-TEST-W01-PACKET"
+    assert parsed.feature_id == "FEAT-TEST-YAML"
+    assert parsed.wave_id == "W02"
+    assert parsed.title == "YAML title"
+    assert parsed.objective == "YAML objective."
+    assert parsed.status == "ready_for_review"
+    assert parsed.phase == "PHASE-YAML"
+    assert parsed.depends_on == ["YAML-DEP-A", "YAML-DEP-B"]
+    assert parsed.modules == ["yaml-module-a", "yaml-module-b"]
+    assert parsed.allowed_write_scope == ["yaml/src/**", "yaml/tests/**"]
+    assert parsed.frozen_scope == ["backend/**", "frontend/**"]
+    assert parsed.must_preserve == ["YAML preserve."]
+    assert parsed.verification == "YAML verification text."
+    assert parsed.expected_evidence == ["yaml evidence a", "yaml evidence b"]
+    assert parsed.escalation_triggers == ["yaml trigger"]
+
+
+def test_yaml_sidecar_packet_id_mismatch_fails_strict(tmp_path: Path) -> None:
+    packet_path = _write_packet_with_sidecar(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-OTHER-W01-PACKET",
+        },
+    )
+
+    with pytest.raises(ValueError, match="YAML sidecar packet_id does not match markdown packet_id"):
+        parse_packet_markdown(packet_path, mode="strict")
+
+
+def test_invalid_yaml_sidecar_fails_strict(tmp_path: Path) -> None:
+    packet_path = tmp_path / "EXECUTION_PACKET.md"
+    packet_path.write_text(STRICT_PACKET_MARKDOWN, encoding="utf-8")
+    packet_path.with_name("EXECUTION_PACKET.yaml").write_text(
+        "schema_version: 1\nartifact_type: [execution_packet\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Invalid YAML sidecar"):
+        parse_packet_markdown(packet_path, mode="strict")
+    with pytest.raises(ValueError, match="Invalid YAML sidecar"):
+        parse_packet_markdown(packet_path, mode="legacy_warn")
+
+
+def test_yaml_sidecar_unknown_field_fails_closed(tmp_path: Path) -> None:
+    packet_path = _write_packet_with_sidecar(
+        tmp_path,
+        {
+            "schema_version": 1,
+            "artifact_type": "execution_packet",
+            "packet_id": "FEAT-TEST-W01-PACKET",
+            "depend_on": ["TYPO-DEP"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="unknown fields: depend_on"):
+        parse_packet_markdown(packet_path, mode="strict")
+    with pytest.raises(ValueError, match="unknown fields: depend_on"):
+        parse_packet_markdown(packet_path, mode="legacy_warn")
+
+
+def test_yaml_sidecar_source_hash_changes_but_markdown_only_hash_is_stable(tmp_path: Path) -> None:
+    packet_path = tmp_path / "EXECUTION_PACKET.md"
+    packet_path.write_text(STRICT_PACKET_MARKDOWN, encoding="utf-8")
+
+    markdown_only = parse_packet_markdown(packet_path, mode="strict")
+    raw_markdown = parse_packet_markdown(STRICT_PACKET_MARKDOWN, mode="strict")
+    assert markdown_only.source_hash == raw_markdown.source_hash
+    assert markdown_only.source_hash == compute_normalized_source_hash(STRICT_PACKET_MARKDOWN)
+
+    sidecar_path = packet_path.with_name("EXECUTION_PACKET.yaml")
+    sidecar_path.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "artifact_type": "execution_packet",
+                "packet_id": "FEAT-TEST-W01-PACKET",
+                "depends_on": ["DEP-A"],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    sidecar_dep_a = parse_packet_markdown(packet_path, mode="strict")
+
+    sidecar_path.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "artifact_type": "execution_packet",
+                "packet_id": "FEAT-TEST-W01-PACKET",
+                "depends_on": ["DEP-B"],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    sidecar_dep_b = parse_packet_markdown(packet_path, mode="strict")
+
+    assert sidecar_dep_a.source_hash != markdown_only.source_hash
+    assert sidecar_dep_b.source_hash != markdown_only.source_hash
+    assert sidecar_dep_a.source_hash != sidecar_dep_b.source_hash

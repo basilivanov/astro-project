@@ -217,7 +217,7 @@ def test_yaml_review_status_overrides_markdown_in_full_audit(tmp_path: Path) -> 
     result = audit_registry_source_integrity(project_config=project, git_tracking_checker=_tracked)
 
     assert result.ok is True
-    assert result.packets[0]["latest_review_path"].endswith("REVIEWS/review-0002.md")
+    assert result.packets[0]["latest_review_path"].endswith("REVIEWS/review-0002.yaml")
     assert result.packets[0]["latest_review_status"] == "rework_required"
 
 

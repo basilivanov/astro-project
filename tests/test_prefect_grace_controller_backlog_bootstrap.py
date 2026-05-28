@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 from prefect_grace.platform.controller_backlog_bootstrap import build_backlog_bootstrap_plan
 from prefect_grace.platform.packet_parser import parse_packet_markdown
 from prefect_grace.platform.state_store import PacketRegistryStore
@@ -121,6 +123,38 @@ verdict: ACCEPTED
     assert registry.load_packet("FEAT-DEPENDENT-W01-PACKET")["registry_status"] == "ready"
     assert p1.read_text(encoding="utf-8") == before_p1
     assert p2.read_text(encoding="utf-8") == before_p2
+
+
+def test_bootstrap_uses_yaml_sidecar_depends_on_without_markdown_bullet(tmp_path: Path) -> None:
+    packets_dir = tmp_path / "packets"
+    state_root = tmp_path / "runtime"
+    packet_path = _write_strict_packet(packets_dir, "FEAT-YAML-DEPS", "FEAT-YAML-DEPS-W01-PACKET")
+    packet_path.with_name("EXECUTION_PACKET.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "artifact_type": "execution_packet",
+                "packet_id": "FEAT-YAML-DEPS-W01-PACKET",
+                "depends_on": ["FEAT-MISSING-PARENT-W01-PACKET"],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    project = MockProjectAdapter(tmp_path, "packets", state_root)
+    plan = build_backlog_bootstrap_plan(project, dry_run=False)
+
+    assert plan.errors == []
+    assert plan.apply_count == 1
+    assert len(plan.candidates) == 1
+    candidate = plan.candidates[0]
+    assert candidate.inferred_status == "waiting_for_dependencies"
+    assert candidate.inference_reason == (
+        "waiting_for_dependency_evidence:FEAT-MISSING-PARENT-W01-PACKET"
+    )
+    registry_record = PacketRegistryStore(state_root / "state").load_packet("FEAT-YAML-DEPS-W01-PACKET")
+    assert registry_record["depends_on"] == ["FEAT-MISSING-PARENT-W01-PACKET"]
 
 
 def test_bootstrap_packet_filter_scopes_candidates_and_apply(tmp_path: Path) -> None:

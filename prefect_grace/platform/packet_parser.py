@@ -59,6 +59,38 @@ EXCLUDED_SECTIONS_RE = re.compile(
     re.IGNORECASE,
 )
 
+PACKET_SIDECAR_NAME = "EXECUTION_PACKET.yaml"
+PACKET_SIDECAR_ARTIFACT_TYPE = "execution_packet"
+PACKET_SIDECAR_CANONICAL_FIELDS = [
+    "schema_version",
+    "artifact_type",
+    "packet_id",
+    "feature_id",
+    "wave_id",
+    "title",
+    "objective",
+    "status",
+    "phase",
+    "depends_on",
+    "modules",
+    "allowed_write_scope",
+    "frozen_scope",
+    "must_preserve",
+    "verification",
+    "expected_evidence",
+    "escalation_triggers",
+]
+PACKET_SIDECAR_CANONICAL_FIELD_SET = set(PACKET_SIDECAR_CANONICAL_FIELDS)
+PACKET_SIDECAR_LIST_FIELDS = {
+    "depends_on",
+    "modules",
+    "allowed_write_scope",
+    "frozen_scope",
+    "must_preserve",
+    "expected_evidence",
+    "escalation_triggers",
+}
+
 # START_FUNCTION_CONTRACT
 # name: compute_normalized_source_hash
 # purpose: Computes a stable SHA-256 hash of the packet, ignoring runtime sections.
@@ -70,6 +102,12 @@ EXCLUDED_SECTIONS_RE = re.compile(
 # error_behavior: none.
 # END_FUNCTION_CONTRACT
 def compute_normalized_source_hash(content: str) -> str:
+    normalized_content = _normalized_markdown_source(content)
+    digest = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def _normalized_markdown_source(content: str) -> str:
     lines = content.splitlines()
     filtered_lines: list[str] = []
     excluding = False
@@ -86,7 +124,25 @@ def compute_normalized_source_hash(content: str) -> str:
             if stripped:
                 filtered_lines.append(stripped)
 
-    normalized_content = "\n".join(filtered_lines)
+    return "\n".join(filtered_lines)
+
+
+def _compute_packet_source_hash(content: str, sidecar_payload: dict[str, Any] | None) -> str:
+    normalized_content = _normalized_markdown_source(content)
+    if sidecar_payload is not None:
+        normalized_sidecar = yaml.safe_dump(
+            sidecar_payload,
+            sort_keys=True,
+            allow_unicode=True,
+        ).strip()
+        normalized_content = "\n".join(
+            [
+                normalized_content,
+                f"--- {PACKET_SIDECAR_NAME} ---",
+                normalized_sidecar,
+            ]
+        )
+
     digest = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
 
@@ -95,6 +151,91 @@ def _read_packet_content(path_or_content: Path | str) -> str:
     if isinstance(path_or_content, Path):
         return path_or_content.read_text(encoding="utf-8")
     return path_or_content
+
+
+def _packet_sidecar_path(path_or_content: Path | str) -> Path | None:
+    if not isinstance(path_or_content, Path):
+        return None
+    if path_or_content.name != "EXECUTION_PACKET.md":
+        return None
+    return path_or_content.with_name(PACKET_SIDECAR_NAME)
+
+
+def _sidecar_text(value: Any, field_name: str) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list)):
+        raise ValueError(f"YAML sidecar field {field_name} must be scalar text")
+    return str(value).strip()
+
+
+def _normalize_sidecar_list(value: Any, field_name: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        normalized_items: list[str] = []
+        for item in value:
+            if isinstance(item, (dict, list)):
+                raise ValueError(f"YAML sidecar list field {field_name} contains a non-scalar item")
+            item_text = str(item).strip()
+            if item_text:
+                normalized_items.append(item_text)
+        return normalized_items
+    if not isinstance(value, str):
+        raise ValueError(f"YAML sidecar list field {field_name} must be a list or scalar string")
+
+    stripped = value.strip()
+    if not stripped:
+        return []
+
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    if len(lines) > 1:
+        items: list[str] = []
+        for line in lines:
+            item = re.sub(r"^[-*]\s+", "", line).strip()
+            if item:
+                items.append(item)
+        return items
+
+    if "," in stripped or "·" in stripped:
+        return _split_words(stripped)
+    return [stripped]
+
+
+def _normalize_packet_sidecar_payload(payload: dict[str, Any], sidecar_path: Path) -> dict[str, Any]:
+    unknown_fields = sorted(set(payload) - PACKET_SIDECAR_CANONICAL_FIELD_SET)
+    if unknown_fields:
+        raise ValueError(
+            f"YAML sidecar {sidecar_path} contains unknown fields: {', '.join(unknown_fields)}"
+        )
+
+    artifact_type = _sidecar_text(payload.get("artifact_type"), "artifact_type")
+    if artifact_type != PACKET_SIDECAR_ARTIFACT_TYPE:
+        raise ValueError(
+            f"YAML sidecar {sidecar_path} must declare artifact_type: {PACKET_SIDECAR_ARTIFACT_TYPE}"
+        )
+
+    normalized: dict[str, Any] = {}
+    for field_name in PACKET_SIDECAR_CANONICAL_FIELDS:
+        if field_name not in payload:
+            continue
+        if field_name in PACKET_SIDECAR_LIST_FIELDS:
+            normalized[field_name] = _normalize_sidecar_list(payload[field_name], field_name)
+        else:
+            normalized[field_name] = _sidecar_text(payload[field_name], field_name)
+    return normalized
+
+
+def _load_packet_sidecar(sidecar_path: Path | None) -> dict[str, Any] | None:
+    if sidecar_path is None or not sidecar_path.exists():
+        return None
+    try:
+        payload = yaml.safe_load(sidecar_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise ValueError(f"Invalid YAML sidecar {sidecar_path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"Invalid YAML sidecar {sidecar_path}: top-level payload must be a mapping")
+    return _normalize_packet_sidecar_payload(payload, sidecar_path)
 
 
 def _parse_sections(content: str) -> tuple[dict[str, list[str]], dict[str, int], str]:
@@ -208,13 +349,15 @@ def parse_packet_markdown(
     mode: str = "strict",
 ) -> ParsedPacket:
     content = _read_packet_content(path_or_content)
+    sidecar_payload = _load_packet_sidecar(_packet_sidecar_path(path_or_content))
 
-    source_hash = compute_normalized_source_hash(content)
+    source_hash = _compute_packet_source_hash(content, sidecar_payload)
     sections, section_lines, first_heading = _parse_sections(content)
     header_metadata = _parse_header_metadata(content, sections)
 
     title = ""
     packet_id = ""
+    markdown_packet_ids: list[str] = []
     feature_id = ""
     wave_id = ""
     status = str(header_metadata.get("status") or "").strip()
@@ -230,6 +373,7 @@ def parse_packet_markdown(
         )
         if id_match:
             packet_id = id_match.group(1).strip()
+            markdown_packet_ids.append(packet_id)
             title = first_heading.split(":", 1)[1].strip()
         else:
             controller_match = re.match(
@@ -239,6 +383,7 @@ def parse_packet_markdown(
             )
             if controller_match:
                 packet_id = controller_match.group(1).strip()
+                markdown_packet_ids.append(packet_id)
                 wave_id = packet_id
                 title = controller_match.group(2).strip()
             else:
@@ -251,8 +396,10 @@ def parse_packet_markdown(
 
     if "packet_id" in all_metadata:
         packet_id = all_metadata["packet_id"]
+        markdown_packet_ids.append(packet_id)
     elif "packet" in all_metadata:
         packet_id = all_metadata["packet"]
+        markdown_packet_ids.append(packet_id)
     if "feature_id" in all_metadata:
         feature_id = all_metadata["feature_id"]
     if "wave_id" in all_metadata:
@@ -306,6 +453,47 @@ def parse_packet_markdown(
     verification = _get_section_text(["verification", "verification profile"])
     expected_evidence = _get_bullet_list(["expected evidence"])
     escalation_triggers = _get_bullet_list(["escalation triggers"])
+
+    if sidecar_payload is not None:
+        sidecar_packet_id = str(sidecar_payload.get("packet_id") or "").strip()
+        markdown_ids = {item.strip() for item in markdown_packet_ids if item.strip()}
+        mismatches = sorted(item for item in markdown_ids if sidecar_packet_id and item != sidecar_packet_id)
+        if mismatches:
+            raise ValueError(
+                "YAML sidecar packet_id does not match markdown packet_id: "
+                f"{sidecar_packet_id} != {', '.join(mismatches)}"
+            )
+
+        if "packet_id" in sidecar_payload:
+            packet_id = sidecar_packet_id
+        if "feature_id" in sidecar_payload:
+            feature_id = str(sidecar_payload["feature_id"])
+        if "wave_id" in sidecar_payload:
+            wave_id = str(sidecar_payload["wave_id"])
+        if "title" in sidecar_payload:
+            title = str(sidecar_payload["title"])
+        if "objective" in sidecar_payload:
+            objective = str(sidecar_payload["objective"])
+        if "status" in sidecar_payload:
+            status = str(sidecar_payload["status"])
+        if "phase" in sidecar_payload:
+            phase = str(sidecar_payload["phase"])
+        if "depends_on" in sidecar_payload:
+            depends_on = list(sidecar_payload["depends_on"])
+        if "modules" in sidecar_payload:
+            modules = list(sidecar_payload["modules"])
+        if "allowed_write_scope" in sidecar_payload:
+            allowed_write_scope = list(sidecar_payload["allowed_write_scope"])
+        if "frozen_scope" in sidecar_payload:
+            frozen_scope = list(sidecar_payload["frozen_scope"])
+        if "must_preserve" in sidecar_payload:
+            must_preserve = list(sidecar_payload["must_preserve"])
+        if "verification" in sidecar_payload:
+            verification = str(sidecar_payload["verification"])
+        if "expected_evidence" in sidecar_payload:
+            expected_evidence = list(sidecar_payload["expected_evidence"])
+        if "escalation_triggers" in sidecar_payload:
+            escalation_triggers = list(sidecar_payload["escalation_triggers"])
 
     core_checks = {
         "packet_id": packet_id,
