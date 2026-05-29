@@ -1,0 +1,419 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-DEPENDENCY-ID-REPAIR-W01-REWORK-RESUME-GATE-ID",
+    "evidence_count": 14,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SUMMARY",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-BEFORE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-AFTER",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-BEFORE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-PREFLIGHT",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-APPLY",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-AFTER",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-FINAL-SYNC",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-FINAL-AUDIT",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-FINAL-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SELF-SIDECAR",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SELF-SIDECAR not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-STRICT-VALIDATE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-MANIFEST",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SCOPE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-DIFF",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 2817,
+          "hash": "7fc7efe73fe9933b2a02ece640379ebd85f910763fc3768be9b95b56188e8132"
+        },
+        {
+          "path": "target_executor_registry_validate_before.json",
+          "exists": true,
+          "size": 17772,
+          "hash": "a68b8f704b0fd002427379f11a3e0c67e9d599497ab9f8c43851c7199d46be7e"
+        },
+        {
+          "path": "target_managed_packet_runner_validate_before.json",
+          "exists": true,
+          "size": 21262,
+          "hash": "487a9fa560200c851559fcec62fc106d31da18064cb3bde3ceeee0a220b8f954"
+        },
+        {
+          "path": "target_executor_registry_validate_after.json",
+          "exists": true,
+          "size": 17782,
+          "hash": "12faf7ea30755e721d13fa0c61679f0f76633376e113564e3a38b2688d529ddd"
+        },
+        {
+          "path": "target_managed_packet_runner_validate_after.json",
+          "exists": true,
+          "size": 21272,
+          "hash": "c3db974ce97a1dc71dfd6aaf32ac69a12b4157bfe9bb1c84727c12d02f1ea341"
+        },
+        {
+          "path": "target_executor_registry_packet_status_before.json",
+          "exists": true,
+          "size": 3433,
+          "hash": "3d339519734619ca3e7a2a139ad8d5ec83fb6c4dea61dc58176f1b8fbfce2b9b"
+        },
+        {
+          "path": "target_managed_packet_runner_packet_status_before.json",
+          "exists": true,
+          "size": 3833,
+          "hash": "7dba55a6a5949a437cc5de5469574f90cd904c08634a50b87b4f0da9af796ffe"
+        },
+        {
+          "path": "preflight_executor_registry_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 37892,
+          "hash": "e49a300f90db6334f8e2b94e4ef135b7ae5495be095ddf0536d2fb489f7f303b"
+        },
+        {
+          "path": "preflight_managed_packet_runner_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 37964,
+          "hash": "33027f879a8b65dd6e96bfdbdfca028d9adfdb86f7f93a92f4436d9db06be8a4"
+        },
+        {
+          "path": "approved_executor_registry_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 54174,
+          "hash": "c426af761cdd3c7b8a00ce7a0d7653ff7cb134aad95de4453011c03e7e661a96"
+        },
+        {
+          "path": "approved_managed_packet_runner_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 54246,
+          "hash": "05c3383f3f02d8d51ebade572f4c3c11302501aa74f69e8cf83c24374db22278"
+        },
+        {
+          "path": "target_executor_registry_packet_status_after.json",
+          "exists": true,
+          "size": 3443,
+          "hash": "4e30c1a7c5d6e28b43fa518effca0efd990509a3341fafde3974ecd2f967dc60"
+        },
+        {
+          "path": "target_managed_packet_runner_packet_status_after.json",
+          "exists": true,
+          "size": 3843,
+          "hash": "d245a8310c5a88745a3f3cabc6f5c22352dbdba5046f7dd908447e1e0d0abc2c"
+        },
+        {
+          "path": "sync_packets_final_dry_run.json",
+          "exists": true,
+          "size": 16354,
+          "hash": "9f15927680081002ca3d53527daf3046eaff04fa10c91ee67d99f88ff3c25bf4"
+        },
+        {
+          "path": "audit_sidecars_final.json",
+          "exists": true,
+          "size": 90041,
+          "hash": "e180a938c16bbe9073bd3ae583a22f167984450ad767e3ceffa4488ff0e5f8e1"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1355,
+          "hash": "a9f213b5f7e57b9f46b89b28634339ee3f85f009c048f2bb8e35dea681f08046"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 20234,
+          "hash": "d0d10c85d63a2639c7c86a978b15d6c9ddbcba3a455f523ee603a90300796064"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 13434,
+          "hash": "e3967de28e3a7a0713f558c89c96971db30b723ed97a60530d5a88447c6b5e5e"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-DEPENDENCY-ID-REPAIR-W01-REWORK-RESUME-GATE-ID",
+    "evidence_count": 14,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SUMMARY",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-BEFORE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-AFTER",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-VALIDATE-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-BEFORE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-PREFLIGHT",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-APPLY",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-AFTER",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-TARGET-STATUS-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-FINAL-SYNC",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-FINAL-AUDIT",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-FINAL-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SELF-SIDECAR",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SELF-SIDECAR not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-STRICT-VALIDATE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-MANIFEST",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-SCOPE",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W01-DEPENDENCY-ID-REPAIR-DIFF",
+          "message": "Evidence EV-W01-DEPENDENCY-ID-REPAIR-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 2817,
+          "hash": "7fc7efe73fe9933b2a02ece640379ebd85f910763fc3768be9b95b56188e8132"
+        },
+        {
+          "path": "target_executor_registry_validate_before.json",
+          "exists": true,
+          "size": 17772,
+          "hash": "a68b8f704b0fd002427379f11a3e0c67e9d599497ab9f8c43851c7199d46be7e"
+        },
+        {
+          "path": "target_managed_packet_runner_validate_before.json",
+          "exists": true,
+          "size": 21262,
+          "hash": "487a9fa560200c851559fcec62fc106d31da18064cb3bde3ceeee0a220b8f954"
+        },
+        {
+          "path": "target_executor_registry_validate_after.json",
+          "exists": true,
+          "size": 17782,
+          "hash": "12faf7ea30755e721d13fa0c61679f0f76633376e113564e3a38b2688d529ddd"
+        },
+        {
+          "path": "target_managed_packet_runner_validate_after.json",
+          "exists": true,
+          "size": 21272,
+          "hash": "c3db974ce97a1dc71dfd6aaf32ac69a12b4157bfe9bb1c84727c12d02f1ea341"
+        },
+        {
+          "path": "target_executor_registry_packet_status_before.json",
+          "exists": true,
+          "size": 3433,
+          "hash": "3d339519734619ca3e7a2a139ad8d5ec83fb6c4dea61dc58176f1b8fbfce2b9b"
+        },
+        {
+          "path": "target_managed_packet_runner_packet_status_before.json",
+          "exists": true,
+          "size": 3833,
+          "hash": "7dba55a6a5949a437cc5de5469574f90cd904c08634a50b87b4f0da9af796ffe"
+        },
+        {
+          "path": "preflight_executor_registry_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 37892,
+          "hash": "e49a300f90db6334f8e2b94e4ef135b7ae5495be095ddf0536d2fb489f7f303b"
+        },
+        {
+          "path": "preflight_managed_packet_runner_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 37964,
+          "hash": "33027f879a8b65dd6e96bfdbdfca028d9adfdb86f7f93a92f4436d9db06be8a4"
+        },
+        {
+          "path": "approved_executor_registry_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 54174,
+          "hash": "c426af761cdd3c7b8a00ce7a0d7653ff7cb134aad95de4453011c03e7e661a96"
+        },
+        {
+          "path": "approved_managed_packet_runner_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 54246,
+          "hash": "05c3383f3f02d8d51ebade572f4c3c11302501aa74f69e8cf83c24374db22278"
+        },
+        {
+          "path": "target_executor_registry_packet_status_after.json",
+          "exists": true,
+          "size": 3443,
+          "hash": "4e30c1a7c5d6e28b43fa518effca0efd990509a3341fafde3974ecd2f967dc60"
+        },
+        {
+          "path": "target_managed_packet_runner_packet_status_after.json",
+          "exists": true,
+          "size": 3843,
+          "hash": "d245a8310c5a88745a3f3cabc6f5c22352dbdba5046f7dd908447e1e0d0abc2c"
+        },
+        {
+          "path": "sync_packets_final_dry_run.json",
+          "exists": true,
+          "size": 16354,
+          "hash": "9f15927680081002ca3d53527daf3046eaff04fa10c91ee67d99f88ff3c25bf4"
+        },
+        {
+          "path": "audit_sidecars_final.json",
+          "exists": true,
+          "size": 90041,
+          "hash": "e180a938c16bbe9073bd3ae583a22f167984450ad767e3ceffa4488ff0e5f8e1"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1355,
+          "hash": "a9f213b5f7e57b9f46b89b28634339ee3f85f009c048f2bb8e35dea681f08046"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 20234,
+          "hash": "d0d10c85d63a2639c7c86a978b15d6c9ddbcba3a455f523ee603a90300796064"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 13434,
+          "hash": "e3967de28e3a7a0713f558c89c96971db30b723ed97a60530d5a88447c6b5e5e"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
