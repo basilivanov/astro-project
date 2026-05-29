@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP-W01-PACKET-ARTIFACT-LAYOUT"
+      ],
+      "feature_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP",
+      "objective": "Implement a typed evidence and verifier contract layer for the portable GRACE\norchestrator so packet acceptance no longer depends on vague Markdown evidence\nrequests or unchecked LLM file references.\n\nThe goal is not to replace the verifier with a script. The verifier remains an\nagent that can run commands, inspect logs, open UI, reason about results, and\nsummarize evidence. The platform must add the deterministic contract layer\naround that agent:\n\n- what evidence is required;\n- who owns producing it;\n- when it is required (`packet_local` vs `wave_final`);\n- whether it is possible inside the packet scope;\n- what artifact paths were claimed;\n- whether those artifacts actually exist;\n- how blockers are routed when evidence is missing, invalid, deferred, or out\n  of scope.\n\nThis packet must not implement live agent execution, worktree management,\nmerge steward, or product backend/frontend changes. It is a platform contract\nand validation packet.",
+      "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+      "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/REVIEWS/review-0003.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:d0b71085098e495aed7e44ca36141c3695d7537a4fb75307eaf649013847b028",
+      "status": "ready",
+      "title": "GRACE Evidence Contracts MVP",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP-W01-PACKET-ARTIFACT-LAYOUT"
+      ],
+      "feature_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP",
+      "objective": "Implement a typed evidence and verifier contract layer for the portable GRACE\norchestrator so packet acceptance no longer depends on vague Markdown evidence\nrequests or unchecked LLM file references.\n\nThe goal is not to replace the verifier with a script. The verifier remains an\nagent that can run commands, inspect logs, open UI, reason about results, and\nsummarize evidence. The platform must add the deterministic contract layer\naround that agent:\n\n- what evidence is required;\n- who owns producing it;\n- when it is required (`packet_local` vs `wave_final`);\n- whether it is possible inside the packet scope;\n- what artifact paths were claimed;\n- whether those artifacts actually exist;\n- how blockers are routed when evidence is missing, invalid, deferred, or out\n  of scope.\n\nThis packet must not implement live agent execution, worktree management,\nmerge steward, or product backend/frontend changes. It is a platform contract\nand validation packet.",
+      "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+      "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/REVIEWS/review-0003.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:d0b71085098e495aed7e44ca36141c3695d7537a4fb75307eaf649013847b028",
+      "status": "ready",
+      "title": "GRACE Evidence Contracts MVP",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
