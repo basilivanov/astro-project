@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+        "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+      ],
+      "feature_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING",
+      "objective": "Fix executor history to not treat `scope_blocked` as failure for rotation logic.\n\nCurrently `scope_blocked` can count toward `max_consecutive_failures`, causing\nan executor to be rotated out even when the issue is a packet scope violation,\nnot an executor failure.",
+      "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+      "path": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:e53d4c4fc257106b0e39d9cb447ce9e838c54ff3a60ac7862952857eb6d5315c",
+      "status": "ready",
+      "title": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+        "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL"
+      ],
+      "feature_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING",
+      "objective": "Fix executor history to not treat `scope_blocked` as failure for rotation logic.\n\nCurrently `scope_blocked` can count toward `max_consecutive_failures`, causing\nan executor to be rotated out even when the issue is a packet scope violation,\nnot an executor failure.",
+      "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+      "path": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:e53d4c4fc257106b0e39d9cb447ce9e838c54ff3a60ac7862952857eb6d5315c",
+      "status": "ready",
+      "title": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,1435 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "audit-packet-yaml-sidecars",
+  "result": {
+    "ok": true,
+    "packet_root": "prefect_grace/packets",
+    "packets_total": 98,
+    "limit": 100,
+    "counts": {
+      "canonical": 44,
+      "no_sidecar": 52,
+      "stale_sidecar": 0,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "examples": {
+      "canonical": [
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-CONTRACT-W01-PACKET-SPEC-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT-W01-CORPUS-DRY-RUN-REPORT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN-W01-SOURCE-HASH-IMPACT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02-CLI-COMMAND-SPLIT-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03-CODEX-LAUNCHER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04-CONTROLLER-BACKLOG-BOOTSTRAP-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05-E2E-PREFECT-FLOW-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07-E2E-STATUS-TRANSITION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08-E2E-PACKET-RUNNER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09-EVIDENCE-CONTRACTS-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11-EVIDENCE-MANIFEST-PATH-RESOLUTION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12-EXECUTOR-HISTORY-SCOPE-BLOCKED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W01-ONE-ACCEPTED-PACKET",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03-CLI-COMMAND-SPLIT-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04-CODEX-LAUNCHER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05-CONTROLLER-BACKLOG-BOOTSTRAP-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06-E2E-PREFECT-FLOW-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08-E2E-STATUS-TRANSITION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09-E2E-PACKET-RUNNER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10-EVIDENCE-CONTRACTS-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12-EVIDENCE-MANIFEST-PATH-RESOLUTION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13-EXECUTOR-HISTORY-SCOPE-BLOCKED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY-W01-ONE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC-W01-DRY-RUN-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        }
+      ],
+      "no_sidecar": [
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-CACHE-MANAGER-W01-LRU-CACHE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-DATA-VALIDATOR-W01-SCHEMA-VALIDATION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-DATE-FORMATTER-TEST-W01-ISO-DATE-UTILS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-USER-API-ENDPOINT-W01-USER-CRUD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-REGISTRY-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-REGISTRY-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT-W01-FLOW-PHASE-RUNNERS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT-W01-FEATURE-PIPELINE-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION-W01-PIPELINE-TASKS-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET-W01-LIVE-OPT-IN-SINGLE-SCRATCH",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-MERGE-STEWARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-MERGE-STEWARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-MERGE-STEWARD-W01-OPERATOR-APPROVED-FF-MERGE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION-W01-SAFE-BATCH-PLAN",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD-W01-LIMITS-STOP-CONDITIONS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN-W01-CONCURRENCY-ONE-NO-MERGE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER-W01-PLAN-LOCK-SUMMARY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT-W01-RISK-FLAGS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP1/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP1/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-MVP1-W01-PROJECT-ADAPTER-CONTRACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER-W01-BACKLOG-CONTROLLER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP-W01-SYNTHETIC-EDGE-MATRIX",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP-W01-PACKET-ARTIFACT-LAYOUT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-BRANCH-PUSH-GATE-W01-ACCEPTED-PACKET-BRANCH-PUSH",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP-W01-BATCH-E2E-QUEUE-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP-W01-E2E-LIVE-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP-W01-PREFECT-LIFECYCLE-FLOW",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP-W01-NATIVE-E2E-SUBMISSION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP-W01-PREFECT-NATIVE-SUBMISSION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE-W01-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING-W01-PREFECT-WORKER-DEPLOYMENT-BINDING",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-W01-SOURCE-TO-RUNTIME",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER-W01-SCOPED-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT-W01-STRUCTURED-REVIEW-ARTIFACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY-W01-LAYOUT-HELPERS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS-W01-GIT-NIGHTLY-GATES",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP-W01-SOURCE-HASH-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT-W01-ACCEPTED-SOURCE-EVIDENCE-AUDIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SCOPE-GUARD-MVP-W01-SCOPE-GUARD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT-W01-PREFECT-WORKTREE-GIT-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-STATUS-MODEL-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-STATUS-MODEL-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD-W01-ACCEPTED-DAG-FILTER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP-W01-HANDOFF",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-WORKTREE-MANAGER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-WORKTREE-MANAGER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-WORKTREE-MANAGER-MVP-W01-WORKTREE-MANAGER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP-W01-LIFECYCLE-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        }
+      ],
+      "stale_sidecar": [],
+      "invalid_sidecar": [],
+      "skipped": [
+        {
+          "classification": "skipped",
+          "packet": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.yaml",
+          "packet_id": "",
+          "reason": "Strict packet validation failed: Missing core fields/sections: packet_id, feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+        },
+        {
+          "classification": "skipped",
+          "packet": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.yaml",
+          "packet_id": "",
+          "reason": "Strict packet validation failed: Missing core fields/sections: packet_id, feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+        }
+      ]
+    },
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "data": {
+    "ok": true,
+    "packet_root": "prefect_grace/packets",
+    "packets_total": 98,
+    "limit": 100,
+    "counts": {
+      "canonical": 44,
+      "no_sidecar": 52,
+      "stale_sidecar": 0,
+      "invalid_sidecar": 0,
+      "skipped": 2
+    },
+    "examples": {
+      "canonical": [
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CLI-COMMAND-MODULE-SPLIT-W01-CLI-COMMAND-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CODEX-LAUNCHER-MODULE-SPLIT-W01-CODEX-LAUNCHER-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-CONTROLLER-BACKLOG-BOOTSTRAP-W01-BACKLOG-BOOTSTRAP",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EXECUTOR-HISTORY-SCOPE-BLOCKED-HANDLING-W01-FILTER-SCOPE-BLOCKED",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-CONTRACT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-CONTRACT-W01-PACKET-SPEC-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-AUDIT-W01-CORPUS-DRY-RUN-REPORT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-LEGACY-TITLE-PARSE-W01-HEADING-ID-GUARD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-APPLY-W01-STALE-ONLY-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MIGRATION-PLAN-W01-SOURCE-HASH-IMPACT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W01-ONE-GRACE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W02-CLI-COMMAND-SPLIT-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W03-CODEX-LAUNCHER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W04-CONTROLLER-BACKLOG-BOOTSTRAP-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W05-E2E-PREFECT-FLOW-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07-E2E-STATUS-TRANSITION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W08-E2E-PACKET-RUNNER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W09-EVIDENCE-CONTRACTS-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W11-EVIDENCE-MANIFEST-PATH-RESOLUTION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W12-EXECUTOR-HISTORY-SCOPE-BLOCKED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W01-ONE-ACCEPTED-PACKET",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W02-AGENT-API-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W03-CLI-COMMAND-SPLIT-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W04-CODEX-LAUNCHER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W05-CONTROLLER-BACKLOG-BOOTSTRAP-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W06-E2E-PREFECT-FLOW-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08-E2E-STATUS-TRANSITION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09-E2E-PACKET-RUNNER-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W10-EVIDENCE-CONTRACTS-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W12-EVIDENCE-MANIFEST-PATH-RESOLUTION-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W13-EXECUTOR-HISTORY-SCOPE-BLOCKED-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-STALE-APPLY-W01-ONE-SIDECAR",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        },
+        {
+          "classification": "canonical",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SYNC-W01-DRY-RUN-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml matches canonical payload"
+        }
+      ],
+      "no_sidecar": [
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-CACHE-MANAGER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-CACHE-MANAGER-W01-LRU-CACHE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-DATA-VALIDATOR/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-DATA-VALIDATOR-W01-SCHEMA-VALIDATION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-DATE-FORMATTER-TEST/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-DATE-FORMATTER-TEST-W01-ISO-DATE-UTILS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-ORDER-MANAGEMENT-SYSTEM-W01-FULL-SYSTEM",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-ASTRO-USER-API-ENDPOINT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-ASTRO-USER-API-ENDPOINT-W01-USER-CRUD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-REGISTRY-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-EXECUTOR-REGISTRY-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-EXECUTOR-REGISTRY-MVP-W01-EXECUTOR-REGISTRY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-FLOW-BODY-SPLIT-W01-FLOW-PHASE-RUNNERS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-MODULE-SPLIT-W01-FEATURE-PIPELINE-MODULE-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-FEATURE-PIPELINE-TASK-EXTRACTION-W01-PIPELINE-TASKS-SPLIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-GIT-MUTATION-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-GIT-MUTATION-GATE-W01-COMMIT-PUSH-MERGE-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-LIVE-OPT-IN-SINGLE-SCRATCH-PACKET-W01-LIVE-OPT-IN-SINGLE-SCRATCH",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-MERGE-STEWARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-MERGE-STEWARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-MERGE-STEWARD-W01-OPERATOR-APPROVED-FF-MERGE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-DRY-RUN-SELECTION-W01-SAFE-BATCH-PLAN",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-EXECUTION-GUARD-W01-LIMITS-STOP-CONDITIONS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-BATCH-SELECTION-RECHECK-W01-PREFLIGHT-RECHECK",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-CONTROLLED-BATCH-RUN-W01-CONCURRENCY-ONE-NO-MERGE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER-W01-PLAN-LOCK-SUMMARY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-NIGHTLY-PREFLIGHT-RISK-REPORT-W01-RISK-FLAGS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP1/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP1/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-MVP1-W01-PROJECT-ADAPTER-CONTRACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-MVP2-BACKLOG-CONTROLLER-W01-BACKLOG-CONTROLLER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-ORCHESTRATOR-SYNTHETIC-EDGE-MATRIX-MVP-W01-SYNTHETIC-EDGE-MATRIX",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-ARTIFACT-LAYOUT-MVP-W01-PACKET-ARTIFACT-LAYOUT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PACKET-BRANCH-PUSH-GATE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PACKET-BRANCH-PUSH-GATE-W01-ACCEPTED-PACKET-BRANCH-PUSH",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-BATCH-E2E-QUEUE-SMOKE-MVP-W01-BATCH-E2E-QUEUE-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-E2E-LIVE-SMOKE-MVP-W01-E2E-LIVE-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP-W01-PREFECT-LIFECYCLE-FLOW",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-MANAGED-RUNNER-DEPLOYMENT-APPLY-W01-APPROVED-DEPLOYMENT-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-NATIVE-E2E-SUBMISSION-MVP-W01-NATIVE-E2E-SUBMISSION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP-W01-PREFECT-NATIVE-SUBMISSION",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE-W01-PREFECT-REAL-DRY-RUN-SEEDED-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-REAL-E2E-DRY-RUN-SMOKE-MVP-W01-REAL-E2E-DRY-RUN-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-PREFECT-WORKER-DEPLOYMENT-BINDING-W01-PREFECT-WORKER-DEPLOYMENT-BINDING",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-APPLY-SMOKE/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-W01-SOURCE-TO-RUNTIME",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REGISTRY-BOOTSTRAP-APPLY-PACKET-FILTER-W01-SCOPED-APPLY",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-ARTIFACT-YAML-CONTRACT-W01-STRUCTURED-REVIEW-ARTIFACTS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-YAML-FIRST-DISCOVERY-W01-LAYOUT-HELPERS",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REVIEW-YAML-GATE-CONSUMERS-W01-GIT-NIGHTLY-GATES",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-REWORK-RESUME-SOURCE-HASH-GATE-MVP-W01-SOURCE-HASH-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-RUNTIME-REGISTRY-SOURCE-INTEGRITY-AUDIT-W01-ACCEPTED-SOURCE-EVIDENCE-AUDIT",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SCOPE-GUARD-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SCOPE-GUARD-MVP-W01-SCOPE-GUARD",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-ASTRO-PACKET-PILOT-W01-ONE-SAFE-ASTRO-PACKET",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-LIVE-PACKET-PILOT-W01-PREFECT-WORKTREE-GIT-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SINGLE-LIVE-PREFECT-PACKET-PILOT-W01-MANAGED-PREFECT-SCRATCH-RUN",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-STATUS-MODEL-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-STATUS-MODEL-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-STATUS-MODEL-MVP-W01-STATUS-MODEL",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-STRUCTURED-LOGGING-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-STRUCTURED-LOGGING-MVP-W01-LOG-ENVELOPE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-SYNC-TERMINAL-ACCEPTED-DAG-GUARD-W01-ACCEPTED-DAG-FILTER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP-W01-HANDOFF",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-WORKTREE-MANAGER-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-WORKTREE-MANAGER-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-WORKTREE-MANAGER-MVP-W01-WORKTREE-MANAGER",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        },
+        {
+          "classification": "no_sidecar",
+          "packet": "prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP/EXECUTION_PACKET.yaml",
+          "packet_id": "FEAT-GRACE-WORKTREE-SCOPE-LIFECYCLE-MVP-W01-LIFECYCLE-GATE",
+          "reason": "Adjacent EXECUTION_PACKET.yaml is missing"
+        }
+      ],
+      "stale_sidecar": [],
+      "invalid_sidecar": [],
+      "skipped": [
+        {
+          "classification": "skipped",
+          "packet": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-BACKEND-GRACE-CONTRACTS-OBS-HUBS-20260417/EXECUTION_PACKET.yaml",
+          "packet_id": "",
+          "reason": "Strict packet validation failed: Missing core fields/sections: packet_id, feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+        },
+        {
+          "classification": "skipped",
+          "packet": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.md",
+          "sidecar": "prefect_grace/packets/FEAT-WEEK-LEGACY-BOUNDARY-REFACTOR-RERUN-20260417/EXECUTION_PACKET.yaml",
+          "packet_id": "",
+          "reason": "Strict packet validation failed: Missing core fields/sections: packet_id, feature_id, wave_id, must_preserve, expected_evidence, escalation_triggers"
+        }
+      ]
+    },
+    "errors": [],
+    "writes": [],
+    "source_mutations": [],
+    "prefect_runs_created": 0,
+    "live_agents_started": 0
+  },
+  "warnings": [],
+  "errors": []
+}
