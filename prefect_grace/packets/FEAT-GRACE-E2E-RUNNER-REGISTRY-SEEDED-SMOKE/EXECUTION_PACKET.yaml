@@ -1,0 +1,129 @@
+schema_version: '1'
+artifact_type: execution_packet
+packet_id: FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+feature_id: FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+wave_id: W01
+title: FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+objective: 'Add an isolated registry-seeded dry-run smoke for the portable GRACE E2E
+
+  packet runner.
+
+
+  The smoke must prove that a temporary runtime registry seeded from bounded
+
+  terminal evidence can drive the next runnable packet into the existing dry-run
+
+  E2E runner path, while accepted parents are skipped and missing or blocked
+
+  dependencies are not executed.
+
+
+  This packet is orchestration-platform work only. It must not change product
+
+  Astro behavior and must not start live agents, live Prefect runs, Docker,
+
+  backend, frontend, Playwright, provider APIs, or network-dependent services.'
+status: ready
+phase: PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP
+depends_on:
+- FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE
+- FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION
+modules:
+- M-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+- M-GRACE-E2E-PACKET-RUNNER
+- M-GRACE-BACKLOG-CONTROLLER
+- M-GRACE-PACKET-REGISTRY
+- M-GRACE-REGISTRY-APPLY-SMOKE
+- M-GRACE-STATUS-MODEL
+- M-GRACE-CLI
+- M-GRACE-OPERATOR-JSON
+allowed_write_scope:
+- prefect_grace/platform/e2e_runner_registry_seeded_smoke.py
+- prefect_grace/cli.py
+- tests/test_prefect_grace_e2e_runner_registry_seeded_smoke.py
+- tests/test_prefect_grace_cli_e2e_runner_registry_seeded_smoke.py
+- tests/test_prefect_grace_e2e_packet_runner.py
+- tests/test_prefect_grace_cli_e2e_packet_runner.py
+- tests/test_prefect_grace_cli_contracts.py
+- prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/**
+frozen_scope:
+- backend/**
+- frontend/**
+- prefect_grace/platform/controller_backlog_bootstrap.py
+- prefect_grace/platform/status_model.py
+- prefect_grace/platform/backlog_controller.py
+- prefect_grace/platform/registry_apply_smoke.py
+- prefect_grace/platform/e2e_packet_runner.py
+- prefect_grace/flows/**
+- prefect_grace/tasks/codex_launcher.py
+- prefect_grace/state/*.yaml
+- scripts/pipeline.py
+- scripts/run_e2e.sh
+- .env
+- /var/lib/grace-orchestrator/**
+must_preserve:
+- Existing `validate-project`, `scan-packets`, `sync-packets`, `submit-packets`, `registry-apply-smoke`,
+  `run-e2e-packet`, and `registry-dump` JSON envelopes.
+- 'Existing CLI envelope fields: `ok`, `project_key`, `command`, `result`, `data`,
+  `warnings`, `errors`.'
+- '`result == data` for JSON commands covered by this packet.'
+- Accepted parent packets with unchanged source hashes are not rerun.
+- Missing or blocked dependency packets are not selected for E2E execution.
+- Source packet status alone cannot seed accepted registry state.
+- '`domain_status`, `registry_status`, `registry_reason`, and selected registry plan
+  fields remain distinct in output.'
+- Dry-run E2E runner behavior remains deterministic and fake-output based.
+- '`submit-packets --dry-run` never creates Prefect flow runs.'
+- No live agents, live Prefect runs, provider APIs, Docker, backend, frontend, or
+  Playwright are started.
+- Source packets, `prefect_grace/state/*.yaml`, and real `/var/lib/grace-orchestrator/**`
+  are not mutated.
+- Product backend/frontend files remain untouched.
+verification: "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_e2e_runner_registry_seeded_smoke.py\
+  \ \\\n  tests/test_prefect_grace_cli_e2e_runner_registry_seeded_smoke.py \\\n  tests/test_prefect_grace_e2e_packet_runner.py\
+  \ \\\n  tests/test_prefect_grace_cli_e2e_packet_runner.py \\\n  tests/test_prefect_grace_cli_contracts.py\n\
+  ```\n\nRun compile checks:\n\n```bash\npython3 -m compileall -q prefect_grace/platform\
+  \ prefect_grace/cli.py\n```\n\nRun targeted GRACE lint for changed platform modules\
+  \ and CLI:\n\n```bash\npython3 scripts/grace_lint.py \\\n  prefect_grace/platform/e2e_runner_registry_seeded_smoke.py\
+  \ \\\n  prefect_grace/cli.py\n```\n\nValidate this packet strictly:\n\n```bash\n\
+  python3 -m prefect_grace.cli validate-packet \\\n  prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md\
+  \ \\\n  --strict --json\n```\n\nRun CLI smoke for the proposed command:\n\n```bash\n\
+  python3 -m prefect_grace.cli run-e2e-registry-seeded-smoke \\\n  --project prefect_grace/project.yaml\
+  \ \\\n  --state-root /tmp/grace-e2e-registry-seeded-smoke/state \\\n  --worktree-root\
+  \ /tmp/grace-e2e-registry-seeded-smoke/worktrees \\\n  --packet-root /tmp/grace-e2e-registry-seeded-smoke/packets\
+  \ \\\n  --json\n```\n\nDo not run Docker, backend, frontend, Playwright, live Prefect\
+  \ submissions, or\nlive agents for this packet."
+expected_evidence:
+- Strict validation output for this `EXECUTION_PACKET.md`.
+- Targeted pytest output for registry-seeded E2E smoke, E2E runner, E2E CLI, and CLI
+  contracts.
+- Compile output for `prefect_grace/platform` and `prefect_grace/cli.py`.
+- Targeted `scripts/grace_lint.py` output for changed platform modules and CLI.
+- '`run-e2e-registry-seeded-smoke --json` output showing temp roots, selected packet
+  id, bootstrap apply count, registry-aware `sync_plan`, registry-aware `submit_plan`,
+  E2E result, registry before/after, case verdicts, zero Prefect runs, zero live agents,
+  and no writes outside temp roots.'
+- Evidence that accepted parent packets with unchanged source hashes are skipped by
+  E2E selection.
+- Evidence that only `CHILD-RUNNABLE` is selected and run.
+- Evidence that missing or blocked dependency packets remain waiting/cascading and
+  unselected.
+- Evidence that source packet status alone does not seed accepted.
+- Evidence that selected child registry transition is written only to temp state.
+- Confirmation that source packets, `prefect_grace/state/*.yaml`, real `/var/lib/grace-orchestrator/**`,
+  backend, frontend, live agents, live Prefect runs, Docker, and Playwright were not
+  touched.
+escalation_triggers:
+- Registry apply smoke is not accepted or its apply contract remains unstable.
+- The smoke requires changes to `controller_backlog_bootstrap.py`.
+- The smoke requires changing `status_model.py` transition semantics.
+- The smoke requires changing `backlog_controller.py` dependency semantics.
+- The smoke requires changing `e2e_packet_runner.py` domain status semantics.
+- More than one packet is selected for E2E execution.
+- The selected packet cannot be derived from registry state.
+- The smoke needs to write to real `/var/lib/grace-orchestrator/**`.
+- The smoke needs to mutate `prefect_grace/state/*.yaml`.
+- The smoke needs to mutate real source packets, reviews, summaries, or evidence.
+- Implementation requires live agents, live Prefect runs, provider credentials, Docker,
+  backend, frontend, or Playwright.
+- Product backend/frontend files would need changes.

@@ -1,0 +1,66 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-29T00:12:06Z"
+summary: >
+  Accepted. The package applies exactly one missing canonical EXECUTION_PACKET.yaml
+  sidecar for the already-accepted E2E runner registry seeded smoke packet,
+  using the existing scoped sidecar migration command only.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: degraded_but_expected_target_source_hash_reconcile_pending
+  verification:
+    preflight_explicit_packet_dry_run: passed
+    apply_one_sidecar: passed
+    post_sidecar_audit: passed
+    post_migration_plan: passed
+    sync_packets_after_apply: passed_with_expected_target_changed_after_acceptance
+    target_packet_status_before_reconcile: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed
+    scope_check: passed
+    git_diff_check: passed
+  target:
+    packet_id: FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+    sidecar_path: prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.yaml
+    planned_action: create
+    previous_runtime_source_hash: sha256:6cc10e3ca7c7f929936c2604f3b46dafa3510035267a48d8645d286dc24abfb2
+    planned_source_hash: sha256:714c7cdd966d78958ee392f2e4392b780bed9e2969d9209a6275dbdb172a7d44
+    risk: accepted_source_hash_change
+  apply:
+    selected_count: 1
+    writes:
+      - prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.yaml
+    source_mutations:
+      - prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.yaml
+    markdown_mutations: []
+    registry_mutations: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  post_state:
+    sidecar_counts:
+      canonical: 25
+      no_sidecar: 58
+      stale_sidecar: 0
+      invalid_sidecar: 0
+      skipped: 2
+    plan_count: 58
+    changed_after_acceptance:
+      - FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W06-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR
+notes:
+  - >
+    The sidecar audit canonical count is 25 because the starting audit was 23
+    and this package adds both the target sidecar and this W06 packet's own
+    canonical sidecar.
+  - >
+    The target packet remains in changed_after_acceptance by design because
+    this package only creates the YAML sidecar. Runtime source-hash
+    reconciliation belongs to the next package.
+blockers: []

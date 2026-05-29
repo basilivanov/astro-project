@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE",
+        "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION"
+      ],
+      "feature_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "objective": "Add an isolated registry-seeded dry-run smoke for the portable GRACE E2E\npacket runner.\n\nThe smoke must prove that a temporary runtime registry seeded from bounded\nterminal evidence can drive the next runnable packet into the existing dry-run\nE2E runner path, while accepted parents are skipped and missing or blocked\ndependencies are not executed.\n\nThis packet is orchestration-platform work only. It must not change product\nAstro behavior and must not start live agents, live Prefect runs, Docker,\nbackend, frontend, Playwright, provider APIs, or network-dependent services.",
+      "packet_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "path": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/REVIEWS/review-0002.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:6cc10e3ca7c7f929936c2604f3b46dafa3510035267a48d8645d286dc24abfb2",
+      "status": "ready",
+      "title": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-REGISTRY-APPLY-SMOKE-W01-REGISTRY-APPLY-SMOKE",
+        "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION"
+      ],
+      "feature_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "objective": "Add an isolated registry-seeded dry-run smoke for the portable GRACE E2E\npacket runner.\n\nThe smoke must prove that a temporary runtime registry seeded from bounded\nterminal evidence can drive the next runnable packet into the existing dry-run\nE2E runner path, while accepted parents are skipped and missing or blocked\ndependencies are not executed.\n\nThis packet is orchestration-platform work only. It must not change product\nAstro behavior and must not start live agents, live Prefect runs, Docker,\nbackend, frontend, Playwright, provider APIs, or network-dependent services.",
+      "packet_id": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "path": "prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE/REVIEWS/review-0002.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:6cc10e3ca7c7f929936c2604f3b46dafa3510035267a48d8645d286dc24abfb2",
+      "status": "ready",
+      "title": "FEAT-GRACE-E2E-RUNNER-REGISTRY-SEEDED-SMOKE-W01-E2E-RUNNER-REGISTRY-SEEDED-SMOKE",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
