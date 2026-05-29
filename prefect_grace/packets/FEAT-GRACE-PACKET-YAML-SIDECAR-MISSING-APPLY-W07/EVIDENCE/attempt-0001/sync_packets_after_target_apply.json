@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "sync-packets",
+  "args": [
+    "--project",
+    "prefect_grace/project.yaml",
+    "--dry-run",
+    "--json"
+  ],
+  "result": {
+    "dry_run": true,
+    "packets_total": 85,
+    "registry_updates": 0,
+    "ready": [
+      "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07-E2E-STATUS-TRANSITION-SIDECAR"
+    ],
+    "changed_after_acceptance": [
+      "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION"
+    ],
+    "blocked": [],
+    "ready_for_retry": [],
+    "cascading_blocked": [],
+    "cycles": []
+  },
+  "expected_changed_after_acceptance": [
+    "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION"
+  ],
+  "expected_ready_may_include": [
+    "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07-E2E-STATUS-TRANSITION-SIDECAR"
+  ],
+  "warnings": [
+    "Full command output also included markdown skip warnings for legacy/non-runnable packet files; no registry update or target drift mismatch was reported."
+  ],
+  "errors": []
+}

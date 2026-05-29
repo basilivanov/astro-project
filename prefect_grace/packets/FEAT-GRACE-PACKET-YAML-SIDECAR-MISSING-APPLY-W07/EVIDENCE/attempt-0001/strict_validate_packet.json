@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-packet",
+  "args": [
+    "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.md",
+    "--strict",
+    "--json"
+  ],
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07-E2E-STATUS-TRANSITION-SIDECAR",
+    "feature_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY",
+    "wave_id": "W07",
+    "status": "ready",
+    "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+    "depends_on": [
+      "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W07-E2E-RUNNER-REGISTRY-SEEDED-SIDECAR"
+    ],
+    "source_hash": "sha256:88b5d94b9a01db586add5d61200a96ee96760fff229186d7cfd3177a6bd06a3f",
+    "path": "prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W07/EXECUTION_PACKET.md",
+    "legacy_warnings": []
+  },
+  "warnings": [],
+  "errors": []
+}
