@@ -1,0 +1,47 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+        "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION",
+        "FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP-W01-PREFECT-LIFECYCLE-FLOW"
+      ],
+      "feature_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP",
+      "objective": "Expose the accepted deterministic `run_e2e_packet(...)` orchestration path as a\nPrefect-visible flow with operator artifacts.\n\nThe current platform can run a full single-packet E2E chain from CLI/platform\ncode:\n\n```text\nmanaged packet runner\n→ worktree/scope lifecycle\n→ verifier/reviewer handoff\n→ domain status\n→ registry transition fields\n```\n\nBut Prefect still has only lower-level flow visibility for managed packet /\nscope lifecycle paths. This packet adds the thin Prefect wrapper for the full\nE2E runner so operators can inspect one complete GRACE packet run in Prefect\nbefore batch submission is rewired to use it.\n\nThis packet must not change scheduling, backlog planning, native submission,\ndeployment registration, live agent defaults, or the large legacy\n`feature_pipeline.py`.",
+      "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+      "path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:ff72a18fee6aa415a6b087edffdc5e2d79a7a5dee962e6061371f7dd062079df",
+      "status": "ready",
+      "title": "GRACE E2E Prefect Flow Wiring MVP",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER",
+        "FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION",
+        "FEAT-GRACE-PREFECT-LIFECYCLE-WIRING-MVP-W01-PREFECT-LIFECYCLE-FLOW"
+      ],
+      "feature_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP",
+      "objective": "Expose the accepted deterministic `run_e2e_packet(...)` orchestration path as a\nPrefect-visible flow with operator artifacts.\n\nThe current platform can run a full single-packet E2E chain from CLI/platform\ncode:\n\n```text\nmanaged packet runner\n→ worktree/scope lifecycle\n→ verifier/reviewer handoff\n→ domain status\n→ registry transition fields\n```\n\nBut Prefect still has only lower-level flow visibility for managed packet /\nscope lifecycle paths. This packet adds the thin Prefect wrapper for the full\nE2E runner so operators can inspect one complete GRACE packet run in Prefect\nbefore batch submission is rewired to use it.\n\nThis packet must not change scheduling, backlog planning, native submission,\ndeployment registration, live agent defaults, or the large legacy\n`feature_pipeline.py`.",
+      "packet_id": "FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP-W01-E2E-PREFECT-FLOW",
+      "path": "prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-E2E-PREFECT-FLOW-WIRING-MVP/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:ff72a18fee6aa415a6b087edffdc5e2d79a7a5dee962e6061371f7dd062079df",
+      "status": "ready",
+      "title": "GRACE E2E Prefect Flow Wiring MVP",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
