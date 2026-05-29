@@ -1,0 +1,124 @@
+schema_version: '1'
+artifact_type: execution_packet
+packet_id: FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER
+feature_id: FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP
+wave_id: W01
+title: GRACE End-To-End Packet Runner MVP
+objective: 'Implement the first deterministic end-to-end packet runner that wires
+  together
+
+  the existing GRACE orchestration primitives without launching live agents.
+
+
+  The runner must prove that a single `ready` controller packet can move through
+
+  the platform path:
+
+
+  ```text
+
+  packet discovery
+
+  → registry readiness
+
+  → worktree creation/reuse
+
+  → executor selection
+
+  → managed packet runner dry-run
+
+  → worktree scope lifecycle
+
+  → verifier/reviewer handoff dry-run
+
+  → registry domain status update
+
+  → optional Prefect artifact publication
+
+  ```
+
+
+  This packet is not a new agent executor and not a replacement for the existing
+
+  large `feature_pipeline.py`. It is a portable orchestration seam that can later
+
+  be called from Prefect deployments and from CLI batch submission.'
+status: ready
+phase: PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP
+depends_on:
+- FEAT-GRACE-MANAGED-PACKET-RUNNER-MVP-W01-MANAGED-PACKET-RUNNER
+- FEAT-GRACE-PREFECT-NATIVE-SUBMISSION-MVP-W01-PREFECT-NATIVE-SUBMISSION
+- FEAT-GRACE-VERIFIER-REVIEWER-HANDOFF-MVP-W01-VERIFIER-REVIEWER-HANDOFF
+- FEAT-GRACE-AGENT-API-FAILURE-CLASSIFICATION-MVP-W01-API-FAILURE-CLASSIFIER
+modules:
+- M-GRACE-E2E-PACKET-RUNNER
+- M-GRACE-BACKLOG-CONTROLLER
+- M-GRACE-MANAGED-PACKET-RUNNER
+- M-GRACE-WORKTREE-SCOPE-LIFECYCLE
+- M-GRACE-VERIFIER-REVIEWER-HANDOFF
+- M-GRACE-PREFECT-ARTIFACTS
+allowed_write_scope:
+- /opt/astro-project/prefect_grace/platform/e2e_packet_runner.py
+- /opt/astro-project/prefect_grace/cli.py
+- /opt/astro-project/prefect_grace/platform/backlog_controller.py
+- /opt/astro-project/prefect_grace/platform/managed_packet_runner.py
+- /opt/astro-project/prefect_grace/platform/worktree_scope_lifecycle.py
+- /opt/astro-project/prefect_grace/platform/verifier_reviewer_handoff.py
+- /opt/astro-project/prefect_grace/platform/prefect_native_submission.py
+- /opt/astro-project/prefect_grace/platform/state_store.py
+- /opt/astro-project/tests/test_prefect_grace_e2e_packet_runner.py
+- /opt/astro-project/tests/test_prefect_grace_cli_e2e_packet_runner.py
+- /opt/astro-project/prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/**
+frozen_scope:
+- /opt/astro-project/backend/**
+- /opt/astro-project/frontend/**
+- /opt/astro-project/prefect_grace/tasks/codex_launcher.py
+- /opt/astro-project/prefect_grace/flows/feature_pipeline.py
+- /opt/astro-project/prefect_grace/flows/pipeline_helpers/**
+- /opt/astro-project/prefect_grace/state/*.yaml
+- /opt/astro-project/scripts/pipeline.py
+- /opt/astro-project/scripts/run_e2e.sh
+- /opt/astro-project/scripts/grace_lint.py
+- /opt/astro-project/tools/post_test_review.py
+- /opt/solarsage-astro/**
+must_preserve:
+- Existing managed packet runner tests keep passing.
+- Existing worktree scope lifecycle tests keep passing.
+- Existing verifier/reviewer handoff tests keep passing.
+- Existing Prefect native submission tests keep passing.
+- No product backend/frontend files are modified.
+- No live agents or provider APIs are called by tests.
+- No merge/push/squash/delete-worktree operation happens.
+- The core runner remains usable without a live Prefect server.
+- The CLI defaults to dry-run / fake-output-safe behavior.
+verification: "Run targeted tests:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_e2e_packet_runner.py\
+  \ \\\n  tests/test_prefect_grace_cli_e2e_packet_runner.py\n```\n\nRun integration\
+  \ regressions:\n\n```bash\npytest -q \\\n  tests/test_prefect_grace_managed_packet_runner.py\
+  \ \\\n  tests/test_prefect_grace_worktree_scope_lifecycle.py \\\n  tests/test_prefect_grace_verifier_reviewer_handoff.py\
+  \ \\\n  tests/test_prefect_grace_prefect_native_submission.py \\\n  tests/test_prefect_grace_executor_registry.py\n\
+  ```\n\nRun static checks:\n\n```bash\npython3 -m compileall -q prefect_grace/platform/e2e_packet_runner.py\
+  \ prefect_grace/cli.py\npython3 scripts/grace_lint.py prefect_grace/platform/e2e_packet_runner.py\n\
+  python3 -m prefect_grace.cli validate-packet \\\n  prefect_grace/packets/FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP/EXECUTION_PACKET.md\
+  \ \\\n  --strict --json\n```\n\nRun CLI smoke in a temporary git repo/worktree root:\n\
+  \n```bash\npython3 -m prefect_grace.cli run-e2e-packet \\\n  --project-root \"$TMP_PROJECT\"\
+  \ \\\n  --packet \"$TMP_PROJECT/prefect_grace/packets/SMOKE/EXECUTION_PACKET.md\"\
+  \ \\\n  --state-root \"$TMP_STATE\" \\\n  --worktree-root \"$TMP_WORKTREES\" \\\n\
+  \  --fake-verifier-output \"$TMP_VERIFIER\" \\\n  --fake-reviewer-output \"$TMP_REVIEWER\"\
+  \ \\\n  --dry-run \\\n  --json\n```"
+expected_evidence:
+- targeted test output;
+- integration regression output;
+- static check output;
+- CLI smoke JSON output;
+- list of created/reused worktree paths;
+- proof that `EXECUTION_PACKET.md` source hash did not change;
+- proof that no live agents/providers were called;
+- proof that no merge/push/squash/delete-worktree operation happened;
+- domain status table for accepted, scope-blocked, and handoff-blocked cases.
+escalation_triggers:
+- live agent execution appears necessary;
+- real Prefect server access appears necessary;
+- merge/push/squash/delete-worktree appears necessary;
+- '`feature_pipeline.py` or `codex_launcher.py` appears necessary to edit;'
+- packet source markdown must be mutated to store runtime evidence;
+- batch dependency execution appears necessary.

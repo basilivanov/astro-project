@@ -1,0 +1,14 @@
+{
+  "ok": false,
+  "project_key": null,
+  "command": "check-scope",
+  "result": {},
+  "data": {},
+  "warnings": [],
+  "errors": [
+    {
+      "code": "CHECK_SCOPE_FAILED",
+      "message": "No changed files provided. Use --changed-file or --changed-files-file."
+    }
+  ]
+}
