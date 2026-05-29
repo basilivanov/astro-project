@@ -257,3 +257,4 @@ prefect_grace/state/runs/
 scratch/
 task_artifacts/
 output_to_user/
+.worktrees/
