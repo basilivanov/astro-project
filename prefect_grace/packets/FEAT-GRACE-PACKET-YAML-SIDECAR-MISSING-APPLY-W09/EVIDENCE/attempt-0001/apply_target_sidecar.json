@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "sync-packet-yaml-sidecar",
+  "result": {
+    "ok": true,
+    "dry_run": false,
+    "apply": true,
+    "packets_total": 1,
+    "results": [
+      {
+        "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+        "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml",
+        "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+        "planned_action": "create",
+        "writes": [
+          "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml"
+        ],
+        "markdown_mutations": [],
+        "error": null
+      }
+    ],
+    "writes": [
+      "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml"
+    ],
+    "markdown_mutations": [],
+    "errors": []
+  },
+  "data": {
+    "ok": true,
+    "dry_run": false,
+    "apply": true,
+    "packets_total": 1,
+    "results": [
+      {
+        "packet": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.md",
+        "sidecar": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml",
+        "packet_id": "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS",
+        "planned_action": "create",
+        "writes": [
+          "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml"
+        ],
+        "markdown_mutations": [],
+        "error": null
+      }
+    ],
+    "writes": [
+      "prefect_grace/packets/FEAT-GRACE-EVIDENCE-CONTRACTS-MVP/EXECUTION_PACKET.yaml"
+    ],
+    "markdown_mutations": [],
+    "errors": []
+  },
+  "warnings": [],
+  "errors": []
+}
