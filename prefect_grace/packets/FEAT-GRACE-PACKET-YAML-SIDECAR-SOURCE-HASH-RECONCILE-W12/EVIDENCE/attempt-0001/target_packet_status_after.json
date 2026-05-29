@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "project_key": "astro-project",
+  "command": "packet-status",
+  "result": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER-W01-PLAN-LOCK-SUMMARY",
+        "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS"
+      ],
+      "feature_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION",
+      "objective": "Make `validate-evidence-manifest` accept evidence artifact paths that are\nrelative to the manifest directory, while preserving the existing repo-relative,\nartifact-root-relative, and absolute-under-root behavior.\n\nThe nightly dry-run controller review exposed a recurring convention mismatch:\nagents naturally write evidence manifests like:\n\n```json\n{\n  \"artifact_paths\": [\"targeted_pytest.txt\"]\n}\n```\n\nwhen the artifact lives beside `evidence_manifest.json` in\n`EVIDENCE/attempt-0001/`. The current validator only resolves relative paths\nagainst `--artifact-root`, so the same manifest fails unless every artifact path\nis expanded to a full repo-relative path. This packet should make the validator\nsupport both forms without weakening path containment.\n\nThis is evidence validation infrastructure only. It must not change packet\nexecution, runtime registry status inference, live runs, or product behavior.",
+      "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+      "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:47753d5c000f4de4985495711b714386efa57ceda088b67a159481c6c0d41654",
+      "status": "ready",
+      "title": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+      "wave_id": "W01"
+    }
+  },
+  "data": {
+    "packet": {
+      "depends_on": [
+        "FEAT-GRACE-NIGHTLY-DRY-RUN-CONTROLLER-W01-PLAN-LOCK-SUMMARY",
+        "FEAT-GRACE-EVIDENCE-CONTRACTS-MVP-W01-EVIDENCE-CONTRACTS"
+      ],
+      "feature_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION",
+      "objective": "Make `validate-evidence-manifest` accept evidence artifact paths that are\nrelative to the manifest directory, while preserving the existing repo-relative,\nartifact-root-relative, and absolute-under-root behavior.\n\nThe nightly dry-run controller review exposed a recurring convention mismatch:\nagents naturally write evidence manifests like:\n\n```json\n{\n  \"artifact_paths\": [\"targeted_pytest.txt\"]\n}\n```\n\nwhen the artifact lives beside `evidence_manifest.json` in\n`EVIDENCE/attempt-0001/`. The current validator only resolves relative paths\nagainst `--artifact-root`, so the same manifest fails unless every artifact path\nis expanded to a full repo-relative path. This packet should make the validator\nsupport both forms without weakening path containment.\n\nThis is evidence validation infrastructure only. It must not change packet\nexecution, runtime registry status inference, live runs, or product behavior.",
+      "packet_id": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+      "path": "prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/EXECUTION_PACKET.md",
+      "phase": "PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP",
+      "registry_reason": "latest_review:prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION/REVIEWS/review-0001.md",
+      "registry_status": "accepted",
+      "source_hash": "sha256:47753d5c000f4de4985495711b714386efa57ceda088b67a159481c6c0d41654",
+      "status": "ready",
+      "title": "FEAT-GRACE-EVIDENCE-MANIFEST-PATH-RESOLUTION-W01-MANIFEST-RELATIVE-ARTIFACTS",
+      "wave_id": "W01"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
