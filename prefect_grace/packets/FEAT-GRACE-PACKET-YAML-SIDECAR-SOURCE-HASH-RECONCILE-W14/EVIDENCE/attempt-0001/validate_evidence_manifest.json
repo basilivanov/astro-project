@@ -1,0 +1,303 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W14-EXECUTOR-REGISTRY-SIDECAR",
+    "evidence_count": 12,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SUMMARY",
+          "message": "Evidence EV-W14-RECONCILE-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-PREFLIGHT",
+          "message": "Evidence EV-W14-RECONCILE-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-APPLY",
+          "message": "Evidence EV-W14-RECONCILE-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-TARGET-STATUS",
+          "message": "Evidence EV-W14-RECONCILE-TARGET-STATUS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-FINAL-SYNC",
+          "message": "Evidence EV-W14-RECONCILE-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-AUDIT",
+          "message": "Evidence EV-W14-RECONCILE-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SELF-APPLY",
+          "message": "Evidence EV-W14-RECONCILE-SELF-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SELF-DRY-RUN",
+          "message": "Evidence EV-W14-RECONCILE-SELF-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-STRICT-VALIDATE",
+          "message": "Evidence EV-W14-RECONCILE-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-MANIFEST",
+          "message": "Evidence EV-W14-RECONCILE-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SCOPE",
+          "message": "Evidence EV-W14-RECONCILE-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-DIFF",
+          "message": "Evidence EV-W14-RECONCILE-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1955,
+          "hash": "d2cfc3373145ea2e8be1af14240b5a508287a3fc4c28701477e335805f3dc55a"
+        },
+        {
+          "path": "preflight_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 38576,
+          "hash": "009c6cdc4147588067fd9415e5140c4da60af7c348508d8329b4c1593fb77249"
+        },
+        {
+          "path": "approved_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 55182,
+          "hash": "7b973fc074fe44d265f49bacb05daed3ecd3e3fd291d5a8e76a4befd3933d1d9"
+        },
+        {
+          "path": "target_packet_status_after.json",
+          "exists": true,
+          "size": 3443,
+          "hash": "7297b626348eae470df516ff947161fb942848790535b37243e528d759b19e14"
+        },
+        {
+          "path": "sync_packets_after_target_apply.json",
+          "exists": true,
+          "size": 16706,
+          "hash": "0f3120084bf17583a9e3f0da856fd7c43241884fc5f79b11b65dc365c99fce33"
+        },
+        {
+          "path": "audit_sidecars_after.json",
+          "exists": true,
+          "size": 92011,
+          "hash": "9e53d448e77859216c84343b227041477614e1c5a3ad8871ff7df2964a42b335"
+        },
+        {
+          "path": "self_sidecar_apply.json",
+          "exists": true,
+          "size": 1923,
+          "hash": "cb66f9afb958d339d19616092aae70865db07db0635f36bedd4762ee25cfa9be"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1447,
+          "hash": "47a04de13e42331ac3cedc61b128812f5c273a15d7137cbe2e1fe64a6564ae92"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 16042,
+          "hash": "12fc225193a99fc5cde9eed2c3f181e98c3c789740211e290ca456f105dead73"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 8490,
+          "hash": "d84533c5b4707899be00b2769f66b0ab1ec8aba76901e2a2b73e4da6e0641d20"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W14-EXECUTOR-REGISTRY-SIDECAR",
+    "evidence_count": 12,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SUMMARY",
+          "message": "Evidence EV-W14-RECONCILE-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-PREFLIGHT",
+          "message": "Evidence EV-W14-RECONCILE-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-APPLY",
+          "message": "Evidence EV-W14-RECONCILE-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-TARGET-STATUS",
+          "message": "Evidence EV-W14-RECONCILE-TARGET-STATUS not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-FINAL-SYNC",
+          "message": "Evidence EV-W14-RECONCILE-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-AUDIT",
+          "message": "Evidence EV-W14-RECONCILE-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SELF-APPLY",
+          "message": "Evidence EV-W14-RECONCILE-SELF-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SELF-DRY-RUN",
+          "message": "Evidence EV-W14-RECONCILE-SELF-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-STRICT-VALIDATE",
+          "message": "Evidence EV-W14-RECONCILE-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-MANIFEST",
+          "message": "Evidence EV-W14-RECONCILE-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-SCOPE",
+          "message": "Evidence EV-W14-RECONCILE-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W14-RECONCILE-DIFF",
+          "message": "Evidence EV-W14-RECONCILE-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 1955,
+          "hash": "d2cfc3373145ea2e8be1af14240b5a508287a3fc4c28701477e335805f3dc55a"
+        },
+        {
+          "path": "preflight_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 38576,
+          "hash": "009c6cdc4147588067fd9415e5140c4da60af7c348508d8329b4c1593fb77249"
+        },
+        {
+          "path": "approved_registry_bootstrap_apply.json",
+          "exists": true,
+          "size": 55182,
+          "hash": "7b973fc074fe44d265f49bacb05daed3ecd3e3fd291d5a8e76a4befd3933d1d9"
+        },
+        {
+          "path": "target_packet_status_after.json",
+          "exists": true,
+          "size": 3443,
+          "hash": "7297b626348eae470df516ff947161fb942848790535b37243e528d759b19e14"
+        },
+        {
+          "path": "sync_packets_after_target_apply.json",
+          "exists": true,
+          "size": 16706,
+          "hash": "0f3120084bf17583a9e3f0da856fd7c43241884fc5f79b11b65dc365c99fce33"
+        },
+        {
+          "path": "audit_sidecars_after.json",
+          "exists": true,
+          "size": 92011,
+          "hash": "9e53d448e77859216c84343b227041477614e1c5a3ad8871ff7df2964a42b335"
+        },
+        {
+          "path": "self_sidecar_apply.json",
+          "exists": true,
+          "size": 1923,
+          "hash": "cb66f9afb958d339d19616092aae70865db07db0635f36bedd4762ee25cfa9be"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1447,
+          "hash": "47a04de13e42331ac3cedc61b128812f5c273a15d7137cbe2e1fe64a6564ae92"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 16042,
+          "hash": "12fc225193a99fc5cde9eed2c3f181e98c3c789740211e290ca456f105dead73"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 8490,
+          "hash": "d84533c5b4707899be00b2769f66b0ab1ec8aba76901e2a2b73e4da6e0641d20"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,129 @@
+{
+  "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W14-EXECUTOR-REGISTRY-SIDECAR",
+  "generated_by": "codex",
+  "status": "implemented",
+  "summary": "Reconciled the accepted Executor Registry runtime source hash after YAML sidecar creation using scoped registry-bootstrap-apply.",
+  "evidence": [
+    {
+      "id": "EV-W14-RECONCILE-SUMMARY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "agent",
+      "artifact_paths": [
+        "SUMMARY.md"
+      ],
+      "summary": "Attempt summary with runtime reconcile, final sync/audit counts, and clean observability verdict."
+    },
+    {
+      "id": "EV-W14-RECONCILE-PREFLIGHT",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "preflight_registry_bootstrap_apply_dry_run.json"
+      ],
+      "summary": "Scoped dry-run preflight planned exactly one accepted target source hash update."
+    },
+    {
+      "id": "EV-W14-RECONCILE-APPLY",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "approved_registry_bootstrap_apply.json"
+      ],
+      "summary": "Approved scoped apply updated one runtime registry record and idempotence returned noop."
+    },
+    {
+      "id": "EV-W14-RECONCILE-TARGET-STATUS",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "target_packet_status_after.json"
+      ],
+      "summary": "Post-reconcile packet-status evidence for the target accepted packet."
+    },
+    {
+      "id": "EV-W14-RECONCILE-FINAL-SYNC",
+      "status": "collected",
+      "stage": "runtime_registry",
+      "producer": "cli",
+      "artifact_paths": [
+        "sync_packets_after_target_apply.json"
+      ],
+      "summary": "Final sync-packets dry-run reports no changed_after_acceptance, blocked, cascading_blocked, or registry updates."
+    },
+    {
+      "id": "EV-W14-RECONCILE-AUDIT",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "audit_sidecars_after.json"
+      ],
+      "summary": "Final sidecar audit reports canonical=48, no_sidecar=51, stale=0, invalid=0, skipped=2."
+    },
+    {
+      "id": "EV-W14-RECONCILE-SELF-APPLY",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "self_sidecar_apply.json"
+      ],
+      "summary": "Self sidecar apply created this packet's canonical YAML sidecar."
+    },
+    {
+      "id": "EV-W14-RECONCILE-SELF-DRY-RUN",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "self_sidecar_sync_dry_run.json"
+      ],
+      "summary": "Self sidecar sync dry-run is noop."
+    },
+    {
+      "id": "EV-W14-RECONCILE-STRICT-VALIDATE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "strict_validate_packet.json"
+      ],
+      "summary": "Strict packet validation output."
+    },
+    {
+      "id": "EV-W14-RECONCILE-MANIFEST",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "validate_evidence_manifest.json"
+      ],
+      "summary": "Evidence manifest validation output."
+    },
+    {
+      "id": "EV-W14-RECONCILE-SCOPE",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "cli",
+      "artifact_paths": [
+        "scope_check.json"
+      ],
+      "summary": "Changed files are within allowed write scope."
+    },
+    {
+      "id": "EV-W14-RECONCILE-DIFF",
+      "status": "collected",
+      "stage": "packet_local",
+      "producer": "git",
+      "artifact_paths": [
+        "diff_check.txt"
+      ],
+      "summary": "git diff whitespace check output."
+    }
+  ],
+  "blockers": []
+}
