@@ -1,0 +1,118 @@
+schema_version: '1'
+artifact_type: execution_packet
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR
+feature_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE
+wave_id: W11
+title: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR
+objective: Reconcile exactly one accepted Evidence Manifest Identity Gate runtime
+  registry source hash after accepted YAML sidecar creation, using the existing scoped
+  `registry-bootstrap-apply` command only.
+status: ready
+phase: PHASE-GRACE-ORCHESTRATOR-PORTABLE-MVP
+depends_on:
+- FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W10-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR
+modules:
+- M-GRACE-PACKET-AUTHORING
+- M-GRACE-RUNTIME-REGISTRY
+- M-GRACE-CLI
+allowed_write_scope:
+- prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/**
+frozen_scope:
+- backend/**
+- frontend/**
+- .worktrees/**
+- prefect_grace/executor_history.yaml
+- prefect_grace/packet_registry.yaml
+- prefect_grace/packets/FEAT-ASTRO-*/**
+- prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.md
+- prefect_grace/packets/FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE/EXECUTION_PACKET.yaml
+- all existing packet files except prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/**
+- /var/lib/grace-orchestrator/**/runs/**
+- /var/lib/grace-orchestrator/**/agents/**
+must_preserve:
+- Use the existing scoped `registry-bootstrap-apply` command only for runtime registry
+  reconciliation.
+- Reconcile only `FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID`.
+- Runtime mutation is allowed only through `registry-bootstrap-apply --project prefect_grace/project.yaml
+  --packet-id FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID --apply
+  --json`.
+- Do not directly edit runtime YAML files.
+- Do not mutate target source files or the target YAML sidecar.
+- Do not create or update any missing sidecars outside this W11 packet.
+- The preflight must plan exactly one runtime update for `FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID`.
+- The apply must update the runtime registry source hash from `sha256:83caebd1d55471960254bf7b761a7d10c2589aa5b19c3ac25af6207008098a50`
+  to `sha256:53a6e18ecae5b5ecc3a41beeff2b29c7cb495c1cf68d7a185cb1e88d1761e767`.
+- After apply, `packet-status` must report `registry_status=accepted` and source hash
+  `sha256:53a6e18ecae5b5ecc3a41beeff2b29c7cb495c1cf68d7a185cb1e88d1761e767`.
+- After target apply, `sync-packets --dry-run --json` must report `changed_after_acceptance=[]`,
+  `registry_updates=0`, `blocked=[]`, and `cascading_blocked=[]`.
+- Before reviewer acceptance/bootstrap of this newly-created W11 packet, `sync-packets
+  --dry-run --json` may report `ready=["FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11-EVIDENCE-MANIFEST-IDENTITY-GATE-SIDECAR"]`.
+- '`audit-packet-yaml-sidecars` must report `canonical=38`, `no_sidecar=54`, `stale_sidecar=0`,
+  `invalid_sidecar=0`, and `skipped=2`.'
+- Self-sidecar sync dry-run for this packet must be noop.
+- No source mutations, no markdown mutations, no writes outside runtime state root,
+  zero Prefect runs, and zero live agents.
+- Docker, backend, frontend, Playwright, broad sidecar apply, live Prefect, live agents,
+  provider APIs, commit, and push remain untouched.
+verification: '- `python3 -m prefect_grace.cli registry-bootstrap-apply --project
+  prefect_grace/project.yaml --packet-id FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID
+  --dry-run --json`
+
+  - `python3 -m prefect_grace.cli registry-bootstrap-apply --project prefect_grace/project.yaml
+  --packet-id FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID --apply
+  --json`
+
+  - `python3 -m prefect_grace.cli packet-status --project prefect_grace/project.yaml
+  --packet-id FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID --json`
+
+  - `python3 -m prefect_grace.cli sync-packets --project prefect_grace/project.yaml
+  --dry-run --json`
+
+  - `python3 -m prefect_grace.cli audit-packet-yaml-sidecars --packet-root prefect_grace/packets
+  --json --limit 100`
+
+  - `python3 -m prefect_grace.cli sync-packet-yaml-sidecar --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md
+  --dry-run --json`
+
+  - `python3 -m prefect_grace.cli validate-packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md
+  --strict --json`
+
+  - `python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EVIDENCE/attempt-0001/evidence_manifest.json
+  --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md
+  --artifact-root prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EVIDENCE/attempt-0001
+  --json`
+
+  - `python3 -m prefect_grace.cli check-scope --packet prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11/EXECUTION_PACKET.md
+  --repo-root . --changed-file <each changed W11 file> --json`
+
+  - `git diff --check -- prefect_grace/packets/FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W11`'
+expected_evidence:
+- EVIDENCE/attempt-0001/SUMMARY.md
+- EVIDENCE/attempt-0001/evidence_manifest.json
+- EVIDENCE/attempt-0001/preflight_registry_bootstrap_apply_dry_run.json
+- EVIDENCE/attempt-0001/approved_registry_bootstrap_apply.json
+- EVIDENCE/attempt-0001/target_packet_status_after.json
+- EVIDENCE/attempt-0001/sync_packets_after_target_apply.json
+- EVIDENCE/attempt-0001/audit_sidecars_after.json
+- EVIDENCE/attempt-0001/self_sidecar_sync_dry_run.json
+- EVIDENCE/attempt-0001/strict_validate_packet.json
+- EVIDENCE/attempt-0001/validate_evidence_manifest.json
+- EVIDENCE/attempt-0001/scope_check.json
+- EVIDENCE/attempt-0001/diff_check.txt
+escalation_triggers:
+- Preflight planned update count is not exactly one.
+- Preflight or apply target is not `FEAT-GRACE-EVIDENCE-MANIFEST-IDENTITY-GATE-W01-STRICT-PACKET-ID`.
+- Preflight or apply does not move the source hash from `sha256:83caebd1d55471960254bf7b761a7d10c2589aa5b19c3ac25af6207008098a50`
+  to `sha256:53a6e18ecae5b5ecc3a41beeff2b29c7cb495c1cf68d7a185cb1e88d1761e767`.
+- The scoped apply reports source mutations, markdown mutations, Prefect runs, live
+  agents, or writes outside runtime state root.
+- Post-apply `packet-status` does not report accepted status and source hash `sha256:53a6e18ecae5b5ecc3a41beeff2b29c7cb495c1cf68d7a185cb1e88d1761e767`.
+- Post-target-apply `sync-packets --dry-run --json` does not report `changed_after_acceptance=[]`,
+  `registry_updates=0`, `blocked=[]`, and `cascading_blocked=[]`.
+- Post-apply sidecar audit does not report `canonical=38`, `no_sidecar=54`, `stale_sidecar=0`,
+  `invalid_sidecar=0`, and `skipped=2`.
+- Any target source file, target sidecar, missing sidecar, Docker, backend, frontend,
+  Playwright, live Prefect, live agent, executor history, source runtime registry
+  file, ASTRO packet, provider API, unrelated dirty/untracked path, commit, or push
+  is mutated.
