@@ -1,0 +1,61 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09-E2E-PACKET-RUNNER-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-29T05:08:26Z"
+summary: >
+  Accepted. The package reconciles exactly one accepted End-to-End Packet
+  Runner runtime registry source hash after YAML sidecar creation, using the
+  existing scoped registry-bootstrap-apply path.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: clean
+  verification:
+    preflight_registry_bootstrap_apply_dry_run: passed
+    approved_registry_bootstrap_apply: passed
+    target_packet_status_after: passed
+    sync_packets_after_target_apply: passed_with_clean_runtime_state
+    audit_sidecars_after: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed_with_non_blocking_unknown_evidence_id_warnings
+    scope_check: passed
+    git_diff_check: passed
+  reconcile:
+    packet_id: FEAT-GRACE-END-TO-END-PACKET-RUNNER-MVP-W01-E2E-PACKET-RUNNER
+    previous_source_hash: sha256:7decad3ad9400fe5c233bd4d1b1b2b3374841dbb6df0c88939af304f56c90c53
+    reconciled_source_hash: sha256:b69fd14613c43f9a12106bb3382fab5846aafb11f9515067e136c58ebf377a00
+    planned_action_counts:
+      update: 1
+    apply_count: 1
+    idempotence_after_apply:
+      noop: 1
+    changed_after_acceptance_after_apply: []
+    blocked_after_apply: []
+    cascading_blocked_after_apply: []
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W09-E2E-PACKET-RUNNER-SIDECAR
+    source_mutations: []
+    writes_outside_runtime_state_root: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  sidecar_state:
+    canonical: 32
+    no_sidecar: 56
+    stale_sidecar: 0
+    invalid_sidecar: 0
+    skipped: 2
+notes:
+  - >
+    The preflight observed the target in blocked/cascading_blocked because its
+    runtime registry record still had the old source hash. After the scoped
+    apply reconciled the hash, sync-packets reported no changed, blocked, or
+    cascading target drift.
+  - >
+    The pre-review ready item is this packet itself, which is expected until
+    this accepted review is committed and the packet is scoped-bootstrap-applied
+    into the runtime registry.
+blockers: []
