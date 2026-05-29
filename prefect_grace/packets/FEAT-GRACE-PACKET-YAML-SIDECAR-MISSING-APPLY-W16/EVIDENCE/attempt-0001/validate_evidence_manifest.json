@@ -1,0 +1,347 @@
+{
+  "ok": true,
+  "project_key": null,
+  "command": "validate-evidence-manifest",
+  "result": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W16-FEATURE-PIPELINE-FLOW-BODY-SIDECAR",
+    "evidence_count": 14,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SUMMARY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-BEFORE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-PREFLIGHT",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-APPLY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-AFTER",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-RECONCILE-DRY-RUN",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-RECONCILE-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-FINAL-SYNC",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-AUDIT",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SELF-APPLY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SELF-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SELF-DRY-RUN",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SELF-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-STRICT-VALIDATE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-MANIFEST",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SCOPE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-DIFF",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 2465,
+          "hash": "31ab6570f471504a38bb28b60b1a3fbd3cf362f95675b4f89890ead9aacd521b"
+        },
+        {
+          "path": "target_validate_before.json",
+          "exists": true,
+          "size": 17134,
+          "hash": "4873b36219ec8f75b7d5322187965cdc25865c4b8b00c3220402f4ee217cb8a1"
+        },
+        {
+          "path": "target_sidecar_preflight_dry_run.json",
+          "exists": true,
+          "size": 1367,
+          "hash": "636177938cd006e9fc09fc319c7ef77313e9d373faeeb21e6b214a6eae7be001"
+        },
+        {
+          "path": "target_sidecar_apply.json",
+          "exists": true,
+          "size": 1787,
+          "hash": "7f42d8781a7755e0e08a5932b3c54ffc27b4bb9bd3c648a148a1804801963344"
+        },
+        {
+          "path": "target_validate_after.json",
+          "exists": true,
+          "size": 17134,
+          "hash": "9b71afb8c3579b1e9d40bca96721271976115d8cea66d50260c1244dd27a4a32"
+        },
+        {
+          "path": "target_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 39830,
+          "hash": "421ae1c0559418781ddb58e56dbbedf25448bee6644873c5ab5a265258258271"
+        },
+        {
+          "path": "sync_packets_after_target_sidecar.json",
+          "exists": true,
+          "size": 17270,
+          "hash": "d292e5d334619f438e1c6822df132f45f0085e933320c6e84a8417623743d1d2"
+        },
+        {
+          "path": "audit_sidecars_after.json",
+          "exists": true,
+          "size": 94987,
+          "hash": "0058f31d55d302f80ee98a01206e1a7d1693ef17a6b454fbab4078eacd84a2e9"
+        },
+        {
+          "path": "self_sidecar_apply.json",
+          "exists": true,
+          "size": 1861,
+          "hash": "b22417abc6c27da0da1ff93afdaceddc53e801b21c6797081a63640f312cf0a2"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1417,
+          "hash": "7a743c57af521011569e3bad2fb5be34d3ce972a1f7539c7d0033bfa97894c0f"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 16096,
+          "hash": "b0a6432ea169dc5685d2c8a987bd03963eb4e7954704e44a409bb75d1737d742"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 12419,
+          "hash": "c88948b7b133b12fab7ed2ed3ec9248cf38786aa4d157e8ea04c8a561eea5138"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 10234,
+          "hash": "fbc5ea9930cbaa4d8b8a21b3688a8d7fd7a3097e4c2fda3acd987fd2fef0a85e"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "data": {
+    "packet_id": "FEAT-GRACE-PACKET-YAML-SIDECAR-MISSING-APPLY-W16-FEATURE-PIPELINE-FLOW-BODY-SIDECAR",
+    "evidence_count": 14,
+    "contract_validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": [
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SUMMARY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SUMMARY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-BEFORE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-BEFORE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-PREFLIGHT",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-PREFLIGHT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-APPLY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-AFTER",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-VALIDATE-AFTER not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-TARGET-RECONCILE-DRY-RUN",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-TARGET-RECONCILE-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-FINAL-SYNC",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-FINAL-SYNC not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-AUDIT",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-AUDIT not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SELF-APPLY",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SELF-APPLY not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SELF-DRY-RUN",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SELF-DRY-RUN not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-STRICT-VALIDATE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-STRICT-VALIDATE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-MANIFEST",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-MANIFEST not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-SCOPE",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-SCOPE not in contract"
+        },
+        {
+          "code": "unknown_evidence_id",
+          "evidence_id": "EV-W16-MISSING-SIDECAR-DIFF",
+          "message": "Evidence EV-W16-MISSING-SIDECAR-DIFF not in contract"
+        }
+      ]
+    },
+    "artifact_validation": {
+      "ok": true,
+      "validated_artifacts": [
+        {
+          "path": "SUMMARY.md",
+          "exists": true,
+          "size": 2465,
+          "hash": "31ab6570f471504a38bb28b60b1a3fbd3cf362f95675b4f89890ead9aacd521b"
+        },
+        {
+          "path": "target_validate_before.json",
+          "exists": true,
+          "size": 17134,
+          "hash": "4873b36219ec8f75b7d5322187965cdc25865c4b8b00c3220402f4ee217cb8a1"
+        },
+        {
+          "path": "target_sidecar_preflight_dry_run.json",
+          "exists": true,
+          "size": 1367,
+          "hash": "636177938cd006e9fc09fc319c7ef77313e9d373faeeb21e6b214a6eae7be001"
+        },
+        {
+          "path": "target_sidecar_apply.json",
+          "exists": true,
+          "size": 1787,
+          "hash": "7f42d8781a7755e0e08a5932b3c54ffc27b4bb9bd3c648a148a1804801963344"
+        },
+        {
+          "path": "target_validate_after.json",
+          "exists": true,
+          "size": 17134,
+          "hash": "9b71afb8c3579b1e9d40bca96721271976115d8cea66d50260c1244dd27a4a32"
+        },
+        {
+          "path": "target_registry_bootstrap_apply_dry_run.json",
+          "exists": true,
+          "size": 39830,
+          "hash": "421ae1c0559418781ddb58e56dbbedf25448bee6644873c5ab5a265258258271"
+        },
+        {
+          "path": "sync_packets_after_target_sidecar.json",
+          "exists": true,
+          "size": 17270,
+          "hash": "d292e5d334619f438e1c6822df132f45f0085e933320c6e84a8417623743d1d2"
+        },
+        {
+          "path": "audit_sidecars_after.json",
+          "exists": true,
+          "size": 94987,
+          "hash": "0058f31d55d302f80ee98a01206e1a7d1693ef17a6b454fbab4078eacd84a2e9"
+        },
+        {
+          "path": "self_sidecar_apply.json",
+          "exists": true,
+          "size": 1861,
+          "hash": "b22417abc6c27da0da1ff93afdaceddc53e801b21c6797081a63640f312cf0a2"
+        },
+        {
+          "path": "self_sidecar_sync_dry_run.json",
+          "exists": true,
+          "size": 1417,
+          "hash": "7a743c57af521011569e3bad2fb5be34d3ce972a1f7539c7d0033bfa97894c0f"
+        },
+        {
+          "path": "strict_validate_packet.json",
+          "exists": true,
+          "size": 16096,
+          "hash": "b0a6432ea169dc5685d2c8a987bd03963eb4e7954704e44a409bb75d1737d742"
+        },
+        {
+          "path": "validate_evidence_manifest.json",
+          "exists": true,
+          "size": 12419,
+          "hash": "c88948b7b133b12fab7ed2ed3ec9248cf38786aa4d157e8ea04c8a561eea5138"
+        },
+        {
+          "path": "scope_check.json",
+          "exists": true,
+          "size": 10234,
+          "hash": "fbc5ea9930cbaa4d8b8a21b3688a8d7fd7a3097e4c2fda3acd987fd2fef0a85e"
+        },
+        {
+          "path": "diff_check.txt",
+          "exists": true,
+          "size": 0,
+          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "missing_artifacts": []
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
