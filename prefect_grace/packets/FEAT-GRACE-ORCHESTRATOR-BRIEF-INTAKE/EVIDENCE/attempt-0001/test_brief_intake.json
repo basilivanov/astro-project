@@ -1,0 +1,6 @@
+{
+  "ok": true,
+  "returncode": 0,
+  "stdout": "============================= test session starts ==============================\nplatform linux -- Python 3.12.3, pytest-7.4.4, pluggy-1.4.0 -- /usr/bin/python3\ncachedir: .pytest_cache\nrootdir: /opt/astro-project\nplugins: anyio-4.2.0\ncollecting ... collected 7 items\n\ntests/test_prefect_grace_brief_intake.py::test_parse_brief_markdown PASSED [ 14%]\ntests/test_prefect_grace_brief_intake.py::test_generate_strict_packet_dry_run PASSED [ 28%]\ntests/test_prefect_grace_brief_intake.py::test_generate_strict_packet_apply PASSED [ 42%]\ntests/test_prefect_grace_brief_intake.py::test_cli_command_dry_run PASSED [ 57%]\ntests/test_prefect_grace_brief_intake.py::test_cli_command_json_dry_run PASSED [ 71%]\ntests/test_prefect_grace_brief_intake.py::test_cli_command_missing_file PASSED [ 85%]\ntests/test_prefect_grace_brief_intake.py::test_cli_command_missing_file_json PASSED [100%]\n\n============================== 7 passed in 0.05s ===============================\n",
+  "stderr": ""
+}
