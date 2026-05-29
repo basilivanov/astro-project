@@ -34,7 +34,17 @@ from prefect_grace.flows.pipeline_phases.context import (
     PipelineState,
     pipeline_return,
 )
-from prefect_grace.models import FeatureStatus, PacketStatus, ReviewVerdict, WaveVerdict
+from prefect_grace.models import (
+    FeatureStatus,
+    PacketStatus,
+    ReviewVerdict,
+    WaveVerdict,
+    TestVerdict,
+    ObservabilityVerdict,
+    ReasoningProfile,
+)
+from prefect_grace.tasks.feature_bootstrap import create_packet, sync_packet_file
+from prefect_grace.tasks.state_store import update_record
 
 
 def _last_verification(state: PipelineState) -> dict | None:
@@ -99,6 +109,204 @@ def handle_coder_packet(
 # emitted_logs: Delegated Prefect task logs.
 # error_behavior: Returns environment_blocked or pipeline_invalid final envelopes for verifier failures.
 # END_FUNCTION_CONTRACT
+# START_FUNCTION_CONTRACT
+# name: _try_verifier_auto_recovery
+# purpose: Check verifier/reviewer attempts and automatically build and enqueue coder/verifier/reviewer rework packets.
+# inputs:
+#   runtime: PipelineRuntime instance.
+#   deps: PipelineDeps instance.
+#   state: PipelineState instance.
+#   verifier_packet_id: String ID of the failed verifier/reviewer packet.
+#   wave_id: Wave identifier.
+#   reasons: List of failure reasons.
+#   queue_packets: Active wave queue list.
+#   queue_ids: Active wave queue IDs set.
+# returns: True if auto-recovery was initiated, False otherwise.
+# side_effects: Creates and writes rework packets, updates registry records, enqueues packets.
+# error_behavior: Returns False on missing targets or structural resolution errors.
+# END_FUNCTION_CONTRACT
+def _try_verifier_auto_recovery(
+    runtime: PipelineRuntime,
+    deps: PipelineDeps,
+    state: PipelineState,
+    *,
+    verifier_packet_id: str,
+    wave_id: str,
+    reasons: list[str],
+    queue_packets: list[dict] | None,
+    queue_ids: set[str] | None,
+) -> bool:
+    verifier_packet = state.packets_by_id.get(verifier_packet_id) or {}
+    target_packet_id = verifier_packet.get("parent_packet_id") or (verifier_packet.get("dependencies") or [""])[0]
+    if not target_packet_id:
+        return False
+
+    coder_packet = state.packets_by_id.get(target_packet_id) or {}
+    hints = dict(coder_packet.get("execution_hints") or {})
+    current_attempt = int(hints.get("verifier_rework_attempt") or 0)
+    max_attempts = int(hints.get("verifier_rework_max_attempts") or hints.get("max_attempts") or 3)
+
+    if current_attempt >= max_attempts:
+        return False
+
+    new_attempt = current_attempt + 1
+
+    deps.mark_packet_status_task(verifier_packet_id, PacketStatus.ACCEPTED.value)
+
+    inherited_execution_hints = dict(coder_packet.get("execution_hints") or {})
+    inherited_execution_hints["verifier_rework_attempt"] = new_attempt
+    inherited_execution_hints["verifier_rework_max_attempts"] = max_attempts
+
+    failure_msg = "; ".join(reasons) if reasons else "Verifier reported failure."
+
+    rework_packet = create_packet(
+        feature_id=coder_packet["feature_id"],
+        wave_id=coder_packet["wave_id"],
+        title=f"Rework Verifier Failure {coder_packet['title']}",
+        role=coder_packet.get("role") or "coder",
+        reasoning=ReasoningProfile(coder_packet.get("reasoning") or ReasoningProfile.HIGH.value),
+        summary=f"Fix verifier/test issues from {verifier_packet_id}: {failure_msg}",
+        write_scope=[
+            f"Only the files required to fix verifier failures from `{verifier_packet_id}`.",
+        ],
+        inputs=[
+            f"Failed verifier packet `{verifier_packet_id}`.",
+            "Verifier failure details.",
+        ],
+        acceptance_criteria=[
+            "Verifier issues and test failures are resolved.",
+            "No unrelated scope expansion.",
+            "Updated verification evidence is ready.",
+        ],
+        verification_profile={
+            "backend": "rerun the minimally sufficient backend profile if backend code changed",
+            "frontend": "rerun targeted Playwright if UI changed",
+            "observability": "repeat post-test evidence review for the affected flow",
+        },
+        reviewer_gate=[
+            "All verifier/test failure reasons are resolved.",
+        ],
+        dependencies=[verifier_packet_id],
+        packet_type="rework",
+        notes=[
+            f"Auto-recovery attempt {new_attempt} of {max_attempts}.",
+        ],
+        parent_packet_id=target_packet_id,
+        execution_hints=inherited_execution_hints,
+        status=PacketStatus.READY,
+    )
+
+    rework_packet = sync_packet_file(rework_packet)
+    state.packets_by_id[str(rework_packet["packet_id"])] = rework_packet
+
+    deps.update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        target_packet_id,
+        {"execution_hints": inherited_execution_hints},
+    )
+    coder_packet["execution_hints"] = inherited_execution_hints
+
+    verifier_hints = dict(rework_packet.get("execution_hints") or {})
+    verifier_hints = {**verifier_hints, **dict(verifier_packet.get("execution_hints") or {})}
+    verifier_profile = dict(verifier_packet.get("verification_profile") or {})
+
+    orig_verifier_packet = None
+    for p_val in state.packets_by_id.values():
+        if p_val.get("role") == "verifier" and p_val.get("parent_packet_id") == target_packet_id:
+            orig_verifier_packet = p_val
+            break
+
+    if orig_verifier_packet:
+        verifier_hints = {**verifier_hints, **dict(orig_verifier_packet.get("execution_hints") or {})}
+        verifier_profile = dict(orig_verifier_packet.get("verification_profile") or {})
+
+    verifier_rework_packet = create_packet(
+        feature_id=rework_packet["feature_id"],
+        wave_id=rework_packet["wave_id"],
+        title=f"Verifier Rework {rework_packet['title']}",
+        role="verifier",
+        reasoning=ReasoningProfile.MEDIUM,
+        summary=f"Validate the auto-recovery rework for `{target_packet_id}` and capture fresh evidence.",
+        write_scope=["Verification notes and evidence references only."],
+        inputs=[rework_packet["packet_id"], verifier_packet_id],
+        acceptance_criteria=[
+            "Commands run are recorded for the rework packet.",
+            "Evidence paths are refreshed for the reworked scope.",
+            "Observability verdict is explicit.",
+        ],
+        verification_profile=verifier_profile or {
+            "backend": "rerun minimally sufficient backend checks",
+            "frontend": "rerun targeted frontend checks",
+            "observability": "repeat post-test digest review",
+        },
+        reviewer_gate=[
+            "Evidence must correspond to the rework packet.",
+        ],
+        dependencies=[rework_packet["packet_id"]],
+        packet_type="rework",
+        notes=["Auto-created verifier for auto-recovery."],
+        parent_packet_id=target_packet_id,
+        execution_hints=verifier_hints,
+        status=PacketStatus.READY,
+    )
+
+    verifier_rework_packet = sync_packet_file(verifier_rework_packet)
+    state.packets_by_id[str(verifier_rework_packet["packet_id"])] = verifier_rework_packet
+
+    reviewer_rework_packet = create_packet(
+        feature_id=rework_packet["feature_id"],
+        wave_id=rework_packet["wave_id"],
+        title=f"Reviewer Rework {rework_packet['title']}",
+        role="reviewer",
+        reasoning=ReasoningProfile.XHIGH,
+        summary=f"Review whether the auto-recovery rework for `{target_packet_id}` addressed the verifier failures.",
+        write_scope=["Review verdict and blocker notes only."],
+        inputs=[rework_packet["packet_id"], verifier_rework_packet["packet_id"]],
+        acceptance_criteria=[
+            "Exactly one verdict is returned.",
+            "The original failures are resolved.",
+        ],
+        verification_profile={
+            "backend": "consume verifier evidence",
+            "frontend": "consume verifier evidence",
+            "observability": "consume verifier evidence",
+        },
+        reviewer_gate=[
+            "Assess only the failed scope.",
+        ],
+        dependencies=[rework_packet["packet_id"], verifier_rework_packet["packet_id"]],
+        packet_type="gate_decision",
+        notes=["Auto-created reviewer for auto-recovery."],
+        parent_packet_id=target_packet_id,
+        status=PacketStatus.READY,
+    )
+
+    reviewer_rework_packet = deps.update_record(
+        "packets",
+        "packets",
+        "packet_id",
+        reviewer_rework_packet["packet_id"],
+        {
+            "review_target_packet_id": rework_packet["packet_id"],
+            "execution_hints": dict(rework_packet.get("execution_hints") or {}),
+        },
+    )
+    reviewer_rework_packet = sync_packet_file(reviewer_rework_packet)
+    state.packets_by_id[str(reviewer_rework_packet["packet_id"])] = reviewer_rework_packet
+
+    if queue_packets is not None and queue_ids is not None:
+        for p in [rework_packet, verifier_rework_packet, reviewer_rework_packet]:
+            p_id = str(p["packet_id"])
+            state.wave_packet_sets.setdefault(wave_id, set()).add(p_id)
+            if p_id not in queue_ids and p_id not in state.completed_packet_ids:
+                deps.append_unique_packet(queue_packets, p)
+                queue_ids.add(p_id)
+
+    return True
+
+
 def handle_verifier_packet(
     runtime: PipelineRuntime,
     deps: PipelineDeps,
@@ -106,11 +314,24 @@ def handle_verifier_packet(
     *,
     packet_id: str,
     wave_id: str,
+    queue_packets: list[dict] | None = None,
+    queue_ids: set[str] | None = None,
 ) -> dict | None:
     with deps.tags(f"wave:{wave_id}", "role:verifier"):
         verifier_run = deps.run_verifier_packet_task(packet_id, runtime.dry_run, runtime.timeout_seconds)
     state.packet_results[deps.packet_result_key("verifier-run", packet_id)] = verifier_run
     if verifier_run.get("returncode") != 0:
+        reasons = [f"Verifier run failed with exit code {verifier_run.get("returncode")}"]
+        if _try_verifier_auto_recovery(
+            runtime, deps, state,
+            verifier_packet_id=packet_id,
+            wave_id=wave_id,
+            reasons=reasons,
+            queue_packets=queue_packets,
+            queue_ids=queue_ids,
+        ):
+            return None
+
         final_status = deps.final_failure(
             feature_id=runtime.feature_id,
             category="environment_blocked",
@@ -130,15 +351,52 @@ def handle_verifier_packet(
     )
     state.packet_results[deps.packet_result_key("verifier-result", packet_id)] = verifier_result
     if verifier_result.get("source") == "parse_error":
+        reasons = list(verifier_result.get("blocking_issues") or []) or ["Verifier output parse error"]
+        if _try_verifier_auto_recovery(
+            runtime, deps, state,
+            verifier_packet_id=packet_id,
+            wave_id=wave_id,
+            reasons=reasons,
+            queue_packets=queue_packets,
+            queue_ids=queue_ids,
+        ):
+            return None
+
         with deps.tags(f"wave:{wave_id}", "role:verifier"):
             deps.mark_packet_status_task(packet_id, PacketStatus.BLOCKED.value)
         final_status = deps.final_failure(
             feature_id=runtime.feature_id,
             category="pipeline_invalid",
             next_action=f"inspect-verifier-parse-error:{packet_id}",
-            reasons=list(verifier_result.get("blocking_issues") or []),
+            reasons=reasons,
         )
         return _publish_final(deps, state, final_status)
+
+    has_test_failed = verifier_result.get("test_verdict") == TestVerdict.FAILED.value
+    has_obs_failed = verifier_result.get("observability_verdict") in {
+        ObservabilityVerdict.NO_EVIDENCE_BLOCKER.value,
+        ObservabilityVerdict.UNEXPECTED_DEGRADATION.value,
+    }
+    has_blocking_issues = bool(verifier_result.get("blocking_issues"))
+
+    if has_test_failed or has_obs_failed or has_blocking_issues:
+        reasons = []
+        if has_test_failed:
+            reasons.append("Verifier tests failed")
+        if has_obs_failed:
+            reasons.append(f"Verifier observability verdict: {verifier_result.get("observability_verdict")}")
+        if has_blocking_issues:
+            reasons.extend(list(verifier_result.get("blocking_issues") or []))
+
+        if _try_verifier_auto_recovery(
+            runtime, deps, state,
+            verifier_packet_id=packet_id,
+            wave_id=wave_id,
+            reasons=reasons,
+            queue_packets=queue_packets,
+            queue_ids=queue_ids,
+        ):
+            return None
 
     with deps.tags(f"wave:{wave_id}", "role:verifier"):
         verification_record = deps.record_verifier_result_task(packet_id, verifier_result)
@@ -242,6 +500,18 @@ def handle_reviewer_packet(
         return _review_awaiting_architect(runtime, deps, state, wave_id, "architect-decision-required")
     if review_route["reviewer_verdict"] == ReviewVerdict.BLOCKED.value:
         reasons = list((review_route.get("review") or {}).get("reasons") or [])
+        is_write_scope_block = any("write scope" in reason.lower() for reason in reasons)
+        if is_write_scope_block:
+            if _try_verifier_auto_recovery(
+                runtime, deps, state,
+                verifier_packet_id=packet_id,
+                wave_id=wave_id,
+                reasons=reasons,
+                queue_packets=queue_packets,
+                queue_ids=queue_ids,
+            ):
+                return None
+
         deps.set_wave_progression_status(
             feature_id=runtime.feature_id,
             wave_progression=state.wave_progression,

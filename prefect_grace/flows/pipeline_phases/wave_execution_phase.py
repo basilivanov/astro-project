@@ -256,7 +256,7 @@ def _dispatch_role(
         )
         return None
     if role == "verifier":
-        return handle_verifier_packet(runtime, deps, state, packet_id=packet_id, wave_id=wave_id)
+        return handle_verifier_packet(runtime, deps, state, packet_id=packet_id, wave_id=wave_id, queue_packets=queue_packets, queue_ids=queue_ids)
     if role == "reviewer":
         return handle_reviewer_packet(
             runtime,
