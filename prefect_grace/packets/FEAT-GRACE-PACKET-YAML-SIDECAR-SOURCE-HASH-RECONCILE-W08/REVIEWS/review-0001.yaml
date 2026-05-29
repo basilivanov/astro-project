@@ -1,0 +1,58 @@
+schema_version: 1
+artifact_type: review
+packet_id: FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08-E2E-STATUS-TRANSITION-SIDECAR
+review_id: review-0001
+status: accepted
+verdict: accepted
+reviewer: codex
+reviewed_at: "2026-05-29T04:38:09Z"
+summary: >
+  Accepted. The package reconciles exactly one accepted E2E runner status
+  transition runtime registry source hash after YAML sidecar creation, using the
+  existing scoped registry-bootstrap-apply path.
+metadata:
+  attempt: attempt-0001
+  observability_verdict: clean_for_target_reconcile_with_pre_review_ready_self
+  verification:
+    preflight_registry_bootstrap_apply_dry_run: passed
+    approved_registry_bootstrap_apply: passed
+    target_packet_status_after: passed
+    sync_packets_after_target_apply: passed_with_ready_self
+    audit_sidecars_after: passed
+    self_sidecar_sync_dry_run: noop
+    strict_validate_packet: passed
+    validate_evidence_manifest: passed_with_non_blocking_unknown_evidence_id_warnings
+    scope_check: passed
+    git_diff_check: passed
+  reconcile:
+    packet_id: FEAT-GRACE-E2E-RUNNER-STATUS-TRANSITION-MVP-W01-E2E-STATUS-TRANSITION
+    previous_source_hash: sha256:2d06df2dceaa1bba3eb41e459db588f3f947528c31f76515ccfdfd7a44b44fdd
+    reconciled_source_hash: sha256:92214610fa8e157818caf191559cb90d19cb94a2c18b2f4b7ad185e81d0fbd43
+    planned_action_counts:
+      update: 1
+    apply_count: 1
+    idempotence_after_apply:
+      noop: 1
+    changed_after_acceptance_after_apply: []
+    pre_review_ready:
+      - FEAT-GRACE-PACKET-YAML-SIDECAR-SOURCE-HASH-RECONCILE-W08-E2E-STATUS-TRANSITION-SIDECAR
+    source_mutations: []
+    writes_outside_runtime_state_root: []
+    prefect_runs_created: 0
+    live_agents_started: 0
+  sidecar_state:
+    canonical: 29
+    no_sidecar: 57
+    stale_sidecar: 0
+    invalid_sidecar: 0
+    skipped: 2
+notes:
+  - >
+    The sidecar audit canonical count includes this newly-created W08 packet
+    sidecar. No target source file or target sidecar was mutated by this
+    reconcile package.
+  - >
+    The pre-review ready item is this packet itself, which is expected until
+    this accepted review is committed and the packet is scoped-bootstrap-applied
+    into the runtime registry.
+blockers: []
