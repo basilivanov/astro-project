@@ -117,6 +117,7 @@ from prefect_grace.cli_commands.git_mutation import (
     _cmd_git_mutation_gate,
     _cmd_packet_branch_push_gate,
 )
+from prefect_grace.cli_commands.git_sync import _cmd_git_sync
 
 # Parser constructor
 from prefect_grace.cli_commands.parser import build_parser as _base_build_parser

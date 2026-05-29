@@ -112,6 +112,7 @@ from prefect_grace.cli_commands.git_mutation import (
     _cmd_packet_branch_push_gate,
     _cmd_merge_steward,
 )
+from prefect_grace.cli_commands.git_sync import _cmd_git_sync
 from prefect_grace.cli_commands.prefect_worker_binding import (
     _cmd_prefect_worker_binding,
 )
@@ -912,6 +913,23 @@ def _register_dynamic_planning_commands(subparsers) -> None:
 
 
 
+def _register_git_sync_commands(subparsers) -> None:
+    """Register Git Sync commands."""
+    git_sync = subparsers.add_parser("git-sync", help="Automatically isolate and commit/push packet branch upon acceptance")
+    git_sync.add_argument("--packet", type=Path, required=True, help="Path to EXECUTION_PACKET.md")
+    git_sync.add_argument("--repo-root", type=Path, required=True, help="Main repository root")
+    git_sync.add_argument("--worktree-root", type=Path, required=True, help="Allowed worktree root")
+    git_sync.add_argument("--project-key", required=True, help="Project key")
+    git_sync.add_argument("--packet-id", required=True, help="Packet ID")
+    git_sync.add_argument("--attempt", type=int, required=True, help="Attempt number")
+    git_sync.add_argument("--base-ref", required=True, help="Base Git reference")
+    git_sync.add_argument("--remote", default="origin", help="Remote name")
+    git_sync.add_argument("--dry-run", action="store_true", help="Plan only; default when --apply is omitted")
+    git_sync.add_argument("--apply", action="store_true", help="Allow Git mutations")
+    git_sync.add_argument("--json", action="store_true", help="JSON output")
+    git_sync.set_defaults(func=_cmd_git_sync)
+
+
 def _register_queue_watcher_commands(subparsers) -> None:
     """Register Queue Watcher daemon commands."""
     queue_watcher = subparsers.add_parser("queue-watcher", help="Run the background queue watcher daemon loop")
@@ -948,6 +966,7 @@ def build_parser() -> argparse.ArgumentParser:
     _register_git_mutation_commands(subparsers)
     _register_prefect_worker_binding_commands(subparsers)
     _register_dynamic_planning_commands(subparsers)
+    _register_git_sync_commands(subparsers)
 
     _register_queue_watcher_commands(subparsers)
     return parser
