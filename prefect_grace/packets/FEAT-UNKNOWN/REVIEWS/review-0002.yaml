@@ -1,0 +1,11 @@
+schema_version: 1
+artifact_type: review
+review_id: review-0002
+status: accepted
+verdict: accepted
+reviewed_at: '2026-05-29T17:22:00.000000+00:00'
+generated_by: prefect_grace.platform.packet_artifacts.write_review
+metadata:
+  attempt: 2
+  route_classification: null
+  rework_mode: null
