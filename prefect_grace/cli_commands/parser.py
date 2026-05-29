@@ -72,6 +72,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_nightly_batch_execute,
     _cmd_run_nightly_controlled_batch,
 )
+from prefect_grace.cli_commands.queue_watcher import _cmd_queue_watcher
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,
     _cmd_worktree_status,
@@ -113,6 +114,9 @@ from prefect_grace.cli_commands.git_mutation import (
 )
 from prefect_grace.cli_commands.prefect_worker_binding import (
     _cmd_prefect_worker_binding,
+)
+from prefect_grace.cli_commands.brief_intake import (
+    _cmd_dynamic_plan,
 )
 
 
@@ -897,6 +901,29 @@ def _register_prefect_worker_binding_commands(subparsers) -> None:
     prefect_binding.set_defaults(func=_cmd_prefect_worker_binding)
 
 
+def _register_dynamic_planning_commands(subparsers) -> None:
+    """Register Dynamic Planning commands."""
+    dynamic_plan = subparsers.add_parser("dynamic-plan", help="Parse feature brief markdown and generate execution packet")
+    dynamic_plan.add_argument("--brief", required=True, help="Path to feature-brief.md file")
+    dynamic_plan.add_argument("--output-dir", help="Output directory for generated files (defaults to prefect_grace/packets/<feature_id>)")
+    dynamic_plan.add_argument("--apply", action="store_true", help="Apply and write the files (defaults to dry-run)")
+    dynamic_plan.add_argument("--json", action="store_true", help="JSON output")
+    dynamic_plan.set_defaults(func=_cmd_dynamic_plan)
+
+
+
+def _register_queue_watcher_commands(subparsers) -> None:
+    """Register Queue Watcher daemon commands."""
+    queue_watcher = subparsers.add_parser("queue-watcher", help="Run the background queue watcher daemon loop")
+    queue_watcher.add_argument("--project", "--project-config", dest="project")
+    queue_watcher.add_argument("--interval", type=float, default=5.0, help="Poll interval in seconds")
+    queue_watcher.add_argument("--once", action="store_true", help="Run only one iteration and exit")
+    queue_watcher.add_argument("--launch-drafts", action="store_true", help="Launch draft packets when runnable")
+    queue_watcher.add_argument("--runner", choices=["e2e", "managed"], default="e2e", help="Submitter runner kind")
+    queue_watcher.add_argument("--json", action="store_true", help="JSON output")
+    queue_watcher.set_defaults(func=_cmd_queue_watcher)
+
+
 # START_FUNCTION_CONTRACT
 # name: build_parser
 # purpose: Assemble and return the complete argument parser.
@@ -920,5 +947,7 @@ def build_parser() -> argparse.ArgumentParser:
     _register_executors_commands(subparsers)
     _register_git_mutation_commands(subparsers)
     _register_prefect_worker_binding_commands(subparsers)
+    _register_dynamic_planning_commands(subparsers)
 
+    _register_queue_watcher_commands(subparsers)
     return parser

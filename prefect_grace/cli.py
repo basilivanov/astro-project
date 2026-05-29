@@ -82,6 +82,7 @@ from prefect_grace.cli_commands.prefect_smokes import (
     _cmd_nightly_recheck_batch,
     _cmd_run_nightly_controlled_batch,
 )
+from prefect_grace.cli_commands.queue_watcher import _cmd_queue_watcher
 from prefect_grace.cli_commands.worktrees import (
     _cmd_worktree_create,
     _cmd_worktree_status,
