@@ -7,9 +7,8 @@ from typing import Any
 
 from prefect_grace.tasks.state_store import find_record, update_record
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
-DOCS_DIR = ROOT_DIR / "docs"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 
 
 def _slugify(value: str) -> str:
@@ -207,7 +206,7 @@ def _default_wave_specs(feature: dict[str, Any], payload: dict[str, Any]) -> lis
     ]
 
 
-def _requirements_xml(feature: dict[str, Any], payload: dict[str, Any], *, slice_id: str) -> str:
+def _requirements_xml(feature: dict[str, Any], payload: dict[str, Any], *, slice_id: str, project_root: Path, project_key: str = "astro-project") -> str:
     in_scope = _string_list(payload.get("in_scope"))
     out_of_scope = _string_list(payload.get("out_of_scope"))
     invariants = _string_list(payload.get("business_invariants"))
@@ -216,7 +215,7 @@ def _requirements_xml(feature: dict[str, Any], payload: dict[str, Any], *, slice
     success = _string_list(payload.get("success_criteria"))
     use_cases = payload.get("use_cases") or []
     lines = [
-        f'<requirements_slice project="astro-project" parent_requirements="{ROOT_DIR / "requirements.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
+        f'<requirements_slice project="{_xml_escape(project_key)}" parent_requirements="{project_root / "requirements.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
         f"  <system_goal>{_xml_escape(payload.get('system_goal') or feature.get('summary') or feature.get('title') or feature.get('feature_id'))}</system_goal>",
         "  <scope>",
         "    <in_scope>",
@@ -276,12 +275,12 @@ def _requirements_xml(feature: dict[str, Any], payload: dict[str, Any], *, slice
     return "\n".join(lines)
 
 
-def _development_plan_xml(payload: dict[str, Any], *, slice_id: str) -> str:
+def _development_plan_xml(payload: dict[str, Any], *, slice_id: str, project_root: Path, project_key: str = "astro-project") -> str:
     waves = _normalize_wave_specs(payload) or _default_wave_specs({}, payload)
     phase_id = _xml_escape(str(payload.get("phase_id") or "PHASE-SLICE"))
     phase_goal = _xml_escape(str(payload.get("phase_goal") or payload.get("system_goal") or "Deliver the bounded slice safely."))
     lines = [
-        f'<development_plan_slice project="astro-project" parent_plan="{ROOT_DIR / "development-plan.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
+        f'<development_plan_slice project="{_xml_escape(project_key)}" parent_plan="{project_root / "development-plan.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
         f'  <phase id="{phase_id}">',
         f"    <goal>{phase_goal}</goal>",
         "",
@@ -335,7 +334,7 @@ def _development_plan_xml(payload: dict[str, Any], *, slice_id: str) -> str:
     return "\n".join(lines)
 
 
-def _verification_matrix_md(feature: dict[str, Any], payload: dict[str, Any], *, slice_id: str, slice_dir: Path) -> str:
+def _verification_matrix_md(feature: dict[str, Any], payload: dict[str, Any], *, slice_id: str, slice_dir: Path, project_root: Path) -> str:
     vm_ids = payload.get("verification_lanes") or []
     if not vm_ids:
         vm_ids = [
@@ -349,8 +348,8 @@ def _verification_matrix_md(feature: dict[str, Any], payload: dict[str, Any], *,
     lines = [
         f"# {feature.get('title') or feature.get('feature_id')} Verification Slice",
         "",
-        f"Snapshot boundary: $(git -C {ROOT_DIR} rev-parse HEAD)",
-        "Parent matrix: `/opt/astro-project/verification-matrix.md`",
+        f"Snapshot boundary: $(git -C {project_root} rev-parse HEAD)",
+        f"Parent matrix: `{project_root / 'verification-matrix.md'}`",
         f"Slice id: `{slice_id}`",
         "",
         "## VM IDs",
@@ -383,11 +382,11 @@ def _verification_matrix_md(feature: dict[str, Any], payload: dict[str, Any], *,
     return "\n".join(lines)
 
 
-def _knowledge_graph_xml(payload: dict[str, Any], *, slice_id: str) -> str:
+def _knowledge_graph_xml(payload: dict[str, Any], *, slice_id: str, project_root: Path, project_key: str = "astro-project") -> str:
     modules = _string_list(payload.get("impacted_modules"))
     flows = payload.get("data_flows") or []
     lines = [
-        f'<knowledge_graph_slice project="astro-project" parent_graph="{ROOT_DIR / "knowledge-graph.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
+        f'<knowledge_graph_slice project="{_xml_escape(project_key)}" parent_graph="{project_root / "knowledge-graph.xml"}" updated_at="{datetime.now(timezone.utc).date().isoformat()}" slice_id="{_xml_escape(slice_id)}">',
         "  <modules>",
     ]
     if modules:
@@ -435,16 +434,17 @@ def _execution_packet_md(
     *,
     slice_id: str,
     slice_dir: Path,
+    project_root: Path,
     requirements_path: Path | None = None,
     development_plan_path: Path | None = None,
     verification_matrix_path: Path | None = None,
     knowledge_graph_path: Path | None = None,
 ) -> str:
     source_of_truth = [
-        str(ROOT_DIR / "GRACE.md"),
-        str(ROOT_DIR / "requirements.xml"),
-        str(ROOT_DIR / "development-plan.xml"),
-        str(ROOT_DIR / "verification-matrix.md"),
+        str(project_root / "GRACE.md"),
+        str(project_root / "requirements.xml"),
+        str(project_root / "development-plan.xml"),
+        str(project_root / "verification-matrix.md"),
     ]
     for optional_path in (requirements_path, development_plan_path, verification_matrix_path, knowledge_graph_path):
         if optional_path:
@@ -576,13 +576,19 @@ def write_architect_artifacts(
     *,
     feature_id: str,
     architect_payload: dict[str, Any],
+    state_root: Path | str | None = None,
+    project_root: Path | str | None = None,
+    project_key: str = "astro-project",
 ) -> dict[str, Any]:
-    feature = find_record("features", "features", "feature_id", feature_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    resolved_project_root = Path(project_root).resolve() if project_root else Path.cwd()
+    docs_dir = resolved_project_root / "docs"
+    feature = find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root)
     feature_dir = Path(str(feature.get("feature_dir") or (FEATURES_DIR / feature_id)))
     feature_dir.mkdir(parents=True, exist_ok=True)
     slice_slug = _resolve_slice_slug(feature, architect_payload)
     slice_id = str(architect_payload.get("slice_id") or f"SLICE-{slice_slug.upper()}").strip()
-    slice_dir = DOCS_DIR / slice_slug
+    slice_dir = docs_dir / slice_slug
     slice_dir.mkdir(parents=True, exist_ok=True)
 
     root_deltas = architect_payload.get("root_deltas") or {}
@@ -600,13 +606,13 @@ def write_architect_artifacts(
 
     if materialize_legacy_grace_docs:
         assert requirements_path and development_plan_path and verification_matrix_path and knowledge_graph_path and handoff_path
-        requirements_path.write_text(_requirements_xml(feature, architect_payload, slice_id=slice_id), encoding="utf-8")
-        development_plan_path.write_text(_development_plan_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
+        requirements_path.write_text(_requirements_xml(feature, architect_payload, slice_id=slice_id, project_root=resolved_project_root, project_key=project_key), encoding="utf-8")
+        development_plan_path.write_text(_development_plan_xml(architect_payload, slice_id=slice_id, project_root=resolved_project_root, project_key=project_key), encoding="utf-8")
         verification_matrix_path.write_text(
-            _verification_matrix_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir),
+            _verification_matrix_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir, project_root=resolved_project_root),
             encoding="utf-8",
         )
-        knowledge_graph_path.write_text(_knowledge_graph_xml(architect_payload, slice_id=slice_id), encoding="utf-8")
+        knowledge_graph_path.write_text(_knowledge_graph_xml(architect_payload, slice_id=slice_id, project_root=resolved_project_root, project_key=project_key), encoding="utf-8")
         handoff_path.write_text(_architect_handoff_md(feature, architect_payload, slice_id=slice_id, slice_dir=slice_dir), encoding="utf-8")
     execution_packet_path.write_text(
         _execution_packet_md(
@@ -614,6 +620,7 @@ def write_architect_artifacts(
             architect_payload,
             slice_id=slice_id,
             slice_dir=slice_dir,
+            project_root=resolved_project_root,
             requirements_path=requirements_path,
             development_plan_path=development_plan_path,
             verification_matrix_path=verification_matrix_path,
@@ -661,7 +668,7 @@ def write_architect_artifacts(
         "wave_plan_path": str(wave_plan_path),
         "planner_contract": {},
     }
-    stored_feature = update_record("features", "features", "feature_id", feature_id, updates)
+    stored_feature = update_record("features", "features", "feature_id", feature_id, updates, state_root=resolved_state_root)
     return {
         "feature": stored_feature,
         "slice_id": slice_id,

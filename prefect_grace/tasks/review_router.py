@@ -10,6 +10,7 @@ from prefect_grace.tasks.state_store import find_record, load_state, update_reco
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 LIGHT_RESUME_MAX_ATTEMPTS = 1
 _LIGHT_RESUME_BLOCKER_MARKERS = (
     "architect decision",
@@ -55,11 +56,12 @@ def _normalize_rework_mode(value: Any) -> str:
     return resolved if resolved in {"light_resume", "bounded_fresh", "decision_required"} else "bounded_fresh"
 
 
-def _light_resume_attempt_count(source_packet_id: str) -> int:
-    packets = list(load_state("packets").get("packets") or [])
+def _light_resume_attempt_count(source_packet_id: str, *, state_root: Path | str | None = None) -> int:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packets = list(load_state("packets", state_root=resolved_state_root).get("packets") or [])
     persisted_attempt = 0
     try:
-        source_packet = find_record("packets", "packets", "packet_id", source_packet_id)
+        source_packet = find_record("packets", "packets", "packet_id", source_packet_id, state_root=resolved_state_root)
         persisted_attempt = int(
             source_packet.get("light_resume_attempt")
             or dict(source_packet.get("execution_hints") or {}).get("light_resume_attempt")
@@ -81,7 +83,9 @@ def _light_resume_downgrade_reason(
     reasons: list[str],
     *,
     write_scope: list[str] | None = None,
+    state_root: Path | str | None = None,
 ) -> str | None:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     packet_id = str(packet.get("packet_id") or "").strip()
     if str(packet.get("role") or "").strip().lower() != "coder":
         return "light_resume is only allowed for coder packets"
@@ -96,7 +100,7 @@ def _light_resume_downgrade_reason(
     cleaned_write_scope = [str(item).strip() for item in write_scope or [] if str(item).strip()]
     if len(cleaned_write_scope) > 3:
         return "light_resume is limited to narrow packet-local write scope"
-    if packet_id and _light_resume_attempt_count(packet_id) >= LIGHT_RESUME_MAX_ATTEMPTS:
+    if packet_id and _light_resume_attempt_count(packet_id, state_root=resolved_state_root) >= LIGHT_RESUME_MAX_ATTEMPTS:
         return "light_resume attempt limit reached for the source packet"
     return None
 
@@ -108,8 +112,10 @@ def record_review(
     reasons: list[str],
     reviewer: str = "reviewer",
     follow_up_action: str = "none",
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     feature_id = packet["feature_id"]
     grace_refs = grace_refs_for_packet(packet)
     review_dir = FEATURES_DIR / feature_id / "reviews"
@@ -141,7 +147,7 @@ def record_review(
         follow_up_action=follow_up_action,
         review_path=str(review_path),
     ).to_dict()
-    upsert_record("reviews", "reviews", "packet_id", record)
+    upsert_record("reviews", "reviews", "packet_id", record, state_root=resolved_state_root)
     update_record(
         "packets",
         "packets",
@@ -151,12 +157,14 @@ def record_review(
             "status": verdict.value,
             "last_review": record,
         },
+        state_root=resolved_state_root,
     )
     return record
 
 
-def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+def create_rework_from_review(packet_id: str, reasons: list[str], *, state_root: Path | str | None = None) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     inherited_execution_hints = dict(packet.get("execution_hints") or {})
     blocker_summary = "; ".join(reasons) if reasons else "Reviewer requested localized rework."
     return create_packet(
@@ -195,6 +203,7 @@ def create_rework_from_review(packet_id: str, reasons: list[str]) -> dict[str, A
         parent_packet_id=packet_id,
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
+        state_root=resolved_state_root,
     )
 
 
@@ -212,8 +221,10 @@ def create_direct_rework_from_architect(
     verification_profile: dict[str, Any] | None = None,
     reviewer_gate: list[str] | None = None,
     notes: list[str] | None = None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     inherited_execution_hints = dict(packet.get("execution_hints") or {})
     requested_rework_mode = _normalize_rework_mode(rework_mode)
     resolved_rework_mode = requested_rework_mode
@@ -223,6 +234,7 @@ def create_direct_rework_from_architect(
             packet,
             reasons,
             write_scope=write_scope,
+            state_root=resolved_state_root,
         )
         if light_resume_downgrade_reason:
             resolved_rework_mode = "bounded_fresh"
@@ -230,7 +242,7 @@ def create_direct_rework_from_architect(
         blocker_summary = "; ".join(reasons) if reasons else "Architect requested bounded light resume."
         rework_title = str(title or f"Light Resume {packet['title']}").strip()
         rework_summary = str(summary or f"Resume the existing coder packet for {packet_id}: {blocker_summary}").strip()
-        attempt = _light_resume_attempt_count(packet_id) + 1
+        attempt = _light_resume_attempt_count(packet_id, state_root=resolved_state_root) + 1
         updated_execution_hints = {
             **inherited_execution_hints,
             "resume_strategy": "packet_parent",
@@ -303,6 +315,7 @@ def create_direct_rework_from_architect(
                 "light_resume_attempt": attempt,
                 "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS,
             },
+            state_root=resolved_state_root,
         )
         return sync_packet_file(updated_packet)
     if resolved_rework_mode != "light_resume":
@@ -359,6 +372,7 @@ def create_direct_rework_from_architect(
         parent_packet_id=packet_id,
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
+        state_root=resolved_state_root,
     )
     updated_packet = update_record(
         "packets",
@@ -380,6 +394,7 @@ def create_direct_rework_from_architect(
             "light_resume_max_attempts": LIGHT_RESUME_MAX_ATTEMPTS if resolved_rework_mode == "light_resume" else None,
             "light_resume_downgrade_reason": light_resume_downgrade_reason,
         },
+        state_root=resolved_state_root,
     )
     return sync_packet_file(updated_packet)
 
@@ -390,8 +405,10 @@ def create_architect_rework_packet_from_review(
     reasons: list[str],
     *,
     route_classification: str | None = None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     inherited_execution_hints = dict(packet.get("execution_hints") or {})
     blocker_summary = "; ".join(reasons) if reasons else "Reviewer requested architect routing."
     title = f"Architect Rework {packet['title']}"
@@ -442,6 +459,7 @@ def create_architect_rework_packet_from_review(
         parent_packet_id=packet_id,
         execution_hints=inherited_execution_hints,
         status=PacketStatus.READY,
+        state_root=resolved_state_root,
     )
     updated_packet = update_record(
         "packets",
@@ -453,6 +471,7 @@ def create_architect_rework_packet_from_review(
             "origin_reviewer_packet_id": reviewer_packet_id,
             "route_classification_hint": str(route_classification or "").strip() or None,
         },
+        state_root=resolved_state_root,
     )
     return sync_packet_file(updated_packet)
 
@@ -462,21 +481,23 @@ def create_rework_bundle_from_review(
     packet_id: str,
     reviewer_packet_id: str,
     reasons: list[str],
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    rework_packet = create_rework_from_review(packet_id, reasons)
-    reviewer_packet = find_record("packets", "packets", "packet_id", reviewer_packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    rework_packet = create_rework_from_review(packet_id, reasons, state_root=resolved_state_root)
+    reviewer_packet = find_record("packets", "packets", "packet_id", reviewer_packet_id, state_root=resolved_state_root)
     verifier_packet_id = next(
         (
             dependency
             for dependency in reviewer_packet.get("dependencies") or []
-            if str(find_record("packets", "packets", "packet_id", dependency).get("role") or "") == "verifier"
+            if str(find_record("packets", "packets", "packet_id", dependency, state_root=resolved_state_root).get("role") or "") == "verifier"
         ),
         None,
     )
     verifier_hints = dict(rework_packet.get("execution_hints") or {})
     verifier_profile = {}
     if verifier_packet_id:
-        verifier_source = find_record("packets", "packets", "packet_id", verifier_packet_id)
+        verifier_source = find_record("packets", "packets", "packet_id", verifier_packet_id, state_root=resolved_state_root)
         verifier_hints = {**verifier_hints, **dict(verifier_source.get("execution_hints") or {})}
         verifier_profile = dict(verifier_source.get("verification_profile") or {})
 
@@ -510,6 +531,7 @@ def create_rework_bundle_from_review(
         parent_packet_id=packet_id,
         execution_hints=verifier_hints,
         status=PacketStatus.READY,
+        state_root=resolved_state_root,
     )
 
     rework_reviewer_packet = create_packet(
@@ -540,6 +562,7 @@ def create_rework_bundle_from_review(
         notes=["This reviewer packet was auto-created from reviewer blockers."],
         parent_packet_id=packet_id,
         status=PacketStatus.READY,
+        state_root=resolved_state_root,
     )
     rework_reviewer_packet = update_record(
         "packets",
@@ -550,6 +573,7 @@ def create_rework_bundle_from_review(
             "review_target_packet_id": rework_packet["packet_id"],
             "execution_hints": dict(rework_packet.get("execution_hints") or {}),
         },
+        state_root=resolved_state_root,
     )
     rework_reviewer_packet = sync_packet_file(rework_reviewer_packet)
     return {
@@ -565,8 +589,10 @@ def create_architect_decision_from_review(
     *,
     requested_action: str | None = None,
     route_classification: str | None = None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     feature_id = packet["feature_id"]
     decision_id = f"{packet_id}-ARCH-DECISION"
     decision_dir = FEATURES_DIR / feature_id / "decisions"
@@ -607,7 +633,7 @@ def create_architect_decision_from_review(
     ).to_dict()
     record["route_classification"] = classification
     record["requested_action"] = action
-    return upsert_record("decisions", "decisions", "decision_id", record)
+    return upsert_record("decisions", "decisions", "decision_id", record, state_root=resolved_state_root)
 
 
 def record_wave_review(
@@ -617,7 +643,9 @@ def record_wave_review(
     architect_packet_id: str,
     verdict: WaveVerdict,
     reasons: list[str],
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     review_dir = FEATURES_DIR / feature_id / "reviews"
     review_dir.mkdir(parents=True, exist_ok=True)
     review_path = review_dir / f"{wave_id}.architect-review.md"
@@ -638,7 +666,7 @@ def record_wave_review(
         reasons=reasons,
         review_path=str(review_path),
     ).to_dict()
-    upsert_record("wave_reviews", "wave_reviews", "architect_packet_id", record)
+    upsert_record("wave_reviews", "wave_reviews", "architect_packet_id", record, state_root=resolved_state_root)
     update_record(
         "packets",
         "packets",
@@ -647,5 +675,6 @@ def record_wave_review(
         {
             "last_wave_review": record,
         },
+        state_root=resolved_state_root,
     )
     return record

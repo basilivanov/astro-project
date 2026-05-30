@@ -12,9 +12,12 @@ from typing import Any
 
 from prefect_grace.tasks.state_store import find_record, update_record
 
-def _feature_role_session(feature_id: str, role: str) -> dict[str, Any] | None:
+STATE_ROOT = Path(__file__).resolve().parents[2] / "state"
+
+def _feature_role_session(feature_id: str, role: str, *, state_root: Path | str | None = None) -> dict[str, Any] | None:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     try:
-        feature = find_record("features", "features", "feature_id", feature_id)
+        feature = find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root)
     except KeyError:
         return None
     role_threads = feature.get("role_threads") or {}
@@ -23,7 +26,8 @@ def _feature_role_session(feature_id: str, role: str) -> dict[str, Any] | None:
         return dict(session)
     return None
 
-def _packet_parent_session(packet: dict[str, Any]) -> dict[str, Any] | None:
+def _packet_parent_session(packet: dict[str, Any], *, state_root: Path | str | None = None) -> dict[str, Any] | None:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     execution_hints = dict(packet.get("execution_hints") or {})
     parent_packet_id = str(
         execution_hints.get("resume_parent_packet_id") or packet.get("parent_packet_id") or ""
@@ -31,7 +35,7 @@ def _packet_parent_session(packet: dict[str, Any]) -> dict[str, Any] | None:
     if not parent_packet_id:
         return None
     try:
-        parent_packet = find_record("packets", "packets", "packet_id", parent_packet_id)
+        parent_packet = find_record("packets", "packets", "packet_id", parent_packet_id, state_root=resolved_state_root)
     except KeyError:
         return None
     thread_id = str(parent_packet.get("last_thread_id") or "").strip()
@@ -63,9 +67,11 @@ def _store_feature_role_session(
     session_mode: str,
     run_dir: Path,
     resumed_from_thread_id: str | None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any] | None:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     try:
-        feature = find_record("features", "features", "feature_id", feature_id)
+        feature = find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root)
     except KeyError:
         return None
     role_threads = dict(feature.get("role_threads") or {})
@@ -91,5 +97,6 @@ def _store_feature_role_session(
         "feature_id",
         feature_id,
         {"role_threads": role_threads},
+        state_root=resolved_state_root,
     )
     return session

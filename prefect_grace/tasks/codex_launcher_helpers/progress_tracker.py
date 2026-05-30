@@ -49,6 +49,8 @@ def _extract_thread_id(stdout_path: Path) -> str | None:
                 payload = json.loads(stripped)
             except json.JSONDecodeError:
                 continue
+            if not isinstance(payload, dict):
+                continue
             if str(payload.get("type") or "").strip() != "thread.started":
                 continue
             thread_id = str(payload.get("thread_id") or "").strip()
@@ -69,6 +71,8 @@ def _extract_last_stdout_event(stdout_path: Path, *, max_bytes: int = 16384) -> 
         try:
             payload = json.loads(line)
         except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
             continue
         event_type = str(payload.get("type") or "").strip()
         item = payload.get("item") if isinstance(payload.get("item"), dict) else {}

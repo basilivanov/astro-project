@@ -32,18 +32,19 @@ from prefect_grace.tasks.state_store import find_record, update_record
 # inputs:
 #   feature_id: Feature identifier.
 #   canon_digest_run: Agent run payload with message/stdout paths.
+#   state_root: State root directory path.
 # returns: Updated feature record.
 # side_effects: Writes canon-digest.md and updates feature state.
 # emitted_logs: Prefect task log line when logger is available.
 # error_behavior: Propagates file and state update errors.
 # END_FUNCTION_CONTRACT
 @task(task_run_name="canon-digest:record:{feature_id}")
-def record_canon_digest_task(feature_id: str, canon_digest_run: dict):
+def record_canon_digest_task(feature_id: str, canon_digest_run: dict, *, state_root: Path | str):
     try:
         logger = get_run_logger()
     except Exception:
         logger = None
-    feature = find_record("features", "features", "feature_id", feature_id)
+    feature = find_record("features", "features", "feature_id", feature_id, state_root=state_root)
     feature_dir = Path(str(feature.get("feature_dir") or (Path("prefect_grace/packets") / feature_id)))
     output_path = feature_dir / "canon-digest.md"
     output_text = read_agent_message(canon_digest_run.get("last_message_path"), canon_digest_run.get("stdout_path")).strip()
@@ -53,4 +54,4 @@ def record_canon_digest_task(feature_id: str, canon_digest_run: dict):
     output_path.write_text(output_text + "\n", encoding="utf-8")
     if logger is not None:
         logger.info("Recorded canon digest for %s at %s", feature_id, output_path)
-    return update_record("features", "features", "feature_id", feature_id, {"canon_digest_path": str(output_path)})
+    return update_record("features", "features", "feature_id", feature_id, {"canon_digest_path": str(output_path)}, state_root=state_root)

@@ -66,7 +66,8 @@ def _flatten_nested_config(data: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(data)
     project_data = result.pop("project", None)
     runtime_data = result.pop("runtime", None)
-    workflow_runtime_data = result.get("workflow_runtime")
+    workflow_runtime_data = result.pop("workflow_runtime", None)
+    executors_data = result.pop("executors", None)
 
     if isinstance(project_data, dict):
         key_map = {
@@ -94,6 +95,43 @@ def _flatten_nested_config(data: Mapping[str, Any]) -> dict[str, Any]:
         runtime_type = workflow_runtime_data.get("type")
         if runtime_type and isinstance(runtime_type, str):
             result["workflow_runtime"] = runtime_type
+        elif "workflow_runtime" not in result:
+            # Default to prefect if not specified
+            result["workflow_runtime"] = "prefect"
+
+        # Map v2 workflow_runtime structure to v1 prefect structure
+        work_pool = workflow_runtime_data.get("work_pool")
+        queues = workflow_runtime_data.get("queues", {})
+
+        if work_pool or queues:
+            prefect_config = {}
+            if work_pool:
+                prefect_config["work_pool"] = work_pool
+
+            if isinstance(queues, dict):
+                live_queue = queues.get("live", {})
+                monitoring_queue = queues.get("monitoring", {})
+
+                if isinstance(live_queue, dict) and "name" in live_queue:
+                    prefect_config["live_queue"] = live_queue["name"]
+                if isinstance(monitoring_queue, dict) and "name" in monitoring_queue:
+                    prefect_config["monitoring_queue"] = monitoring_queue["name"]
+
+            if prefect_config and "prefect" not in result:
+                result["prefect"] = prefect_config
+
+    if isinstance(executors_data, dict):
+        # Map v2 executors structure to v1 agent_executor structure
+        agent_executor = {}
+        if "default" in executors_data:
+            agent_executor["default"] = executors_data["default"]
+        if "command" in executors_data:
+            agent_executor["command"] = executors_data["command"]
+        if "items" in executors_data:
+            agent_executor["executors"] = executors_data["items"]
+
+        if agent_executor and "agent_executor" not in result:
+            result["agent_executor"] = agent_executor
 
     return result
 
@@ -103,8 +141,11 @@ def _apply_defaults(data: Mapping[str, Any]) -> dict[str, Any]:
     project_key = str(config.get("project_key") or "project").strip()
     state_root = f"/var/lib/grace-orchestrator/{project_key}"
 
+    # Preserve the version from the original data
+    version = data.get("version", 1)
+
     defaults: dict[str, Any] = {
-        "version": 1,
+        "version": version,
         "project_key": project_key,
         "repo_root": str(Path.cwd()),
         "default_branch": "main",
@@ -250,12 +291,19 @@ class ProjectAdapterConfig:
     # END_FUNCTION_CONTRACT
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectAdapterConfig:
-        if data.get("version") != 1:
-            raise ValueError("project.version must be exactly 1")
+        version = data.get("version", 1)
+        if version not in (1, 2):
+            raise ValueError(f"project.version must be 1 or 2, got {version}")
+
+        # Handle v2 schema by flattening it to v1 internal format
+        # Only flatten if we have nested structure (workflow_runtime is a dict)
+        if version == 2 and isinstance(data.get("workflow_runtime"), dict):
+            data = _flatten_nested_config(data)
+
         prefect_data = _required_mapping(data, "prefect", "project")
         agent_executor_data = _required_mapping(data, "agent_executor", "project")
         return cls(
-            version=1,
+            version=version,
             project_key=_required_string(data, "project_key", "project"),
             repo_root=_required_string(data, "repo_root", "project"),
             default_branch=_required_string(data, "default_branch", "project"),

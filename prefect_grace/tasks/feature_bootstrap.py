@@ -13,6 +13,7 @@ from prefect_grace.tasks.state_store import append_record, find_record, update_r
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 PACKET_CONTRACT_START = "FINAL_PACKET_CONTRACT_JSON"
 PACKET_CONTRACT_END = "END_FINAL_PACKET_CONTRACT_JSON"
 
@@ -261,11 +262,11 @@ def _write_wave_plan(feature_dir: Path, feature_id: str, title: str, packets: li
     return str(wave_plan_path)
 
 
-def _delete_packet_if_exists(packet_id: str | None) -> None:
+def _delete_packet_if_exists(packet_id: str | None, *, state_root: Path | str) -> None:
     resolved_id = str(packet_id or "").strip()
     if not resolved_id:
         return
-    state_path = state_store.STATE_DIR / "packets.yaml"
+    state_path = Path(state_root) / "packets.yaml"
     if not state_path.exists():
         return
 
@@ -277,7 +278,7 @@ def _delete_packet_if_exists(packet_id: str | None) -> None:
         ]
         return payload
 
-    state_store.update_state("packets", mutator)
+    state_store.update_state("packets", mutator, state_root=state_root)
 
 
 def bootstrap_feature(
@@ -285,7 +286,10 @@ def bootstrap_feature(
     title: str,
     summary: str,
     business_context: dict[str, Any] | None = None,
+    *,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     feature_dir = FEATURES_DIR / feature_id
     feature_dir.mkdir(parents=True, exist_ok=True)
     (feature_dir / "packets").mkdir(exist_ok=True)
@@ -351,7 +355,7 @@ def bootstrap_feature(
         brief_path.write_text(brief_text, encoding="utf-8")
 
     try:
-        find_record("features", "features", "feature_id", feature_id)
+        find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root)
         return update_record(
             "features",
             "features",
@@ -363,6 +367,7 @@ def bootstrap_feature(
                 "feature_dir": str(feature_dir),
                 "business_context": business_context or {},
             },
+            state_root=resolved_state_root,
         )
     except KeyError:
         record = FeatureRecord(
@@ -373,7 +378,7 @@ def bootstrap_feature(
             feature_dir=str(feature_dir),
             business_context=business_context or {},
         ).to_dict()
-        append_record("features", "features", record)
+        append_record("features", "features", record, state_root=resolved_state_root)
         return record
 
 
@@ -382,7 +387,9 @@ def mark_feature_status(
     status: FeatureStatus,
     *,
     blocker_reasons: list[str] | None = None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     updates: dict[str, Any] = {"status": status.value}
     if blocker_reasons is not None:
         updates["blocker_reasons"] = list(blocker_reasons)
@@ -394,7 +401,7 @@ def mark_feature_status(
         FeatureStatus.ENVIRONMENT_BLOCKED,
     }:
         updates["blocker_reasons"] = []
-    return update_record("features", "features", "feature_id", feature_id, updates)
+    return update_record("features", "features", "feature_id", feature_id, updates, state_root=resolved_state_root)
 
 
 def create_packet(
@@ -417,7 +424,9 @@ def create_packet(
     packet_type: str | None = None,
     execution_hints: dict[str, Any] | None = None,
     status: PacketStatus = PacketStatus.READY,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     packet_slug = slugify(title)
     packet_id = f"{feature_id}-{wave_id}-{packet_slug}".upper()
     grace_refs = grace_refs_for_packet({"feature_id": feature_id, "wave_id": wave_id, "packet_id": packet_id})
@@ -457,10 +466,10 @@ def create_packet(
         packet_path=str(packet_path),
     ).to_dict()
     try:
-        find_record("packets", "packets", "packet_id", packet_id)
-        stored = update_record("packets", "packets", "packet_id", packet_id, record)
+        find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
+        stored = update_record("packets", "packets", "packet_id", packet_id, record, state_root=resolved_state_root)
     except KeyError:
-        append_record("packets", "packets", record)
+        append_record("packets", "packets", record, state_root=resolved_state_root)
         stored = record
     return sync_packet_file(stored)
 
@@ -487,7 +496,9 @@ def seed_test_feature(
     planner_contract: dict[str, Any] | None = None,
     include_planner_packet: bool = False,
     materialize_execution_packets: bool = True,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     business_context = dict(business_context or {})
     impacted_surfaces = list(business_context.get("impacted_surfaces") or [])
     if not impacted_surfaces:
@@ -509,7 +520,7 @@ def seed_test_feature(
         ]
     business_context["impacted_grace_artifacts"] = impacted_grace_artifacts
 
-    feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context)
+    feature = bootstrap_feature(feature_id=feature_id, title=title, summary=summary, business_context=business_context, state_root=resolved_state_root)
     feature_dir = Path(str(feature.get("feature_dir") or (FEATURES_DIR / feature_id)))
     architect_artifact_plan = default_architect_artifact_plan(
         feature_id=feature_id,
@@ -563,6 +574,7 @@ def seed_test_feature(
             "Return FINAL_ARCHITECT_ARTIFACT_PLAN_JSON markers.",
         ],
         execution_hints=base_execution_hints,
+        state_root=resolved_state_root,
     )
 
     planner_packet = None
@@ -605,6 +617,7 @@ def seed_test_feature(
                 "Return FINAL_GRACE_WAVE_PLAN_JSON markers.",
             ],
             execution_hints=base_execution_hints,
+            state_root=resolved_state_root,
         )
 
     materialized: dict[str, Any] = {
@@ -654,10 +667,10 @@ def seed_test_feature(
         )
 
     if not include_planner_packet and planner_packet is None:
-        _delete_packet_if_exists(f"{feature_id}-W00-PLANNER-SLICING".upper())
+        _delete_packet_if_exists(f"{feature_id}-W00-PLANNER-SLICING".upper(), state_root=resolved_state_root)
     return {
         "feature": {
-            **find_record("features", "features", "feature_id", feature_id),
+            **find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root),
             "wave_plan_path": materialized["wave_plan_path"],
         },
         "packets": {

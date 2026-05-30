@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 from prefect_grace.models import FeatureStatus, PacketStatus
 from prefect_grace.prefect_compat import get_run_logger, task
@@ -42,16 +43,17 @@ def _facade_attr(name: str, default):
 # purpose: Mark a feature as in progress and notify observers.
 # inputs:
 #   feature_id: Feature identifier.
+#   state_root: State root directory path.
 # returns: Updated feature record.
 # side_effects: Updates feature state and sends notification.
 # emitted_logs: Prefect task log line.
 # error_behavior: Propagates status and notification errors.
 # END_FUNCTION_CONTRACT
 @task(task_run_name="feature-status:{feature_id}:in-progress")
-def mark_feature_in_progress_task(feature_id: str):
+def mark_feature_in_progress_task(feature_id: str, *, state_root: Path | str):
     logger = get_run_logger()
     logger.info("Marking feature %s as in progress", feature_id)
-    record = mark_feature_status(feature_id, FeatureStatus.IN_PROGRESS)
+    record = mark_feature_status(feature_id, FeatureStatus.IN_PROGRESS, state_root=state_root)
     notify_feature_event(
         feature_id=feature_id,
         title=str(record.get("title") or ""),
@@ -107,17 +109,18 @@ def run_verifier_packet_task(packet_id: str, dry_run: bool, timeout_seconds: int
 # inputs:
 #   packet_id: Packet identifier.
 #   status: PacketStatus value string.
+#   state_root: State root directory path.
 # returns: Updated packet record.
 # side_effects: Updates packet state and sends notification.
 # emitted_logs: Prefect task log line.
 # error_behavior: Raises for invalid status and propagates state/notification errors.
 # END_FUNCTION_CONTRACT
 @task(task_run_name="packet-status:{packet_id}:{status}")
-def mark_packet_status_task(packet_id: str, status: str):
+def mark_packet_status_task(packet_id: str, status: str, *, state_root: Path | str):
     logger = get_run_logger()
     PacketStatus(status)
     logger.info("Packet %s status=%s", packet_id, status)
-    record = update_record("packets", "packets", "packet_id", packet_id, {"status": status})
+    record = update_record("packets", "packets", "packet_id", packet_id, {"status": status}, state_root=state_root)
     notify_packet_event(
         feature_id=str(record.get("feature_id") or ""),
         packet_id=packet_id,

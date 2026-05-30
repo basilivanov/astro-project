@@ -47,6 +47,8 @@ def read_agent_message(last_message_path: str | None, stdout_path: str | None = 
                     payload = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if not isinstance(payload, dict):
+                    continue
                 item = payload.get("item")
                 if payload.get("type") == "item.completed" and isinstance(item, dict):
                     text = item.get("text")
@@ -54,6 +56,9 @@ def read_agent_message(last_message_path: str | None, stdout_path: str | None = 
                         last_text = str(text).strip()
             if last_text:
                 return last_text
+            raw_text = path.read_text(encoding="utf-8").strip()
+            if raw_text:
+                return raw_text
     return ""
 
 

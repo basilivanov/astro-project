@@ -148,7 +148,7 @@ from prefect_grace.tasks.agent_output_parser import (
 )
 from prefect_grace.tasks.architect_artifacts import default_architect_artifact_plan, write_architect_artifacts
 from prefect_grace.tasks.codex_launcher import launch_codex_for_packet
-from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_packet, mark_feature_status, seed_test_feature, sync_packet_file
+from prefect_grace.tasks.feature_bootstrap import bootstrap_feature, create_packet, mark_feature_status, seed_test_feature, sync_packet_file, STATE_ROOT
 from prefect_grace.tasks.planner_contract import (
     default_wave_plan_contract,
     find_architect_wave_gate_packet_id,
@@ -190,12 +190,13 @@ def _final_failure(
         feature_id,
         _failure_status_for_category(category),
         blocker_reasons=list(reasons or []),
+        state_root=STATE_ROOT,
     )
     failure_updates: dict[str, object] = {}
     if next_wave_id is not None:
         failure_updates["next_wave_id"] = str(next_wave_id)
     if failure_updates:
-        feature = update_record("features", "features", "feature_id", feature_id, failure_updates)
+        feature = update_record("features", "features", "feature_id", feature_id, failure_updates, state_root=STATE_ROOT)
     return {
         "feature": feature,
         "has_failures": True,
@@ -251,7 +252,7 @@ def _post_acceptance_final_status(
             "next_wave_id": "",
             "all_required_waves_accepted": True,
         }
-        committed_feature = update_record("features", "features", "feature_id", feature_id, feature_updates)
+        committed_feature = update_record("features", "features", "feature_id", feature_id, feature_updates, state_root=STATE_ROOT)
         return {
             "feature": committed_feature,
             "has_failures": False,
@@ -274,7 +275,7 @@ def _post_acceptance_final_status(
             "reasons": [],
         }
 
-    awaiting_feature = mark_feature_status(feature_id, FeatureStatus.AWAITING_COMMIT)
+    awaiting_feature = mark_feature_status(feature_id, FeatureStatus.AWAITING_COMMIT, state_root=STATE_ROOT)
     resolved_wave_progression = [dict(item) for item in wave_progression or awaiting_feature.get("wave_progression") or []]
     awaiting_feature = update_record(
         "features",
@@ -288,6 +289,7 @@ def _post_acceptance_final_status(
             "next_wave_id": "",
             "all_required_waves_accepted": True,
         },
+        state_root=STATE_ROOT,
     )
     return {
         "feature": awaiting_feature,
@@ -314,7 +316,7 @@ def _post_acceptance_final_status(
 
 def _load_architect_manifest(feature_id: str) -> dict:
     try:
-        feature = find_record("features", "features", "feature_id", feature_id)
+        feature = find_record("features", "features", "feature_id", feature_id, state_root=STATE_ROOT)
     except KeyError:
         return {}
     manifest_path = str(feature.get("architect_manifest_path") or "").strip()
@@ -351,6 +353,7 @@ def _persist_wave_progression(feature_id: str, wave_progression: list[dict[str, 
             "next_wave_id": _next_required_wave_id(wave_progression),
             "all_required_waves_accepted": _all_required_waves_accepted(wave_progression),
         },
+        state_root=STATE_ROOT,
     )
 
 
@@ -471,6 +474,7 @@ def _build_direct_rework_followup_packets(
             "review_target_packet_id": direct_rework_packet["packet_id"],
             "execution_hints": dict(direct_rework_packet.get("execution_hints") or {}),
         },
+        state_root=STATE_ROOT,
     )
     direct_reviewer_packet = sync_packet_file(direct_reviewer_packet)
     rework_packets.extend([direct_verifier_packet, direct_reviewer_packet])
@@ -512,7 +516,7 @@ def _sync_architect_manifest_packets(
     architect_packet_id: str,
 ) -> None:
     try:
-        feature = find_record("features", "features", "feature_id", feature_id)
+        feature = find_record("features", "features", "feature_id", feature_id, state_root=STATE_ROOT)
     except KeyError:
         return
     manifest_path = Path(str(feature.get("architect_manifest_path") or "").strip())
@@ -617,6 +621,7 @@ def _build_light_resume_followup(
             "light_resume_attempt": int(resumed_packet.get("light_resume_attempt") or 0) + 1,
             "light_resume_max_attempts": 1,
         },
+        state_root=STATE_ROOT,
     )
     rework_packet["execution_hints"] = {
         **dict(rework_packet.get("execution_hints") or {}),
@@ -637,6 +642,7 @@ def _build_light_resume_followup(
         "packet_id",
         str(resumed_packet["packet_id"]),
         {"execution_hints": rework_packet["execution_hints"]},
+        state_root=STATE_ROOT,
     )
     rework_packets, rework_reviewer_packet_id = _build_direct_rework_followup_packets(
         source_reviewer_packet=source_reviewer_packet,
@@ -655,6 +661,15 @@ def _build_light_resume_followup(
 
 
 def _build_pipeline_deps() -> PipelineDeps:
+    # Wrapper functions that use default STATE_ROOT from feature_bootstrap module
+    def _update_record_wrapper(name: str, key: str, id_field: str, id_value: str, updates: dict) -> dict:
+        from prefect_grace.tasks.feature_bootstrap import STATE_ROOT
+        return update_record(name, key, id_field, id_value, updates, state_root=STATE_ROOT)
+
+    def _mark_feature_status_wrapper(feature_id: str, status, *, blocker_reasons: list[str] | None = None) -> dict:
+        from prefect_grace.tasks.feature_bootstrap import STATE_ROOT
+        return mark_feature_status(feature_id, status, blocker_reasons=blocker_reasons, state_root=STATE_ROOT)
+
     return PipelineDeps(
         tags=tags,
         seed_feature_packets_task=seed_feature_packets_task,
@@ -707,8 +722,8 @@ def _build_pipeline_deps() -> PipelineDeps:
         build_architect_direct_rework=_build_architect_direct_rework,
         build_light_resume_followup=_build_light_resume_followup,
         build_direct_rework_followup_packets=_build_direct_rework_followup_packets,
-        update_record=update_record,
-        mark_feature_status=mark_feature_status,
+        update_record=_update_record_wrapper,
+        mark_feature_status=_mark_feature_status_wrapper,
         notify_feature_event=notify_feature_event,
     )
 

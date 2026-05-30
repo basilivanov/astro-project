@@ -33,7 +33,6 @@ from prefect_grace.tasks.codex_launcher_helpers.prompt_builder import _read_text
 from prefect_grace.tasks.state_store import find_record, update_record
 from prefect_grace.tasks.workdir import resolve_execution_workdir
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "agent_profiles.yaml"
 RUNS_DIR = Path(__file__).resolve().parents[1] / "state" / "runs"
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
@@ -98,6 +97,7 @@ def _sync_session_manager() -> None:
     _session_manager.find_record = find_record
     _session_manager.update_record = update_record
     _session_manager.datetime = datetime
+    _session_manager.STATE_ROOT = STATE_ROOT
 
 def _session_call(name: str, *args: Any, **kwargs: Any) -> Any:
     _sync_session_manager(); return getattr(_session_manager, name)(*args, **kwargs)
@@ -136,7 +136,7 @@ def _launch_codex_for_packet(
     config = load_agent_config()
     # Use new registry format with fallback to old
     from prefect_grace.tasks.state_store import find_packet_from_registry
-    registry_project_root = Path(project_root).resolve() if project_root is not None else ROOT_DIR
+    registry_project_root = Path(project_root).resolve() if project_root is not None else Path.cwd()
     packet = find_packet_from_registry(packet_id, runtime_state_root, project_root=registry_project_root)
     # Add project_root to packet dict for path normalization in prompt builder
     packet["project_root"] = str(registry_project_root)
@@ -203,8 +203,8 @@ def _launch_codex_for_packet(
             ).to_dict()
         workdir = str(workdir_path)
     else:
-        configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or ROOT_DIR)
-        workdir = str(resolve_execution_workdir(configured_workdir))
+        configured_workdir = str(execution_hints.get("workdir") or config.get("codex", {}).get("workdir") or registry_project_root)
+        workdir = str(resolve_execution_workdir(configured_workdir, project_root=registry_project_root))
 
     role_prompt = role_prompt_for(role)
     prompt = build_packet_prompt(packet, role_prompt)
@@ -212,10 +212,11 @@ def _launch_codex_for_packet(
     # Check if resume is allowed based on source hash gate
     resume_allowed = _check_resume_allowed(packet_id, resume_strategy, logger)
 
+    resolved_state_root = Path(runtime_state_root) if runtime_state_root else STATE_ROOT
     if resume_strategy == "feature_role" and resume_allowed:
-        existing_session = _feature_role_session(str(packet.get("feature_id")), role)
+        existing_session = _feature_role_session(str(packet.get("feature_id")), role, state_root=resolved_state_root)
     elif resume_strategy == "packet_parent" and resume_allowed:
-        existing_session = _packet_parent_session(packet)
+        existing_session = _packet_parent_session(packet, state_root=resolved_state_root)
     else:
         existing_session = None
     env = os.environ.copy()
@@ -351,6 +352,7 @@ def _launch_codex_for_packet(
                 session_mode=session_mode,
                 run_dir=run_dir,
                 resumed_from_thread_id=resumed_from_thread_id,
+                state_root=resolved_state_root,
             )
 
         attempt_result = CodexLaunchResult(
@@ -455,6 +457,7 @@ def _launch_codex_for_packet(
                 "last_resume_strategy": resume_strategy,
                 "status": "review" if returncode == 0 else "blocked",
             },
+            state_root=resolved_state_root,
         )
     except KeyError:
         # Packet not in old format state store, skip update (new registry format)

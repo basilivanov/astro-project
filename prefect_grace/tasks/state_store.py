@@ -5,8 +5,6 @@ from typing import Any
 import yaml
 import fcntl
 
-STATE_DIR = Path(__file__).resolve().parents[1] / "state"
-
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
@@ -36,30 +34,35 @@ def _locked_update_yaml(path: Path, mutator: Any) -> dict[str, Any]:
         return updated
 
 
-def load_state(name: str) -> dict[str, Any]:
-    return _read_yaml(STATE_DIR / f"{name}.yaml")
+def load_state(name: str, *, state_root: Path | str) -> dict[str, Any]:
+    state_dir = Path(state_root)
+    return _read_yaml(state_dir / f"{name}.yaml")
 
 
-def save_state(name: str, payload: dict[str, Any]) -> None:
-    _write_yaml(STATE_DIR / f"{name}.yaml", payload)
+def save_state(name: str, payload: dict[str, Any], *, state_root: Path | str) -> None:
+    state_dir = Path(state_root)
+    _write_yaml(state_dir / f"{name}.yaml", payload)
 
 
-def update_state(name: str, mutator: Any) -> dict[str, Any]:
-    return _locked_update_yaml(STATE_DIR / f"{name}.yaml", mutator)
+def update_state(name: str, mutator: Any, *, state_root: Path | str) -> dict[str, Any]:
+    state_dir = Path(state_root)
+    return _locked_update_yaml(state_dir / f"{name}.yaml", mutator)
 
 
-def append_record(name: str, key: str, record: dict[str, Any]) -> dict[str, Any]:
+def append_record(name: str, key: str, record: dict[str, Any], *, state_root: Path | str) -> dict[str, Any]:
+    state_dir = Path(state_root)
     def mutator(payload: dict[str, Any]) -> dict[str, Any]:
         items = list(payload.get(key, []) or [])
         items.append(record)
         payload[key] = items
         return payload
 
-    _locked_update_yaml(STATE_DIR / f"{name}.yaml", mutator)
+    _locked_update_yaml(state_dir / f"{name}.yaml", mutator)
     return record
 
 
-def update_record(name: str, key: str, id_field: str, id_value: str, updates: dict[str, Any]) -> dict[str, Any]:
+def update_record(name: str, key: str, id_field: str, id_value: str, updates: dict[str, Any], *, state_root: Path | str) -> dict[str, Any]:
+    state_dir = Path(state_root)
     updated_record: dict[str, Any] = {}
 
     def mutator(payload: dict[str, Any]) -> dict[str, Any]:
@@ -73,12 +76,12 @@ def update_record(name: str, key: str, id_field: str, id_value: str, updates: di
                 return payload
         raise KeyError(f"No {name}.{key} record with {id_field}={id_value}")
 
-    _locked_update_yaml(STATE_DIR / f"{name}.yaml", mutator)
+    _locked_update_yaml(state_dir / f"{name}.yaml", mutator)
     return updated_record
 
 
-def find_record(name: str, key: str, id_field: str, id_value: str) -> dict[str, Any]:
-    payload = load_state(name)
+def find_record(name: str, key: str, id_field: str, id_value: str, *, state_root: Path | str) -> dict[str, Any]:
+    payload = load_state(name, state_root=state_root)
     for item in payload.get(key, []) or []:
         if str(item.get(id_field)) == id_value:
             return dict(item)
@@ -114,12 +117,13 @@ def find_packet_from_registry(
 
     # Fallback to old format: {packets: [{packet_id: ...}, ...]}
     try:
-        return find_record("packets", "packets", "packet_id", packet_id)
+        return find_record("packets", "packets", "packet_id", packet_id, state_root=runtime_state_root or Path(__file__).resolve().parents[1] / "state")
     except KeyError:
         raise KeyError(f"No packet record with packet_id={packet_id}")
 
 
-def upsert_record(name: str, key: str, id_field: str, record: dict[str, Any]) -> dict[str, Any]:
+def upsert_record(name: str, key: str, id_field: str, record: dict[str, Any], *, state_root: Path | str) -> dict[str, Any]:
+    state_dir = Path(state_root)
     stored_record: dict[str, Any] = {}
 
     def mutator(payload: dict[str, Any]) -> dict[str, Any]:
@@ -136,5 +140,5 @@ def upsert_record(name: str, key: str, id_field: str, record: dict[str, Any]) ->
         payload[key] = items
         return payload
 
-    _locked_update_yaml(STATE_DIR / f"{name}.yaml", mutator)
+    _locked_update_yaml(state_dir / f"{name}.yaml", mutator)
     return stored_record

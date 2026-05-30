@@ -11,6 +11,7 @@ WAVE_PLAN_MARKER_START = "FINAL_GRACE_WAVE_PLAN_JSON"
 WAVE_PLAN_MARKER_END = "END_FINAL_GRACE_WAVE_PLAN_JSON"
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 OBSERVABILITY_SCOPES = {"none", "packet_local", "wave_final"}
 
 
@@ -228,6 +229,8 @@ def normalize_wave_plan_contract(
             }
         )
 
+
+
     known_keys = {packet["key"] for packet in normalized_packets}
     allowed_external_refs = {
         str(ref).strip()
@@ -273,7 +276,9 @@ def materialize_planner_contract(
     contract: dict[str, Any],
     base_execution_hints: dict[str, Any] | None = None,
     default_verifier_execution_hints: dict[str, Any] | None = None,
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
     normalized = normalize_wave_plan_contract(
         contract,
         external_dependency_refs={
@@ -334,6 +339,7 @@ def materialize_planner_contract(
             packet_type=packet_spec.get("packet_type"),
             execution_hints=execution_hints,
             status=PacketStatus.READY,
+            state_root=resolved_state_root,
         )
         review_target_key = str(packet_spec.get("review_target_key") or "").strip()
         if review_target_key:
@@ -349,13 +355,14 @@ def materialize_planner_contract(
                 "packet_id",
                 packet["packet_id"],
                 {"review_target_packet_id": review_target_packet_id},
+                state_root=resolved_state_root,
             )
             from prefect_grace.tasks.feature_bootstrap import sync_packet_file
 
             packet = sync_packet_file(packet)
         materialized.append(packet)
 
-    wave_plan_path = _write_dynamic_wave_plan(feature_id, normalized["waves"], materialized)
+    wave_plan_path = _write_dynamic_wave_plan(feature_id, normalized["waves"], materialized, state_root=resolved_state_root)
     update_record(
         "features",
         "features",
@@ -366,6 +373,7 @@ def materialize_planner_contract(
             "wave_plan_path": wave_plan_path,
             "planner_contract": normalized,
         },
+        state_root=resolved_state_root,
     )
     return {
         "waves": normalized["waves"],
@@ -485,8 +493,9 @@ def _planned_packet_id(*, feature_id: str, wave_id: str, title: str) -> str:
     return f"{feature_id}-{wave_id}-{slugify(title)}".upper()
 
 
-def _write_dynamic_wave_plan(feature_id: str, waves: list[dict[str, Any]], packets: list[dict[str, Any]]) -> str:
-    feature = find_record("features", "features", "feature_id", feature_id)
+def _write_dynamic_wave_plan(feature_id: str, waves: list[dict[str, Any]], packets: list[dict[str, Any]], *, state_root: Path | str | None = None) -> str:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    feature = find_record("features", "features", "feature_id", feature_id, state_root=resolved_state_root)
     feature_dir = Path(feature["feature_dir"])
     wave_lines = []
     for wave in waves:

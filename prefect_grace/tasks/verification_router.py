@@ -8,6 +8,7 @@ from prefect_grace.tasks.grace_ids import grace_refs_for_packet
 from prefect_grace.tasks.state_store import find_record, update_record, upsert_record
 
 FEATURES_DIR = Path(__file__).resolve().parents[1] / "packets"
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 
 
 def record_verification(
@@ -19,8 +20,10 @@ def record_verification(
     commands_run: list[str],
     evidence_paths: list[str],
     blocking_issues: list[str],
+    state_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    packet = find_record("packets", "packets", "packet_id", packet_id)
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    packet = find_record("packets", "packets", "packet_id", packet_id, state_root=resolved_state_root)
     feature_id = packet["feature_id"]
     grace_refs = grace_refs_for_packet(packet)
     evidence_dir = FEATURES_DIR / feature_id / "evidence"
@@ -58,7 +61,7 @@ def record_verification(
         blocking_issues=blocking_issues,
         verification_path=str(verification_path),
     ).to_dict()
-    upsert_record("verifications", "verifications", "packet_id", record)
+    upsert_record("verifications", "verifications", "packet_id", record, state_root=resolved_state_root)
     update_record(
         "packets",
         "packets",
@@ -67,5 +70,6 @@ def record_verification(
         {
             "last_verification": record,
         },
+        state_root=resolved_state_root,
     )
     return record

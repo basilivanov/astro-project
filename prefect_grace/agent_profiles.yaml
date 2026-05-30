@@ -1,17 +1,17 @@
 version: 1
 codex:
-  binary: codex1
+  binary: agy
   workdir: /opt/astro-project
-  shared_model: gpt-5.5
+  shared_model: gemini-3.5-flash
   roles:
     canon_digest:
-      model: gpt-5.4-mini
       reasoning: medium
       sandbox: danger-full-access
       approval: never
       stall_timeout_seconds: 300
       max_auto_resume_attempts: 1
     architect:
+      model: gemini-3.1-pro
       reasoning: xhigh
       sandbox: danger-full-access
       approval: never

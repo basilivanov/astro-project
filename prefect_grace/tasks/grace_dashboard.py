@@ -3,16 +3,21 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from pathlib import Path
+
 from prefect_grace.tasks.prefect_runs import feature_run_status_counts, latest_feature_run_index, list_recent_feature_flow_runs
 from prefect_grace.tasks.state_store import load_state
 
+STATE_ROOT = Path(__file__).resolve().parents[1] / "state"
 
-def build_grace_dashboard_snapshot() -> dict[str, Any]:
-    features = list((load_state("features").get("features") or []))
-    packets = list((load_state("packets").get("packets") or []))
-    reviews = list((load_state("reviews").get("reviews") or []))
-    verifications = list((load_state("verifications").get("verifications") or []))
-    wave_reviews = list((load_state("wave_reviews").get("wave_reviews") or []))
+
+def build_grace_dashboard_snapshot(*, state_root: Path | str | None = None) -> dict[str, Any]:
+    resolved_state_root = Path(state_root) if state_root else STATE_ROOT
+    features = list((load_state("features", state_root=resolved_state_root).get("features") or []))
+    packets = list((load_state("packets", state_root=resolved_state_root).get("packets") or []))
+    reviews = list((load_state("reviews", state_root=resolved_state_root).get("reviews") or []))
+    verifications = list((load_state("verifications", state_root=resolved_state_root).get("verifications") or []))
+    wave_reviews = list((load_state("wave_reviews", state_root=resolved_state_root).get("wave_reviews") or []))
     flow_runs = list_recent_feature_flow_runs(limit=200)
     run_index = latest_feature_run_index(flow_runs)
     packet_index = {str(item.get("packet_id")): item for item in packets}

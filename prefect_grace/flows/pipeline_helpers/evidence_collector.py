@@ -272,12 +272,13 @@ def collect_candidate_commit_files_from_payload(payload: object, files: list[str
 # purpose: Read current persisted records associated with one feature id.
 # inputs:
 #   feature_id: Feature identifier.
+#   state_root: State root directory path.
 # returns: List of matching record dictionaries from known state files.
 # side_effects: Reads state store only.
 # emitted_logs: None.
 # error_behavior: Missing state files yield empty record groups through load_state.
 # END_FUNCTION_CONTRACT
-def feature_line_records(feature_id: str) -> list[dict]:
+def feature_line_records(feature_id: str, *, state_root: Path | str) -> list[dict]:
     records: list[dict] = []
     for state_name, key in (
         ("features", "features"),
@@ -286,7 +287,7 @@ def feature_line_records(feature_id: str) -> list[dict]:
         ("reviews", "reviews"),
         ("wave_reviews", "wave_reviews"),
     ):
-        for item in list(load_state(state_name).get(key) or []):
+        for item in list(load_state(state_name, state_root=state_root).get(key) or []):
             if str(item.get("feature_id") or "") == feature_id:
                 records.append(dict(item))
     return records
@@ -302,6 +303,7 @@ def feature_line_records(feature_id: str) -> list[dict]:
 #   verification_records: Verification record payloads.
 #   review_routes: Reviewer routing payloads.
 #   wave_routes: Wave routing payloads.
+#   state_root: State root directory path.
 # returns: Ordered unique candidate commit file paths.
 # side_effects: Reads current state records.
 # emitted_logs: None.
@@ -315,6 +317,7 @@ def collect_candidate_commit_files(
     verification_records: list[dict],
     review_routes: list[dict],
     wave_routes: list[dict],
+    state_root: Path | str,
 ) -> list[str]:
     files: list[str] = []
     collect_candidate_commit_files_from_payload(feature, files)
@@ -322,7 +325,7 @@ def collect_candidate_commit_files(
     collect_candidate_commit_files_from_payload(verification_records, files)
     collect_candidate_commit_files_from_payload(review_routes, files)
     collect_candidate_commit_files_from_payload(wave_routes, files)
-    for record in feature_line_records(feature_id):
+    for record in feature_line_records(feature_id, state_root=state_root):
         collect_candidate_commit_files_from_payload(record, files)
     return files
 
@@ -406,17 +409,18 @@ def existing_file_path(value: object) -> Path | None:
 # purpose: Resolve the packet record associated with a verifier run.
 # inputs:
 #   verifier_run: Verifier run dictionary.
+#   state_root: State root directory path.
 # returns: Packet record dictionary or empty dictionary.
 # side_effects: Reads state store only.
 # emitted_logs: None.
 # error_behavior: Missing packet records return empty dictionary.
 # END_FUNCTION_CONTRACT
-def verifier_packet_for_run(verifier_run: dict) -> dict:
+def verifier_packet_for_run(verifier_run: dict, *, state_root: Path | str) -> dict:
     packet_id = str(verifier_run.get("packet_id") or "").strip()
     if not packet_id:
         return {}
     try:
-        return find_record("packets", "packets", "packet_id", packet_id)
+        return find_record("packets", "packets", "packet_id", packet_id, state_root=state_root)
     except KeyError:
         return {}
 
@@ -457,14 +461,15 @@ def artifact_glob_matches(patterns: list[str], *, workdir: Path) -> list[str]:
 # inputs:
 #   verifier_run: Verifier run dictionary.
 #   verifier_result: Parsed verifier result dictionary.
+#   state_root: State root directory path.
 # returns: Ordered evidence path list capped at the existing pipeline limit.
 # side_effects: Reads state store and filesystem metadata.
 # emitted_logs: None.
 # error_behavior: Skips missing optional artifacts.
 # END_FUNCTION_CONTRACT
-def collect_verifier_supplemental_evidence(verifier_run: dict, verifier_result: dict) -> list[str]:
+def collect_verifier_supplemental_evidence(verifier_run: dict, verifier_result: dict, *, state_root: Path | str) -> list[str]:
     evidence: list[str] = []
-    packet = verifier_packet_for_run(verifier_run)
+    packet = verifier_packet_for_run(verifier_run, state_root=state_root)
     execution_hints = dict(packet.get("execution_hints") or {})
     workdir = Path(str(execution_hints.get("workdir") or PROJECT_ROOT))
     if not workdir.is_absolute():
@@ -503,16 +508,17 @@ def collect_verifier_supplemental_evidence(verifier_run: dict, verifier_result: 
 # inputs:
 #   verifier_run: Verifier packet run payload.
 #   verifier_result: Parsed verifier result payload.
+#   state_root: State root directory path.
 # returns: Original or enriched verifier result dictionary.
 # side_effects: Reads filesystem metadata and packet state.
 # emitted_logs: None.
 # error_behavior: Skips missing optional evidence.
 # END_FUNCTION_CONTRACT
-def enrich_verifier_evidence_paths(verifier_run: dict, verifier_result: dict) -> dict:
+def enrich_verifier_evidence_paths(verifier_run: dict, verifier_result: dict, *, state_root: Path | str) -> dict:
     if str(verifier_result.get("source") or "") != "agent_output":
         return verifier_result
     evidence_paths = [str(item).strip() for item in list(verifier_result.get("evidence_paths") or []) if str(item).strip()]
-    for path in collect_verifier_supplemental_evidence(verifier_run, verifier_result):
+    for path in collect_verifier_supplemental_evidence(verifier_run, verifier_result, state_root=state_root):
         append_evidence_path(evidence_paths, path)
     if evidence_paths == list(verifier_result.get("evidence_paths") or []):
         return verifier_result
