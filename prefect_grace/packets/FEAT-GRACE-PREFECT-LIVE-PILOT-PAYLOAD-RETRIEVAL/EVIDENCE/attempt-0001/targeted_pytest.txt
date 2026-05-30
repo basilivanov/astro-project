@@ -1,5 +1,0 @@
-Command:
-python3 -m pytest -q tests/test_prefect_grace_single_live_prefect_packet_pilot.py tests/test_prefect_grace_prefect_native_submission.py::test_submit_ready_packets_managed_runner_explicit_compatibility tests/test_prefect_grace_managed_packet_runner_flow.py::test_managed_packet_runner_flow_dry_run tests/test_prefect_grace_prefect_submitter_managed_packet.py
-
-Result:
-32 passed in 2.32s

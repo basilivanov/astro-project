@@ -1,3 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/platform/backlog_controller.py comply with GRACE Canon Script Discipline.
-
-EXIT_CODE=0

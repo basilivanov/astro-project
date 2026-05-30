@@ -1,3 +1,0 @@
-$ python3 -m pytest -q tests/test_prefect_grace_packet_yaml_sidecar_migration_plan.py tests/test_prefect_grace_cli_contracts.py -q
-................................................                         [100%]
-exit_code=0

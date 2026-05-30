@@ -1,5 +1,0 @@
-Command:
-python3 -m compileall -q prefect_grace/platform/nightly_controlled_batch_run.py prefect_grace/platform/nightly_batch_execution_guard.py prefect_grace/cli_commands/prefect_smokes.py prefect_grace/cli_commands/parser.py prefect_grace/cli.py
-
-Result:
-PASS (no output)

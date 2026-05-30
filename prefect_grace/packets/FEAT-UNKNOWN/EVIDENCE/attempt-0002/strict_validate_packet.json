@@ -1,9 +1,0 @@
-{
-  "ok": true,
-  "command": "validate-packet",
-  "result": {
-    "status": "ready"
-  },
-  "warnings": [],
-  "errors": []
-}

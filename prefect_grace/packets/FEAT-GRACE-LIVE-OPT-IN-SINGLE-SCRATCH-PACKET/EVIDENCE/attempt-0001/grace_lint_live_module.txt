@@ -1,1 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/platform/live_opt_in_single_scratch_packet.py comply with GRACE Canon Script Discipline.

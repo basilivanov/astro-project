@@ -1,1 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/flows/pipeline_tasks comply with GRACE Canon Script Discipline.

@@ -1,5 +1,0 @@
-Command:
-pytest -q tests/test_prefect_grace_nightly_controlled_batch_run.py tests/test_prefect_grace_cli_nightly_controlled_batch_run.py tests/test_prefect_grace_nightly_batch_execution_guard.py tests/test_prefect_grace_cli_contracts.py
-
-Result:
-64 passed in 14.35s

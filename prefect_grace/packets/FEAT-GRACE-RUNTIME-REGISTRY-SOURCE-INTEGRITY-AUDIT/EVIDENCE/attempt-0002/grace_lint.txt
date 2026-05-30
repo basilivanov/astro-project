@@ -1,4 +1,0 @@
-command: python3 scripts/grace_lint.py prefect_grace/platform/registry_source_integrity_audit.py
-result: PASS
-summary: module complies with GRACE Canon Script Discipline.
-

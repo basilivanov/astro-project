@@ -1,6 +1,0 @@
-status: not_run_live_agent_not_approved
-reason: Real live-agent execution requires explicit Architect approval plus all opt-in gates. This packet run verified the gate, registry selection, and injected runner path without launching a real agent.
-
-No Docker, backend, frontend, or Playwright processes were started for this packet.
-No real /var/lib/grace-orchestrator state was mutated.
-No prefect_grace/state/*.yaml source state was mutated.

@@ -1,4 +1,0 @@
-command: python3 -m compileall -q prefect_grace/platform/registry_source_integrity_audit.py prefect_grace/cli_commands/prefect_smokes.py prefect_grace/cli_commands/parser.py
-result: PASS
-summary: touched platform and CLI modules compiled successfully.
-

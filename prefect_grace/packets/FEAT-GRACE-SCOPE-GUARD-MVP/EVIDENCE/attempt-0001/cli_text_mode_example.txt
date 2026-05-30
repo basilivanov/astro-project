@@ -1,6 +1,0 @@
-Scope check: FAILED
-  Changed: 1 files
-  Allowed: 0 files
-
-Frozen violations:
-  - backend/app/main.py (matched: backend/**)

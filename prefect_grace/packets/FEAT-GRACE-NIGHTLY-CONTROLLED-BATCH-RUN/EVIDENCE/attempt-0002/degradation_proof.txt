@@ -1,5 +1,0 @@
-Injected pytest proof:
-- test_batch_execution_stops_on_unexpected_degradation
-
-Result:
-Unexpected degradation is fail-closed: ok=False, stop_reason=unexpected_degradation, executed_total=1, packet_summaries length=1, passed_total=0, failed_total=1, structured UNEXPECTED_DEGRADATION blocker present, and no second packet executes.

@@ -1,3 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/platform/packet_yaml_sidecar_audit.py comply with GRACE Canon Script Discipline.
-[GRACE-LINT] All modules in prefect_grace/cli_commands/evidence.py comply with GRACE Canon Script Discipline.
-[GRACE-LINT] All modules in prefect_grace/cli_commands/parser.py comply with GRACE Canon Script Discipline.

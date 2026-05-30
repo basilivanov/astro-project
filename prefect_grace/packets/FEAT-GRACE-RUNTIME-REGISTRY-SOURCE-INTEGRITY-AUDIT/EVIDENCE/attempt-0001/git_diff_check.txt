@@ -1,3 +1,0 @@
-command: git diff --check
-result: PASS
-summary: command exited 0 with no whitespace errors.

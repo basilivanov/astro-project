@@ -1,4 +1,0 @@
-time="2026-05-28T11:15:17+03:00" level=warning msg="Found orphan containers ([week_rework_artifacts_20260416 astro-project-solarsage-api-1 astro-project-frontend_dev-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
-prefect=3.6.25
-true
-grace worker smoke: ok

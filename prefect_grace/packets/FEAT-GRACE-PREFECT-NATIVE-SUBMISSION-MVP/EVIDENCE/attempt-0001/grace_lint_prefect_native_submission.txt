@@ -1,1 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/platform/prefect_native_submission.py comply with GRACE Canon Script Discipline.

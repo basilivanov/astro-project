@@ -1,1 +1,0 @@
-[GRACE-LINT] All modules in prefect_grace/tasks/prefect_submitter.py comply with GRACE Canon Script Discipline.

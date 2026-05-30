@@ -1,6 +1,0 @@
-VIOLATION [file-lines] prefect_grace/flows/feature_pipeline.py: 1826 physical lines (limit: 1000)
-VIOLATION [function-tokens] prefect_grace/flows/feature_pipeline.py:662: function feature_pipeline spans 1132 AST lines and 6255 tokens (limit: 4000)
-size-check: 2 blocking violation(s), 0 allowed known oversized finding(s)
-
-EXIT_STATUS=0
-EXPECTED_INFORMATIONAL_OVERSIZE=true

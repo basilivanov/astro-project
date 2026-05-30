@@ -1,2 +1,0 @@
-$ python3 -m compileall -q prefect_grace/platform/packet_parser.py prefect_grace/platform/packet_yaml_sidecar_migration_plan.py prefect_grace/cli_commands/evidence.py prefect_grace/cli_commands/parser.py
-exit_code=0

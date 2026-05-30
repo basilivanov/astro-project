@@ -1,9 +1,0 @@
-Command:
-python3 -m prefect_grace.cli validate-evidence-manifest prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EVIDENCE/attempt-0001/evidence_manifest.json --packet prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL/EXECUTION_PACKET.md --artifact-root prefect_grace/packets/FEAT-GRACE-PREFECT-LIVE-PILOT-PAYLOAD-RETRIEVAL --json
-
-Result:
-PASS ok=true
-contract_validation.ok=true
-artifact_validation.ok=true
-missing_artifacts=[]
-warnings=unknown_evidence_id for manifest items because this repo's current evidence contract parser returns an empty contract for packet markdown.
